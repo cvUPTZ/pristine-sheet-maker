@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch, Player } from '@/types';
+import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch, Player, Team } from '@/types';
 
 interface MatchEvent {
   id: string;
