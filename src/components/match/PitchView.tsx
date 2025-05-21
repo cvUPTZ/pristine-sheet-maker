@@ -4,6 +4,7 @@ import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
 import BallTracker from '@/components/BallTracker';
 import { Player, BallTrackingPoint } from '@/types';
+import { Badge } from '@/components/ui/badge';
 
 interface PitchViewProps {
   homeTeam: {
@@ -39,7 +40,15 @@ const PitchView: React.FC<PitchViewProps> = ({
   addBallTrackingPoint
 }) => {
   return (
-    <div className="mb-4">
+    <div className="mb-4 relative">
+      {mode === 'tracking' && (
+        <div className="absolute top-2 left-2 z-10">
+          <Badge variant="outline" className="bg-white/70 backdrop-blur-sm">
+            Ball Tracking Active
+          </Badge>
+        </div>
+      )}
+      
       <FootballPitch onClick={handlePitchClick}>
         {/* Render home team players */}
         {homeTeam.players.map((player) => (
@@ -78,6 +87,12 @@ const PitchView: React.FC<PitchViewProps> = ({
           onAddPoint={addBallTrackingPoint} 
         />
       </FootballPitch>
+      
+      {selectedPlayer && (
+        <div className="mt-2 p-2 bg-gray-100 rounded-md shadow-sm text-sm md:text-base">
+          <p className="font-medium">Selected: {selectedPlayer.name} (#{selectedPlayer.number}) - {selectedTeam === 'home' ? homeTeam.name : awayTeam.name}</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -109,13 +109,19 @@ const MatchRecording = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
       <div className="max-w-6xl mx-auto">
         <MatchHeader 
           mode={mode}
           setMode={setMode}
-          homeTeam={homeTeam}
-          awayTeam={awayTeam}
+          homeTeam={{
+            name: homeTeam.name,
+            formation: homeTeam.formation || '4-4-2'
+          }}
+          awayTeam={{
+            name: awayTeam.name,
+            formation: awayTeam.formation || '4-4-2'
+          }}
           handleToggleTracking={handleToggleTracking}
           handleSave={handleSave}
         />
@@ -143,7 +149,7 @@ const MatchRecording = () => {
             />
           </div>
           
-          <div>
+          <div className="hidden lg:block">
             <MatchSidebar 
               isRunning={isRunning}
               toggleTimer={toggleTimer}
@@ -155,8 +161,43 @@ const MatchRecording = () => {
               handleActionSelect={handleActionSelect}
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={trackBallMovement}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
+              homeTeam={{
+                name: homeTeam.name,
+                players: homeTeam.players,
+                formation: homeTeam.formation || '4-4-2'
+              }}
+              awayTeam={{
+                name: awayTeam.name,
+                players: awayTeam.players,
+                formation: awayTeam.formation || '4-4-2'
+              }}
+              statistics={statistics}
+            />
+          </div>
+          
+          {/* Mobile sidebar that appears at the bottom */}
+          <div className="lg:hidden mt-4">
+            <MatchSidebar 
+              isRunning={isRunning}
+              toggleTimer={toggleTimer}
+              resetTimer={resetTimer}
+              elapsedTime={elapsedTime}
+              setElapsedTime={setElapsedTime}
+              mode={mode}
+              selectedPlayer={selectedPlayer}
+              handleActionSelect={handleActionSelect}
+              ballTrackingPoints={ballTrackingPoints}
+              trackBallMovement={trackBallMovement}
+              homeTeam={{
+                name: homeTeam.name,
+                players: homeTeam.players,
+                formation: homeTeam.formation || '4-4-2'
+              }}
+              awayTeam={{
+                name: awayTeam.name,
+                players: awayTeam.players,
+                formation: awayTeam.formation || '4-4-2'
+              }}
               statistics={statistics}
             />
           </div>

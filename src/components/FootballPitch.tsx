@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface FootballPitchProps {
   onClick?: (coordinates: { x: number; y: number }) => void;
@@ -7,6 +7,8 @@ interface FootballPitchProps {
 }
 
 const FootballPitch: React.FC<FootballPitchProps> = ({ onClick, children }) => {
+  const [hoverPosition, setHoverPosition] = useState<{x: number, y: number} | null>(null);
+  
   const handlePitchClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onClick) return;
     
@@ -17,40 +19,73 @@ const FootballPitch: React.FC<FootballPitchProps> = ({ onClick, children }) => {
     onClick({ x, y });
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setHoverPosition({ x, y });
+  };
+
+  const handleMouseLeave = () => {
+    setHoverPosition(null);
+  };
+
   return (
     <div 
-      className="relative w-full aspect-[68/105] bg-football-pitch rounded-md overflow-hidden border-2 border-football-line"
+      className="relative w-full aspect-[68/105] bg-gradient-to-b from-football-pitch to-[#2a7d35] rounded-md overflow-hidden border-2 border-white shadow-lg"
       onClick={handlePitchClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
+      {/* Stadium atmosphere */}
+      <div className="absolute inset-0 bg-[url('/stadium-bg.png')] bg-cover opacity-20 mix-blend-overlay pointer-events-none"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/10 pointer-events-none"></div>
+      
+      {/* Field patterns */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+      </div>
+      
       {/* Pitch markings */}
       <div className="absolute inset-0">
         {/* Center circle */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30%] aspect-square rounded-full border-2 border-football-line" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30%] aspect-square rounded-full border-2 border-white/80" />
         
         {/* Center line */}
-        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-football-line transform -translate-y-1/2" />
+        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/80 transform -translate-y-1/2" />
         
         {/* Center spot */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[1%] aspect-square rounded-full bg-football-line" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[1.5%] aspect-square rounded-full bg-white/80" />
         
         {/* Penalty areas */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[66%] h-[20%] border-b-2 border-r-2 border-l-2 border-football-line" />
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[66%] h-[20%] border-t-2 border-r-2 border-l-2 border-football-line" />
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[66%] h-[20%] border-b-2 border-r-2 border-l-2 border-white/80" />
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[66%] h-[20%] border-t-2 border-r-2 border-l-2 border-white/80" />
         
         {/* Goal areas */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[33%] h-[8%] border-b-2 border-r-2 border-l-2 border-football-line" />
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[33%] h-[8%] border-t-2 border-r-2 border-l-2 border-football-line" />
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[33%] h-[8%] border-b-2 border-r-2 border-l-2 border-white/80" />
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[33%] h-[8%] border-t-2 border-r-2 border-l-2 border-white/80" />
         
         {/* Penalty spots */}
-        <div className="absolute top-[11%] left-1/2 transform -translate-x-1/2 w-[1%] aspect-square rounded-full bg-football-line" />
-        <div className="absolute bottom-[11%] left-1/2 transform -translate-x-1/2 w-[1%] aspect-square rounded-full bg-football-line" />
+        <div className="absolute top-[11%] left-1/2 transform -translate-x-1/2 w-[1%] aspect-square rounded-full bg-white/80" />
+        <div className="absolute bottom-[11%] left-1/2 transform -translate-x-1/2 w-[1%] aspect-square rounded-full bg-white/80" />
         
         {/* Corner arcs */}
-        <div className="absolute top-0 left-0 w-[5%] h-[3%] border-r-2 border-football-line rounded-br-full" />
-        <div className="absolute top-0 right-0 w-[5%] h-[3%] border-l-2 border-football-line rounded-bl-full" />
-        <div className="absolute bottom-0 left-0 w-[5%] h-[3%] border-r-2 border-football-line rounded-tr-full" />
-        <div className="absolute bottom-0 right-0 w-[5%] h-[3%] border-l-2 border-football-line rounded-tl-full" />
+        <div className="absolute top-0 left-0 w-[5%] h-[3%] border-r-2 border-white/80 rounded-br-full" />
+        <div className="absolute top-0 right-0 w-[5%] h-[3%] border-l-2 border-white/80 rounded-bl-full" />
+        <div className="absolute bottom-0 left-0 w-[5%] h-[3%] border-r-2 border-white/80 rounded-tr-full" />
+        <div className="absolute bottom-0 right-0 w-[5%] h-[3%] border-l-2 border-white/80 rounded-tl-full" />
+        
+        {/* Goals */}
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[20%] h-[2%] border-2 border-t-0 border-white/80 bg-white/10" />
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[20%] h-[2%] border-2 border-b-0 border-white/80 bg-white/10" />
       </div>
+      
+      {/* Coordinate indicator */}
+      {hoverPosition && (
+        <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none">
+          {hoverPosition.x.toFixed(2)}, {hoverPosition.y.toFixed(2)}
+        </div>
+      )}
       
       {children}
     </div>

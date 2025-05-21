@@ -7,6 +7,12 @@ import { Button } from '@/components/ui/button';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import { Statistics, Player } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface MatchSidebarProps {
   isRunning: boolean;
@@ -43,76 +49,161 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
 
   return (
     <div className="space-y-4">
-      <MatchTimer 
-        isRunning={isRunning}
-        onToggle={toggleTimer}
-        onReset={resetTimer}
-        elapsedTime={elapsedTime}
-        setElapsedTime={setElapsedTime}
-      />
-      
       <Card className="p-4 bg-white shadow-md">
-        <h3 className="font-semibold mb-2">
-          {mode === 'piano' ? 'Select Action' : 'Ball Tracking Mode'}
-        </h3>
-        {mode === 'piano' ? (
-          <>
-            <div className="mb-2 text-sm">
-              Selected Player: {selectedPlayer 
-                ? `${selectedPlayer.name} (${selectedPlayer.number})` 
-                : 'None'}
-            </div>
-            <ActionButtons 
-              onSelectAction={handleActionSelect}
-              disabled={!selectedPlayer}
+        <MatchTimer 
+          isRunning={isRunning}
+          onToggle={toggleTimer}
+          onReset={resetTimer}
+          elapsedTime={elapsedTime}
+          setElapsedTime={setElapsedTime}
+        />
+      </Card>
+      
+      <Accordion type="single" collapsible defaultValue="actions" className="lg:hidden">
+        <AccordionItem value="actions">
+          <AccordionTrigger>Actions</AccordionTrigger>
+          <AccordionContent>
+            <Card className="p-4 bg-white shadow-md">
+              <h3 className="font-semibold mb-2">
+                {mode === 'piano' ? 'Select Action' : 'Ball Tracking Mode'}
+              </h3>
+              {mode === 'piano' ? (
+                <>
+                  <div className="mb-2 text-sm">
+                    Selected Player: {selectedPlayer 
+                      ? `${selectedPlayer.name} (${selectedPlayer.number})` 
+                      : 'None'}
+                  </div>
+                  <ActionButtons 
+                    onSelectAction={handleActionSelect}
+                    disabled={!selectedPlayer}
+                  />
+                </>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  <p>Click anywhere on the pitch to track ball movement</p>
+                  <p className="mt-2">Ball path points: {ballTrackingPoints.length}</p>
+                  {ballTrackingPoints.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => {
+                        trackBallMovement({ x: 0, y: 0 }); // Reset call
+                        toast({
+                          title: "Ball Tracking Reset",
+                          description: "All tracking points have been cleared",
+                        });
+                      }}
+                    >
+                      Reset Ball Path
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="teams">
+          <AccordionTrigger>Team Summary</AccordionTrigger>
+          <AccordionContent>
+            <Card className="p-4 bg-white shadow-md">
+              <h3 className="font-semibold mb-2">Team Summary</h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-sm font-medium">Home Team: {homeTeam.name}</div>
+                  <div className="text-xs text-muted-foreground">Formation: {homeTeam.formation}</div>
+                  <div className="text-xs text-muted-foreground">Players: {homeTeam.players.length}</div>
+                </div>
+                
+                <div>
+                  <div className="text-sm font-medium">Away Team: {awayTeam.name}</div>
+                  <div className="text-xs text-muted-foreground">Formation: {awayTeam.formation}</div>
+                  <div className="text-xs text-muted-foreground">Players: {awayTeam.players.length}</div>
+                </div>
+              </div>
+            </Card>
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="stats">
+          <AccordionTrigger>Match Statistics</AccordionTrigger>
+          <AccordionContent>
+            <StatisticsDisplay 
+              statistics={statistics}
+              homeTeamName={homeTeam.name}
+              awayTeamName={awayTeam.name}
             />
-          </>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            <p>Click anywhere on the pitch to track ball movement</p>
-            <p className="mt-2">Ball path points: {ballTrackingPoints.length}</p>
-            {ballTrackingPoints.length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => {
-                  trackBallMovement({ x: 0, y: 0 }); // Reset call
-                  toast({
-                    title: "Ball Tracking Reset",
-                    description: "All tracking points have been cleared",
-                  });
-                }}
-              >
-                Reset Ball Path
-              </Button>
-            )}
-          </div>
-        )}
-      </Card>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       
-      <Card className="p-4 bg-white shadow-md">
-        <h3 className="font-semibold mb-2">Team Summary</h3>
-        <div className="space-y-3">
-          <div>
-            <div className="text-sm font-medium">Home Team: {homeTeam.name}</div>
-            <div className="text-xs text-muted-foreground">Formation: {homeTeam.formation}</div>
-            <div className="text-xs text-muted-foreground">Players: {homeTeam.players.length}</div>
+      {/* Desktop version */}
+      <div className="hidden lg:block">
+        <Card className="p-4 bg-white shadow-md mb-4">
+          <h3 className="font-semibold mb-2">
+            {mode === 'piano' ? 'Select Action' : 'Ball Tracking Mode'}
+          </h3>
+          {mode === 'piano' ? (
+            <>
+              <div className="mb-2 text-sm">
+                Selected Player: {selectedPlayer 
+                  ? `${selectedPlayer.name} (${selectedPlayer.number})` 
+                  : 'None'}
+              </div>
+              <ActionButtons 
+                onSelectAction={handleActionSelect}
+                disabled={!selectedPlayer}
+              />
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              <p>Click anywhere on the pitch to track ball movement</p>
+              <p className="mt-2">Ball path points: {ballTrackingPoints.length}</p>
+              {ballTrackingPoints.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={() => {
+                    trackBallMovement({ x: 0, y: 0 }); // Reset call
+                    toast({
+                      title: "Ball Tracking Reset",
+                      description: "All tracking points have been cleared",
+                    });
+                  }}
+                >
+                  Reset Ball Path
+                </Button>
+              )}
+            </div>
+          )}
+        </Card>
+        
+        <Card className="p-4 bg-white shadow-md mb-4">
+          <h3 className="font-semibold mb-2">Team Summary</h3>
+          <div className="space-y-3">
+            <div>
+              <div className="text-sm font-medium">Home Team: {homeTeam.name}</div>
+              <div className="text-xs text-muted-foreground">Formation: {homeTeam.formation}</div>
+              <div className="text-xs text-muted-foreground">Players: {homeTeam.players.length}</div>
+            </div>
+            
+            <div>
+              <div className="text-sm font-medium">Away Team: {awayTeam.name}</div>
+              <div className="text-xs text-muted-foreground">Formation: {awayTeam.formation}</div>
+              <div className="text-xs text-muted-foreground">Players: {awayTeam.players.length}</div>
+            </div>
           </div>
-          
-          <div>
-            <div className="text-sm font-medium">Away Team: {awayTeam.name}</div>
-            <div className="text-xs text-muted-foreground">Formation: {awayTeam.formation}</div>
-            <div className="text-xs text-muted-foreground">Players: {awayTeam.players.length}</div>
-          </div>
-        </div>
-      </Card>
-      
-      <StatisticsDisplay 
-        statistics={statistics}
-        homeTeamName={homeTeam.name}
-        awayTeamName={awayTeam.name}
-      />
+        </Card>
+        
+        <StatisticsDisplay 
+          statistics={statistics}
+          homeTeamName={homeTeam.name}
+          awayTeamName={awayTeam.name}
+        />
+      </div>
     </div>
   );
 };
