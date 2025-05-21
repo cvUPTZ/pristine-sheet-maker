@@ -18,7 +18,7 @@ const { data, error } = await supabase.functions.invoke('analyze-youtube-video',
 ### Direct API Call
 
 ```bash
-curl -X POST 'https://adqdurdohxypzhfwxgll.supabase.co/functions/v1/analyze-youtube-video' \
+curl -X POST 'https://itwnghrwolvydupxmnqw.supabase.co/functions/v1/analyze-youtube-video' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer YOUR_ANON_KEY' \
   -d '{"videoUrl": "https://www.youtube.com/watch?v=VIDEO_ID"}'
@@ -40,3 +40,4 @@ The function returns a structured JSON object with:
 - Analysis accuracy depends on video quality and the AI model's capabilities
 - Processing time varies based on video length and complexity
 - The edge function has a maximum execution time of 60 seconds
+```
