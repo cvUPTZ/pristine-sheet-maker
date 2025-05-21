@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatchState } from '@/hooks/useMatchState';
 import { useToast } from '@/components/ui/use-toast';
-import { EventType, Player } from '@/types';
+import { EventType, Player, Team } from '@/types';
 import { getPlayerPositions } from '@/utils/formationUtils';
 import MatchHeader from '@/components/match/MatchHeader';
 import MatchSidebar from '@/components/match/MatchSidebar';
@@ -46,9 +46,9 @@ const MatchRecording = () => {
     setStatistics
   } = useMatchState();
   
-  // Get player positions based on formations
-  const homeTeamPositions = getPlayerPositions(homeTeam, true);
-  const awayTeamPositions = getPlayerPositions(awayTeam, false);
+  // Get player positions based on formations but handle null teams
+  const homeTeamPositions = homeTeam ? getPlayerPositions(homeTeam, true) : {};
+  const awayTeamPositions = awayTeam ? getPlayerPositions(awayTeam, false) : {};
   const teamPositions = { ...homeTeamPositions, ...awayTeamPositions };
 
   const handlePitchClick = (coordinates: { x: number; y: number }) => {

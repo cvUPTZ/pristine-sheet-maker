@@ -82,15 +82,20 @@ export const formationPositions: FormationPositions = {
   ]
 };
 
-// Updated function to handle objects that might not have all Team properties
-export const getPlayerPositions = (team: Partial<Team> & { players: Player[], formation?: string }, isHomeTeam: boolean) => {
+// Updated function to better handle null or undefined teams
+export const getPlayerPositions = (team: Partial<Team> & { players?: Player[], formation?: string } | null, isHomeTeam: boolean) => {
+  // Return empty object if team is null or undefined
+  if (!team || !team.players) {
+    return {};
+  }
+  
   const positions: Record<number, { x: number; y: number }> = {};
   
   // Default to 4-4-2 if no formation is specified
   const formation = team.formation || '4-4-2';
   
   // Create a deep copy of the formation positions to avoid mutations
-  const basePositions = JSON.parse(JSON.stringify(formationPositions[formation]));
+  const basePositions = JSON.parse(JSON.stringify(formationPositions[formation as Formation]));
   
   // For away team, flip the y coordinates
   if (!isHomeTeam) {
