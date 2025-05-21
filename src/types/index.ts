@@ -10,6 +10,7 @@ export interface Team {
   id: string;
   name: string;
   players: Player[];
+  formation?: string;
 }
 
 export interface Match {
@@ -77,3 +78,31 @@ export interface Statistics {
     away: number;
   };
 }
+
+export interface FormationPosition {
+  x: number;
+  y: number;
+}
+
+export interface PlayerStatistics {
+  player: Player;
+  team: string;
+  goals: number;
+  assists: number;
+  passes: number;
+  shots: number;
+  ballsPlayed: number;
+  fouls: number;
+}
+
+export interface BallTrackingPoint {
+  x: number;
+  y: number;
+  timestamp: number;
+  teamId?: string;
+  playerId?: number;
+}
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1';
+
+export type FormationPositions = Record<Formation, FormationPosition[]>;

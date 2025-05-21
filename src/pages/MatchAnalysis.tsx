@@ -4,12 +4,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, BarChart3, Flag, TableIcon } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
+import DetailedStatsTable from '@/components/DetailedStatsTable';
+import BallTracker from '@/components/BallTracker';
+import { getPlayerPositions } from '@/utils/formationUtils';
 import { MatchEvent } from '@/types';
 
 const MatchAnalysis: React.FC = () => {
@@ -18,6 +21,7 @@ const MatchAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const [matchData, setMatchData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [showBallPath, setShowBallPath] = React.useState(false);
   
   React.useEffect(() => {
     const loadMatchData = () => {
@@ -40,49 +44,6 @@ const MatchAnalysis: React.FC = () => {
     
     loadMatchData();
   }, [matchId, toast]);
-  
-  const getPlayerPositions = (teamId: string) => {
-    if (!matchData) return {};
-    
-    const team = teamId === 'home' ? matchData.homeTeam : matchData.awayTeam;
-    const positions: Record<number, { x: number; y: number }> = {};
-    
-    const basePositions = teamId === 'home' 
-      ? [
-          { x: 0.5, y: 0.9 },  // GK
-          { x: 0.2, y: 0.7 },  // LB
-          { x: 0.4, y: 0.7 },  // CB
-          { x: 0.6, y: 0.7 },  // CB
-          { x: 0.8, y: 0.7 },  // RB
-          { x: 0.3, y: 0.5 },  // LM
-          { x: 0.5, y: 0.5 },  // CM
-          { x: 0.7, y: 0.5 },  // RM
-          { x: 0.3, y: 0.3 },  // LF
-          { x: 0.5, y: 0.3 },  // ST
-          { x: 0.7, y: 0.3 },  // RF
-        ]
-      : [
-          { x: 0.5, y: 0.1 },  // GK
-          { x: 0.2, y: 0.3 },  // LB
-          { x: 0.4, y: 0.3 },  // CB
-          { x: 0.6, y: 0.3 },  // CB
-          { x: 0.8, y: 0.3 },  // RB
-          { x: 0.3, y: 0.5 },  // LM
-          { x: 0.5, y: 0.5 },  // CM
-          { x: 0.7, y: 0.5 },  // RM
-          { x: 0.3, y: 0.7 },  // LF
-          { x: 0.5, y: 0.7 },  // ST
-          { x: 0.7, y: 0.7 },  // RF
-        ];
-    
-    team.players.forEach((player: any, index: number) => {
-      positions[player.id] = index < basePositions.length 
-        ? basePositions[index] 
-        : { x: Math.random(), y: Math.random() };
-    });
-    
-    return positions;
-  };
   
   const exportToCSV = () => {
     if (!matchData) return;
@@ -147,11 +108,12 @@ const MatchAnalysis: React.FC = () => {
     );
   }
   
-  const { homeTeam, awayTeam, statistics, events, date } = matchData;
-  const teamPositions = {
-    ...getPlayerPositions('home'),
-    ...getPlayerPositions('away'),
-  };
+  const { homeTeam, awayTeam, statistics, events, date, ballTrackingPoints = [], playerStats = [] } = matchData;
+  
+  // Get player positions based on formations
+  const homeTeamPositions = getPlayerPositions(homeTeam, true);
+  const awayTeamPositions = getPlayerPositions(awayTeam, false);
+  const teamPositions = { ...homeTeamPositions, ...awayTeamPositions };
   
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -172,13 +134,13 @@ const MatchAnalysis: React.FC = () => {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
               <div className="text-xl font-semibold text-football-home">
-                {homeTeam.name}
+                {homeTeam.name} ({homeTeam.formation || '4-4-2'})
               </div>
               <div className="text-2xl font-mono font-bold my-2 sm:my-0">
                 {statistics.shots.home.onTarget || 0} - {statistics.shots.away.onTarget || 0}
               </div>
               <div className="text-xl font-semibold text-football-away">
-                {awayTeam.name}
+                {awayTeam.name} ({awayTeam.formation || '4-3-3'})
               </div>
             </div>
             <div className="text-center text-sm text-muted-foreground">
@@ -188,16 +150,38 @@ const MatchAnalysis: React.FC = () => {
         </Card>
         
         <Tabs defaultValue="pitch">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="pitch">Pitch View</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="pitch" className="flex items-center gap-1">
+              <Flag className="h-4 w-4" />
+              Pitch View
+            </TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="stats">Statistics</TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-1">
+              <BarChart3 className="h-4 w-4" />
+              Statistics
+            </TabsTrigger>
+            <TabsTrigger value="detailed" className="flex items-center gap-1">
+              <TableIcon className="h-4 w-4" />
+              Detailed Stats
+            </TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
           </TabsList>
           
           <TabsContent value="pitch" className="mt-4">
             <Card>
-              <CardContent className="pt-6">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle>Pitch Analysis</CardTitle>
+                {ballTrackingPoints.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowBallPath(!showBallPath)}
+                  >
+                    {showBallPath ? "Hide Ball Path" : "Show Ball Path"}
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-2">
                 <FootballPitch>
                   {/* Render home team players */}
                   {homeTeam.players.map((player: any) => (
@@ -233,6 +217,15 @@ const MatchAnalysis: React.FC = () => {
                       title={`${event.type} - ${Math.floor(event.timestamp / 60)}:${(event.timestamp % 60).toString().padStart(2, '0')}`}
                     />
                   ))}
+                  
+                  {/* Show ball path if enabled */}
+                  {showBallPath && ballTrackingPoints.length > 0 && (
+                    <BallTracker 
+                      trackingPoints={ballTrackingPoints} 
+                      isActive={false} 
+                      onAddPoint={() => {}} 
+                    />
+                  )}
                 </FootballPitch>
               </CardContent>
             </Card>
@@ -264,6 +257,46 @@ const MatchAnalysis: React.FC = () => {
                   homeTeamName={homeTeam.name}
                   awayTeamName={awayTeam.name}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="detailed" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="all">
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="all">All Players</TabsTrigger>
+                    <TabsTrigger value="home">{homeTeam.name}</TabsTrigger>
+                    <TabsTrigger value="away">{awayTeam.name}</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="all">
+                    <DetailedStatsTable 
+                      playerStats={playerStats} 
+                      type="individual" 
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="home">
+                    <DetailedStatsTable 
+                      playerStats={playerStats} 
+                      type="team" 
+                      teamId="home"
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="away">
+                    <DetailedStatsTable 
+                      playerStats={playerStats} 
+                      type="team" 
+                      teamId="away"
+                    />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>

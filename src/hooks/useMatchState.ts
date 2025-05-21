@@ -1,18 +1,20 @@
 
 import { useState, useEffect } from 'react';
-import { Team, Player, MatchEvent, EventType, Statistics } from '@/types';
+import { Team, Player, MatchEvent, EventType, Statistics, BallTrackingPoint, Formation, PlayerStatistics } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_HOME_TEAM: Team = {
   id: 'home',
   name: 'Home Team',
   players: [],
+  formation: '4-4-2',
 };
 
 const DEFAULT_AWAY_TEAM: Team = {
   id: 'away',
   name: 'Away Team',
   players: [],
+  formation: '4-3-3',
 };
 
 export const useMatchState = () => {
@@ -39,7 +41,10 @@ export const useMatchState = () => {
   });
   
   const [setupComplete, setSetupComplete] = useState(false);
-
+  const [ballTrackingMode, setBallTrackingMode] = useState(false);
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>([]);
+  const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>([]);
+  
   // Timer logic
   useEffect(() => {
     let interval: number | undefined;
@@ -111,7 +116,47 @@ export const useMatchState = () => {
         away: awayEvents.filter(e => e.type === 'foul').length 
       },
     });
+    
+    // Update player statistics
+    updatePlayerStats();
+    
   }, [events]);
+  
+  // Calculate individual player statistics
+  const updatePlayerStats = () => {
+    const allPlayers = [...homeTeam.players.map(p => ({ ...p, teamId: 'home' })), 
+                        ...awayTeam.players.map(p => ({ ...p, teamId: 'away' }))];
+                        
+    const stats: PlayerStatistics[] = allPlayers.map(player => {
+      const playerEvents = events.filter(e => e.playerId === player.id);
+      
+      return {
+        player: {
+          id: player.id,
+          name: player.name,
+          number: player.number,
+          position: player.position
+        },
+        team: player.teamId,
+        goals: playerEvents.filter(e => e.type === 'goal').length,
+        assists: playerEvents.filter(e => e.type === 'pass').filter((e, i, arr) => {
+          // Simplified assist calculation - if a pass is followed by a goal within 10 seconds
+          const nextEvent = events.find(next => 
+            next.timestamp > e.timestamp && 
+            next.timestamp < e.timestamp + 10 && 
+            next.type === 'goal'
+          );
+          return !!nextEvent;
+        }).length,
+        passes: playerEvents.filter(e => e.type === 'pass').length,
+        shots: playerEvents.filter(e => e.type === 'shot' || e.type === 'goal').length,
+        ballsPlayed: playerEvents.length,
+        fouls: playerEvents.filter(e => e.type === 'foul').length
+      };
+    });
+    
+    setPlayerStats(stats);
+  };
 
   const toggleTimer = () => {
     setIsRunning(!isRunning);
@@ -136,6 +181,16 @@ export const useMatchState = () => {
     };
     
     setEvents([...events, newEvent]);
+    
+    // Add ball tracking point with this event
+    addBallTrackingPoint({
+      x: coordinates.x,
+      y: coordinates.y,
+      timestamp: elapsedTime,
+      teamId: selectedTeam,
+      playerId: selectedPlayer.id
+    });
+    
     setSelectedPlayer(null); // Reset selection after adding event
   };
 
@@ -153,6 +208,8 @@ export const useMatchState = () => {
       statistics,
       elapsedTime,
       date: new Date(),
+      ballTrackingPoints,
+      playerStats
     };
     
     // This is a simplified version that saves to localStorage
@@ -165,15 +222,36 @@ export const useMatchState = () => {
     setHomeTeam(teams.home);
     setAwayTeam(teams.away);
   };
+  
+  const updateTeamFormation = (teamId: 'home' | 'away', formation: Formation) => {
+    if (teamId === 'home') {
+      setHomeTeam({ ...homeTeam, formation });
+    } else {
+      setAwayTeam({ ...awayTeam, formation });
+    }
+  };
 
   const completeSetup = () => {
     setSetupComplete(true);
   };
 
-  // For ball tracking mode (not fully implemented in this version)
+  // For ball tracking mode
+  const toggleBallTrackingMode = () => {
+    setBallTrackingMode(!ballTrackingMode);
+  };
+  
+  const addBallTrackingPoint = (point: BallTrackingPoint) => {
+    setBallTrackingPoints([...ballTrackingPoints, point]);
+  };
+  
   const trackBallMovement = (coordinates: { x: number; y: number }) => {
-    console.log('Ball position:', coordinates);
-    // This would be expanded in the ball tracking mode
+    if (!ballTrackingMode) return;
+    
+    addBallTrackingPoint({
+      x: coordinates.x,
+      y: coordinates.y,
+      timestamp: elapsedTime
+    });
   };
 
   return {
@@ -186,6 +264,9 @@ export const useMatchState = () => {
     selectedPlayer,
     statistics,
     setupComplete,
+    ballTrackingMode,
+    ballTrackingPoints,
+    playerStats,
     setSelectedTeam,
     setSelectedPlayer,
     toggleTimer,
@@ -194,8 +275,11 @@ export const useMatchState = () => {
     undoLastEvent,
     saveMatch,
     updateTeams,
+    updateTeamFormation,
     completeSetup,
     setElapsedTime,
+    toggleBallTrackingMode,
+    addBallTrackingPoint,
     trackBallMovement,
   };
 };
