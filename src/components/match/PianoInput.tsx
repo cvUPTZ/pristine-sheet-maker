@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Player, EventType, BallTrackingPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -441,23 +440,14 @@ const PianoInput: React.FC<PianoInputProps> = ({
                 {/* Current ball position */}
                 {currentBallHolder && (
                   <div
-                    className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md"
+                    className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md ball-pulse"
                     style={{
                       left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
                       top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`,
-                      animation: 'ball-pulse 1s infinite',
                     }}
                   />
                 )}
               </FootballPitch>
-              
-              <style jsx>{`
-                @keyframes ball-pulse {
-                  0% { transform: translate(-50%, -50%) scale(1); }
-                  50% { transform: translate(-50%, -50%) scale(1.2); }
-                  100% { transform: translate(-50%, -50%) scale(1); }
-                }
-              `}</style>
             </div>
             
             {/* Player selection info */}
@@ -571,6 +561,21 @@ const PianoInput: React.FC<PianoInputProps> = ({
           </div>
         </CardContent>
       </Card>
+      
+      {/* Add the animation styles as a global style using plain CSS */}
+      <style>
+        {`
+          @keyframes ball-pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+          }
+          
+          .ball-pulse {
+            animation: ball-pulse 1s infinite;
+          }
+        `}
+      </style>
     </div>
   );
 };
