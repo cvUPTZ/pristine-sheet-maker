@@ -109,7 +109,7 @@ export const getPlayerPositions = (team: Partial<Team> & { players: Player[], fo
   return positions;
 };
 
-// New function to create simulated teams for testing
+// Create simulated teams for testing with real position names
 export const createSimulatedTeams = () => {
   // Create home team with 4-4-2 formation
   const homeTeam: Team = {
@@ -140,30 +140,54 @@ export const createSimulatedTeams = () => {
   return { homeTeam, awayTeam };
 };
 
-// Helper function to get position name based on formation and index - now exported
+// Helper function to get position name based on formation and index
 export function getPositionName(formation: string, index: number): string {
   if (index === 0) return 'Goalkeeper';
   
+  // Full position names instead of abbreviations
   if (formation === '4-4-2') {
-    const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
+                       'Left Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Midfielder', 
+                       'Striker', 'Striker'];
+    return positions[index] || 'Substitute';
   } else if (formation === '4-3-3') {
-    const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'CM', 'CM', 'CM', 'LW', 'ST', 'RW'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
+                       'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 
+                       'Left Winger', 'Striker', 'Right Winger'];
+    return positions[index] || 'Substitute';
   } else if (formation === '3-5-2') {
-    const positions = ['GK', 'CB', 'CB', 'CB', 'LWB', 'CM', 'CM', 'CM', 'RWB', 'ST', 'ST'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Center Back', 'Center Back', 'Center Back', 
+                       'Left Wing Back', 'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Wing Back', 
+                       'Striker', 'Striker'];
+    return positions[index] || 'Substitute';
   } else if (formation === '5-3-2') {
-    const positions = ['GK', 'LWB', 'CB', 'CB', 'CB', 'RWB', 'CM', 'CM', 'CM', 'ST', 'ST'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Left Wing Back', 'Center Back', 'Center Back', 'Center Back', 'Right Wing Back', 
+                       'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 'Striker', 'Striker'];
+    return positions[index] || 'Substitute';
   } else if (formation === '4-2-3-1') {
-    const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'CDM', 'CDM', 'CAM', 'CAM', 'CAM', 'ST'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
+                       'Defensive Midfielder', 'Defensive Midfielder', 
+                       'Attacking Midfielder', 'Attacking Midfielder', 'Attacking Midfielder', 'Striker'];
+    return positions[index] || 'Substitute';
   } else if (formation === '3-4-3') {
-    const positions = ['GK', 'CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'RM', 'LW', 'ST', 'RW'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Center Back', 'Center Back', 'Center Back', 
+                       'Left Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Midfielder', 
+                       'Left Winger', 'Striker', 'Right Winger'];
+    return positions[index] || 'Substitute';
   } else {
-    const positions = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD'];
-    return positions[index] || 'Sub';
+    const positions = ['Goalkeeper', 'Defender', 'Defender', 'Defender', 'Defender', 
+                       'Midfielder', 'Midfielder', 'Midfielder', 'Midfielder', 
+                       'Forward', 'Forward'];
+    return positions[index] || 'Substitute';
   }
 }
+
+// Function to generate players based on a specific formation
+export const generatePlayersForFormation = (teamId: string, formation: Formation, startId: number = 1): Player[] => {
+  return Array.from({ length: 11 }, (_, i) => ({
+    id: startId + i,
+    name: `${teamId === 'home' ? 'Home' : 'Away'} Player ${i + 1}`,
+    number: i + 1,
+    position: getPositionName(formation, i)
+  }));
+};

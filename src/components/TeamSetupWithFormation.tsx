@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Team, Player, Formation } from '@/types';
 import FormationSelector from './FormationSelector';
-import { getPositionName } from '@/utils/formationUtils';
+import { getPositionName, generatePlayersForFormation } from '@/utils/formationUtils';
 import { toast } from 'sonner';
 
 interface TeamSetupWithFormationProps {
@@ -30,24 +30,9 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
   const updateTeamFormation = (teamId: 'home' | 'away', formation: Formation) => {
     const team = teams[teamId];
     
-    // Generate 11 players based on the formation
-    const newPlayers: Player[] = Array.from({ length: 11 }, (_, i) => {
-      // Keep existing players' info if available
-      const existingPlayer = team.players[i];
-      const id = existingPlayer?.id || (teamId === 'home' ? i + 1 : 100 + i + 1);
-      const number = existingPlayer?.number || i + 1;
-      const name = existingPlayer?.name || `${teamId === 'home' ? 'Home' : 'Away'} Player ${i + 1}`;
-      
-      // Get position name based on formation and index
-      const position = getPositionName(formation, i);
-      
-      return {
-        id,
-        name,
-        number,
-        position
-      };
-    });
+    // Generate new players based on the formation
+    const startId = teamId === 'home' ? 1 : 100;
+    const newPlayers = generatePlayersForFormation(teamId, formation, startId);
     
     onTeamsChange({
       ...teams,
@@ -58,16 +43,20 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
       }
     });
     
-    toast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${formation}`);
+    toast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${formation} with new players`);
   };
   
   const addPlayer = (teamId: 'home' | 'away') => {
     const team = teams[teamId];
+    const playerId = teamId === 'home' ? 
+      Math.max(...team.players.map(p => p.id), 0) + 1 : 
+      Math.max(...team.players.map(p => p.id), 100) + 1;
+      
     const newPlayer: Player = {
-      id: team.players.length + 1,
+      id: playerId,
       name: `Player ${team.players.length + 1}`,
       number: team.players.length + 1,
-      position: 'Forward'
+      position: 'Substitute'
     };
     
     onTeamsChange({
