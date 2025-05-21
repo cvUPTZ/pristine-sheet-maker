@@ -11,7 +11,6 @@ import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import PianoInput from './PianoInput';
 import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
-import PianoIcon from '@/components/ui/icons/PianoIcon';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
 
 interface MainTabContentProps {
@@ -79,7 +78,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   };
 
   return <div>
-      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value as 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video')}>
         <TabsList className="mb-4 overflow-x-auto flex w-full justify-start lg:justify-center no-scrollbar">
           <TabsTrigger value="pitch" className="flex items-center gap-1">
             <Flag className="h-4 w-4" />

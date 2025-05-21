@@ -14,7 +14,6 @@ const MatchRecording = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline'>('pitch');
   
   const {
     homeTeam,
@@ -29,6 +28,8 @@ const MatchRecording = () => {
     ballTrackingPoints,
     playerStats,
     timeSegments,
+    activeTab,
+    setActiveTab,
     setSelectedTeam,
     setSelectedPlayer,
     toggleTimer,
@@ -43,6 +44,7 @@ const MatchRecording = () => {
     trackBallMovement,
     saveMatch,
     recordEvent,
+    setStatistics
   } = useMatchState();
   
   // Get player positions based on formations
@@ -62,7 +64,7 @@ const MatchRecording = () => {
       addEvent(action as any, playerPos);
       toast({
         title: `Event Recorded`,
-        description: `${action} by ${selectedPlayer.name} (${selectedTeam === 'home' ? homeTeam.name : awayTeam.name})`,
+        description: `${action} by ${selectedPlayer.name} (${selectedTeam === 'home' ? homeTeam?.name : awayTeam?.name})`,
       });
     }
   };
@@ -103,11 +105,11 @@ const MatchRecording = () => {
     recordEvent(eventType, playerId, teamId, coordinates);
     
     const team = teamId === 'home' ? homeTeam : awayTeam;
-    const player = team.players.find(p => p.id === playerId);
+    const player = team?.players.find(p => p.id === playerId);
     
     toast({
       title: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} Recorded`,
-      description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam.name : awayTeam.name})`,
+      description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam?.name : awayTeam?.name})`,
     });
   };
 
@@ -129,12 +131,12 @@ const MatchRecording = () => {
           mode={mode}
           setMode={setMode}
           homeTeam={{
-            name: homeTeam.name,
-            formation: homeTeam.formation || '4-4-2'
+            name: homeTeam?.name || "",
+            formation: homeTeam?.formation || '4-4-2'
           }}
           awayTeam={{
-            name: awayTeam.name,
-            formation: awayTeam.formation || '4-4-2'
+            name: awayTeam?.name || "",
+            formation: awayTeam?.formation || '4-4-2'
           }}
           handleToggleTracking={handleToggleTracking}
           handleSave={handleSave}
@@ -157,6 +159,7 @@ const MatchRecording = () => {
               handlePitchClick={handlePitchClick}
               addBallTrackingPoint={addBallTrackingPoint}
               statistics={statistics}
+              setStatistics={setStatistics}
               playerStats={playerStats}
               handleUndo={handleUndo}
               handleSave={handleSave}
@@ -178,14 +181,14 @@ const MatchRecording = () => {
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={trackBallMovement}
               homeTeam={{
-                name: homeTeam.name,
-                players: homeTeam.players,
-                formation: homeTeam.formation || '4-4-2'
+                name: homeTeam?.name || "",
+                players: homeTeam?.players || [],
+                formation: homeTeam?.formation || '4-4-2'
               }}
               awayTeam={{
-                name: awayTeam.name,
-                players: awayTeam.players,
-                formation: awayTeam.formation || '4-4-2'
+                name: awayTeam?.name || "",
+                players: awayTeam?.players || [],
+                formation: awayTeam?.formation || '4-4-2'
               }}
               statistics={statistics}
             />
@@ -205,14 +208,14 @@ const MatchRecording = () => {
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={trackBallMovement}
               homeTeam={{
-                name: homeTeam.name,
-                players: homeTeam.players,
-                formation: homeTeam.formation || '4-4-2'
+                name: homeTeam?.name || "",
+                players: homeTeam?.players || [],
+                formation: homeTeam?.formation || '4-4-2'
               }}
               awayTeam={{
-                name: awayTeam.name,
-                players: awayTeam.players,
-                formation: awayTeam.formation || '4-4-2'
+                name: awayTeam?.name || "",
+                players: awayTeam?.players || [],
+                formation: awayTeam?.formation || '4-4-2'
               }}
               statistics={statistics}
             />

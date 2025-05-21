@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics } from '@/types';
+import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
 interface MatchState {
   match: Match | null;
@@ -12,6 +13,11 @@ interface MatchState {
   statistics: Statistics;
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
+  isRunning: boolean;
+  elapsedTime: number;
+  setupComplete: boolean;
+  ballTrackingMode: boolean;
+  playerStats: PlayerStatistics[];
 }
 
 const initialMatchState: MatchState = {
@@ -38,6 +44,11 @@ const initialMatchState: MatchState = {
   },
   ballTrackingPoints: [],
   timeSegments: [],
+  isRunning: false,
+  elapsedTime: 0,
+  setupComplete: false,
+  ballTrackingMode: false,
+  playerStats: []
 };
 
 interface MatchActions {
@@ -55,10 +66,22 @@ interface MatchActions {
   activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
   setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video') => void;
   setStatistics: (stats: Statistics) => void;
+  toggleTimer: () => void;
+  resetTimer: () => void;
+  completeSetup: (homeTeam: Team, awayTeam: Team) => void;
+  updateTeams: (homeTeam: Team, awayTeam: Team) => void;
+  setElapsedTime: (time: number) => void;
+  toggleBallTrackingMode: () => void;
+  addEvent: (type: EventType, coordinates: { x: number; y: number }) => void;
+  undoLastEvent: () => void;
+  trackBallMovement: (coordinates: { x: number; y: number }) => void;
+  saveMatch: () => string;
+  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
 }
 
 export const useMatchState = (): MatchState & MatchActions => {
   const [state, setState] = useState<MatchState>(initialMatchState);
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
 
   const setMatch = (match: Match) => {
     setState(prev => ({ ...prev, match }));
@@ -110,8 +133,6 @@ export const useMatchState = (): MatchState & MatchActions => {
   const setTimeSegments = (timeSegments: TimeSegmentStatistics[]) => {
     setState(prev => ({ ...prev, timeSegments }));
   };
-
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
   
   // Add a setter function for statistics
   const setStatistics = (newStats: Statistics) => {
@@ -119,6 +140,84 @@ export const useMatchState = (): MatchState & MatchActions => {
       ...prev,
       statistics: newStats
     }));
+  };
+
+  // Add new functions to match those used in Index.tsx
+  const toggleTimer = () => {
+    setState(prev => ({ ...prev, isRunning: !prev.isRunning }));
+  };
+
+  const resetTimer = () => {
+    setState(prev => ({ ...prev, elapsedTime: 0 }));
+  };
+
+  const completeSetup = (homeTeam: Team, awayTeam: Team) => {
+    setState(prev => ({ 
+      ...prev, 
+      homeTeam, 
+      awayTeam, 
+      setupComplete: true 
+    }));
+  };
+
+  const updateTeams = (homeTeam: Team, awayTeam: Team) => {
+    setState(prev => ({ ...prev, homeTeam, awayTeam }));
+  };
+
+  const setElapsedTime = (time: number) => {
+    setState(prev => ({ ...prev, elapsedTime: time }));
+  };
+
+  const toggleBallTrackingMode = () => {
+    setState(prev => ({ ...prev, ballTrackingMode: !prev.ballTrackingMode }));
+  };
+
+  const addEvent = (type: EventType, coordinates: { x: number; y: number }) => {
+    // This is a simplified implementation
+    const event: MatchEvent = {
+      id: `event-${Date.now()}`,
+      matchId: state.match?.id || 'temp-match',
+      teamId: state.selectedTeam === 'home' ? state.homeTeam?.id || 'home' : state.awayTeam?.id || 'away',
+      playerId: state.selectedPlayer?.id || 0,
+      type,
+      timestamp: state.elapsedTime,
+      coordinates
+    };
+    addMatchEvent(event);
+  };
+
+  const undoLastEvent = () => {
+    undoLastAction();
+  };
+
+  const trackBallMovement = (coordinates: { x: number; y: number }) => {
+    const point: BallTrackingPoint = {
+      x: coordinates.x,
+      y: coordinates.y,
+      timestamp: Date.now(),
+      playerId: state.selectedPlayer?.id,
+      teamId: state.selectedTeam === 'home' ? state.homeTeam?.id : state.awayTeam?.id
+    };
+    addBallTrackingPoint(point);
+  };
+
+  const saveMatch = (): string => {
+    // This is a simplified implementation that would normally persist data
+    console.log('Saving match data:', state);
+    return `match-${Date.now()}`;
+  };
+
+  const recordEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+    const event: MatchEvent = {
+      id: `event-${Date.now()}`,
+      matchId: state.match?.id || 'temp-match',
+      teamId: teamId === 'home' ? state.homeTeam?.id || 'home' : state.awayTeam?.id || 'away',
+      playerId,
+      type: eventType,
+      timestamp: state.elapsedTime,
+      coordinates
+    };
+    addMatchEvent(event);
   };
 
   return {
@@ -137,5 +236,16 @@ export const useMatchState = (): MatchState & MatchActions => {
     activeTab,
     setActiveTab,
     setStatistics,
+    toggleTimer,
+    resetTimer,
+    completeSetup,
+    updateTeams,
+    setElapsedTime,
+    toggleBallTrackingMode,
+    addEvent,
+    undoLastEvent,
+    trackBallMovement,
+    saveMatch,
+    recordEvent
   };
 };
