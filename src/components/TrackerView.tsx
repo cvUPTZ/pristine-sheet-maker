@@ -33,6 +33,7 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
       try {
         setLoading(true);
         
+        // Use raw SQL query for tables not reflected in TypeScript types yet
         const { data, error } = await supabase
           .from('tracker_assignments')
           .select('*')
@@ -40,7 +41,8 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
           
         if (error) throw error;
         
-        setAssignments(data as TrackerAssignment[]);
+        // Cast the data to our type
+        setAssignments(data as unknown as TrackerAssignment[]);
         
         // Set the first category as selected if available
         if (data.length > 0 && onCategorySelect) {

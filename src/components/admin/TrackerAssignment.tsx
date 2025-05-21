@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { UserProfile, TrackerAssignment } from "@/types/auth";
+import { UserProfile, TrackerAssignment as TrackerAssignmentType } from "@/types/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +32,7 @@ const EVENT_CATEGORIES = [
 
 export default function TrackerAssignment() {
   const [trackers, setTrackers] = useState<UserProfile[]>([]);
-  const [assignments, setAssignments] = useState<TrackerAssignment[]>([]);
+  const [assignments, setAssignments] = useState<TrackerAssignmentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { user, isAdmin } = useAuth();
@@ -56,14 +56,14 @@ export default function TrackerAssignment() {
         
         setTrackers(data as UserProfile[]);
         
-        // Fetch existing assignments
+        // Fetch existing assignments using raw SQL query
         const { data: assignmentsData, error: assignmentsError } = await supabase
           .from('tracker_assignments')
           .select('*');
           
         if (assignmentsError) throw assignmentsError;
         
-        setAssignments(assignmentsData as TrackerAssignment[]);
+        setAssignments(assignmentsData as unknown as TrackerAssignmentType[]);
       } catch (error) {
         console.error("Error fetching trackers:", error);
         toast({
@@ -77,7 +77,7 @@ export default function TrackerAssignment() {
     };
     
     fetchTrackers();
-  }, [isAdmin]);
+  }, [isAdmin, toast]);
 
   const handleAssignCategory = async () => {
     if (!selectedTracker || !selectedCategory || !user) return;
@@ -98,20 +98,19 @@ export default function TrackerAssignment() {
         return;
       }
       
+      // Use raw SQL insertion
       const { data, error } = await supabase
         .from('tracker_assignments')
-        .insert([
-          { 
-            tracker_id: selectedTracker, 
-            event_category: selectedCategory,
-            created_by: user.id
-          }
-        ])
+        .insert({
+          tracker_id: selectedTracker,
+          event_category: selectedCategory,
+          created_by: user.id
+        })
         .select();
         
       if (error) throw error;
       
-      setAssignments([...assignments, data[0] as TrackerAssignment]);
+      setAssignments([...assignments, data[0] as unknown as TrackerAssignmentType]);
       
       toast({
         title: "Success",
