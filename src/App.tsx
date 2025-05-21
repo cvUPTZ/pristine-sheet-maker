@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import MatchAnalysis from "./pages/MatchAnalysis";
 import Matches from "./pages/Matches";
+import Statistics from "./pages/Statistics";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/match" element={<Index />} />
           <Route path="/match/:matchId" element={<MatchAnalysis />} />
           <Route path="/matches" element={<Matches />} />
+          <Route path="/statistics" element={<Statistics />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
