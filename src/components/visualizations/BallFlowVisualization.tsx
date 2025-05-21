@@ -1,18 +1,12 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { Player, BallTrackingPoint } from '@/types';
+import { Player, BallTrackingPoint, Team } from '@/types';
 
 interface BallFlowVisualizationProps {
   ballTrackingPoints: BallTrackingPoint[];
-  homeTeam: {
-    name: string;
-    players: Player[];
-  };
-  awayTeam: {
-    name: string;
-    players: Player[];
-  };
+  homeTeam: Team;
+  awayTeam: Team;
   width?: number;
   height?: number;
 }
