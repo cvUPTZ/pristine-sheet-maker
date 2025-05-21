@@ -95,6 +95,15 @@
   input, button, select, textarea {
     font-size: 16px; /* Prevent iOS zoom on focus */
   }
+  
+  /* Better tap targets for mobile */
+  .mobile-tap-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* Enhanced pitch and piano view for mobile */
@@ -108,6 +117,11 @@
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); /* Smaller grid items on mobile */
     gap: 4px;
   }
+  
+  /* Better spacing for player markers on small screens */
+  .player-marker-small {
+    transform: scale(0.85);
+  }
 }
 
 /* Prevent text from being too small on mobile */
@@ -118,6 +132,12 @@
   
   h1, h2, h3 {
     word-break: break-word;
+  }
+  
+  /* Ensure readable text in cards */
+  .card-content-mobile {
+    font-size: 0.85rem;
+    line-height: 1.4;
   }
 }
 
@@ -134,4 +154,22 @@
 
 .dashed-line {
   stroke-dasharray: 5,5;
+}
+
+/* Fix for overlapping UI elements on small screens */
+@media (max-width: 480px) {
+  .mobile-menu-fix {
+    position: relative;
+    z-index: 40;
+  }
+  
+  .mobile-content-margin {
+    margin-bottom: 60px; /* Add space for fixed elements at bottom */
+  }
+  
+  .mobile-scrollable {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    max-height: 80vh;
+  }
 }

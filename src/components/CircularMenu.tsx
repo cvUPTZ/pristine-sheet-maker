@@ -44,13 +44,15 @@ interface CircularMenuProps {
   position?: { x: number; y: number };
   onSelect: (eventType: EventType) => void;
   onClose: () => void;
+  isMobile?: boolean; // Added the isMobile prop
 }
 
 const CircularMenu: React.FC<CircularMenuProps> = ({ 
   visible, 
   position = { x: 0.5, y: 0.5 }, 
   onSelect, 
-  onClose 
+  onClose,
+  isMobile = false // Default to false if not provided
 }) => {
   // Handle escape key to close menu
   useEffect(() => {
@@ -84,6 +86,14 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
     onClose();
   };
 
+  // Adjust sizes based on mobile view
+  const containerSize = isMobile ? '240px' : '300px';
+  const centerButtonSize = isMobile ? 'w-12 h-12' : 'w-14 h-14';
+  const primaryButtonSize = isMobile ? 'w-14 h-14' : 'w-16 h-16';
+  const secondaryButtonSize = isMobile ? 'w-12 h-12' : 'w-14 h-14';
+  const primaryRadius = isMobile ? 50 : 60;
+  const secondaryRadius = isMobile ? 100 : 120;
+
   return (
     <div 
       className="fixed inset-0 z-50 pointer-events-auto"
@@ -99,32 +109,32 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
         style={{
           left: `${position.x * 100}%`,
           top: `${position.y * 100}%`,
-          width: '300px',
-          height: '300px',
+          width: containerSize,
+          height: containerSize,
           transform: 'translate(-50%, -50%)'
         }}
       >
         {/* Center button to close */}
         <button 
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg z-30 border-2 border-gray-200 hover:bg-gray-100 transition-colors"
+          className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${centerButtonSize} bg-white rounded-full flex items-center justify-center shadow-lg z-30 border-2 border-gray-200 hover:bg-gray-100 transition-colors`}
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
         >
-          <X className="w-6 h-6 text-gray-700" />
+          <X className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-700`} />
         </button>
         
         {/* Inner ring - Primary actions */}
         {PRIMARY_ACTIONS.map((eventType, index) => {
-          const { x, y } = calculatePosition(index, PRIMARY_ACTIONS.length, 60);
+          const { x, y } = calculatePosition(index, PRIMARY_ACTIONS.length, primaryRadius);
           const info = eventTypes[eventType];
           
           return (
             <button
               key={`primary-${eventType}`}
               onClick={(e) => handleActionClick(e, eventType)}
-              className={`absolute w-16 h-16 rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-20`}
+              className={`absolute ${primaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-20`}
               style={{
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
@@ -133,7 +143,7 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
               }}
             >
               <div className="flex flex-col items-center">
-                <span className="text-lg">{info.icon}</span>
+                <span className={isMobile ? "text-base" : "text-lg"}>{info.icon}</span>
                 <span className="text-xs font-semibold">{info.description}</span>
               </div>
             </button>
@@ -142,14 +152,14 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
         
         {/* Outer ring - Secondary actions */}
         {SECONDARY_ACTIONS.map((eventType, index) => {
-          const { x, y } = calculatePosition(index, SECONDARY_ACTIONS.length, 120);
+          const { x, y } = calculatePosition(index, SECONDARY_ACTIONS.length, secondaryRadius);
           const info = eventTypes[eventType];
           
           return (
             <button
               key={`secondary-${eventType}`}
               onClick={(e) => handleActionClick(e, eventType)}
-              className={`absolute w-14 h-14 rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-10`}
+              className={`absolute ${secondaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-10`}
               style={{
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
@@ -158,8 +168,8 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
               }}
             >
               <div className="flex flex-col items-center">
-                <span className="text-sm">{info.icon}</span>
-                <span className="text-xs font-semibold">{info.description}</span>
+                <span className={isMobile ? "text-xs" : "text-sm"}>{info.icon}</span>
+                <span className={isMobile ? "text-[0.65rem]" : "text-xs"} className="font-semibold">{isMobile ? info.description.substring(0, 4) : info.description}</span>
               </div>
             </button>
           );
