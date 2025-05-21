@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { getAllUsers, updateUserRole } from "@/supabase/functions";

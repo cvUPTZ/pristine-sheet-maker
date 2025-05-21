@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { TrackerAssignment, UserProfile } from "@/types/auth";
+import { SystemSetting, TrackerAssignment, UserProfile } from "@/types/auth";
 
 /**
  * Functions to handle tracker assignments
@@ -94,25 +94,38 @@ export async function updateUserRole(userId: string, role: 'admin' | 'tracker' |
 /**
  * System Settings Functions
  */
-export interface SystemSetting {
-  id: string;
-  key: string;
-  value: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-}
+
+// Mock data for system settings since the table doesn't exist yet
+const mockSystemSettings: SystemSetting[] = [
+  {
+    id: '1',
+    key: 'app_name',
+    value: 'Sports Analytics Platform',
+    description: 'The name of the application',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    key: 'enable_public_registration',
+    value: 'true',
+    description: 'Allow public user registration',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
 
 // Mocking system settings functions since the table doesn't exist yet
-// To properly implement this, you would need to create a system_settings table first
-
 export async function getSystemSettings() {
-  // Return a mock empty array for now
-  return [] as SystemSetting[];
+  // Return mock data instead of querying non-existent table
+  return mockSystemSettings;
 }
 
 export async function updateSystemSetting(id: string, value: string) {
-  // Mock implementation
-  console.log(`Would update setting ${id} with value ${value}`);
-  return [] as SystemSetting[];
+  // Mock update - in a real implementation, this would update the database
+  const updated = mockSystemSettings.map(setting => 
+    setting.id === id ? { ...setting, value, updated_at: new Date().toISOString() } : setting
+  );
+  
+  return updated.filter(setting => setting.id === id) as SystemSetting[];
 }
