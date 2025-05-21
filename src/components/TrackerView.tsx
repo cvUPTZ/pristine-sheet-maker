@@ -33,11 +33,10 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
       try {
         setLoading(true);
         
-        // Use raw SQL query since the TypeScript types don't know about our new table yet
+        // Use direct query with type casting since the database schema isn't fully reflected in types
         const { data, error } = await supabase
-          .from('tracker_assignments')
-          .select('*')
-          .eq('tracker_id', user.id);
+          .rpc('get_tracker_assignments', { user_id: user.id })
+          .returns<any[]>();
           
         if (error) throw error;
         

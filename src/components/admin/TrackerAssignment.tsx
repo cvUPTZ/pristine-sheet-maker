@@ -51,7 +51,7 @@ export default function TrackerAssignment() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('role', 'tracker');
+          .eq('role', 'tracker' as any);
           
         if (error) throw error;
         
@@ -59,8 +59,8 @@ export default function TrackerAssignment() {
         
         // Fetch existing assignments
         const { data: assignmentsData, error: assignmentsError } = await supabase
-          .from('tracker_assignments')
-          .select('*');
+          .rpc('get_all_tracker_assignments')
+          .returns<any[]>();
           
         if (assignmentsError) throw assignmentsError;
         
@@ -101,13 +101,12 @@ export default function TrackerAssignment() {
       
       // Insert the new assignment
       const { data, error } = await supabase
-        .from('tracker_assignments')
-        .insert({
-          tracker_id: selectedTracker,
-          event_category: selectedCategory,
-          created_by: user.id
-        } as any)
-        .select();
+        .rpc('create_tracker_assignment', {
+          p_tracker_id: selectedTracker,
+          p_event_category: selectedCategory,
+          p_created_by: user.id
+        })
+        .returns<any[]>();
         
       if (error) throw error;
       
@@ -138,9 +137,9 @@ export default function TrackerAssignment() {
       setSaving(true);
       
       const { error } = await supabase
-        .from('tracker_assignments')
-        .delete()
-        .eq('id', assignmentId);
+        .rpc('delete_tracker_assignment', {
+          p_assignment_id: assignmentId
+        });
         
       if (error) throw error;
       
