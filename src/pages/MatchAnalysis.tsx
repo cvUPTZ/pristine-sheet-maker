@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Download, BarChart3, Flag, TableIcon } from 'lucide-react';
+import { ArrowLeft, Download, BarChart3, Flag, TableIcon, Share2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
@@ -12,6 +12,7 @@ import StatisticsDisplay from '@/components/StatisticsDisplay';
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
 import BallTracker from '@/components/BallTracker';
+import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import { getPlayerPositions } from '@/utils/formationUtils';
 import { MatchEvent } from '@/types';
 
@@ -150,7 +151,7 @@ const MatchAnalysis: React.FC = () => {
         </Card>
         
         <Tabs defaultValue="pitch">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="pitch" className="flex items-center gap-1">
               <Flag className="h-4 w-4" />
               Pitch View
@@ -165,6 +166,10 @@ const MatchAnalysis: React.FC = () => {
               Detailed Stats
             </TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
+            <TabsTrigger value="flow" className="flex items-center gap-1">
+              <Share2 className="h-4 w-4" />
+              Ball Flow
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="pitch" className="mt-4">
@@ -345,6 +350,22 @@ const MatchAnalysis: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          
+          {/* New Ball Flow Tab */}
+          <TabsContent value="flow" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ball Flow Process Visualization</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BallFlowVisualization
+                  ballTrackingPoints={ballTrackingPoints}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
