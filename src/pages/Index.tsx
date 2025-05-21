@@ -36,6 +36,7 @@ const Index = () => {
     completeSetup,
     setElapsedTime,
     trackBallMovement,
+    saveMatch, // Added saveMatch function here
   } = useMatchState();
 
   // Player positions - in a full implementation this would be more dynamic
