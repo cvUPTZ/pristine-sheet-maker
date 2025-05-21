@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch, Team } from '@/types';
+import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch } from '@/types';
+import type { Team, Player } from '@/types';
 
 interface Player {
   id: number;
@@ -205,13 +206,13 @@ const Statistics: React.FC = () => {
       return sum + homeGoals + awayGoals;
     }, 0),
     totalShots: matches.reduce((sum, match) => {
-      const homeShots = match.statistics.shots?.home?.total || 0;
-      const awayShots = match.statistics.shots?.away?.total || 0;
+      const homeShots = (match.statistics.shots?.home?.onTarget || 0) + (match.statistics.shots?.home?.offTarget || 0);
+      const awayShots = (match.statistics.shots?.away?.onTarget || 0) + (match.statistics.shots?.away?.offTarget || 0);
       return sum + homeShots + awayShots;
     }, 0),
     totalPasses: matches.reduce((sum, match) => {
-      const homePasses = match.statistics.passes?.home?.total || 0;
-      const awayPasses = match.statistics.passes?.away?.total || 0;
+      const homePasses = match.statistics.passes?.home?.attempted || 0;
+      const awayPasses = match.statistics.passes?.away?.attempted || 0;
       return sum + homePasses + awayPasses;
     }, 0),
     totalCorners: matches.reduce((sum, match) => {
@@ -227,24 +228,24 @@ const Statistics: React.FC = () => {
         }, 0) / totalMatches
       : 0,
     shotAccuracy: matches.reduce((sum, match) => {
-      const homeShotsTotal = match.statistics.shots?.home?.total || 0;
       const homeShotsOnTarget = match.statistics.shots?.home?.onTarget || 0;
-      const awayShotsTotal = match.statistics.shots?.away?.total || 0;
+      const homeShotsOffTarget = match.statistics.shots?.home?.offTarget || 0;
       const awayShotsOnTarget = match.statistics.shots?.away?.onTarget || 0;
+      const awayShotsOffTarget = match.statistics.shots?.away?.offTarget || 0;
       
-      const totalShots = homeShotsTotal + awayShotsTotal;
+      const totalShots = homeShotsOnTarget + homeShotsOffTarget + awayShotsOnTarget + awayShotsOffTarget;
       const totalOnTarget = homeShotsOnTarget + awayShotsOnTarget;
       
       return totalShots > 0 ? (totalOnTarget / totalShots) * 100 : 0;
     }, 0) / (totalMatches || 1),
     passAccuracy: matches.reduce((sum, match) => {
-      const homePassesTotal = match.statistics.passes?.home?.total || 0;
-      const homePassesSuccessful = match.statistics.passes?.home?.successful || 0;
-      const awayPassesTotal = match.statistics.passes?.away?.total || 0;
-      const awayPassesSuccessful = match.statistics.passes?.away?.successful || 0;
+      const homePassesSuccess = match.statistics.passes?.home?.successful || 0;
+      const homePassesAttempt = match.statistics.passes?.home?.attempted || 0;
+      const awayPassesSuccess = match.statistics.passes?.away?.successful || 0;
+      const awayPassesAttempt = match.statistics.passes?.away?.attempted || 0;
       
-      const totalPasses = homePassesTotal + awayPassesTotal;
-      const totalSuccessful = homePassesSuccessful + awayPassesSuccessful;
+      const totalPasses = homePassesAttempt + awayPassesAttempt;
+      const totalSuccessful = homePassesSuccess + awayPassesSuccess;
       
       return totalPasses > 0 ? (totalSuccessful / totalPasses) * 100 : 0;
     }, 0) / (totalMatches || 1)
@@ -550,11 +551,11 @@ const Statistics: React.FC = () => {
                                   <div className="flex justify-between text-sm mb-1">
                                     <span>Shots</span>
                                     <span>
-                                      {match.statistics.shots?.home?.total || 0} - {match.statistics.shots?.away?.total || 0}
+                                      {(match.statistics.shots?.home?.onTarget || 0) + (match.statistics.shots?.home?.offTarget || 0)} - {(match.statistics.shots?.away?.onTarget || 0) + (match.statistics.shots?.away?.offTarget || 0)}
                                     </span>
                                   </div>
                                   <Progress 
-                                    value={(match.statistics.shots?.home?.total || 0) / ((match.statistics.shots?.home?.total || 0) + (match.statistics.shots?.away?.total || 1)) * 100} 
+                                    value={((match.statistics.shots?.home?.onTarget || 0) + (match.statistics.shots?.home?.offTarget || 0)) / (((match.statistics.shots?.home?.onTarget || 0) + (match.statistics.shots?.home?.offTarget || 0)) + ((match.statistics.shots?.away?.onTarget || 0) + (match.statistics.shots?.away?.offTarget || 0)) || 1) * 100} 
                                     max={100}
                                     indicatorClassName="bg-football-home" 
                                   />
@@ -564,11 +565,11 @@ const Statistics: React.FC = () => {
                                   <div className="flex justify-between text-sm mb-1">
                                     <span>Passes</span>
                                     <span>
-                                      {match.statistics.passes?.home?.total || 0} - {match.statistics.passes?.away?.total || 0}
+                                      {match.statistics.passes?.home?.attempted || 0} - {match.statistics.passes?.away?.attempted || 0}
                                     </span>
                                   </div>
                                   <Progress 
-                                    value={(match.statistics.passes?.home?.total || 0) / ((match.statistics.passes?.home?.total || 0) + (match.statistics.passes?.away?.total || 1)) * 100} 
+                                    value={(match.statistics.passes?.home?.attempted || 0) / ((match.statistics.passes?.home?.attempted || 0) + (match.statistics.passes?.away?.attempted || 0) || 1) * 100} 
                                     max={100}
                                     indicatorClassName="bg-football-home" 
                                   />

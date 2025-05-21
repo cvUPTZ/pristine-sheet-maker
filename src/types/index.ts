@@ -1,4 +1,3 @@
-
 export interface Match {
   id: string;
   team1: string;
@@ -53,8 +52,14 @@ export type EventType =
 
 export interface Statistics {
   possession: { home: number; away: number };
-  shots: { home: { onTarget: number; offTarget: number }; away: { onTarget: number; offTarget: number } };
-  passes: { home: { successful: number; attempted: number }; away: { successful: number; attempted: number } };
+  shots: { 
+    home: { onTarget: number; offTarget: number; total?: number }; 
+    away: { onTarget: number; offTarget: number; total?: number } 
+  };
+  passes: { 
+    home: { successful: number; attempted: number; total?: number }; 
+    away: { successful: number; attempted: number; total?: number } 
+  };
   ballsPlayed: { home: number; away: number };
   ballsLost: { home: number; away: number };
   duels: { home: { won: number; lost: number; aerial: number }; away: { won: number; lost: number; aerial: number } };
@@ -103,6 +108,8 @@ export interface PlayerStatistics {
   playerId: number;
   playerName: string;
   teamId: string;
+  team: string; // Added
+  player: Player;  // Added
   ballsPlayed: number;
   ballsLost: number;
   ballsRecovered: number;
@@ -110,16 +117,12 @@ export interface PlayerStatistics {
   passesAttempted: number;
   possessionTime: number;
   contacts: number;
-  lossRatio: number;  // ballsLost / ballsPlayed
-  
-  // Add missing properties needed by DetailedStatsTable and MainTabContent
-  team: string;
-  player: Player;
-  goals: number;
-  assists: number;
-  passes: number;
-  shots: number;
-  fouls: number;
+  lossRatio: number;
+  goals: number;    // Added
+  assists: number;  // Added
+  passes: number;   // Added
+  shots: number;    // Added
+  fouls: number;    // Added
 }
 
 // Update Formation type

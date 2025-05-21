@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
@@ -474,10 +473,13 @@ export const useMatchState = (): MatchState & MatchActions => {
     const allPlayers = [...homeTeam.players, ...awayTeam.players];
     allPlayers.forEach(player => {
       const teamId = homeTeam.players.some(p => p.id === player.id) ? homeTeam.id : awayTeam.id;
+      const teamName = homeTeam.players.some(p => p.id === player.id) ? 'home' : 'away'; 
       playerStats[player.id] = {
         playerId: player.id,
         playerName: player.name,
         teamId,
+        team: teamName,
+        player,
         ballsPlayed: 0,
         ballsLost: 0,
         ballsRecovered: 0,
@@ -485,7 +487,12 @@ export const useMatchState = (): MatchState & MatchActions => {
         passesAttempted: 0,
         possessionTime: 0,
         contacts: 0,
-        lossRatio: 0
+        lossRatio: 0,
+        goals: 0,
+        assists: 0,
+        passes: 0,
+        shots: 0,
+        fouls: 0
       };
     });
     
