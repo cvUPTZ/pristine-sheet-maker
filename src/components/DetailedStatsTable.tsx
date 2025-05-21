@@ -51,21 +51,21 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
         </TableHeader>
         <TableBody>
           {filteredStats.map((stat) => (
-            <TableRow key={`${stat.player.id}-${stat.team}`}>
+            <TableRow key={`${stat.playerId}-${stat.team}`}>
               <TableCell className="font-medium">
-                <Badge variant="outline">{stat.player.number}</Badge>
+                <Badge variant="outline">{stat.player?.number || 0}</Badge>
               </TableCell>
-              <TableCell>{stat.player.name}</TableCell>
+              <TableCell>{stat.playerName}</TableCell>
               <TableCell>
                 <Badge className={`bg-${stat.team === 'home' ? 'football-home' : 'football-away'} text-white`}>
                   {stat.team}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right">{stat.goals}</TableCell>
-              <TableCell className="text-right">{stat.assists}</TableCell>
-              <TableCell className="text-right">{stat.passes}</TableCell>
-              <TableCell className="text-right">{stat.shots}</TableCell>
-              <TableCell className="text-right">{stat.fouls}</TableCell>
+              <TableCell className="text-right">{stat.goals || 0}</TableCell>
+              <TableCell className="text-right">{stat.assists || 0}</TableCell>
+              <TableCell className="text-right">{stat.passes || 0}</TableCell>
+              <TableCell className="text-right">{stat.shots || 0}</TableCell>
+              <TableCell className="text-right">{stat.fouls || 0}</TableCell>
             </TableRow>
           ))}
         </TableBody>

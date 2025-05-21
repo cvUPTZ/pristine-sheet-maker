@@ -207,18 +207,18 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                           <div>
                             <h4 className="font-medium text-sm">Top Passers</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => b.passes - a.passes).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
-                                    <span>#{player.player.number} {player.player.name}</span>
-                                    <span>{player.passes} passes</span>
+                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.passes || 0) - (a.passes || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                                    <span>#{player.player?.number || 0} {player.playerName}</span>
+                                    <span>{player.passes || 0} passes</span>
                                   </li>)}
                             </ul>
                           </div>
                           <div>
                             <h4 className="font-medium text-sm">Goal Threats</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => b.shots - a.shots).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
-                                    <span>#{player.player.number} {player.player.name}</span>
-                                    <span>{player.shots} shots</span>
+                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.shots || 0) - (a.shots || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                                    <span>#{player.player?.number || 0} {player.playerName}</span>
+                                    <span>{player.shots || 0} shots</span>
                                   </li>)}
                             </ul>
                           </div>

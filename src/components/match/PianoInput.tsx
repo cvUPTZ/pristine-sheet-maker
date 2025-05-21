@@ -32,20 +32,24 @@ interface PlayerEventPair {
 }
 
 // Define event types with colors and descriptions
-const eventTypes: { [key in EventType]?: { color: string; description: string } } = {
-  'pass': { color: 'bg-blue-500', description: 'Pass' },
-  'shot': { color: 'bg-orange-500', description: 'Shot' },
-  'goal': { color: 'bg-green-500', description: 'Goal' },
-  'foul': { color: 'bg-red-500', description: 'Foul' },
-  'tackle': { color: 'bg-purple-500', description: 'Tackle' },
-  'interception': { color: 'bg-yellow-500', description: 'Interception' },
-  'header': { color: 'bg-pink-500', description: 'Header' },
-  'cross': { color: 'bg-indigo-500', description: 'Cross' },
-  'dribble': { color: 'bg-teal-500', description: 'Dribble' },
-  'corner': { color: 'bg-amber-500', description: 'Corner' },
-  'offside': { color: 'bg-lime-500', description: 'Offside' },
-  'card': { color: 'bg-rose-500', description: 'Card' },
-  'free-kick': { color: 'bg-cyan-500', description: 'Free Kick' }
+const eventTypes: Record<EventType, { color: string; description: string }> = {
+  pass: { color: "bg-blue-500", description: "Pass" },
+  shot: { color: "bg-red-500", description: "Shot" },
+  tackle: { color: "bg-green-500", description: "Tackle" },
+  foul: { color: "bg-yellow-500", description: "Foul" },
+  corner: { color: "bg-indigo-500", description: "Corner" },
+  offside: { color: "bg-orange-500", description: "Offside" },
+  goal: { color: "bg-emerald-500", description: "Goal" },
+  assist: { color: "bg-purple-500", description: "Assist" },
+  yellowCard: { color: "bg-yellow-400", description: "Yellow Card" },
+  redCard: { color: "bg-red-600", description: "Red Card" },
+  substitution: { color: "bg-green-400", description: "Substitution" },
+  card: { color: "bg-yellow-300", description: "Card" },
+  penalty: { color: "bg-red-400", description: "Penalty" },
+  "free-kick": { color: "bg-cyan-500", description: "Free Kick" },
+  "goal-kick": { color: "bg-teal-500", description: "Goal Kick" },
+  "throw-in": { color: "bg-sky-500", description: "Throw-in" },
+  interception: { color: "bg-amber-500", description: "Interception" }
 };
 
 const PianoInput: React.FC<PianoInputProps> = ({

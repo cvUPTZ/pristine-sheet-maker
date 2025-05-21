@@ -116,32 +116,22 @@ export const getPlayerPositions = (team: Partial<Team> & { players?: Player[], f
 
 // Create simulated teams for testing with real position names
 export const createSimulatedTeams = () => {
-  // Create home team with 4-4-2 formation
+  // Create home team with 4-3-3 formation
   const homeTeam: Team = {
-    id: "home-team",
-    name: "Home FC",
-    formation: "4-4-2",
-    players: Array.from({ length: 11 }, (_, i) => ({
-      id: i + 1,
-      name: `Home Player ${i + 1}`,
-      number: i + 1,
-      position: getPositionName("4-4-2", i)
-    }))
+    id: 'home-team',
+    name: 'Barcelona',
+    formation: '4-3-3',
+    players: generatePlayersForFormation('home', '4-3-3', 1),
   };
-  
-  // Create away team with 4-3-3 formation
+
+  // Create away team with 4-4-2 formation
   const awayTeam: Team = {
-    id: "away-team",
-    name: "Away United",
-    formation: "4-3-3",
-    players: Array.from({ length: 11 }, (_, i) => ({
-      id: 100 + i + 1,
-      name: `Away Player ${i + 1}`,
-      number: i + 1,
-      position: getPositionName("4-3-3", i)
-    }))
+    id: 'away-team',
+    name: 'Real Madrid',
+    formation: '4-4-2',
+    players: generatePlayersForFormation('away', '4-4-2', 100),
   };
-  
+
   return { homeTeam, awayTeam };
 };
 

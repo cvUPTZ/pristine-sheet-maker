@@ -8,18 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { TimeSegmentStatistics, BallTrackingPoint, Player, Team } from '@/types';
+import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch, Team } from '@/types';
 
 interface Player {
   id: number;
   name: string;
   number: number;
   position: string;
-}
-
-interface Team {
-  name: string;
-  players: Player[];
 }
 
 interface MatchEvent {
@@ -31,28 +26,11 @@ interface MatchEvent {
   coordinates: { x: number; y: number };
 }
 
-interface SavedMatch {
-  matchId: string;
-  homeTeam: Team;
-  awayTeam: Team;
-  date: string;
-  elapsedTime: number;
-  events: MatchEvent[];
-  statistics: {
-    possession?: { home?: number; away?: number };
-    shots?: { home?: { total?: number; onTarget?: number }; away?: { total?: number; onTarget?: number } };
-    passes?: { home?: { total?: number; successful?: number }; away?: { total?: number; successful?: number } };
-    fouls?: { home?: number; away?: number };
-    corners?: { home?: number; away?: number };
-    // Add any other statistics tracked
-  };
-}
-
 const Statistics: React.FC = () => {
   const [matches, setMatches] = useState<SavedMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [topScorers, setTopScorers] = useState<{player: Player; team: string; goals: number}[]>([]);
-  const [topAssists, setTopAssists] = useState<{player: Player; team: string; assists: number}[]>([]);
+  const [topScorers, setTopScorers] = useState<{player: any; team: string; goals: number}[]>([]);
+  const [topAssists, setTopAssists] = useState<{player: any; team: string; assists: number}[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<SavedMatch | null>(null);
   const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>([]);
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>([]);
@@ -675,8 +653,8 @@ const Statistics: React.FC = () => {
                             <TabsContent value="flow">
                               <BallFlowVisualization
                                 ballTrackingPoints={ballTrackingPoints}
-                                homeTeam={selectedMatch.homeTeam as Team}
-                                awayTeam={selectedMatch.awayTeam as Team}
+                                homeTeam={selectedMatch?.homeTeam || { id: 'home', name: 'Home', players: [], formation: '4-4-2' }}
+                                awayTeam={selectedMatch?.awayTeam || { id: 'away', name: 'Away', players: [], formation: '4-3-3' }}
                                 width={800}
                                 height={600}
                               />

@@ -98,7 +98,7 @@ export interface TimeSegmentStatistics {
   ballsRecoveredDifference: { home: number; away: number };
 }
 
-// Add PlayerStatistics type
+// Update PlayerStatistics type to include all required properties
 export interface PlayerStatistics {
   playerId: number;
   playerName: string;
@@ -111,15 +111,35 @@ export interface PlayerStatistics {
   possessionTime: number;
   contacts: number;
   lossRatio: number;  // ballsLost / ballsPlayed
+  
+  // Add missing properties needed by DetailedStatsTable and MainTabContent
+  team: string;
+  player: Player;
+  goals: number;
+  assists: number;
+  passes: number;
+  shots: number;
+  fouls: number;
 }
 
-// Add Formation type
-export interface Formation {
-  name: string;
-  code: string;
-}
+// Update Formation type
+export type Formation = string;
 
 // Add FormationPositions type
 export interface FormationPositions {
   [key: string]: { [key: number]: { x: number; y: number } };
+}
+
+// Add SavedMatch interface for Statistics.tsx
+export interface SavedMatch {
+  matchId: string;
+  date: string;
+  elapsedTime: number;
+  homeTeam: Team;
+  awayTeam: Team;
+  events: MatchEvent[];
+  statistics: Statistics;
+  ballTrackingPoints: BallTrackingPoint[];
+  timeSegments: TimeSegmentStatistics[];
+  playerStats: PlayerStatistics[];
 }

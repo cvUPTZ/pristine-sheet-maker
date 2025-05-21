@@ -39,7 +39,7 @@ const Pitch: React.FC<PitchProps> = ({
   };
 
   // Use an empty array if no tracking points should be displayed
-  const emptyTrackingPoints = [];
+  const emptyTrackingPoints: any[] = [];
 
   return (
     <PitchView
