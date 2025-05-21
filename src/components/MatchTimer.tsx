@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Play, Pause, TimerReset } from 'lucide-react';
 
 interface MatchTimerProps {
   isRunning: boolean;
@@ -21,6 +21,21 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
 }) => {
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = Math.floor(elapsedTime % 60);
+  
+  // Add effect to increment timer when running
+  useEffect(() => {
+    let interval: number | undefined;
+    
+    if (isRunning) {
+      interval = window.setInterval(() => {
+        setElapsedTime(prevTime => prevTime + 1);
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRunning, setElapsedTime]);
 
   const handleAddMinute = () => {
     setElapsedTime(elapsedTime + 60);
@@ -64,14 +79,18 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
             variant={isRunning ? "destructive" : "default"} 
             size="sm"
             onClick={onToggle}
+            className="flex items-center gap-1"
           >
+            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {isRunning ? 'Pause' : 'Start'}
           </Button>
           <Button 
             variant="outline" 
             size="sm"
             onClick={onReset}
+            className="flex items-center gap-1"
           >
+            <TimerReset className="h-4 w-4" />
             Reset
           </Button>
         </div>
