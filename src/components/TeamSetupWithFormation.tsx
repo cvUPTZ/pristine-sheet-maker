@@ -1,11 +1,12 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Team, Player, Formation } from '@/types';
 import FormationSelector from './FormationSelector';
+import { getPositionName } from '@/utils/formationUtils';
+import { toast } from 'sonner';
 
 interface TeamSetupWithFormationProps {
   teams: { home: Team; away: Team };
@@ -27,13 +28,37 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
   };
   
   const updateTeamFormation = (teamId: 'home' | 'away', formation: Formation) => {
+    const team = teams[teamId];
+    
+    // Generate 11 players based on the formation
+    const newPlayers: Player[] = Array.from({ length: 11 }, (_, i) => {
+      // Keep existing players' info if available
+      const existingPlayer = team.players[i];
+      const id = existingPlayer?.id || (teamId === 'home' ? i + 1 : 100 + i + 1);
+      const number = existingPlayer?.number || i + 1;
+      const name = existingPlayer?.name || `${teamId === 'home' ? 'Home' : 'Away'} Player ${i + 1}`;
+      
+      // Get position name based on formation and index
+      const position = getPositionName(formation, i);
+      
+      return {
+        id,
+        name,
+        number,
+        position
+      };
+    });
+    
     onTeamsChange({
       ...teams,
       [teamId]: {
-        ...teams[teamId],
-        formation
+        ...team,
+        formation,
+        players: newPlayers
       }
     });
+    
+    toast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${formation}`);
   };
   
   const addPlayer = (teamId: 'home' | 'away') => {
@@ -82,6 +107,19 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     });
   };
   
+  // Initialize teams with default players if they have a formation but no players
+  useEffect(() => {
+    // For home team
+    if (teams.home.formation && teams.home.players.length === 0) {
+      updateTeamFormation('home', teams.home.formation as Formation);
+    }
+    
+    // For away team
+    if (teams.away.formation && teams.away.players.length === 0) {
+      updateTeamFormation('away', teams.away.formation as Formation);
+    }
+  }, []);
+  
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-6 text-center">Team Setup</h2>
@@ -122,7 +160,9 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
               {teams.home.players.length === 0 ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
-                  <Button onClick={() => addPlayer('home')}>Add First Player</Button>
+                  <Button onClick={() => updateTeamFormation('home', teams.home.formation as Formation || '4-4-2')}>
+                    Generate Players for {teams.home.formation || '4-4-2'}
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -195,7 +235,9 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
               {teams.away.players.length === 0 ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
-                  <Button onClick={() => addPlayer('away')}>Add First Player</Button>
+                  <Button onClick={() => updateTeamFormation('away', teams.away.formation as Formation || '4-3-3')}>
+                    Generate Players for {teams.away.formation || '4-3-3'}
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
