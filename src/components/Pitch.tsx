@@ -46,6 +46,9 @@ const Pitch: React.FC<PitchProps> = ({
     if (eventType) {
       console.log("Event selected:", eventType, "by player:", player.name, "at", coordinates);
       
+      // Track the action with player and team information for easier tracking
+      console.log(`TRACKING: Player ${player.name} (${player.id}) from ${selectedTeam} team performed ${eventType} at position (${coordinates.x.toFixed(2)}, ${coordinates.y.toFixed(2)})`);
+      
       // If it's a ball-related event, we'll track the ball movement too
       if (['pass', 'shot', 'goal'].includes(eventType)) {
         onTrackBallMovement(coordinates);
