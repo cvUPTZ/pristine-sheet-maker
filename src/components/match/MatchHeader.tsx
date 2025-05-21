@@ -6,6 +6,7 @@ import { ArrowLeft, Save, MenuIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useBreakpoint } from '@/hooks/use-mobile';
 
 interface MatchHeaderProps {
   mode: 'piano' | 'tracking';
@@ -24,6 +25,9 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   handleToggleTracking,
   handleSave
 }) => {
+  const isSmall = useBreakpoint('sm');
+  const isMedium = useBreakpoint('md');
+  
   return (
     <header className="mb-4 bg-white p-2 md:p-4 rounded-lg shadow-md">
       <div className="flex items-center justify-between mb-2">
@@ -35,7 +39,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
                 <MenuIcon className="h-4 w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[250px]">
+            <SheetContent side="left" className="w-[80vw] max-w-[300px]">
               <div className="flex flex-col gap-4 mt-10">
                 <Button variant="outline" asChild className="justify-start">
                   <Link to="/" className="flex items-center gap-2">
@@ -101,15 +105,15 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         </Tabs>
       </div>
       
-      <div className="flex justify-between items-center mt-2 text-sm md:text-base flex-wrap">
-        <div className="text-football-home font-semibold md:text-xl">
-          {homeTeam.name} <span className="text-xs md:text-sm">({homeTeam.formation})</span>
+      <div className="flex justify-between items-center mt-2 text-xs sm:text-sm md:text-base flex-wrap">
+        <div className={`text-football-home font-semibold md:text-xl ${isSmall ? 'max-w-[40%] truncate' : ''}`}>
+          {homeTeam.name} <span className="text-xs md:text-sm">{isSmall ? '' : `(${homeTeam.formation})`}</span>
         </div>
         <div className="text-lg font-mono font-bold mx-1 md:mx-4">
           vs
         </div>
-        <div className="text-football-away font-semibold md:text-xl">
-          {awayTeam.name} <span className="text-xs md:text-sm">({awayTeam.formation})</span>
+        <div className={`text-football-away font-semibold md:text-xl ${isSmall ? 'max-w-[40%] truncate' : ''}`}>
+          {awayTeam.name} <span className="text-xs md:text-sm">{isSmall ? '' : `(${awayTeam.formation})`}</span>
         </div>
       </div>
     </header>

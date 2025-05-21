@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
 import BallTracker from '@/components/BallTracker';
@@ -51,8 +51,31 @@ const PitchView: React.FC<PitchViewProps> = ({
   // Combine with any provided positions from props (for custom positioning)
   const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
   
+  // Reference to the container for responsive sizing
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  
+  // Update container size on mount and window resize
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+    
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    
+    return () => {
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+  
   return (
-    <div className="mb-4 relative">
+    <div className="mb-4 relative" ref={containerRef}>
       {mode === 'tracking' && (
         <div className="absolute top-2 left-2 z-10">
           <Badge variant="outline" className="bg-white/70 backdrop-blur-sm">
