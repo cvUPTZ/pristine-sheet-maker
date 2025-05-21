@@ -88,7 +88,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         </TabsList>
         
         <TabsContent value="pitch">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <PitchView homeTeam={homeTeam} awayTeam={awayTeam} teamPositions={teamPositions} selectedPlayer={selectedPlayer} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} handlePlayerSelect={handlePlayerSelect} ballTrackingPoints={ballTrackingPoints} mode={mode} handlePitchClick={handlePitchClick} addBallTrackingPoint={addBallTrackingPoint} />
             </div>
