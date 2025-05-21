@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { EventType } from '@/types';
 import { X } from 'lucide-react';
@@ -169,7 +168,9 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
             >
               <div className="flex flex-col items-center">
                 <span className={isMobile ? "text-xs" : "text-sm"}>{info.icon}</span>
-                <span className={`${isMobile ? "text-[0.65rem]" : "text-xs"} font-semibold`}>{isMobile ? info.description.substring(0, 4) : info.description}</span>
+                <span className={`${isMobile ? "text-[0.65rem]" : "text-xs"} font-semibold`}>
+                  {isMobile ? info.description.substring(0, 4) : info.description}
+                </span>
               </div>
             </button>
           );

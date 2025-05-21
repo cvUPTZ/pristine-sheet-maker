@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { UserProfile, TrackerAssignment as TrackerAssignmentType } from "@/types/auth";
+import { UserProfile } from "@/types/auth";
+import type { TrackerAssignment as TrackerAssignmentType } from "@/types/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,7 +57,7 @@ export default function TrackerAssignment() {
         
         setTrackers(data as UserProfile[]);
         
-        // Fetch existing assignments using raw SQL query
+        // Fetch existing assignments
         const { data: assignmentsData, error: assignmentsError } = await supabase
           .from('tracker_assignments')
           .select('*');
@@ -98,19 +99,20 @@ export default function TrackerAssignment() {
         return;
       }
       
-      // Use raw SQL insertion
+      // Insert the new assignment
       const { data, error } = await supabase
         .from('tracker_assignments')
         .insert({
           tracker_id: selectedTracker,
           event_category: selectedCategory,
           created_by: user.id
-        })
+        } as any)
         .select();
         
       if (error) throw error;
       
-      setAssignments([...assignments, data[0] as unknown as TrackerAssignmentType]);
+      const newAssignment = data[0] as unknown as TrackerAssignmentType;
+      setAssignments([...assignments, newAssignment]);
       
       toast({
         title: "Success",
