@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "https://esm.sh/@google/generative-ai@0.2.1";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -16,21 +17,16 @@ serve(async (req) => {
   }
 
   try {
-    const { videoUrl, startOffset = '0s', endOffset = '' } = await req.json();
+    const { videoUrl, fileUpload = false } = await req.json();
     
-    if (!videoUrl) {
+    if (!videoUrl && !fileUpload) {
       return new Response(
-        JSON.stringify({ error: "Missing videoUrl parameter" }),
+        JSON.stringify({ error: "Missing videoUrl parameter or file upload" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Validate that time offsets end with 's'
-    const validStartOffset = startOffset.endsWith('s') ? startOffset : `${startOffset}s`;
-    const validEndOffset = endOffset ? (endOffset.endsWith('s') ? endOffset : `${endOffset}s`) : '';
     
-    console.log(`Received videoUrl: ${videoUrl}`);
-    console.log(`Using startOffset: ${validStartOffset}, endOffset: ${validEndOffset || 'none'}`);
+    console.log(`Received videoUrl: ${videoUrl || 'None, using file upload'}`);
     
     // Create Supabase client
     const supabaseClient = createClient(
@@ -39,20 +35,33 @@ serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
-    const videoId = extractYouTubeVideoId(videoUrl);
-    if (!videoId) {
-      return new Response(
-        JSON.stringify({ error: "Invalid YouTube URL" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let videoId = null;
+    let videoInfo = null;
+
+    if (videoUrl) {
+      videoId = extractYouTubeVideoId(videoUrl);
+      if (!videoId) {
+        return new Response(
+          JSON.stringify({ error: "Invalid YouTube URL" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get video metadata from YouTube
+      videoInfo = await getYouTubeVideoInfo(videoId);
+      console.log("Analyzing video:", videoInfo.title);
+    } else {
+      videoInfo = {
+        id: "uploaded-file",
+        title: "Uploaded Video File",
+        description: "User uploaded video file for analysis",
+        url: "file://uploaded-video",
+        thumbnailUrl: "",
+      };
     }
 
-    // Get video metadata from YouTube
-    const videoInfo = await getYouTubeVideoInfo(videoId);
-    console.log("Analyzing video:", videoInfo.title);
-
     // Use Gemini 2.5 Flash to analyze video content
-    const analysisResult = await analyzeVideoWithGemini(videoUrl, videoInfo, validStartOffset, validEndOffset);
+    const analysisResult = await analyzeVideoWithGeminiForEventLog(videoUrl, videoInfo);
     
     return new Response(
       JSON.stringify({ 
@@ -98,18 +107,16 @@ async function getYouTubeVideoInfo(videoId: string) {
   return {
     id: videoId,
     title: `YouTube Video ${videoId}`,
-    description: "Video description would appear here",
+    description: "Video description placeholder",
     url: `https://www.youtube.com/watch?v=${videoId}`,
     thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
   };
 }
 
-// Use Gemini to analyze the video content using the new Gemini 2.5 Flash model
-async function analyzeVideoWithGemini(
+// Use Gemini to analyze the video content for event logging
+async function analyzeVideoWithGeminiForEventLog(
   videoUrl: string, 
-  videoInfo: any, 
-  startOffset: string = '0s',
-  endOffset: string = ''
+  videoInfo: any
 ) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) {
@@ -117,122 +124,75 @@ async function analyzeVideoWithGemini(
   }
 
   try {
-    console.log(`Sending analysis request with time range: ${startOffset} to ${endOffset || "end"}`);
+    console.log(`Sending Gemini request for event log.`);
 
-    // Create request payload for Gemini 2.5 Flash with direct video reference
-    const requestBody: any = {
+    // Initialize the Google Generative AI with Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
       model: "models/gemini-2.5-flash-preview-05-20",
-      contents: [
-        {
-          parts: [
-            {
-              fileData: {
-                fileUri: videoUrl,
-                mimeType: "video/mp4"
-              }
-            }
-          ]
+    });
+
+    // Set up Gemini request with direct video reference
+    const result = await model.generateContent([
+      {
+        fileData: {
+          fileUri: videoUrl,
+          mimeType: "video/mp4"
         }
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-        topK: 40,
-        topP: 0.95
-      }
-    };
-
-    // Add time offsets if provided
-    if (startOffset || endOffset) {
-      requestBody.contents[0].parts[0].videoMetadata = {};
-      
-      if (startOffset) {
-        requestBody.contents[0].parts[0].videoMetadata.startOffset = startOffset;
-      }
-      
-      if (endOffset) {
-        requestBody.contents[0].parts[0].videoMetadata.endOffset = endOffset;
-      }
-    }
-
-    // Add the prompt for analysis
-    requestBody.contents[0].parts.push({
-      text: `
-        Please analyze this soccer match video and extract the following statistics as JSON:
-        
-        1. Overall match statistics:
-           - Possession percentages for both teams
-           - Number of shots, shots on target for both teams
-           - Number of passes and pass completion rate for both teams
-           - Number of fouls committed by both teams
-           - Number of corners for both teams
-           
-        2. For each team:
-           - Top performing players 
-           - Ball recoveries
-           - Duels won
-           - Crosses attempted and completed
-           
-        3. Time-segment analysis:
-           - Break down the match into 15 minute segments
-           - For each segment, track possession percentages, shots, and key events
-           - Identify momentum shifts during the match
-        
-        Format your response as valid JSON only, with no additional text.
-      `
-    });
-
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
       },
-      body: JSON.stringify(requestBody),
-    });
+      {
+        text: `
+          Please analyze this soccer match video and extract the following statistics as JSON:
+          
+          1. Overall match statistics:
+             - Possession percentages for both teams
+             - Number of shots, shots on target for both teams
+             - Number of passes and pass completion rate for both teams
+             - Number of fouls committed by both teams
+             - Number of corners for both teams
+             
+          2. For each team:
+             - Top performing players 
+             - Ball recoveries
+             - Duels won
+             - Crosses attempted and completed
+             
+          3. Time-segment analysis:
+             - Break down the match into 15 minute segments
+             - For each segment, track possession percentages, shots, and key events
+             - Identify momentum shifts during the match
+          
+          Format your response as valid JSON only, with no additional text.
+        `
+      }
+    ]);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const result = await response.json();
+    const response = result.response;
+    const textResponse = response.text();
     
-    // Extract the JSON from the response
-    let jsonContent = "";
-    if (result.candidates && 
-        result.candidates[0] && 
-        result.candidates[0].content && 
-        result.candidates[0].content.parts) {
-      
-      const textContent = result.candidates[0].content.parts
-        .filter((part: any) => part.text)
-        .map((part: any) => part.text)
-        .join("");
-      
-      // Find JSON content between code blocks if present
-      const jsonMatch = textContent.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       textContent.match(/```\s*([\s\S]*?)\s*```/) ||
-                       [null, textContent];
-                       
-      jsonContent = jsonMatch[1] || textContent;
-    }
-
-    // Try to parse the JSON response
+    // Try to extract JSON from the response
     try {
-      // Clean the string to ensure it's valid JSON
-      jsonContent = jsonContent.replace(/```json|```/g, "").trim();
-      return JSON.parse(jsonContent);
+      // Look for JSON content
+      const jsonMatch = textResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                      textResponse.match(/```\s*([\s\S]*?)\s*```/) ||
+                      [null, textResponse];
+                      
+      const jsonContent = jsonMatch[1] || textResponse;
+      const cleanJson = jsonContent.replace(/```json|```/g, "").trim();
+      
+      // Parse the JSON
+      return JSON.parse(cleanJson);
     } catch (parseError) {
       console.error("Failed to parse Gemini JSON output:", parseError);
+      
       // If JSON parsing fails, return structured content as best as possible
       return {
         error: "Failed to parse analysis as JSON",
-        rawContent: jsonContent,
-        formattedAnalysis: extractStatisticsFromText(jsonContent)
+        rawContent: textResponse,
+        formattedAnalysis: extractStatisticsFromText(textResponse)
       };
     }
+
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     throw new Error(`Failed to analyze video: ${error.message}`);

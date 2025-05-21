@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Statistics } from '@/types';
 import { Separator } from '@/components/ui/separator';
+import { Upload } from 'lucide-react';
 
 interface VideoAnalyzerProps {
   onAnalysisComplete?: (statistics: Statistics) => void;
@@ -14,32 +15,27 @@ interface VideoAnalyzerProps {
 
 const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => {
   const [videoUrl, setVideoUrl] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [file, setFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const formatTimeToSeconds = (time: string): string => {
-    // Convert time formats like "1:30" or "1:30:45" to seconds for Gemini
-    if (!time) return '';
-    
-    const parts = time.split(':').map(Number);
-    if (parts.length === 1) {
-      return `${parts[0]}s`;
-    } else if (parts.length === 2) {
-      return `${parts[0] * 60 + parts[1]}s`;
-    } else if (parts.length === 3) {
-      return `${parts[0] * 3600 + parts[1] * 60 + parts[2]}s`;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+      toast({
+        title: "File selected",
+        description: `Selected: ${e.target.files[0].name}`,
+      });
     }
-    return '';
   };
 
   const analyzeVideo = async () => {
-    if (!videoUrl) {
+    if (!videoUrl && !file) {
       toast({
         title: "Error",
-        description: "Please enter a YouTube video URL",
+        description: "Please enter a YouTube video URL or upload a video file",
         variant: "destructive",
       });
       return;
@@ -65,19 +61,11 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         description: "Video analysis in progress. This might take a few minutes.",
       });
 
-      // Convert time inputs to seconds format for Gemini
-      const startOffset = formatTimeToSeconds(startTime);
-      const endOffset = formatTimeToSeconds(endTime);
-      
-      // Make sure time values end with 's' as required by Gemini API
-      console.log(`Sending startOffset: ${startOffset}, endOffset: ${endOffset}`);
-
       // Call the Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('analyze-youtube-video', {
         body: { 
           videoUrl,
-          startOffset,
-          endOffset
+          fileUpload: file ? true : false
         },
       });
 
@@ -154,6 +142,7 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
     } finally {
       setIsAnalyzing(false);
       setProgress(0);
+      setFile(null);
     }
   };
 
@@ -162,7 +151,7 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
       <CardHeader>
         <CardTitle>Video Analysis</CardTitle>
         <CardDescription>
-          Enter a YouTube URL of a soccer match to analyze and extract statistics
+          Enter a YouTube URL or upload a video file of a soccer match to analyze and extract statistics
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -172,35 +161,34 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
               placeholder="Enter YouTube URL (e.g., https://www.youtube.com/watch?v=...)"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || isUploading}
             />
             
             <Separator className="my-2" />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Start time (optional)</p>
-                <Input
-                  placeholder="e.g., 1:30 or 1:30:45"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  disabled={isAnalyzing}
-                />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">End time (optional)</p>
-                <Input
-                  placeholder="e.g., 10:30 or 1:30:45"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  disabled={isAnalyzing}
-                />
+                <p className="text-sm text-muted-foreground mb-1">Or upload a video file</p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileChange}
+                    disabled={isAnalyzing || isUploading}
+                    className="flex-1"
+                  />
+                </div>
+                {file && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selected file: {file.name} ({Math.round(file.size / 1024 / 1024 * 10) / 10} MB)
+                  </p>
+                )}
               </div>
             </div>
             
             <Button 
               onClick={analyzeVideo} 
-              disabled={isAnalyzing || !videoUrl}
+              disabled={isAnalyzing || isUploading || (!videoUrl && !file)}
               className="w-full mt-2"
             >
               {isAnalyzing ? "Analyzing..." : "Analyze Video"}
