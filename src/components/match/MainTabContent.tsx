@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video } from 'lucide-react';
+import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Piano } from 'lucide-react';
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
@@ -78,31 +79,67 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   };
 
   return <div>
-      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value as 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video')}>
-        <TabsList className="mb-4 overflow-x-auto flex w-full justify-start lg:justify-center no-scrollbar">
-          <TabsTrigger value="pitch" className="flex items-center gap-1">
-            <Flag className="h-4 w-4" />
-            Match Analysis
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="flex items-center gap-1">
-            <BarChart3 className="h-4 w-4" />
-            Statistics
-          </TabsTrigger>
-          <TabsTrigger value="details" className="flex items-center gap-1">
-            <TableIcon className="h-4 w-4" />
-            Detailed Stats
-          </TabsTrigger>
-          <TabsTrigger value="timeline" className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            Timeline
-          </TabsTrigger>
-          <TabsTrigger value="video" className="flex items-center gap-1">
-            <Video className="h-4 w-4" />
-            Video Analysis
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="pitch">
+      {/* Large, prominent tab navigation */}
+      <div className="mb-6">
+        <div className="bg-white rounded-lg shadow-md p-2 mb-4">
+          <div className="grid grid-cols-5 gap-2">
+            <Button 
+              variant={activeTab === 'pitch' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('pitch')}
+            >
+              <Flag className="h-4 w-4" />
+              <span>Pitch</span>
+            </Button>
+            <Button 
+              variant={activeTab === 'stats' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('stats')}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Stats</span>
+            </Button>
+            <Button 
+              variant={activeTab === 'details' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('details')}
+            >
+              <TableIcon className="h-4 w-4" />
+              <span>Details</span>
+            </Button>
+            <Button 
+              variant={activeTab === 'piano' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('piano')}
+            >
+              <Piano className="h-4 w-4" />
+              <span>Piano</span>
+            </Button>
+            <Button 
+              variant={activeTab === 'timeline' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('timeline')}
+            >
+              <Clock className="h-4 w-4" />
+              <span>Timeline</span>
+            </Button>
+          </div>
+          <div className="mt-2">
+            <Button 
+              variant={activeTab === 'video' ? 'default' : 'outline'} 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('video')}
+            >
+              <Video className="h-4 w-4" />
+              <span>Video Analysis</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div>
+        {activeTab === 'pitch' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <PitchView homeTeam={homeTeam} awayTeam={awayTeam} teamPositions={teamPositions} selectedPlayer={selectedPlayer} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} handlePlayerSelect={handlePlayerSelect} ballTrackingPoints={ballTrackingPoints} mode={mode} handlePitchClick={handlePitchClick} addBallTrackingPoint={addBallTrackingPoint} />
@@ -111,9 +148,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <PianoInput homeTeam={homeTeam} awayTeam={awayTeam} onRecordEvent={recordEvent} teamPositions={teamPositions} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} compact={true} />
             </div>
           </div>
-        </TabsContent>
+        )}
         
-        <TabsContent value="stats">
+        {activeTab === 'stats' && (
           <div className="mb-4">
             <Tabs value={statsView} onValueChange={(value: any) => setStatsView(value)}>
               <TabsList className="mb-4 w-full md:w-auto">
@@ -245,9 +282,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </TabsContent>
             </Tabs>
           </div>
-        </TabsContent>
+        )}
         
-        <TabsContent value="details">
+        {activeTab === 'details' && (
           <Card className="p-4 bg-white shadow-md">
             <div className="flex justify-start mb-4 gap-2">
               <Button variant={tableView === 'individual' ? 'default' : 'outline'} size="sm" onClick={() => setTableView('individual')}>
@@ -262,9 +299,23 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <DetailedStatsTable playerStats={playerStats} type={tableView} teamId={tableView === 'team' ? selectedTeam : undefined} />
             </div>
           </Card>
-        </TabsContent>
+        )}
         
-        <TabsContent value="timeline">
+        {activeTab === 'piano' && (
+          <Card className="p-4 bg-white shadow-md">
+            <PianoInput 
+              homeTeam={homeTeam} 
+              awayTeam={awayTeam} 
+              onRecordEvent={recordEvent} 
+              teamPositions={teamPositions} 
+              selectedTeam={selectedTeam} 
+              setSelectedTeam={setSelectedTeam} 
+              compact={false} 
+            />
+          </Card>
+        )}
+        
+        {activeTab === 'timeline' && (
           <Card className="p-4 bg-white shadow-md">
             <div className="flex justify-start mb-4 gap-2 overflow-x-auto">
               <Button variant={timelineView === 'ballsPlayed' ? 'default' : 'outline'} size="sm" onClick={() => setTimelineView('ballsPlayed')}>
@@ -282,9 +333,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 No timeline data available
               </div>}
           </Card>
-        </TabsContent>
+        )}
         
-        <TabsContent value="video">
+        {activeTab === 'video' && (
           <div className="grid grid-cols-1 gap-4">
             <VideoAnalyzer onAnalysisComplete={handleVideoAnalysisComplete} />
             {statistics && (
@@ -294,8 +345,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </Card>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
       
       <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
         <Button variant="outline" onClick={handleUndo}>
