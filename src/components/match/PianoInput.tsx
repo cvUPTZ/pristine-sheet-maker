@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Player, EventType } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -188,8 +187,8 @@ const PianoInput: React.FC<PianoInputProps> = ({
               </Button>
             </div>
             
-            {/* Increase the height of the pitch container for better visibility */}
-            <div className="relative h-[400px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
+            {/* Improved stadium visibility with full height and proper aspect ratio */}
+            <div className="relative h-[500px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
               <FootballPitch>
                 {/* Render players for the selected team */}
                 {activePlayers.map((player) => (
