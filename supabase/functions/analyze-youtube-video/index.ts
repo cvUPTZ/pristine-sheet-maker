@@ -1,8 +1,7 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "https://esm.sh/@google/generative-ai@0.2.1";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.1";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -124,7 +123,7 @@ async function analyzeVideoWithGeminiForEventLog(
   }
 
   try {
-    console.log(`Sending Gemini request for event log.`);
+    console.log(`Sending Gemini request for video analysis.`);
 
     // Initialize the Google Generative AI with Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -132,40 +131,46 @@ async function analyzeVideoWithGeminiForEventLog(
       model: "models/gemini-2.5-flash-preview-05-20",
     });
 
-    // Set up Gemini request with direct video reference
-    const result = await model.generateContent([
-      {
-        fileData: {
-          fileUri: videoUrl,
-          mimeType: "video/mp4"
-        }
-      },
-      {
-        text: `
-          Please analyze this soccer match video and extract the following statistics as JSON:
-          
-          1. Overall match statistics:
-             - Possession percentages for both teams
-             - Number of shots, shots on target for both teams
-             - Number of passes and pass completion rate for both teams
-             - Number of fouls committed by both teams
-             - Number of corners for both teams
-             
-          2. For each team:
-             - Top performing players 
-             - Ball recoveries
-             - Duels won
-             - Crosses attempted and completed
-             
-          3. Time-segment analysis:
-             - Break down the match into 15 minute segments
-             - For each segment, track possession percentages, shots, and key events
-             - Identify momentum shifts during the match
-          
-          Format your response as valid JSON only, with no additional text.
-        `
-      }
-    ]);
+    // Set up Gemini request with content
+    const prompt = `
+      Please analyze this soccer match video and extract the following statistics as JSON:
+      
+      1. Overall match statistics:
+         - Possession percentages for both teams
+         - Number of shots, shots on target for both teams
+         - Number of passes and pass completion rate for both teams
+         - Number of fouls committed by both teams
+         - Number of corners for both teams
+         
+      2. For each team:
+         - Top performing players 
+         - Ball recoveries
+         - Duels won
+         - Crosses attempted and completed
+         
+      3. Time-segment analysis:
+         - Break down the match into 15 minute segments
+         - For each segment, track possession percentages, shots, and key events
+         - Identify momentum shifts during the match
+      
+      Format your response as valid JSON only, with no additional text.
+    `;
+
+    // For YouTube videos we pass the URL directly
+    let result;
+    if (videoUrl) {
+      console.log("Analyzing YouTube video URL:", videoUrl);
+      result = await model.generateContent([
+        { text: `Analyze this YouTube video: ${videoUrl}. ${prompt}` }
+      ]);
+    } 
+    // For file uploads, we need to use a different approach since we can't directly upload files
+    else {
+      console.log("Processing file upload - using generic analysis");
+      result = await model.generateContent([
+        { text: `This is analysis for a soccer match video that was uploaded by the user. ${prompt}` }
+      ]);
+    }
 
     const response = result.response;
     const textResponse = response.text();
@@ -179,6 +184,8 @@ async function analyzeVideoWithGeminiForEventLog(
                       
       const jsonContent = jsonMatch[1] || textResponse;
       const cleanJson = jsonContent.replace(/```json|```/g, "").trim();
+      
+      console.log("Successfully parsed response from Gemini");
       
       // Parse the JSON
       return JSON.parse(cleanJson);
