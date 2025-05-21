@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatchState } from '@/hooks/useMatchState';
@@ -113,13 +112,21 @@ const MatchRecording = () => {
     });
   };
 
+  const handleUpdateTeams = (teams: { home: Team; away: Team }) => {
+    updateTeams(teams.home, teams.away);
+  };
+
+  const handleCompleteSetup = () => {
+    completeSetup(homeTeam, awayTeam);
+  };
+
   if (!setupComplete) {
     return (
       <SetupScreen 
         homeTeam={homeTeam}
         awayTeam={awayTeam}
-        updateTeams={updateTeams}
-        completeSetup={completeSetup}
+        updateTeams={handleUpdateTeams}
+        completeSetup={handleCompleteSetup}
       />
     );
   }
