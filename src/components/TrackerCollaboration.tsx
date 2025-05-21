@@ -39,7 +39,7 @@ export default function TrackerCollaboration({ currentCategory, onEventTracked }
     
     const fetchAssignments = async () => {
       try {
-        const { data } = await supabase.rpc('get_tracker_assignments', { user_id: user.id } as any);
+        const { data } = await supabase.rpc('get_tracker_assignments', { user_id: user.id });
         setMyAssignments(data as TrackerAssignment[]);
       } catch (error) {
         console.error("Error fetching tracker assignments:", error);
@@ -223,7 +223,7 @@ export default function TrackerCollaboration({ currentCategory, onEventTracked }
           <Users className="w-5 h-5" /> 
           Collaboration
           {isOnline && (
-            <Badge variant="success" className="bg-green-500 ml-2">
+            <Badge variant="outline" className="bg-green-500 text-white ml-2">
               Active
             </Badge>
           )}

@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrackerAssignment from "@/components/admin/TrackerAssignment";
-import { Loader2 } from "lucide-react";
+import UserManagement from "@/components/admin/UserManagement";
+import SystemSettings from "@/components/admin/SystemSettings";
+import { Loader2, Users, SlashIcon, Settings } from "lucide-react";
 
 export default function AdminPage() {
   const { isAdmin, loading } = useAuth();
@@ -40,9 +42,18 @@ export default function AdminPage() {
       
       <Tabs defaultValue="trackers">
         <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:max-w-md">
-          <TabsTrigger value="trackers">Tracker Management</TabsTrigger>
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="settings">System Settings</TabsTrigger>
+          <TabsTrigger value="trackers" className="flex items-center gap-2">
+            <SlashIcon className="h-4 w-4" />
+            Tracker Management
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            User Management
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            System Settings
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="trackers" className="mt-6">
@@ -50,31 +61,11 @@ export default function AdminPage() {
         </TabsContent>
         
         <TabsContent value="users" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                View and manage all users in the system.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">User management functionality to be implemented.</p>
-            </CardContent>
-          </Card>
+          <UserManagement />
         </TabsContent>
         
         <TabsContent value="settings" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Settings</CardTitle>
-              <CardDescription>
-                Configure system-wide settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">System settings functionality to be implemented.</p>
-            </CardContent>
-          </Card>
+          <SystemSettings />
         </TabsContent>
       </Tabs>
     </div>
