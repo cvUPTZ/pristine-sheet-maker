@@ -3,7 +3,7 @@ import React from 'react';
 import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
 import BallTracker from '@/components/BallTracker';
-import { Player, BallTrackingPoint } from '@/types';
+import { Player, BallTrackingPoint, EventType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { getPlayerPositions } from '@/utils/formationUtils';
 
@@ -23,6 +23,7 @@ interface PitchViewProps {
   selectedTeam: 'home' | 'away';
   setSelectedTeam: (team: 'home' | 'away') => void;
   handlePlayerSelect: (player: Player) => void;
+  handleEventSelect?: (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => void;
   ballTrackingPoints: BallTrackingPoint[];
   mode: 'piano' | 'tracking';
   handlePitchClick: (coordinates: { x: number; y: number }) => void;
@@ -37,6 +38,7 @@ const PitchView: React.FC<PitchViewProps> = ({
   selectedTeam,
   setSelectedTeam,
   handlePlayerSelect,
+  handleEventSelect,
   ballTrackingPoints,
   mode,
   handlePitchClick,
@@ -71,6 +73,9 @@ const PitchView: React.FC<PitchViewProps> = ({
               setSelectedTeam('home');
               handlePlayerSelect(player);
             }}
+            onEventSelect={handleEventSelect ? 
+              (eventType, player, coords) => handleEventSelect(eventType, player, coords) : 
+              undefined}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
           />
         ))}
@@ -86,6 +91,9 @@ const PitchView: React.FC<PitchViewProps> = ({
               setSelectedTeam('away');
               handlePlayerSelect(player);
             }}
+            onEventSelect={handleEventSelect ? 
+              (eventType, player, coords) => handleEventSelect(eventType, player, coords) : 
+              undefined}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
           />
         ))}

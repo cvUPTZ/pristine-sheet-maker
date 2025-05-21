@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Team, Player } from '@/types';
+import { Team, Player, EventType } from '@/types';
 import PitchView from './match/PitchView';
 
 interface PitchProps {
@@ -37,6 +37,18 @@ const Pitch: React.FC<PitchProps> = ({
   const handlePlayerSelect = (player: Player) => {
     onSelectPlayer(player);
   };
+  
+  const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
+    // First select the player
+    onSelectPlayer(player);
+    
+    // Then record the event (the parent component will handle this)
+    if (eventType && player) {
+      // We need to dispatch this event to the parent component
+      // For now, we'll just track the ball movement as a demonstration
+      onTrackBallMovement(coordinates);
+    }
+  };
 
   // Use an empty array if no tracking points should be displayed
   const emptyTrackingPoints: any[] = [];
@@ -50,6 +62,7 @@ const Pitch: React.FC<PitchProps> = ({
       selectedTeam={selectedTeam}
       setSelectedTeam={onSelectTeam}
       handlePlayerSelect={handlePlayerSelect}
+      handleEventSelect={handleEventSelect}
       ballTrackingPoints={emptyTrackingPoints}
       mode={ballTrackingMode ? 'tracking' : 'piano'}
       handlePitchClick={handlePitchClick}
