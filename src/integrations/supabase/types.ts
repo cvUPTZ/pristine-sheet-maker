@@ -9,578 +9,307 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      attendance: {
+      chapters: {
         Row: {
+          content: string | null
           created_at: string
           id: string
-          notes: string | null
-          program_id: string
-          recorded_by: string | null
-          session_date: string
-          status: string
-          student_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          program_id: string
-          recorded_by?: string | null
-          session_date: string
-          status?: string
-          student_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          program_id?: string
-          recorded_by?: string | null
-          session_date?: string
-          status?: string
-          student_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_recorded_by_fkey"
-            columns: ["recorded_by"]
-            isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      coaches: {
-        Row: {
-          email: string | null
-          experience: string | null
-          first_name: string
-          hire_date: string
-          id: string
-          last_name: string
-          notes: string | null
-          phone: string
-          specialty: string
-          status: string
-        }
-        Insert: {
-          email?: string | null
-          experience?: string | null
-          first_name: string
-          hire_date?: string
-          id?: string
-          last_name: string
-          notes?: string | null
-          phone: string
-          specialty: string
-          status?: string
-        }
-        Update: {
-          email?: string | null
-          experience?: string | null
-          first_name?: string
-          hire_date?: string
-          id?: string
-          last_name?: string
-          notes?: string | null
-          phone?: string
-          specialty?: string
-          status?: string
-        }
-        Relationships: []
-      }
-      content_blocks: {
-        Row: {
-          active: boolean
-          content: string
-          created_at: string
-          id: string
-          order_index: number
-          section: string
+          order_number: number
+          thesis_id: string
           title: string
           updated_at: string
         }
         Insert: {
-          active?: boolean
-          content: string
+          content?: string | null
           created_at?: string
           id?: string
-          order_index: number
-          section: string
+          order_number: number
+          thesis_id: string
           title: string
           updated_at?: string
         }
         Update: {
-          active?: boolean
-          content?: string
+          content?: string | null
           created_at?: string
           id?: string
-          order_index?: number
-          section?: string
+          order_number?: number
+          thesis_id?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
-      }
-      evaluations: {
-        Row: {
-          coach_id: string
-          discipline: number
-          evaluation_date: string
-          id: string
-          notes: string | null
-          physical_fitness: number
-          student_id: string
-          tactical_understanding: number
-          teamwork: number
-          technical_skills: number
-        }
-        Insert: {
-          coach_id: string
-          discipline: number
-          evaluation_date?: string
-          id?: string
-          notes?: string | null
-          physical_fitness: number
-          student_id: string
-          tactical_understanding: number
-          teamwork: number
-          technical_skills: number
-        }
-        Update: {
-          coach_id?: string
-          discipline?: number
-          evaluation_date?: string
-          id?: string
-          notes?: string | null
-          physical_fitness?: number
-          student_id?: string
-          tactical_understanding?: number
-          teamwork?: number
-          technical_skills?: number
-        }
         Relationships: [
           {
-            foreignKeyName: "evaluations_coach_id_fkey"
-            columns: ["coach_id"]
+            foreignKeyName: "chapters_thesis_id_fkey"
+            columns: ["thesis_id"]
             isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "evaluations_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
+            referencedRelation: "theses"
             referencedColumns: ["id"]
           },
         ]
       }
-      expenses: {
+      custom_commands: {
         Row: {
-          amount: number
-          category: string
-          description: string | null
-          id: string
-          payment_date: string
-          payment_method: string
-          recipient: string | null
-          reference_number: string | null
-        }
-        Insert: {
-          amount: number
-          category: string
-          description?: string | null
-          id?: string
-          payment_date?: string
-          payment_method: string
-          recipient?: string | null
-          reference_number?: string | null
-        }
-        Update: {
-          amount?: number
-          category?: string
-          description?: string | null
-          id?: string
-          payment_date?: string
-          payment_method?: string
-          recipient?: string | null
-          reference_number?: string | null
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
+          command_action: string
+          command_description: string | null
+          command_name: string
+          command_type: string
           created_at: string
+          created_by: string
           id: string
-          message: string
-          read: boolean
-          student_id: string
-          title: string
-          type: string
         }
         Insert: {
+          command_action: string
+          command_description?: string | null
+          command_name: string
+          command_type: string
           created_at?: string
+          created_by: string
           id?: string
-          message: string
-          read?: boolean
-          student_id: string
-          title: string
-          type: string
         }
         Update: {
+          command_action?: string
+          command_description?: string | null
+          command_name?: string
+          command_type?: string
           created_at?: string
+          created_by?: string
           id?: string
-          message?: string
-          read?: boolean
-          student_id?: string
-          title?: string
-          type?: string
         }
         Relationships: [
           {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "custom_commands_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "students"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
-      }
-      payments: {
-        Row: {
-          amount: number
-          description: string | null
-          id: string
-          payment_date: string
-          payment_method: string
-          payment_type: string
-          reference_number: string | null
-          status: string
-          student_id: string | null
-        }
-        Insert: {
-          amount: number
-          description?: string | null
-          id?: string
-          payment_date?: string
-          payment_method: string
-          payment_type: string
-          reference_number?: string | null
-          status?: string
-          student_id?: string | null
-        }
-        Update: {
-          amount?: number
-          description?: string | null
-          id?: string
-          payment_date?: string
-          payment_method?: string
-          payment_type?: string
-          reference_number?: string | null
-          status?: string
-          student_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      permissions: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
-          coach_id: string | null
           created_at: string
-          first_name: string | null
+          full_name: string | null
           id: string
-          last_name: string | null
           role: Database["public"]["Enums"]["user_role"]
         }
         Insert: {
-          coach_id?: string | null
           created_at?: string
-          first_name?: string | null
+          full_name?: string | null
           id: string
-          last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
         }
         Update: {
-          coach_id?: string | null
           created_at?: string
-          first_name?: string | null
+          full_name?: string | null
           id?: string
-          last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      program_coaches: {
+      references: {
         Row: {
-          coach_id: string
+          citation_style: string | null
+          citation_text: string
+          created_at: string
           id: string
-          program_id: string
+          thesis_id: string
         }
         Insert: {
-          coach_id: string
+          citation_style?: string | null
+          citation_text: string
+          created_at?: string
           id?: string
-          program_id: string
+          thesis_id: string
         }
         Update: {
-          coach_id?: string
+          citation_style?: string | null
+          citation_text?: string
+          created_at?: string
           id?: string
-          program_id?: string
+          thesis_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "program_coaches_coach_id_fkey"
-            columns: ["coach_id"]
+            foreignKeyName: "references_thesis_id_fkey"
+            columns: ["thesis_id"]
             isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "program_coaches_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
+            referencedRelation: "theses"
             referencedColumns: ["id"]
           },
         ]
       }
-      programs: {
+      reviews: {
         Row: {
-          age_group: string
+          comments: string | null
           created_at: string
+          id: string
+          reviewer_id: string
+          status: string | null
+          thesis_id: string
+          updated_at: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          reviewer_id: string
+          status?: string | null
+          thesis_id: string
+          updated_at?: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          reviewer_id?: string
+          status?: string | null
+          thesis_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_thesis_id_fkey"
+            columns: ["thesis_id"]
+            isOneToOne: false
+            referencedRelation: "theses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sections: {
+        Row: {
+          chapter_id: string
+          content: string | null
+          created_at: string
+          id: string
+          order_number: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chapter_id: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          order_number: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chapter_id?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          order_number?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sections_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theses: {
+        Row: {
+          created_at: string
+          field: string | null
+          id: string
+          status: string | null
+          supervisor: string | null
+          title: string | null
+          university: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          field?: string | null
+          id?: string
+          status?: string | null
+          supervisor?: string | null
+          title?: string | null
+          university?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          field?: string | null
+          id?: string
+          status?: string | null
+          supervisor?: string | null
+          title?: string | null
+          university?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_events: {
+        Row: {
+          category: string
+          created_at: string
+          date: string
           description: string | null
           id: string
-          max_students: number
-          name: string
+          image_url: string | null
+          location: string
+          title: string
+          updated_at: string
         }
         Insert: {
-          age_group: string
+          category: string
           created_at?: string
+          date: string
           description?: string | null
           id?: string
-          max_students?: number
-          name: string
+          image_url?: string | null
+          location: string
+          title: string
+          updated_at?: string
         }
         Update: {
-          age_group?: string
+          category?: string
           created_at?: string
+          date?: string
           description?: string | null
           id?: string
-          max_students?: number
-          name?: string
+          image_url?: string | null
+          location?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
-      }
-      registration_periods: {
-        Row: {
-          created_at: string
-          end_date: string
-          id: string
-          is_active: boolean
-          start_date: string
-        }
-        Insert: {
-          created_at?: string
-          end_date: string
-          id?: string
-          is_active?: boolean
-          start_date: string
-        }
-        Update: {
-          created_at?: string
-          end_date?: string
-          id?: string
-          is_active?: boolean
-          start_date?: string
-        }
-        Relationships: []
-      }
-      role_permissions: {
-        Row: {
-          created_at: string
-          id: string
-          permission_id: string
-          role: Database["public"]["Enums"]["user_role"]
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          permission_id: string
-          role: Database["public"]["Enums"]["user_role"]
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          permission_id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_permissions_permission_id_fkey"
-            columns: ["permission_id"]
-            isOneToOne: false
-            referencedRelation: "permissions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sessions: {
-        Row: {
-          day_of_week: string
-          end_time: string
-          id: string
-          program_id: string
-          start_time: string
-        }
-        Insert: {
-          day_of_week: string
-          end_time: string
-          id?: string
-          program_id: string
-          start_time: string
-        }
-        Update: {
-          day_of_week?: string
-          end_time?: string
-          id?: string
-          program_id?: string
-          start_time?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      students: {
-        Row: {
-          address: string | null
-          birth_date: string
-          coach_id: string | null
-          first_name: string
-          group_id: string | null
-          id: string
-          last_name: string
-          notes: string | null
-          parent_id: string | null
-          parent_name: string
-          parent_phone: string
-          phone: string | null
-          registration_date: string
-          status: string
-        }
-        Insert: {
-          address?: string | null
-          birth_date: string
-          coach_id?: string | null
-          first_name: string
-          group_id?: string | null
-          id?: string
-          last_name: string
-          notes?: string | null
-          parent_id?: string | null
-          parent_name: string
-          parent_phone: string
-          phone?: string | null
-          registration_date?: string
-          status?: string
-        }
-        Update: {
-          address?: string | null
-          birth_date?: string
-          coach_id?: string | null
-          first_name?: string
-          group_id?: string | null
-          id?: string
-          last_name?: string
-          notes?: string | null
-          parent_id?: string | null
-          parent_name?: string
-          parent_phone?: string
-          phone?: string | null
-          registration_date?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "students_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_permission: {
-        Args: { permission_name: string }
-        Returns: boolean
-      }
-      is_registration_active: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      user_role: "admin" | "coach" | "parent"
+      user_role: "admin" | "teacher" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -696,7 +425,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["admin", "coach", "parent"],
+      user_role: ["admin", "teacher", "user"],
     },
   },
 } as const
