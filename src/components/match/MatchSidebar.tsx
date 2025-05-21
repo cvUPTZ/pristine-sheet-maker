@@ -1,11 +1,10 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import ActionButtons from '@/components/ActionButtons';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
-import { Statistics, Player } from '@/types';
+import { Statistics, Player, TimeSegmentStatistics } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Accordion,
@@ -13,6 +12,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface MatchSidebarProps {
   isRunning: boolean;
@@ -29,6 +30,8 @@ interface MatchSidebarProps {
   awayTeam: { name: string; players: Player[]; formation: string };
   statistics: Statistics;
   updateStatistics?: (stats: Statistics) => void;
+  setTimeSegments?: (segments: TimeSegmentStatistics[]) => void;
+  calculateTimeSegments?: () => TimeSegmentStatistics[];
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
@@ -45,9 +48,24 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   homeTeam,
   awayTeam,
   statistics,
-  updateStatistics
+  updateStatistics,
+  setTimeSegments,
+  calculateTimeSegments
 }) => {
   const { toast } = useToast();
+  const [hasCalculatedSegments, setHasCalculatedSegments] = useState(false);
+
+  const handleCalculateTimeSegments = () => {
+    if (calculateTimeSegments && setTimeSegments) {
+      const segments = calculateTimeSegments();
+      setTimeSegments(segments);
+      setHasCalculatedSegments(true);
+      toast({
+        title: "Time Segments Calculated",
+        description: `Analysis complete for ${segments.length} time segments`,
+      });
+    }
+  };
 
   const handleVideoAnalysis = (videoStats: Statistics) => {
     if (updateStatistics) {
@@ -61,6 +79,18 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
       console.warn("Cannot update statistics: updateStatistics function not provided");
     }
   };
+
+  // Automatically calculate time segments once we have enough data
+  useEffect(() => {
+    if (
+      !hasCalculatedSegments && 
+      ballTrackingPoints.length > 50 && 
+      calculateTimeSegments && 
+      setTimeSegments
+    ) {
+      handleCalculateTimeSegments();
+    }
+  }, [ballTrackingPoints, hasCalculatedSegments, calculateTimeSegments, setTimeSegments]);
 
   return (
     <div className="space-y-4">
@@ -152,6 +182,34 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
             />
           </AccordionContent>
         </AccordionItem>
+        
+        {ballTrackingPoints.length > 20 && (
+          <AccordionItem value="analysis">
+            <AccordionTrigger>Time Segment Analysis</AccordionTrigger>
+            <AccordionContent>
+              <Card className="p-4 bg-white shadow-md">
+                <div className="text-sm">
+                  <p className="mb-2">Time segment analysis helps visualize statistics over 5-minute intervals.</p>
+                  <div className="flex justify-between items-center">
+                    <Button 
+                      onClick={handleCalculateTimeSegments}
+                      className="mt-2"
+                      disabled={!calculateTimeSegments || ballTrackingPoints.length < 20}
+                    >
+                      Calculate Time Segments
+                    </Button>
+                    <Link to="/stats">
+                      <Button variant="outline" size="sm" className="flex items-center gap-1">
+                        View Stats
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        )}
       </Accordion>
       
       {/* Desktop version */}
@@ -218,6 +276,30 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
           homeTeamName={homeTeam.name}
           awayTeamName={awayTeam.name}
         />
+        
+        {ballTrackingPoints.length > 20 && (
+          <Card className="p-4 bg-white shadow-md mt-4">
+            <h3 className="font-semibold mb-2">Time Segment Analysis</h3>
+            <div className="text-sm mb-4">
+              <p>Calculate detailed time segment statistics for visualization.</p>
+            </div>
+            <div className="flex justify-between">
+              <Button
+                onClick={handleCalculateTimeSegments}
+                size="sm"
+                disabled={!calculateTimeSegments || ballTrackingPoints.length < 20}
+              >
+                Calculate Segments
+              </Button>
+              <Link to="/stats">
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  View Stats
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

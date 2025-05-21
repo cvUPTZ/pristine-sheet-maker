@@ -1,11 +1,14 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Activity, Medal } from 'lucide-react';
+import { ArrowLeft, BarChart3, Activity, Medal, TrendingUp, FileBarChart } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
+import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
+import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
+import { TimeSegmentStatistics, BallTrackingPoint, Player, Team } from '@/types';
 
 interface Player {
   id: number;
@@ -50,6 +53,9 @@ const Statistics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [topScorers, setTopScorers] = useState<{player: Player; team: string; goals: number}[]>([]);
   const [topAssists, setTopAssists] = useState<{player: Player; team: string; assists: number}[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<SavedMatch | null>(null);
+  const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>([]);
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>([]);
 
   useEffect(() => {
     // Load all match data from localStorage
@@ -171,12 +177,45 @@ const Statistics: React.FC = () => {
     const matchesData = loadMatchData();
     setMatches(matchesData);
     
+    // Set the first match as selected by default if available
+    if (matchesData.length > 0) {
+      setSelectedMatch(matchesData[0]);
+      
+      // Load ball tracking points and time segments for the first match if available
+      const firstMatch = matchesData[0];
+      if (firstMatch.ballTrackingPoints && firstMatch.ballTrackingPoints.length > 0) {
+        setBallTrackingPoints(firstMatch.ballTrackingPoints);
+      }
+      
+      if (firstMatch.timeSegments && firstMatch.timeSegments.length > 0) {
+        setTimeSegments(firstMatch.timeSegments);
+      }
+    }
+    
     const { scorers, assisters } = calculatePlayerStats(matchesData);
     setTopScorers(scorers);
     setTopAssists(assisters);
     
     setLoading(false);
   }, []);
+
+  // Handle match selection
+  const handleMatchSelect = (match: SavedMatch) => {
+    setSelectedMatch(match);
+    
+    // Load match-specific data
+    if (match.ballTrackingPoints && match.ballTrackingPoints.length > 0) {
+      setBallTrackingPoints(match.ballTrackingPoints);
+    } else {
+      setBallTrackingPoints([]);
+    }
+    
+    if (match.timeSegments && match.timeSegments.length > 0) {
+      setTimeSegments(match.timeSegments);
+    } else {
+      setTimeSegments([]);
+    }
+  };
 
   // Calculate aggregate statistics
   const totalMatches = matches.length;
@@ -332,11 +371,12 @@ const Statistics: React.FC = () => {
               </Card>
             </div>
 
-            <Tabs defaultValue="overview">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="players">Top Players</TabsTrigger>
                 <TabsTrigger value="teams">Team Analysis</TabsTrigger>
+                <TabsTrigger value="visualizations">Visualizations</TabsTrigger>
               </TabsList>
               
               <TabsContent value="overview" className="mt-4">
@@ -573,6 +613,89 @@ const Statistics: React.FC = () => {
                         </div>
                       )}
                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="visualizations" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileBarChart className="h-5 w-5 text-primary" />
+                      Advanced Match Visualizations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedMatch ? (
+                      <div className="space-y-6">
+                        <div className="flex flex-wrap gap-2">
+                          {matches.map(match => (
+                            <Button 
+                              key={match.matchId}
+                              variant={selectedMatch.matchId === match.matchId ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleMatchSelect(match)}
+                            >
+                              {match.homeTeam.name} vs {match.awayTeam.name}
+                            </Button>
+                          ))}
+                        </div>
+                        
+                        {ballTrackingPoints.length > 0 ? (
+                          <Tabs defaultValue="time" className="w-full">
+                            <TabsList className="grid grid-cols-3 mb-4">
+                              <TabsTrigger value="time">Time Analysis</TabsTrigger>
+                              <TabsTrigger value="player">Player Stats</TabsTrigger>
+                              <TabsTrigger value="flow">Ball Flow</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="time">
+                              {timeSegments.length > 0 ? (
+                                <TeamTimeSegmentCharts 
+                                  timeSegments={timeSegments}
+                                  homeTeamName={selectedMatch.homeTeam.name}
+                                  awayTeamName={selectedMatch.awayTeam.name}
+                                />
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <p>No time segment data available for this match.</p>
+                                  <p className="text-sm mt-2">Return to the match to calculate time segments.</p>
+                                </div>
+                              )}
+                            </TabsContent>
+                            
+                            <TabsContent value="player">
+                              <PlayerStatsTable
+                                ballTrackingPoints={ballTrackingPoints}
+                                homeTeam={selectedMatch.homeTeam as Team}
+                                awayTeam={selectedMatch.awayTeam as Team}
+                              />
+                            </TabsContent>
+                            
+                            <TabsContent value="flow">
+                              <BallFlowVisualization
+                                ballTrackingPoints={ballTrackingPoints}
+                                homeTeam={selectedMatch.homeTeam as Team}
+                                awayTeam={selectedMatch.awayTeam as Team}
+                                width={800}
+                                height={600}
+                              />
+                            </TabsContent>
+                          </Tabs>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No ball tracking data available for this match.</p>
+                            <p className="text-sm mt-2">
+                              Use ball tracking mode during matches to collect visualization data.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>Select a match to view detailed visualizations</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
