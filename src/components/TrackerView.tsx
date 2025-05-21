@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { TrackerAssignment } from "@/types/auth";
@@ -5,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventType } from "@/types";
 import { Loader2 } from "lucide-react";
 import { getTrackerAssignments } from "@/supabase/functions";
+import TrackerCollaboration from "./TrackerCollaboration";
+import { toast } from "@/components/ui/use-toast";
 
 interface TrackerViewProps {
   onCategorySelect?: (category: string, events: EventType[]) => void;
@@ -63,6 +66,13 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
     }
   };
 
+  const handleEventTracked = (event: { type: EventType; trackedBy: string; timestamp: string }) => {
+    toast({
+      title: `${event.type} tracked`,
+      description: `${event.trackedBy} tracked a ${event.type} at ${new Date(event.timestamp).toLocaleTimeString()}`,
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center p-4">
@@ -115,6 +125,11 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
           );
         })}
       </div>
+
+      <TrackerCollaboration 
+        currentCategory={selectedCategory || undefined}
+        onEventTracked={handleEventTracked}
+      />
     </div>
   );
 }
