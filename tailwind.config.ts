@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,12 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				football: {
+					pitch: '#3a8d45',
+					line: '#ffffff',
+					home: '#1A365D',
+					away: '#D3212C',
 				}
 			},
 			borderRadius: {
