@@ -6,6 +6,7 @@ import TeamSetupWithFormation from '@/components/TeamSetupWithFormation';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Team } from '@/types';
+import { toast } from 'sonner';
 
 interface SetupScreenProps {
   homeTeam: Team;
@@ -20,6 +21,22 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   updateTeams,
   completeSetup
 }) => {
+  const handleStartMatch = () => {
+    // Validation check before starting the match
+    if (homeTeam.players.length < 1 || awayTeam.players.length < 1) {
+      toast.error("Each team must have at least one player.");
+      return;
+    }
+    
+    if (!homeTeam.formation || !awayTeam.formation) {
+      toast.error("Please select a formation for both teams.");
+      return;
+    }
+    
+    // All validation passed
+    completeSetup();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
       <div className="max-w-4xl mx-auto">
@@ -38,7 +55,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
           <TeamSetupWithFormation 
             teams={{ home: homeTeam, away: awayTeam }}
             onTeamsChange={updateTeams}
-            onConfirm={completeSetup}
+            onConfirm={handleStartMatch}
           />
         </Card>
       </div>

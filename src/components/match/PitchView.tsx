@@ -39,6 +39,10 @@ const PitchView: React.FC<PitchViewProps> = ({
   handlePitchClick,
   addBallTrackingPoint
 }) => {
+  // Check if positions exist for debugging
+  const homePlayerIds = homeTeam.players.map(p => p.id);
+  const awayPlayerIds = awayTeam.players.map(p => p.id);
+  
   return (
     <div className="mb-4 relative">
       {mode === 'tracking' && (

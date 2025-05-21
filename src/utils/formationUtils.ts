@@ -99,9 +99,10 @@ export const getPlayerPositions = (team: Team, isHomeTeam: boolean) => {
   }
   
   team.players.forEach((player: Player, index: number) => {
+    // Make sure we don't exceed the available positions in the formation
     positions[player.id] = index < basePositions.length 
-      ? basePositions[index] 
-      : { x: Math.random(), y: Math.random() };
+      ? { ...basePositions[index] } // Use spread to create a new object, preventing mutation
+      : { x: Math.random(), y: isHomeTeam ? 0.7 : 0.3 }; // Position extras in a reasonable place
   });
   
   return positions;
