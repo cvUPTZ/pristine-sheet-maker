@@ -6,7 +6,7 @@ import { Team, BallTrackingPoint, TimeSegmentStatistics } from '@/types';
 import TeamTimeSegmentCharts from './TeamTimeSegmentCharts';
 import PlayerStatsTable from './PlayerStatsTable';
 import BallFlowVisualization from './BallFlowVisualization';
-import { useBreakpoint } from '@/hooks/use-mobile';
+import { useBreakpoint, useCurrentBreakpoint } from '@/hooks/use-mobile';
 
 interface MatchStatsVisualizerProps {
   homeTeam: Team;
@@ -22,16 +22,35 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
   timeSegments
 }) => {
   const isMobile = useBreakpoint('md');
+  const isSmall = useBreakpoint('sm');
+  const currentBreakpoint = useCurrentBreakpoint();
   const [flowDimensions, setFlowDimensions] = useState({ width: 800, height: 600 });
   
   // Adjust visualization dimensions based on screen size
   useEffect(() => {
     const updateDimensions = () => {
       const containerWidth = document.getElementById('visualization-container')?.clientWidth || 800;
-      setFlowDimensions({
-        width: Math.min(containerWidth - 40, 800),
-        height: Math.min(containerWidth * 0.75, 600)
-      });
+      
+      // Set dimensions based on breakpoint
+      switch(currentBreakpoint) {
+        case 'xs':
+          setFlowDimensions({
+            width: Math.min(containerWidth - 20, 400),
+            height: Math.min(containerWidth * 0.8, 320)
+          });
+          break;
+        case 'sm':
+          setFlowDimensions({
+            width: Math.min(containerWidth - 30, 500),
+            height: Math.min(containerWidth * 0.75, 375)
+          });
+          break;
+        default:
+          setFlowDimensions({
+            width: Math.min(containerWidth - 40, 800),
+            height: Math.min(containerWidth * 0.75, 600)
+          });
+      }
     };
     
     updateDimensions();
@@ -40,7 +59,7 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
     return () => {
       window.removeEventListener('resize', updateDimensions);
     };
-  }, []);
+  }, [currentBreakpoint]);
 
   if (!ballTrackingPoints.length) {
     return (
@@ -63,15 +82,15 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Match Statistics Visualizer</CardTitle>
+          <CardTitle className="text-lg sm:text-xl md:text-2xl">Match Statistics Visualizer</CardTitle>
           <CardDescription>Comprehensive visualization of match data</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="time" className="w-full">
-            <TabsList className={`grid ${isMobile ? "grid-cols-1 gap-2" : "grid-cols-3"} mb-4`}>
-              <TabsTrigger value="time">Time Analysis</TabsTrigger>
-              <TabsTrigger value="player">Player Stats</TabsTrigger>
-              <TabsTrigger value="flow">Ball Flow</TabsTrigger>
+            <TabsList className={`grid ${isSmall ? "grid-cols-1" : isMobile ? "grid-cols-2" : "grid-cols-3"} gap-2 mb-4`}>
+              <TabsTrigger value="time" className="text-xs sm:text-sm">Time Analysis</TabsTrigger>
+              <TabsTrigger value="player" className="text-xs sm:text-sm">Player Stats</TabsTrigger>
+              <TabsTrigger value="flow" className="text-xs sm:text-sm">Ball Flow</TabsTrigger>
             </TabsList>
             
             <TabsContent value="time">
@@ -95,7 +114,7 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
             </TabsContent>
             
             <TabsContent value="flow">
-              <div id="visualization-container">
+              <div id="visualization-container" className="flex justify-center">
                 <BallFlowVisualization
                   ballTrackingPoints={ballTrackingPoints}
                   homeTeam={homeTeam}

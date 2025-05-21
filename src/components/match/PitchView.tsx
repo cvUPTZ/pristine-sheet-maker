@@ -6,6 +6,7 @@ import BallTracker from '@/components/BallTracker';
 import { Player, BallTrackingPoint, EventType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { getPlayerPositions } from '@/utils/formationUtils';
+import { useCurrentBreakpoint } from '@/hooks/use-mobile';
 
 interface PitchViewProps {
   homeTeam: {
@@ -54,14 +55,19 @@ const PitchView: React.FC<PitchViewProps> = ({
   // Reference to the container for responsive sizing
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const currentBreakpoint = useCurrentBreakpoint();
   
   // Update container size on mount and window resize
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
+        const width = containerRef.current.clientWidth;
         setContainerSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight
+          width,
+          // On mobile devices, make height proportional but with a smaller footprint
+          height: currentBreakpoint === 'xs' || currentBreakpoint === 'sm' 
+            ? width * 0.7  // Slightly shorter on mobile
+            : width * 0.75 // Standard aspect ratio
         });
       }
     };
@@ -72,7 +78,7 @@ const PitchView: React.FC<PitchViewProps> = ({
     return () => {
       window.removeEventListener('resize', updateSize);
     };
-  }, []);
+  }, [currentBreakpoint]);
   
   return (
     <div className="mb-4 relative" ref={containerRef}>
@@ -84,8 +90,11 @@ const PitchView: React.FC<PitchViewProps> = ({
         </div>
       )}
       
-      <FootballPitch onClick={handlePitchClick}>
-        {/* Render home team players */}
+      <FootballPitch 
+        onClick={handlePitchClick} 
+        className={`w-full ${currentBreakpoint === 'xs' || currentBreakpoint === 'sm' ? 'min-h-[50vh]' : 'min-h-[60vh]'}`}
+      >
+        {/* Home team players */}
         {homeTeam.players.map((player) => (
           <PlayerMarker
             key={`home-${player.id}`}
@@ -101,7 +110,7 @@ const PitchView: React.FC<PitchViewProps> = ({
           />
         ))}
         
-        {/* Render away team players */}
+        {/* Away team players */}
         {awayTeam.players.map((player) => (
           <PlayerMarker
             key={`away-${player.id}`}
@@ -126,8 +135,8 @@ const PitchView: React.FC<PitchViewProps> = ({
       </FootballPitch>
       
       {selectedPlayer && (
-        <div className="mt-2 p-2 bg-gray-100 rounded-md shadow-sm text-sm md:text-base">
-          <p className="font-medium">Selected: {selectedPlayer.name} (#{selectedPlayer.number}) - {selectedTeam === 'home' ? homeTeam.name : awayTeam.name}</p>
+        <div className="mt-2 p-2 bg-gray-100 rounded-md shadow-sm text-xs sm:text-sm">
+          <p className="font-medium truncate">Selected: {selectedPlayer.name} (#{selectedPlayer.number}) - {selectedTeam === 'home' ? homeTeam.name : awayTeam.name}</p>
         </div>
       )}
     </div>

@@ -27,6 +27,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
 }) => {
   const isSmall = useBreakpoint('sm');
   const isMedium = useBreakpoint('md');
+  const isXS = useBreakpoint('xs');
   
   return (
     <header className="mb-4 bg-white p-2 md:p-4 rounded-lg shadow-md">
@@ -35,7 +36,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         <div className="lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size={isXS ? "sm" : "icon"}>
                 <MenuIcon className="h-4 w-4" />
               </Button>
             </SheetTrigger>
@@ -71,7 +72,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         </div>
         
         <h1 className={cn(
-          "text-xl md:text-2xl font-bold bg-gradient-to-r from-football-home to-football-away bg-clip-text text-transparent",
+          "text-base sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-football-home to-football-away bg-clip-text text-transparent",
           "sm:text-center flex-grow text-center"
         )}>
           EFOOTPAD
@@ -99,21 +100,21 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
           onValueChange={(value) => setMode(value as 'piano' | 'tracking')}
         >
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="piano">Piano Mode</TabsTrigger>
-            <TabsTrigger value="tracking" onClick={handleToggleTracking}>Ball Tracking</TabsTrigger>
+            <TabsTrigger value="piano" className="text-xs sm:text-sm">Piano Mode</TabsTrigger>
+            <TabsTrigger value="tracking" onClick={handleToggleTracking} className="text-xs sm:text-sm">Ball Tracking</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       
       <div className="flex justify-between items-center mt-2 text-xs sm:text-sm md:text-base flex-wrap">
-        <div className={`text-football-home font-semibold md:text-xl ${isSmall ? 'max-w-[40%] truncate' : ''}`}>
-          {homeTeam.name} <span className="text-xs md:text-sm">{isSmall ? '' : `(${homeTeam.formation})`}</span>
+        <div className={`text-football-home font-semibold md:text-xl ${isXS ? 'max-w-[35%]' : isSmall ? 'max-w-[40%]' : ''} truncate`}>
+          {homeTeam.name} <span className="text-[0.65rem] md:text-sm">{isXS ? '' : isSmall ? '' : `(${homeTeam.formation})`}</span>
         </div>
-        <div className="text-lg font-mono font-bold mx-1 md:mx-4">
+        <div className="text-base sm:text-lg font-mono font-bold mx-1 md:mx-4">
           vs
         </div>
-        <div className={`text-football-away font-semibold md:text-xl ${isSmall ? 'max-w-[40%] truncate' : ''}`}>
-          {awayTeam.name} <span className="text-xs md:text-sm">{isSmall ? '' : `(${awayTeam.formation})`}</span>
+        <div className={`text-football-away font-semibold md:text-xl ${isXS ? 'max-w-[35%]' : isSmall ? 'max-w-[40%]' : ''} truncate`}>
+          {awayTeam.name} <span className="text-[0.65rem] md:text-sm">{isXS ? '' : isSmall ? '' : `(${awayTeam.formation})`}</span>
         </div>
       </div>
     </header>

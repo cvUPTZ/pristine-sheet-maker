@@ -80,3 +80,58 @@
     max-width: 1280px;
   }
 }
+
+/* Mobile touch optimizations */
+@media (max-width: 640px) {
+  * {
+    touch-action: manipulation; /* Improve touch responsiveness */
+  }
+  
+  .touch-target {
+    min-height: 44px; /* Minimum touch target size for good UX */
+    min-width: 44px;
+  }
+  
+  input, button, select, textarea {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+  }
+}
+
+/* Enhanced pitch and piano view for mobile */
+@media (max-width: 640px) {
+  .football-pitch {
+    aspect-ratio: 4/3; /* Slightly narrower aspect ratio on mobile */
+    touch-action: manipulation;
+  }
+  
+  .piano-grid {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); /* Smaller grid items on mobile */
+    gap: 4px;
+  }
+}
+
+/* Prevent text from being too small on mobile */
+@media (max-width: 640px) {
+  .text-xs {
+    font-size: 0.7rem;
+  }
+  
+  h1, h2, h3 {
+    word-break: break-word;
+  }
+}
+
+/* Animations */
+@keyframes ball-pulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.2); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.ball-pulse {
+  animation: ball-pulse 1s infinite;
+}
+
+.dashed-line {
+  stroke-dasharray: 5,5;
+}
