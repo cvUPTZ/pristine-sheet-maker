@@ -59,8 +59,8 @@ serve(async (req) => {
       };
     }
 
-    // Use Gemini 2.5 Flash to analyze video content
-    const analysisResult = await analyzeVideoWithGeminiForEventLog(videoUrl, videoInfo);
+    // Use the new API endpoint for analysis
+    const analysisResult = await analyzeVideoWithCustomEndpoint(videoUrl, videoInfo);
     
     return new Response(
       JSON.stringify({ 
@@ -112,8 +112,8 @@ async function getYouTubeVideoInfo(videoId: string) {
   };
 }
 
-// Use Gemini to analyze the video content for event logging
-async function analyzeVideoWithGeminiForEventLog(
+// Use the custom endpoint to analyze the video content
+async function analyzeVideoWithCustomEndpoint(
   videoUrl: string, 
   videoInfo: any
 ) {
@@ -123,15 +123,8 @@ async function analyzeVideoWithGeminiForEventLog(
   }
 
   try {
-    console.log(`Sending Gemini request for video analysis.`);
+    console.log(`Sending analysis request to custom Google API endpoint.`);
 
-    // Initialize the Google Generative AI with Gemini
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "models/gemini-2.5-flash-preview-05-20",
-    });
-
-    // Set up Gemini request with content
     const prompt = `
       Please analyze this soccer match video and extract the following statistics as JSON:
       
@@ -156,52 +149,106 @@ async function analyzeVideoWithGeminiForEventLog(
       Format your response as valid JSON only, with no additional text.
     `;
 
-    // For YouTube videos we pass the URL directly
-    let result;
+    // Construct request body based on type
+    let requestBody;
+    const endpoint = "https://alkalimakersuite-pa.clients6.google.com/$rpc/google.internal.alkali.applications.makersuite.v1.MakerSuiteService/GenerateContent";
+    
     if (videoUrl) {
-      console.log("Analyzing YouTube video URL:", videoUrl);
-      result = await model.generateContent([
-        { text: `Analyze this YouTube video: ${videoUrl}. ${prompt}` }
-      ]);
-    } 
-    // For file uploads, we need to use a different approach since we can't directly upload files
-    else {
-      console.log("Processing file upload - using generic analysis");
-      result = await model.generateContent([
-        { text: `This is analysis for a soccer match video that was uploaded by the user. ${prompt}` }
-      ]);
+      console.log("Using YouTube URL in analysis request:", videoUrl);
+      requestBody = JSON.stringify({
+        model: "models/gemini-2.5-flash-preview-05-20",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: `Analyze this soccer match video: ${videoUrl}\n\n${prompt}` }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 8192
+        }
+      });
+    } else {
+      console.log("Using generic file upload analysis");
+      requestBody = JSON.stringify({
+        model: "models/gemini-2.5-flash-preview-05-20",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: `I've uploaded a soccer match video for analysis. ${prompt}` }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 8192
+        }
+      });
     }
 
-    const response = result.response;
-    const textResponse = response.text();
+    // Make the API request
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'x-goog-api-key': apiKey
+      },
+      body: requestBody
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API error response:", errorText);
+      throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Received API response:", JSON.stringify(data).substring(0, 200) + "...");
+    
+    // Extract the content from the response
+    let textContent = "";
+    try {
+      textContent = data.candidates[0].content.parts[0].text;
+    } catch (err) {
+      console.error("Error extracting text from response:", err);
+      throw new Error("Failed to extract content from API response");
+    }
     
     // Try to extract JSON from the response
     try {
       // Look for JSON content
-      const jsonMatch = textResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
-                      textResponse.match(/```\s*([\s\S]*?)\s*```/) ||
-                      [null, textResponse];
+      const jsonMatch = textContent.match(/```json\s*([\s\S]*?)\s*```/) || 
+                      textContent.match(/```\s*([\s\S]*?)\s*```/) ||
+                      [null, textContent];
                       
-      const jsonContent = jsonMatch[1] || textResponse;
+      const jsonContent = jsonMatch[1] || textContent;
       const cleanJson = jsonContent.replace(/```json|```/g, "").trim();
       
-      console.log("Successfully parsed response from Gemini");
+      console.log("Successfully parsed response");
       
       // Parse the JSON
       return JSON.parse(cleanJson);
     } catch (parseError) {
-      console.error("Failed to parse Gemini JSON output:", parseError);
+      console.error("Failed to parse JSON output:", parseError);
       
       // If JSON parsing fails, return structured content as best as possible
       return {
         error: "Failed to parse analysis as JSON",
-        rawContent: textResponse,
-        formattedAnalysis: extractStatisticsFromText(textResponse)
+        rawContent: textContent,
+        formattedAnalysis: extractStatisticsFromText(textContent)
       };
     }
 
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
+    console.error("Error calling API:", error);
     throw new Error(`Failed to analyze video: ${error.message}`);
   }
 }
