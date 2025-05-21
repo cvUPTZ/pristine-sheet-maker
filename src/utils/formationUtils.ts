@@ -89,11 +89,13 @@ export const getPlayerPositions = (team: Team, isHomeTeam: boolean) => {
   
   // Default to 4-4-2 if no formation is specified
   const formation = team.formation || '4-4-2';
-  const basePositions = [...formationPositions[formation]];
+  
+  // Create a deep copy of the formation positions to avoid mutations
+  const basePositions = JSON.parse(JSON.stringify(formationPositions[formation]));
   
   // For away team, flip the y coordinates
   if (!isHomeTeam) {
-    basePositions.forEach(pos => {
+    basePositions.forEach((pos: {x: number, y: number}) => {
       pos.y = 1 - pos.y;
     });
   }

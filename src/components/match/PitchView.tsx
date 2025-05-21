@@ -5,6 +5,7 @@ import PlayerMarker from '@/components/PlayerMarker';
 import BallTracker from '@/components/BallTracker';
 import { Player, BallTrackingPoint } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { getPlayerPositions } from '@/utils/formationUtils';
 
 interface PitchViewProps {
   homeTeam: {
@@ -39,9 +40,9 @@ const PitchView: React.FC<PitchViewProps> = ({
   handlePitchClick,
   addBallTrackingPoint
 }) => {
-  // Check if positions exist for debugging
-  const homePlayerIds = homeTeam.players.map(p => p.id);
-  const awayPlayerIds = awayTeam.players.map(p => p.id);
+  // Use the teamPositions if provided, otherwise generate them based on formations
+  const homePositions = { ...getPlayerPositions(homeTeam, true), ...teamPositions };
+  const awayPositions = { ...getPlayerPositions(awayTeam, false), ...teamPositions };
   
   return (
     <div className="mb-4 relative">
@@ -60,7 +61,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             key={`home-${player.id}`}
             player={player}
             teamColor="#1A365D" // Home team color
-            position={teamPositions[player.id] || { x: 0.5, y: 0.5 }}
+            position={homePositions[player.id] || { x: 0.5, y: 0.9 }}
             onClick={() => {
               setSelectedTeam('home');
               handlePlayerSelect(player);
@@ -75,7 +76,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             key={`away-${player.id}`}
             player={player}
             teamColor="#D3212C" // Away team color
-            position={teamPositions[player.id] || { x: 0.5, y: 0.5 }}
+            position={awayPositions[player.id] || { x: 0.5, y: 0.1 }}
             onClick={() => {
               setSelectedTeam('away');
               handlePlayerSelect(player);
