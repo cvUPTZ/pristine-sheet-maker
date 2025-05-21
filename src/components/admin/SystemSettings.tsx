@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { getSystemSettings, updateSystemSetting, SystemSetting } from "@/supabase/functions";
+import { getSystemSettings, updateSystemSetting } from "@/supabase/functions";
+import { SystemSetting } from "@/types/auth";
 import {
   Card,
   CardContent,
