@@ -1,3 +1,4 @@
+
 export interface Match {
   id: string;
   team1: string;
@@ -42,7 +43,13 @@ export type EventType =
   | 'assist'
   | 'yellowCard'
   | 'redCard'
-  | 'substitution';
+  | 'substitution'
+  | 'card'         // Added
+  | 'penalty'      // Added
+  | 'free-kick'    // Added
+  | 'goal-kick'    // Added
+  | 'throw-in'     // Added
+  | 'interception'; // Added
 
 export interface Statistics {
   possession: { home: number; away: number };
@@ -104,4 +111,15 @@ export interface PlayerStatistics {
   possessionTime: number;
   contacts: number;
   lossRatio: number;  // ballsLost / ballsPlayed
+}
+
+// Add Formation type
+export interface Formation {
+  name: string;
+  code: string;
+}
+
+// Add FormationPositions type
+export interface FormationPositions {
+  [key: string]: { [key: number]: { x: number; y: number } };
 }

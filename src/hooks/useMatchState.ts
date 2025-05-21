@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
@@ -60,6 +61,7 @@ interface MatchActions {
   addMatchEvent: (event: MatchEvent) => void;
   updateStatistics: (stats: Partial<Statistics>) => void;
   addBallTrackingPoint: (point: BallTrackingPoint) => void;
+  setBallTrackingPoints: (points: BallTrackingPoint[]) => void; // Added this method
   undoLastAction: () => void;
   setTimeSegments: (timeSegments: TimeSegmentStatistics[]) => void;
   activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
@@ -123,6 +125,11 @@ export const useMatchState = (): MatchState & MatchActions => {
 
   const addBallTrackingPoint = (point: BallTrackingPoint) => {
     setState(prev => ({ ...prev, ballTrackingPoints: [...prev.ballTrackingPoints, point] }));
+  };
+
+  // Add the new method to set ballTrackingPoints
+  const setBallTrackingPoints = (points: BallTrackingPoint[]) => {
+    setState(prev => ({ ...prev, ballTrackingPoints: points }));
   };
 
   const undoLastAction = () => {
@@ -265,8 +272,8 @@ export const useMatchState = (): MatchState & MatchActions => {
     
     // Determine match duration from first to last tracking point
     const firstTimestamp = ballTrackingPoints[0].timestamp;
-    const lastTimestamp = ballTrackingPoints[ballTrackingPoints.length - 1].timestamp;
-    const totalDuration = lastTimestamp - firstTimestamp;
+    const lastTimestampPoint = ballTrackingPoints[ballTrackingPoints.length - 1].timestamp;
+    const totalDuration = lastTimestampPoint - firstTimestamp;
     
     // Create 5-minute segments
     const segmentDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -277,7 +284,7 @@ export const useMatchState = (): MatchState & MatchActions => {
     
     for (let i = 0; i < numSegments; i++) {
       const startTime = firstTimestamp + (i * segmentDuration);
-      const endTime = Math.min(startTime + segmentDuration, lastTimestamp);
+      const endTime = Math.min(startTime + segmentDuration, lastTimestampPoint);
       
       segments.push({
         id: `segment-${i}`,
@@ -304,7 +311,7 @@ export const useMatchState = (): MatchState & MatchActions => {
     // Process ball tracking points to fill segment data
     let lastTeamId: string | undefined = undefined;
     let lastPlayerId: number | undefined = undefined;
-    let lastTimestamp = firstTimestamp;
+    let currentTimestamp = firstTimestamp;
     
     // Track recovery times
     let ballLostTimestamp: Record<string, number> = { 
@@ -336,7 +343,7 @@ export const useMatchState = (): MatchState & MatchActions => {
       
       // Count ball possession time
       if (index > 0) {
-        const possessionDuration = point.timestamp - lastTimestamp;
+        const possessionDuration = point.timestamp - currentTimestamp;
         
         if (lastTeamId) {
           const lastTeam = lastTeamId === homeTeam.id ? 'home' : 'away';
@@ -378,13 +385,13 @@ export const useMatchState = (): MatchState & MatchActions => {
           cumulativeBallsGiven[lastTeam] += 1;
           
           // Record when this team lost the ball
-          ballLostTimestamp[lastTeamId] = lastTimestamp;
+          ballLostTimestamp[lastTeamId] = currentTimestamp;
         }
       }
       
       lastTeamId = point.teamId;
       lastPlayerId = point.playerId;
-      lastTimestamp = point.timestamp;
+      currentTimestamp = point.timestamp;
     });
     
     // Calculate cumulative and difference stats
@@ -485,7 +492,7 @@ export const useMatchState = (): MatchState & MatchActions => {
     // Process ball tracking points
     let lastPlayerId: number | undefined;
     let lastTeamId: string | undefined;
-    let lastTimestamp = ballTrackingPoints[0]?.timestamp || 0;
+    let pointTimestamp = ballTrackingPoints[0]?.timestamp || 0;
     
     ballTrackingPoints.forEach((point, index) => {
       if (!point.playerId || !point.teamId) return;
@@ -501,7 +508,7 @@ export const useMatchState = (): MatchState & MatchActions => {
       
       // Calculate possession time
       if (index > 0 && lastPlayerId === playerId) {
-        const possessionDuration = (point.timestamp - lastTimestamp) / 1000; // in seconds
+        const possessionDuration = (point.timestamp - pointTimestamp) / 1000; // in seconds
         stats.possessionTime += possessionDuration;
       }
       
@@ -526,7 +533,7 @@ export const useMatchState = (): MatchState & MatchActions => {
       
       lastPlayerId = playerId;
       lastTeamId = point.teamId;
-      lastTimestamp = point.timestamp;
+      pointTimestamp = point.timestamp;
     });
     
     // Calculate loss ratio
@@ -550,6 +557,7 @@ export const useMatchState = (): MatchState & MatchActions => {
     addMatchEvent,
     updateStatistics,
     addBallTrackingPoint,
+    setBallTrackingPoints, // Add the new method to the return object
     undoLastAction,
     setTimeSegments,
     activeTab,

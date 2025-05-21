@@ -55,7 +55,9 @@ const MatchAnalysis: React.FC = () => {
   const [elapsedTime, setElapsedTime] = useState(matchState.elapsedTime);
   const [setupComplete, setSetupComplete] = useState(matchState.setupComplete);
   const [ballTrackingMode, setBallTrackingMode] = useState(matchState.ballTrackingMode);
-  const [activeTab, setActiveTab] = useState(matchState.activeTab);
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>(
+    matchState.activeTab
+  );
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
 
   useEffect(() => {
@@ -72,7 +74,9 @@ const MatchAnalysis: React.FC = () => {
           matchState.setStatistics(matchData.statistics);
           matchState.setElapsedTime(matchData.elapsedTime);
           matchState.setTimeSegments(matchData.timeSegments);
-          matchState.setBallTrackingPoints(matchData.ballTrackingPoints);
+          if (matchData.ballTrackingPoints) {
+            matchState.setBallTrackingPoints(matchData.ballTrackingPoints);
+          }
           
           setMatch(matchData);
           setHomeTeam(matchData.homeTeam);
@@ -80,7 +84,9 @@ const MatchAnalysis: React.FC = () => {
           setStatistics(matchData.statistics);
           setElapsedTime(matchData.elapsedTime);
           setTimeSegments(matchData.timeSegments);
-          setBallTrackingPoints(matchData.ballTrackingPoints);
+          if (matchData.ballTrackingPoints) {
+            setBallTrackingPoints(matchData.ballTrackingPoints);
+          }
           
           console.log("Loaded Match Data:", matchData);
         } catch (error) {
@@ -164,7 +170,7 @@ const MatchAnalysis: React.FC = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video')}>
               <TabsContent value="pitch" className="mt-4">
                 <Card>
                   <CardHeader>
