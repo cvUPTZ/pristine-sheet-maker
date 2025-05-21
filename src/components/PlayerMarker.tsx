@@ -40,6 +40,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     if (onEventSelect) {
       onEventSelect(eventType, player, position);
     }
+    setShowMenu(false);
   };
 
   return (
@@ -65,11 +66,14 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
       </div>
       
       {/* Circular menu for actions */}
-      <CircularMenu 
-        visible={showMenu} 
-        onSelect={handleMenuSelect} 
-        onClose={() => setShowMenu(false)} 
-      />
+      {onEventSelect && (
+        <CircularMenu 
+          visible={showMenu} 
+          position={position}
+          onSelect={handleMenuSelect} 
+          onClose={() => setShowMenu(false)} 
+        />
+      )}
     </>
   );
 };

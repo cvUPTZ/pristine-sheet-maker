@@ -30,11 +30,17 @@ const COMMON_EVENTS: EventType[] = [
 
 interface CircularMenuProps {
   visible: boolean;
+  position?: { x: number; y: number };
   onSelect: (eventType: EventType) => void;
   onClose: () => void;
 }
 
-const CircularMenu: React.FC<CircularMenuProps> = ({ visible, onSelect, onClose }) => {
+const CircularMenu: React.FC<CircularMenuProps> = ({ 
+  visible, 
+  position = { x: 0.5, y: 0.5 }, 
+  onSelect, 
+  onClose 
+}) => {
   if (!visible) return null;
 
   // Calculate positions for items in a circle
@@ -45,11 +51,6 @@ const CircularMenu: React.FC<CircularMenuProps> = ({ visible, onSelect, onClose 
     return { x, y };
   };
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClose();
-  };
-
   const handleActionClick = (e: React.MouseEvent, eventType: EventType) => {
     e.stopPropagation();
     onSelect(eventType);
@@ -58,16 +59,29 @@ const CircularMenu: React.FC<CircularMenuProps> = ({ visible, onSelect, onClose 
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 pointer-events-auto"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
     >
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
       
-      <div className="relative w-[280px] h-[280px]">
+      <div 
+        className="absolute w-[280px] h-[280px]"
+        style={{
+          left: `${position.x * 100}%`,
+          top: `${position.y * 100}%`,
+          transform: 'translate(-50%, -50%)'
+        }}
+      >
         {/* Center button to close */}
         <button 
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg z-10 border-2 border-gray-200"
-          onClick={onClose}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
         >
           <span className="text-sm font-medium text-gray-700">Close</span>
         </button>

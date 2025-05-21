@@ -43,10 +43,13 @@ const Pitch: React.FC<PitchProps> = ({
     onSelectPlayer(player);
     
     // Then record the event (the parent component will handle this)
-    if (eventType && player) {
-      // We need to dispatch this event to the parent component
-      // For now, we'll just track the ball movement as a demonstration
-      onTrackBallMovement(coordinates);
+    if (eventType) {
+      console.log("Event selected:", eventType, "by player:", player.name, "at", coordinates);
+      
+      // If it's a ball-related event, we'll track the ball movement too
+      if (['pass', 'shot', 'goal'].includes(eventType)) {
+        onTrackBallMovement(coordinates);
+      }
     }
   };
 
