@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Player, EventType } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +23,14 @@ interface PianoInputProps {
   setSelectedTeam: (team: 'home' | 'away') => void;
 }
 
+// Define a type for the action buttons to include additionalData
+interface ActionButton {
+  type: EventType;
+  label: string;
+  color: string;
+  additionalData?: Record<string, any>;
+}
+
 const PianoInput: React.FC<PianoInputProps> = ({
   homeTeam,
   awayTeam,
@@ -38,39 +45,39 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const [benchPlayers, setBenchPlayers] = useState<Player[]>([]);
   const [playerName, setPlayerName] = useState('');
   
-  // Define available actions for the piano with clearer categories
-  const offensiveActions = [
-    { type: 'shot' as EventType, label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white' },
-    { type: 'goal' as EventType, label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white' },
-    { type: 'shot' as EventType, label: 'NON CADRÉ', color: 'bg-yellow-500 hover:bg-yellow-600 text-black' },
-    { type: 'header' as EventType, label: 'TÊTE', color: 'bg-blue-500 hover:bg-blue-600 text-white' }
+  // Define available actions for the piano with clearer categories - now with proper typing
+  const offensiveActions: ActionButton[] = [
+    { type: 'shot', label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white' },
+    { type: 'goal', label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white' },
+    { type: 'shot', label: 'NON CADRÉ', color: 'bg-yellow-500 hover:bg-yellow-600 text-black', additionalData: { cadre: false } },
+    { type: 'header', label: 'TÊTE', color: 'bg-blue-500 hover:bg-blue-600 text-white' }
   ];
   
-  const playActions = [
-    { type: 'pass' as EventType, label: 'PASSE', color: 'bg-sky-400 hover:bg-sky-500 text-black' },
-    { type: 'pass' as EventType, label: 'PASSE DÉCISIVE', color: 'bg-indigo-400 hover:bg-indigo-500 text-white' },
-    { type: 'cross' as EventType, label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white' },
-    { type: 'free-kick' as EventType, label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white' }
+  const playActions: ActionButton[] = [
+    { type: 'pass', label: 'PASSE', color: 'bg-sky-400 hover:bg-sky-500 text-black' },
+    { type: 'pass', label: 'PASSE DÉCISIVE', color: 'bg-indigo-400 hover:bg-indigo-500 text-white', additionalData: { decisive: true } },
+    { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white' },
+    { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white' }
   ];
   
-  const defensiveActions = [
-    { type: 'tackle' as EventType, label: 'TACLE', color: 'bg-red-500 hover:bg-red-600 text-white' },
-    { type: 'foul' as EventType, label: 'FAUTE', color: 'bg-red-600 hover:bg-red-700 text-white' },
-    { type: 'card' as EventType, label: 'JAUNE', additionalData: { cardType: 'yellow' }, color: 'bg-yellow-400 hover:bg-yellow-500 text-black' },
-    { type: 'card' as EventType, label: 'ROUGE', additionalData: { cardType: 'red' }, color: 'bg-red-600 hover:bg-red-700 text-white' }
+  const defensiveActions: ActionButton[] = [
+    { type: 'tackle', label: 'TACLE', color: 'bg-red-500 hover:bg-red-600 text-white' },
+    { type: 'foul', label: 'FAUTE', color: 'bg-red-600 hover:bg-red-700 text-white' },
+    { type: 'card', label: 'JAUNE', color: 'bg-yellow-400 hover:bg-yellow-500 text-black', additionalData: { cardType: 'yellow' } },
+    { type: 'card', label: 'ROUGE', color: 'bg-red-600 hover:bg-red-700 text-white', additionalData: { cardType: 'red' } }
   ];
   
-  const setPlayActions = [
-    { type: 'corner' as EventType, label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white' },
-    { type: 'penalty' as EventType, label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white' },
-    { type: 'pass' as EventType, label: 'TOUCHE', color: 'bg-gray-500 hover:bg-gray-600 text-white' },
-    { type: 'offside' as EventType, label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white' }
+  const setPlayActions: ActionButton[] = [
+    { type: 'corner', label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white' },
+    { type: 'penalty', label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white' },
+    { type: 'pass', label: 'TOUCHE', color: 'bg-gray-500 hover:bg-gray-600 text-white', additionalData: { touchType: 'throw-in' } },
+    { type: 'offside', label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white' }
   ];
   
-  const specialActions = [
-    { type: 'tackle' as EventType, label: 'CONTRE', color: 'bg-purple-700 hover:bg-purple-800 text-white' },
-    { type: 'header' as EventType, label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black' },
-    { type: 'shot' as EventType, label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black' }
+  const specialActions: ActionButton[] = [
+    { type: 'tackle', label: 'CONTRE', color: 'bg-purple-700 hover:bg-purple-800 text-white', additionalData: { blockType: 'counter' } },
+    { type: 'header', label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black', additionalData: { hitPost: true } },
+    { type: 'shot', label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black', additionalData: { cadre: true } }
   ];
   
   const handleSelectPlayer = (player: Player, team: 'home' | 'away') => {
