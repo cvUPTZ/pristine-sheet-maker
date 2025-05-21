@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Player, EventType } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,25 @@ import { Input } from '@/components/ui/input';
 import FootballPitch from '@/components/FootballPitch';
 import PlayerMarker from '@/components/PlayerMarker';
 import { Badge } from '@/components/ui/badge';
-import { Keyboard } from 'lucide-react';
+import { 
+  Keyboard,
+  Target,
+  Trophy,
+  ArrowUp,
+  Flag,
+  Shield,
+  RotateCw,
+  Hand,
+  Star,
+  CheckCircle,
+  XCircle,
+  Circle,
+  Pause,
+  Send,
+  CornerUpRight,
+  Award
+} from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface PianoInputProps {
   homeTeam: {
@@ -28,6 +47,7 @@ interface ActionButton {
   type: EventType;
   label: string;
   color: string;
+  icon: React.ReactNode;
   additionalData?: Record<string, any>;
 }
 
@@ -45,40 +65,43 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const [benchPlayers, setBenchPlayers] = useState<Player[]>([]);
   const [playerName, setPlayerName] = useState('');
   
-  // Define available actions for the piano with clearer categories - now with proper typing
+  // Define available actions for the piano with clearer categories and icons
   const offensiveActions: ActionButton[] = [
-    { type: 'shot', label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white' },
-    { type: 'goal', label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white' },
-    { type: 'shot', label: 'NON CADRÉ', color: 'bg-yellow-500 hover:bg-yellow-600 text-black', additionalData: { cadre: false } },
-    { type: 'header', label: 'TÊTE', color: 'bg-blue-500 hover:bg-blue-600 text-white' }
+    { type: 'shot', label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white', icon: <Target className="w-5 h-5" />, additionalData: { cadre: true } },
+    { type: 'goal', label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white', icon: <Trophy className="w-5 h-5" /> },
+    { type: 'shot', label: 'NON CADRÉ', color: 'bg-yellow-500 hover:bg-yellow-600 text-black', icon: <XCircle className="w-5 h-5" />, additionalData: { cadre: false } },
+    { type: 'header', label: 'TÊTE', color: 'bg-blue-500 hover:bg-blue-600 text-white', icon: <ArrowUp className="w-5 h-5" /> }
   ];
   
   const playActions: ActionButton[] = [
-    { type: 'pass', label: 'PASSE', color: 'bg-sky-400 hover:bg-sky-500 text-black' },
-    { type: 'pass', label: 'PASSE DÉCISIVE', color: 'bg-indigo-400 hover:bg-indigo-500 text-white', additionalData: { decisive: true } },
-    { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white' },
-    { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white' }
+    { type: 'pass', label: 'PASSE', color: 'bg-sky-400 hover:bg-sky-500 text-black', icon: <Send className="w-5 h-5" />, additionalData: { decisive: false } },
+    { type: 'pass', label: 'PASSE DÉCISIVE', color: 'bg-indigo-400 hover:bg-indigo-500 text-white', icon: <Award className="w-5 h-5" />, additionalData: { decisive: true } },
+    { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white', icon: <CornerUpRight className="w-5 h-5" /> },
+    { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white', icon: <Flag className="w-5 h-5" /> }
   ];
   
   const defensiveActions: ActionButton[] = [
-    { type: 'tackle', label: 'TACLE', color: 'bg-red-500 hover:bg-red-600 text-white' },
-    { type: 'foul', label: 'FAUTE', color: 'bg-red-600 hover:bg-red-700 text-white' },
-    { type: 'card', label: 'JAUNE', color: 'bg-yellow-400 hover:bg-yellow-500 text-black', additionalData: { cardType: 'yellow' } },
-    { type: 'card', label: 'ROUGE', color: 'bg-red-600 hover:bg-red-700 text-white', additionalData: { cardType: 'red' } }
+    { type: 'tackle', label: 'TACLE', color: 'bg-red-500 hover:bg-red-600 text-white', icon: <Shield className="w-5 h-5" /> },
+    { type: 'foul', label: 'FAUTE', color: 'bg-red-600 hover:bg-red-700 text-white', icon: <Pause className="w-5 h-5" /> },
+    { type: 'card', label: 'JAUNE', color: 'bg-yellow-400 hover:bg-yellow-500 text-black', icon: <Star className="w-5 h-5" />, additionalData: { cardType: 'yellow' } },
+    { type: 'card', label: 'ROUGE', color: 'bg-red-600 hover:bg-red-700 text-white', icon: <Star className="w-5 h-5 fill-current" />, additionalData: { cardType: 'red' } }
   ];
   
   const setPlayActions: ActionButton[] = [
-    { type: 'corner', label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white' },
-    { type: 'penalty', label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white' },
-    { type: 'pass', label: 'TOUCHE', color: 'bg-gray-500 hover:bg-gray-600 text-white', additionalData: { touchType: 'throw-in' } },
-    { type: 'offside', label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white' }
+    { type: 'corner', label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white', icon: <Flag className="w-5 h-5" /> },
+    { type: 'penalty', label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white', icon: <Target className="w-5 h-5" /> },
+    { type: 'pass', label: 'TOUCHE', color: 'bg-gray-500 hover:bg-gray-600 text-white', icon: <Hand className="w-5 h-5" />, additionalData: { touchType: 'throw-in' } },
+    { type: 'offside', label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white', icon: <Flag className="w-5 h-5" /> }
   ];
   
   const specialActions: ActionButton[] = [
-    { type: 'tackle', label: 'CONTRE', color: 'bg-purple-700 hover:bg-purple-800 text-white', additionalData: { blockType: 'counter' } },
-    { type: 'header', label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black', additionalData: { hitPost: true } },
-    { type: 'shot', label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black', additionalData: { cadre: true } }
+    { type: 'tackle', label: 'CONTRE', color: 'bg-purple-700 hover:bg-purple-800 text-white', icon: <Shield className="w-5 h-5" />, additionalData: { blockType: 'counter' } },
+    { type: 'header', label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black', icon: <Circle className="w-5 h-5" />, additionalData: { hitPost: true } },
+    { type: 'shot', label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black', icon: <CheckCircle className="w-5 h-5" />, additionalData: { cadre: true } }
   ];
+  
+  // Combine all actions for the circular menu
+  const allActions = [...offensiveActions, ...playActions, ...defensiveActions, ...setPlayActions, ...specialActions];
   
   const handleSelectPlayer = (player: Player, team: 'home' | 'away') => {
     setSelectedPlayer(player);
@@ -108,6 +131,15 @@ const PianoInput: React.FC<PianoInputProps> = ({
   
   // Filter active players and bench players
   const activePlayers = selectedTeam === 'home' ? homeTeam.players : awayTeam.players;
+  
+  // Calculate positions for circular menu items
+  const calculateCirclePosition = (index: number, total: number, radius: number) => {
+    const angleStep = (2 * Math.PI) / total;
+    const angle = index * angleStep;
+    const x = radius * Math.cos(angle);
+    const y = radius * Math.sin(angle);
+    return { x, y };
+  };
   
   return (
     <div className="w-full">
@@ -157,111 +189,98 @@ const PianoInput: React.FC<PianoInputProps> = ({
             <div className="border rounded-md p-3 mb-4 bg-blue-50 shadow-inner flex items-center justify-between">
               <div className="font-semibold text-blue-800">Joueur: </div>
               {selectedPlayer ? (
-                <div className="flex items-center">
+                <div className="flex items-center gap-2">
                   <span className="bg-gray-200 text-gray-800 font-bold px-2 py-1 rounded-l-md">
                     {selectedPlayer.number}
                   </span>
                   <span className="bg-blue-700 text-white px-2 py-1 rounded-r-md">
                     {selectedPlayer.name}
                   </span>
+                  
+                  {/* Circular Action Menu */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        className="ml-2 bg-purple-600 hover:bg-purple-700 text-white"
+                        disabled={!selectedPlayer}
+                      >
+                        Actions
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-96 h-96 rounded-full p-0 border-0 shadow-xl bg-transparent" align="center">
+                      <div className="relative w-full h-full">
+                        {/* Central cancel button */}
+                        <Button 
+                          variant="destructive" 
+                          className="absolute top-[45%] left-[45%] rounded-full w-10 h-10 flex items-center justify-center shadow-md z-10"
+                          onClick={() => document.body.click()} // Close the popover
+                        >
+                          <RotateCw className="h-5 w-5" />
+                        </Button>
+                        
+                        {/* Action buttons in a circle */}
+                        {allActions.map((action, index) => {
+                          const position = calculateCirclePosition(
+                            index, 
+                            allActions.length, 
+                            150 // radius
+                          );
+                          
+                          return (
+                            <Button
+                              key={`${action.type}-${action.label}`}
+                              onClick={() => handleActionClick(action.type, action.additionalData)}
+                              disabled={!selectedPlayer}
+                              className={`absolute rounded-full w-16 h-16 ${action.color} flex flex-col items-center justify-center p-1 transform -translate-x-1/2 -translate-y-1/2 shadow-md transition-transform hover:scale-110`}
+                              style={{
+                                left: `calc(50% + ${position.x}px)`,
+                                top: `calc(50% + ${position.y}px)`,
+                              }}
+                            >
+                              <div className="flex items-center justify-center">
+                                {action.icon}
+                              </div>
+                              <span className="text-[10px] font-semibold mt-1 leading-none">
+                                {action.label}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               ) : (
                 <div className="text-gray-500">Sélectionnez un joueur</div>
               )}
             </div>
             
-            {/* Piano keyboard interface - better organization by action type */}
-            <div className="space-y-3">
-              {/* First section: Offensive actions */}
-              <div>
-                <div className="text-sm font-semibold mb-1 text-blue-800 border-b border-blue-200">Actions Offensives</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {offensiveActions.map((action) => (
-                    <Button
-                      key={action.label}
-                      onClick={() => handleActionClick(action.type, action.additionalData)}
-                      disabled={!selectedPlayer}
-                      className={`h-12 ${action.color}`}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Second section: Play actions */}
-              <div>
-                <div className="text-sm font-semibold mb-1 text-blue-800 border-b border-blue-200">Passes & Construction</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {playActions.map((action) => (
-                    <Button
-                      key={action.label}
-                      onClick={() => handleActionClick(action.type, action.additionalData)}
-                      disabled={!selectedPlayer}
-                      className={`h-12 ${action.color}`}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Third section: Defensive actions */}
-              <div>
-                <div className="text-sm font-semibold mb-1 text-blue-800 border-b border-blue-200">Actions Défensives</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {defensiveActions.map((action) => (
-                    <Button
-                      key={action.label}
-                      onClick={() => handleActionClick(action.type, action.additionalData)}
-                      disabled={!selectedPlayer}
-                      className={`h-12 ${action.color}`}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Fourth section: Set play actions */}
-              <div>
-                <div className="text-sm font-semibold mb-1 text-blue-800 border-b border-blue-200">Phases Arrêtées</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {setPlayActions.map((action) => (
-                    <Button
-                      key={action.label}
-                      onClick={() => handleActionClick(action.type, action.additionalData)}
-                      disabled={!selectedPlayer}
-                      className={`h-12 ${action.color}`}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Fifth section: Special actions and undo */}
-              <div>
-                <div className="text-sm font-semibold mb-1 text-blue-800 border-b border-blue-200">Actions Spéciales</div>
-                <div className="grid grid-cols-4 gap-1">
-                  {specialActions.map((action) => (
-                    <Button
-                      key={action.label}
-                      onClick={() => handleActionClick(action.type, action.additionalData)}
-                      disabled={!selectedPlayer}
-                      className={`h-12 ${action.color}`}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleUndoAction}
-                    className="h-12 col-span-1"
+            {/* Fallback piano keyboard for when popover isn't desirable */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-2 text-gray-700">Actions Rapides</h3>
+              <div className="grid grid-cols-4 gap-1">
+                {offensiveActions.slice(0, 2).map((action) => (
+                  <Button
+                    key={action.label}
+                    onClick={() => handleActionClick(action.type, action.additionalData)}
+                    disabled={!selectedPlayer}
+                    className={`h-12 ${action.color} flex items-center justify-center gap-1`}
                   >
-                    ANNULER
+                    {action.icon}
+                    {action.label}
                   </Button>
-                </div>
+                ))}
+                {playActions.slice(0, 2).map((action) => (
+                  <Button
+                    key={action.label}
+                    onClick={() => handleActionClick(action.type, action.additionalData)}
+                    disabled={!selectedPlayer}
+                    className={`h-12 ${action.color} flex items-center justify-center gap-1`}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </Button>
+                ))}
               </div>
             </div>
             
@@ -299,7 +318,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
               )}
             </div>
           </div>
-          
         </CardContent>
       </Card>
     </div>
