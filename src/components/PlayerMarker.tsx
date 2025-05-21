@@ -30,7 +30,13 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     if (onClick) {
       onClick(player);
     }
+  };
+  
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     
+    // Show the circular menu on right-click
     if (onEventSelect) {
       setShowMenu(true);
     }
@@ -61,6 +67,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
           boxShadow: hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : 'none'
         }}
         onClick={handleClick}
+        onContextMenu={handleRightClick}
       >
         {player.number}
       </div>
