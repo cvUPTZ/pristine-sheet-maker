@@ -9,7 +9,7 @@ interface MatchTimerProps {
   onToggle: () => void;
   onReset: () => void;
   elapsedTime: number; // in seconds
-  setElapsedTime: (time: number) => void;
+  setElapsedTime: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const MatchTimer: React.FC<MatchTimerProps> = ({ 
