@@ -73,7 +73,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
       </div>
       
       {/* Circular menu for actions - only shown on right-click */}
-      {onEventSelect && (
+      {showMenu && onEventSelect && (
         <CircularMenu 
           visible={showMenu} 
           position={position}
