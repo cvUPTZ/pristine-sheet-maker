@@ -1,7 +1,7 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.1";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -59,7 +59,7 @@ serve(async (req) => {
       };
     }
 
-    // Use the new API endpoint for analysis
+    // Use the custom endpoint for analysis
     const analysisResult = await analyzeVideoWithCustomEndpoint(videoUrl, videoInfo);
     
     return new Response(
@@ -124,8 +124,19 @@ async function analyzeVideoWithCustomEndpoint(
 
   try {
     console.log(`Sending analysis request to custom Google API endpoint.`);
-
-    const prompt = `
+    
+    const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+    
+    // Create the prompt text based on whether we have a URL or file upload
+    let promptText = "";
+    
+    if (videoUrl) {
+      promptText = `Analyze this soccer match video: ${videoUrl}\n\n`;
+    } else {
+      promptText = `I've uploaded a soccer match video for analysis.\n\n`;
+    }
+    
+    promptText += `
       Please analyze this soccer match video and extract the following statistics as JSON:
       
       1. Overall match statistics:
@@ -149,59 +160,29 @@ async function analyzeVideoWithCustomEndpoint(
       Format your response as valid JSON only, with no additional text.
     `;
 
-    // Construct request body based on type
-    let requestBody;
-    const endpoint = "https://alkalimakersuite-pa.clients6.google.com/$rpc/google.internal.alkali.applications.makersuite.v1.MakerSuiteService/GenerateContent";
-    
-    if (videoUrl) {
-      console.log("Using YouTube URL in analysis request:", videoUrl);
-      requestBody = JSON.stringify({
-        model: "models/gemini-2.5-flash-preview-05-20",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: `Analyze this soccer match video: ${videoUrl}\n\n${prompt}` }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 8192
-        }
-      });
-    } else {
-      console.log("Using generic file upload analysis");
-      requestBody = JSON.stringify({
-        model: "models/gemini-2.5-flash-preview-05-20",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: `I've uploaded a soccer match video for analysis. ${prompt}` }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 8192
-        }
-      });
-    }
-
     // Make the API request
+    console.log("Sending request to Gemini API");
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
         'x-goog-api-key': apiKey
       },
-      body: requestBody
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: promptText }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 8192
+        }
+      })
     });
 
     if (!response.ok) {
@@ -217,8 +198,9 @@ async function analyzeVideoWithCustomEndpoint(
     let textContent = "";
     try {
       textContent = data.candidates[0].content.parts[0].text;
+      console.log("Extracted text content:", textContent.substring(0, 200) + "...");
     } catch (err) {
-      console.error("Error extracting text from response:", err);
+      console.error("Error extracting text from response:", err, "Response data:", JSON.stringify(data));
       throw new Error("Failed to extract content from API response");
     }
     
