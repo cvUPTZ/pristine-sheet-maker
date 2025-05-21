@@ -28,6 +28,7 @@ interface MatchSidebarProps {
   homeTeam: { name: string; players: Player[]; formation: string };
   awayTeam: { name: string; players: Player[]; formation: string };
   statistics: Statistics;
+  updateStatistics?: (stats: Statistics) => void;
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
@@ -43,9 +44,23 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   trackBallMovement,
   homeTeam,
   awayTeam,
-  statistics
+  statistics,
+  updateStatistics
 }) => {
   const { toast } = useToast();
+
+  const handleVideoAnalysis = (videoStats: Statistics) => {
+    if (updateStatistics) {
+      console.log("Video analysis complete, updating statistics:", videoStats);
+      updateStatistics(videoStats);
+      toast({
+        title: "Statistics Updated",
+        description: "Match statistics have been updated from video analysis",
+      });
+    } else {
+      console.warn("Cannot update statistics: updateStatistics function not provided");
+    }
+  };
 
   return (
     <div className="space-y-4">

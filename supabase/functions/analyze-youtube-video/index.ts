@@ -24,6 +24,13 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Validate that time offsets end with 's'
+    const validStartOffset = startOffset.endsWith('s') ? startOffset : `${startOffset}s`;
+    const validEndOffset = endOffset ? (endOffset.endsWith('s') ? endOffset : `${endOffset}s`) : '';
+    
+    console.log(`Received videoUrl: ${videoUrl}`);
+    console.log(`Using startOffset: ${validStartOffset}, endOffset: ${validEndOffset || 'none'}`);
     
     // Create Supabase client
     const supabaseClient = createClient(
@@ -45,7 +52,7 @@ serve(async (req) => {
     console.log("Analyzing video:", videoInfo.title);
 
     // Use Gemini 2.5 Flash to analyze video content
-    const analysisResult = await analyzeVideoWithGemini(videoUrl, videoInfo, startOffset, endOffset);
+    const analysisResult = await analyzeVideoWithGemini(videoUrl, videoInfo, validStartOffset, validEndOffset);
     
     return new Response(
       JSON.stringify({ 
@@ -110,8 +117,10 @@ async function analyzeVideoWithGemini(
   }
 
   try {
+    console.log(`Sending analysis request with time range: ${startOffset} to ${endOffset || "end"}`);
+
     // Create request payload for Gemini 2.5 Flash with direct video reference
-    const requestBody = {
+    const requestBody: any = {
       model: "models/gemini-2.5-flash-preview-05-20",
       contents: [
         {
@@ -120,36 +129,7 @@ async function analyzeVideoWithGemini(
               fileData: {
                 fileUri: videoUrl,
                 mimeType: "video/mp4"
-              },
-              videoMetadata: {
-                startOffset: startOffset,
-                endOffset: endOffset || undefined
               }
-            },
-            {
-              text: `
-                Please analyze this soccer match video and extract the following statistics as JSON:
-                
-                1. Overall match statistics:
-                   - Possession percentages for both teams
-                   - Number of shots, shots on target for both teams
-                   - Number of passes and pass completion rate for both teams
-                   - Number of fouls committed by both teams
-                   - Number of corners for both teams
-                   
-                2. For each team:
-                   - Top performing players 
-                   - Ball recoveries
-                   - Duels won
-                   - Crosses attempted and completed
-                   
-                3. Time-segment analysis:
-                   - Break down the match into 15 minute segments
-                   - For each segment, track possession percentages, shots, and key events
-                   - Identify momentum shifts during the match
-                
-                Format your response as valid JSON only, with no additional text.
-              `
             }
           ]
         }
@@ -161,6 +141,46 @@ async function analyzeVideoWithGemini(
         topP: 0.95
       }
     };
+
+    // Add time offsets if provided
+    if (startOffset || endOffset) {
+      requestBody.contents[0].parts[0].videoMetadata = {};
+      
+      if (startOffset) {
+        requestBody.contents[0].parts[0].videoMetadata.startOffset = startOffset;
+      }
+      
+      if (endOffset) {
+        requestBody.contents[0].parts[0].videoMetadata.endOffset = endOffset;
+      }
+    }
+
+    // Add the prompt for analysis
+    requestBody.contents[0].parts.push({
+      text: `
+        Please analyze this soccer match video and extract the following statistics as JSON:
+        
+        1. Overall match statistics:
+           - Possession percentages for both teams
+           - Number of shots, shots on target for both teams
+           - Number of passes and pass completion rate for both teams
+           - Number of fouls committed by both teams
+           - Number of corners for both teams
+           
+        2. For each team:
+           - Top performing players 
+           - Ball recoveries
+           - Duels won
+           - Crosses attempted and completed
+           
+        3. Time-segment analysis:
+           - Break down the match into 15 minute segments
+           - For each segment, track possession percentages, shots, and key events
+           - Identify momentum shifts during the match
+        
+        Format your response as valid JSON only, with no additional text.
+      `
+    });
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", {
       method: "POST",

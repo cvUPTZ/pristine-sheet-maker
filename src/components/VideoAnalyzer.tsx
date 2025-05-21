@@ -68,6 +68,9 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
       // Convert time inputs to seconds format for Gemini
       const startOffset = formatTimeToSeconds(startTime);
       const endOffset = formatTimeToSeconds(endTime);
+      
+      // Make sure time values end with 's' as required by Gemini API
+      console.log(`Sending startOffset: ${startOffset}, endOffset: ${endOffset}`);
 
       // Call the Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('analyze-youtube-video', {
@@ -82,12 +85,16 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
       setProgress(100);
 
       if (error) {
+        console.error("Analysis error:", error);
         throw new Error(error.message);
       }
 
       if (!data?.statistics) {
+        console.error("Missing statistics in response:", data);
         throw new Error("No statistics returned from analysis");
       }
+
+      console.log("Analysis result:", data);
 
       // Format the received statistics to match the Statistics type
       const formattedStats: Statistics = {
@@ -129,8 +136,12 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         variant: "default",
       });
       
+      // Make sure to call the callback with the formatted statistics
       if (onAnalysisComplete) {
+        console.log("Passing statistics to parent component:", formattedStats);
         onAnalysisComplete(formattedStats);
+      } else {
+        console.warn("No onAnalysisComplete callback provided");
       }
 
     } catch (error) {

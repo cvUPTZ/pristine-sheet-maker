@@ -135,6 +135,7 @@ export const useMatchState = (): MatchState & MatchActions => {
   
   // Add a setter function for statistics
   const setStatistics = (newStats: Statistics) => {
+    console.log("Setting new statistics:", newStats);
     setState(prev => ({
       ...prev,
       statistics: newStats
