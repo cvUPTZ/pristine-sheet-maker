@@ -11,7 +11,7 @@ interface FormationSelectorProps {
 }
 
 const FormationSelector: React.FC<FormationSelectorProps> = ({ value, onChange, label }) => {
-  const formations: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '5-3-2', '4-2-3-1'];
+  const formations: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '5-3-2', '4-2-3-1', '3-4-3'];
   
   return (
     <div className="space-y-2">

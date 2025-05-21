@@ -67,6 +67,19 @@ export const formationPositions: FormationPositions = {
     { x: 0.5, y: 0.4 },  // CAM
     { x: 0.7, y: 0.4 },  // CAM
     { x: 0.5, y: 0.25 }, // ST
+  ],
+  '3-4-3': [
+    { x: 0.5, y: 0.9 },  // GK
+    { x: 0.3, y: 0.7 },  // CB
+    { x: 0.5, y: 0.7 },  // CB
+    { x: 0.7, y: 0.7 },  // CB
+    { x: 0.2, y: 0.5 },  // LM
+    { x: 0.4, y: 0.5 },  // CM
+    { x: 0.6, y: 0.5 },  // CM
+    { x: 0.8, y: 0.5 },  // RM
+    { x: 0.3, y: 0.3 },  // LW
+    { x: 0.5, y: 0.3 },  // ST
+    { x: 0.7, y: 0.3 },  // RW
   ]
 };
 
