@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Player, EventType } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { Player, EventType, BallTrackingPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,12 @@ import {
   Pause,
   Send,
   CornerUpRight,
-  Award
+  Award,
+  ArrowRight,
+  X
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { getPlayerPositions } from '@/utils/formationUtils';
 
 interface PianoInputProps {
   homeTeam: {
@@ -66,6 +69,16 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const [playerName, setPlayerName] = useState('');
   const [showActionCircle, setShowActionCircle] = useState(false);
   const [targetPlayer, setTargetPlayer] = useState<Player | null>(null);
+  const [ballPositionHistory, setBallPositionHistory] = useState<BallTrackingPoint[]>([]);
+  const [currentBallHolder, setCurrentBallHolder] = useState<{player: Player, team: 'home' | 'away'} | null>(null);
+  const [interceptions, setInterceptions] = useState<{from: {player: Player, team: 'home'|'away'}, to: {player: Player, team: 'home'|'away'}, position: {x: number, y: number}}[]>([]);
+  
+  // Generate separate position maps for home and away teams
+  const homePositions = getPlayerPositions(homeTeam, true);
+  const awayPositions = getPlayerPositions(awayTeam, false);
+  
+  // Combine with any provided positions from props (for custom positioning)
+  const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
   
   // Define available actions for the piano with clearer categories and icons
   // Remove pass actions as requested
@@ -77,7 +90,8 @@ const PianoInput: React.FC<PianoInputProps> = ({
   ];
   
   const playActions: ActionButton[] = [
-    // Removed pass actions as requested
+    // Re-adding pass action for recording passes between players
+    { type: 'pass', label: 'PASSE', color: 'bg-blue-400 hover:bg-blue-500 text-white', icon: <Send className="w-5 h-5" /> },
     { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white', icon: <CornerUpRight className="w-5 h-5" /> },
     { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white', icon: <Flag className="w-5 h-5" /> }
   ];
@@ -96,7 +110,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
   ];
   
   const specialActions: ActionButton[] = [
-    { type: 'tackle', label: 'CONTRE', color: 'bg-purple-700 hover:bg-purple-800 text-white', icon: <Shield className="w-5 h-5" />, additionalData: { blockType: 'counter' } },
+    { type: 'interception', label: 'INTERCEPTION', color: 'bg-purple-700 hover:bg-purple-800 text-white', icon: <X className="w-5 h-5" />, additionalData: { isInterception: true } },
     { type: 'header', label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black', icon: <Circle className="w-5 h-5" />, additionalData: { hitPost: true } },
     { type: 'shot', label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black', icon: <CheckCircle className="w-5 h-5" />, additionalData: { cadre: true } }
   ];
@@ -104,14 +118,98 @@ const PianoInput: React.FC<PianoInputProps> = ({
   // Combine all actions for the circular menu
   const allActions = [...offensiveActions, ...playActions, ...defensiveActions, ...setPlayActions, ...specialActions];
   
+  // Effect to handle initial ball position
+  useEffect(() => {
+    if (selectedTeam && !currentBallHolder) {
+      const team = selectedTeam === 'home' ? homeTeam : awayTeam;
+      if (team.players.length > 0) {
+        // Start with a central midfielder or a forward as default ball holder
+        const defaultPosition = team.players.find(p => p.position === 'CM' || p.position === 'CF') || team.players[0];
+        setCurrentBallHolder({
+          player: defaultPosition,
+          team: selectedTeam
+        });
+      }
+    }
+  }, [selectedTeam, homeTeam, awayTeam]);
+  
   const handleSelectPlayer = (player: Player, team: 'home' | 'away') => {
     // If we already have a selected player and now selecting another player,
     // interpret it as a pass from selected player to the newly clicked player
     if (selectedPlayer && selectedPlayer.id !== player.id) {
       setTargetPlayer(player);
-      // Record pass event
-      const position = teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
-      onRecordEvent('pass', selectedPlayer.id, selectedTeam, position);
+      
+      // Check if players are from different teams - this is an interception
+      if (selectedTeam !== team) {
+        // Record the interception
+        const fromPosition = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
+        const toPosition = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
+        
+        // Calculate the middle point where interception happens
+        const interceptionPoint = {
+          x: (fromPosition.x + toPosition.x) / 2,
+          y: (fromPosition.y + toPosition.y) / 2
+        };
+        
+        // Add to interceptions list
+        setInterceptions([...interceptions, {
+          from: { player: selectedPlayer, team: selectedTeam },
+          to: { player, team },
+          position: interceptionPoint
+        }]);
+        
+        // Record interception event
+        onRecordEvent('interception', player.id, team, interceptionPoint);
+        
+        // Update ball history with interception point
+        setBallPositionHistory([
+          ...ballPositionHistory, 
+          {
+            x: fromPosition.x,
+            y: fromPosition.y,
+            timestamp: Date.now(),
+            teamId: selectedTeam,
+            playerId: selectedPlayer.id
+          },
+          {
+            x: interceptionPoint.x,
+            y: interceptionPoint.y,
+            timestamp: Date.now() + 1,
+            teamId: team,
+            playerId: player.id
+          }
+        ]);
+      } else {
+        // It's a regular pass within same team
+        const position = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
+        onRecordEvent('pass', selectedPlayer.id, selectedTeam, position);
+        
+        // Add to ball history
+        const targetPosition = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
+        setBallPositionHistory([
+          ...ballPositionHistory, 
+          {
+            x: position.x,
+            y: position.y,
+            timestamp: Date.now(),
+            teamId: selectedTeam,
+            playerId: selectedPlayer.id
+          },
+          {
+            x: targetPosition.x,
+            y: targetPosition.y,
+            timestamp: Date.now() + 1,
+            teamId: team,
+            playerId: player.id
+          }
+        ]);
+      }
+      
+      // Update current ball holder
+      setCurrentBallHolder({
+        player,
+        team
+      });
       
       // Then update selected player to the target
       setSelectedPlayer(player);
@@ -124,6 +222,22 @@ const PianoInput: React.FC<PianoInputProps> = ({
       setSelectedTeam(team);
       setPlayerName(player.name);
       setShowActionCircle(true);
+      
+      // Update current ball holder
+      setCurrentBallHolder({
+        player,
+        team
+      });
+      
+      // Update ball history with this position
+      const position = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
+      setBallPositionHistory([...ballPositionHistory, {
+        x: position.x,
+        y: position.y,
+        timestamp: Date.now(),
+        teamId: team,
+        playerId: player.id
+      }]);
     }
   };
   
@@ -133,10 +247,38 @@ const PianoInput: React.FC<PianoInputProps> = ({
     setSelectedAction(action);
     
     // Get player position from teamPositions or default to center of field
-    const position = teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
+    const position = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
     
     // Record the event
     onRecordEvent(action, selectedPlayer.id, selectedTeam, position);
+    
+    // Update ball tracking for certain actions
+    if (action === 'shot' || action === 'goal') {
+      // For shots and goals, ball moves toward the goal
+      const targetY = selectedTeam === 'home' ? 0.05 : 0.95;
+      setBallPositionHistory([
+        ...ballPositionHistory,
+        {
+          x: position.x,
+          y: position.y,
+          timestamp: Date.now(),
+          teamId: selectedTeam,
+          playerId: selectedPlayer.id
+        },
+        {
+          x: position.x,
+          y: targetY,
+          timestamp: Date.now() + 1,
+          teamId: selectedTeam,
+          playerId: selectedPlayer.id
+        }
+      ]);
+      
+      // If it's a goal, ball is in the net
+      if (action === 'goal') {
+        setCurrentBallHolder(null); // Ball is in the net
+      }
+    }
     
     // Reset selection after recording
     setSelectedAction(null);
@@ -144,7 +286,32 @@ const PianoInput: React.FC<PianoInputProps> = ({
   };
   
   const handleUndoAction = () => {
-    // Implementation for undo would be handled elsewhere
+    // Remove last ball position
+    if (ballPositionHistory.length > 0) {
+      setBallPositionHistory(ballPositionHistory.slice(0, -1));
+    }
+    
+    // Reset current ball holder to previous player if possible
+    if (ballPositionHistory.length > 1) {
+      const previousPoint = ballPositionHistory[ballPositionHistory.length - 2];
+      const team = previousPoint.teamId as 'home' | 'away';
+      const players = team === 'home' ? homeTeam.players : awayTeam.players;
+      const player = players.find(p => p.id === previousPoint.playerId);
+      
+      if (player) {
+        setCurrentBallHolder({ player, team });
+        setSelectedPlayer(player);
+        setSelectedTeam(team);
+      }
+    } else {
+      setCurrentBallHolder(null);
+    }
+    
+    // Remove last interception if there are any
+    if (interceptions.length > 0) {
+      setInterceptions(interceptions.slice(0, -1));
+    }
+    
     console.log('Undo last action');
   };
   
@@ -159,6 +326,14 @@ const PianoInput: React.FC<PianoInputProps> = ({
     const y = radius * Math.sin(angle);
     return { x, y };
   };
+  
+  // Get current ball position for display
+  const currentBallPosition = ballPositionHistory.length > 0 ? 
+    ballPositionHistory[ballPositionHistory.length - 1] : null;
+  
+  // Find the last few positions to show the path
+  const lastPositions = ballPositionHistory.length > 5 ? 
+    ballPositionHistory.slice(-5) : ballPositionHistory;
   
   return (
     <div className="w-full">
@@ -191,18 +366,98 @@ const PianoInput: React.FC<PianoInputProps> = ({
             {/* Stadium with full height taking most of the available space */}
             <div className="relative h-[65vh] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
               <FootballPitch>
-                {/* Render players for the selected team */}
-                {activePlayers.map((player) => (
+                {/* Render home team players */}
+                {homeTeam.players.map((player) => (
                   <PlayerMarker
-                    key={`${selectedTeam}-${player.id}`}
+                    key={`home-${player.id}`}
                     player={player}
-                    teamColor={selectedTeam === 'home' ? "#1A365D" : "#D3212C"}
-                    position={teamPositions[player.id] || { x: 0.5, y: 0.5 }}
-                    onClick={() => handleSelectPlayer(player, selectedTeam)}
-                    selected={selectedPlayer?.id === player.id}
+                    teamColor="#1A365D" // Home team color
+                    position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
+                    onClick={() => handleSelectPlayer(player, 'home')}
+                    selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
+                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.team === 'home'}
                   />
                 ))}
+                
+                {/* Render away team players */}
+                {awayTeam.players.map((player) => (
+                  <PlayerMarker
+                    key={`away-${player.id}`}
+                    player={player}
+                    teamColor="#D3212C" // Away team color
+                    position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
+                    onClick={() => handleSelectPlayer(player, 'away')}
+                    selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
+                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.team === 'away'}
+                  />
+                ))}
+
+                {/* Ball path history */}
+                {lastPositions.length > 1 && (
+                  <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
+                    <defs>
+                      <marker 
+                        id="arrowhead" 
+                        markerWidth="10" 
+                        markerHeight="7" 
+                        refX="0" 
+                        refY="3.5" 
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.8)" />
+                      </marker>
+                    </defs>
+                    <path 
+                      d={`M ${lastPositions.map(p => `${p.x * 100}% ${p.y * 100}%`).join(' L ')}`}
+                      stroke="rgba(255,255,255,0.7)"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeDasharray="5,5"
+                      markerEnd="url(#arrowhead)"
+                    />
+                  </svg>
+                )}
+
+                {/* Render interception markers */}
+                {interceptions.map((interception, index) => (
+                  <div 
+                    key={`interception-${index}`}
+                    className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 z-30"
+                    style={{
+                      left: `${interception.position.x * 100}%`,
+                      top: `${interception.position.y * 100}%`,
+                    }}
+                  >
+                    <div className="w-full h-full flex items-center justify-center">
+                      <X 
+                        className="text-red-500 stroke-[3px]" 
+                        size={24}
+                      />
+                      <div className="absolute inset-0 bg-red-500 rounded-full opacity-30 animate-pulse"></div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Current ball position */}
+                {currentBallHolder && (
+                  <div
+                    className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md"
+                    style={{
+                      left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
+                      top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`,
+                      animation: 'ball-pulse 1s infinite',
+                    }}
+                  />
+                )}
               </FootballPitch>
+              
+              <style jsx>{`
+                @keyframes ball-pulse {
+                  0% { transform: translate(-50%, -50%) scale(1); }
+                  50% { transform: translate(-50%, -50%) scale(1.2); }
+                  100% { transform: translate(-50%, -50%) scale(1); }
+                }
+              `}</style>
             </div>
             
             {/* Player selection info */}
@@ -267,6 +522,17 @@ const PianoInput: React.FC<PianoInputProps> = ({
               ) : (
                 <div className="text-gray-500">Sélectionnez un joueur</div>
               )}
+            </div>
+            
+            {/* Undo button */}
+            <div className="mt-2 mb-2">
+              <Button 
+                variant="outline" 
+                onClick={handleUndoAction}
+                className="w-full border-amber-500 text-amber-800 hover:bg-amber-50"
+              >
+                <RotateCw className="mr-2 h-4 w-4" /> Annuler dernière action
+              </Button>
             </div>
             
             {/* Substitution button */}
