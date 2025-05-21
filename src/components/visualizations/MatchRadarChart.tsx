@@ -23,11 +23,16 @@ interface MatchRadarChartProps {
 const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamName, awayTeamName }) => {
   // Prepare data for radar chart
   const prepareRadarData = () => {
+    // Calculate goals from shots on target as a simple approximation
+    // since 'goals' property doesn't exist in Statistics
+    const homeGoals = statistics.shots?.home?.onTarget || 0;
+    const awayGoals = statistics.shots?.away?.onTarget || 0;
+    
     return [
       {
         stat: 'Goals',
-        [homeTeamName]: statistics.goals?.home || 0,
-        [awayTeamName]: statistics.goals?.away || 0,
+        [homeTeamName]: homeGoals,
+        [awayTeamName]: awayGoals,
         fullMark: 10,
       },
       {
@@ -44,8 +49,8 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
       },
       {
         stat: 'Passes',
-        [homeTeamName]: (statistics.passes?.home?.successful || 0) + (statistics.passes?.home?.unsuccessful || 0),
-        [awayTeamName]: (statistics.passes?.away?.successful || 0) + (statistics.passes?.away?.unsuccessful || 0),
+        [homeTeamName]: statistics.passes?.home?.attempted || 0,
+        [awayTeamName]: statistics.passes?.away?.attempted || 0,
         fullMark: 100,
       },
       {
@@ -55,9 +60,9 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
         fullMark: 100,
       },
       {
-        stat: 'Cards',
-        [homeTeamName]: (statistics.cards?.home?.yellow || 0) + (statistics.cards?.home?.red || 0) * 2,
-        [awayTeamName]: (statistics.cards?.away?.yellow || 0) + (statistics.cards?.away?.red || 0) * 2,
+        stat: 'Fouls',
+        [homeTeamName]: statistics.ballsLost?.home || 0,
+        [awayTeamName]: statistics.ballsLost?.away || 0,
         fullMark: 10,
       },
     ];
