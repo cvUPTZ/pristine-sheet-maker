@@ -4,7 +4,7 @@ import { User as SupabaseUser } from "@supabase/supabase-js";
 export interface UserProfile {
   id: string;
   full_name: string | null;
-  role: 'admin' | 'tracker' | 'user';
+  role: 'admin' | 'tracker' | 'user' | 'teacher';
   created_at: string;
   email?: string;
 }

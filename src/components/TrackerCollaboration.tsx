@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +8,7 @@ import { Loader2, Users, CheckCircle2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { TrackerAssignment } from "@/types/auth";
 import { EventType } from "@/types";
+import { getTrackerAssignments } from "@/supabase/functions";
 
 interface ActiveTracker {
   id: string;
@@ -39,8 +39,10 @@ export default function TrackerCollaboration({ currentCategory, onEventTracked }
     
     const fetchAssignments = async () => {
       try {
-        const { data } = await supabase.rpc('get_tracker_assignments', { user_id: user.id });
-        setMyAssignments(data as TrackerAssignment[]);
+        if (user.id) {
+          const data = await getTrackerAssignments(user.id);
+          setMyAssignments(data);
+        }
       } catch (error) {
         console.error("Error fetching tracker assignments:", error);
       }

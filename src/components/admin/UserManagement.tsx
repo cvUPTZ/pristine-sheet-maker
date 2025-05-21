@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { getAllUsers, updateUserRole } from "@/supabase/functions";
-import { User as AuthUser } from "@supabase/supabase-js";
 import { UserProfile } from "@/types/auth";
 import {
   Card,
@@ -59,7 +58,7 @@ export default function UserManagement() {
     fetchUsers();
   }, [isAdmin, toast]);
 
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'tracker' | 'user') => {
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'tracker' | 'user' | 'teacher') => {
     try {
       await updateUserRole(userId, newRole);
       
@@ -157,7 +156,7 @@ export default function UserManagement() {
                   <TableCell>
                     <Select
                       defaultValue={user.role}
-                      onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'tracker' | 'user')}
+                      onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'tracker' | 'user' | 'teacher')}
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue>
@@ -176,6 +175,7 @@ export default function UserManagement() {
                         <SelectItem value="user">User</SelectItem>
                         <SelectItem value="tracker">Tracker</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="teacher">Teacher</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

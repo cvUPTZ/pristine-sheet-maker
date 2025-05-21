@@ -1,13 +1,16 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { TrackerAssignment } from "@/types/auth";
+import { TrackerAssignment, UserProfile } from "@/types/auth";
 
 /**
  * Functions to handle tracker assignments
  */
 
 export async function getTrackerAssignments(userId: string) {
-  const { data, error } = await supabase.rpc('get_tracker_assignments', { user_id: userId });
+  const { data, error } = await supabase
+    .from('tracker_assignments')
+    .select('*')
+    .eq('tracker_id', userId);
   
   if (error) {
     throw error;
@@ -17,7 +20,9 @@ export async function getTrackerAssignments(userId: string) {
 }
 
 export async function getAllTrackerAssignments() {
-  const { data, error } = await supabase.rpc('get_all_tracker_assignments');
+  const { data, error } = await supabase
+    .from('tracker_assignments')
+    .select('*');
   
   if (error) {
     throw error;
@@ -27,11 +32,14 @@ export async function getAllTrackerAssignments() {
 }
 
 export async function createTrackerAssignment(trackerId: string, eventCategory: string, createdBy: string) {
-  const { data, error } = await supabase.rpc('create_tracker_assignment', {
-    p_tracker_id: trackerId,
-    p_event_category: eventCategory,
-    p_created_by: createdBy
-  });
+  const { data, error } = await supabase
+    .from('tracker_assignments')
+    .insert({
+      tracker_id: trackerId,
+      event_category: eventCategory,
+      created_by: createdBy
+    })
+    .select();
   
   if (error) {
     throw error;
@@ -41,9 +49,10 @@ export async function createTrackerAssignment(trackerId: string, eventCategory: 
 }
 
 export async function deleteTrackerAssignment(assignmentId: string) {
-  const { error } = await supabase.rpc('delete_tracker_assignment', {
-    p_assignment_id: assignmentId
-  });
+  const { error } = await supabase
+    .from('tracker_assignments')
+    .delete()
+    .eq('id', assignmentId);
   
   if (error) {
     throw error;
@@ -65,10 +74,10 @@ export async function getAllUsers() {
     throw error;
   }
   
-  return data;
+  return data as UserProfile[];
 }
 
-export async function updateUserRole(userId: string, role: 'admin' | 'tracker' | 'user') {
+export async function updateUserRole(userId: string, role: 'admin' | 'tracker' | 'user' | 'teacher') {
   const { data, error } = await supabase
     .from('profiles')
     .update({ role })
@@ -79,7 +88,7 @@ export async function updateUserRole(userId: string, role: 'admin' | 'tracker' |
     throw error;
   }
   
-  return data;
+  return data as UserProfile[];
 }
 
 /**
@@ -94,30 +103,16 @@ export interface SystemSetting {
   updated_at: string;
 }
 
+// Mocking system settings functions since the table doesn't exist yet
+// To properly implement this, you would need to create a system_settings table first
+
 export async function getSystemSettings() {
-  const { data, error } = await supabase
-    .from('system_settings')
-    .select('*')
-    .order('key');
-  
-  if (error) {
-    console.error('Error fetching system settings:', error);
-    return [];
-  }
-  
-  return data as SystemSetting[];
+  // Return a mock empty array for now
+  return [] as SystemSetting[];
 }
 
 export async function updateSystemSetting(id: string, value: string) {
-  const { data, error } = await supabase
-    .from('system_settings')
-    .update({ value, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select();
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data as SystemSetting[];
+  // Mock implementation
+  console.log(`Would update setting ${id} with value ${value}`);
+  return [] as SystemSetting[];
 }
