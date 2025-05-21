@@ -59,8 +59,7 @@ export default function TrackerAssignment() {
         
         // Fetch existing assignments
         const { data: assignmentsData, error: assignmentsError } = await supabase
-          .rpc('get_all_tracker_assignments')
-          .returns<any[]>();
+          .rpc('get_all_tracker_assignments');
           
         if (assignmentsError) throw assignmentsError;
         
@@ -105,18 +104,20 @@ export default function TrackerAssignment() {
           p_tracker_id: selectedTracker,
           p_event_category: selectedCategory,
           p_created_by: user.id
-        })
-        .returns<any[]>();
+        });
         
       if (error) throw error;
       
-      const newAssignment = data[0] as unknown as TrackerAssignmentType;
-      setAssignments([...assignments, newAssignment]);
+      const newAssignment = data && data.length > 0 ? data[0] as unknown as TrackerAssignmentType : null;
       
-      toast({
-        title: "Success",
-        description: "Tracker assignment created successfully.",
-      });
+      if (newAssignment) {
+        setAssignments([...assignments, newAssignment]);
+        
+        toast({
+          title: "Success",
+          description: "Tracker assignment created successfully.",
+        });
+      }
       
       // Reset selection
       setSelectedCategory("");

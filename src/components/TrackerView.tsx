@@ -35,8 +35,7 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
         
         // Use direct query with type casting since the database schema isn't fully reflected in types
         const { data, error } = await supabase
-          .rpc('get_tracker_assignments', { user_id: user.id })
-          .returns<any[]>();
+          .rpc('get_tracker_assignments', { user_id: user.id });
           
         if (error) throw error;
         
