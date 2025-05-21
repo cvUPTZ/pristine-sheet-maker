@@ -1,16 +1,14 @@
 
-import { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import MainNavigation from "./MainNavigation";
 
-interface DashboardLayoutProps {
-  children: ReactNode;
-}
-
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout() {
   return (
     <div className="min-h-screen flex flex-col">
       <MainNavigation />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 p-6">
+        <Outlet />
+      </main>
     </div>
   );
 }
