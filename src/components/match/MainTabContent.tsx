@@ -14,6 +14,28 @@ import PianoInput from './PianoInput';
 import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
 
+// Define default statistics to prevent undefined errors
+const defaultStatistics: Statistics = {
+  possession: { home: 50, away: 50 },
+  shots: { 
+    home: { onTarget: 0, offTarget: 0, total: 0 }, 
+    away: { onTarget: 0, offTarget: 0, total: 0 } 
+  },
+  passes: { 
+    home: { successful: 0, attempted: 0, total: 0 }, 
+    away: { successful: 0, attempted: 0, total: 0 } 
+  },
+  ballsPlayed: { home: 0, away: 0 },
+  ballsLost: { home: 0, away: 0 },
+  duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
+  cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
+  crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
+  dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+  corners: { home: 0, away: 0 },
+  offsides: { home: 0, away: 0 },
+  freeKicks: { home: 0, away: 0 }
+};
+
 interface MainTabContentProps {
   activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
   setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video') => void;
@@ -60,9 +82,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   mode,
   handlePitchClick,
   addBallTrackingPoint,
-  statistics,
+  statistics = defaultStatistics, // Provide default value
   setStatistics,
-  playerStats,
+  playerStats = [], // Provide default value
   handleUndo,
   handleSave,
   timeSegments = [],
@@ -77,6 +99,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
       setStatistics(videoStats);
     }
   };
+
+  // Make sure statistics is never undefined
+  const safeStats = statistics || defaultStatistics;
 
   return <div>
       {/* Large, prominent tab navigation */}
@@ -142,10 +167,30 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         {activeTab === 'pitch' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
-              <PitchView homeTeam={homeTeam} awayTeam={awayTeam} teamPositions={teamPositions} selectedPlayer={selectedPlayer} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} handlePlayerSelect={handlePlayerSelect} ballTrackingPoints={ballTrackingPoints} mode={mode} handlePitchClick={handlePitchClick} addBallTrackingPoint={addBallTrackingPoint} />
+              <PitchView 
+                homeTeam={homeTeam} 
+                awayTeam={awayTeam} 
+                teamPositions={teamPositions} 
+                selectedPlayer={selectedPlayer} 
+                selectedTeam={selectedTeam} 
+                setSelectedTeam={setSelectedTeam} 
+                handlePlayerSelect={handlePlayerSelect} 
+                ballTrackingPoints={ballTrackingPoints} 
+                mode={mode} 
+                handlePitchClick={handlePitchClick} 
+                addBallTrackingPoint={addBallTrackingPoint} 
+              />
             </div>
             <div>
-              <PianoInput homeTeam={homeTeam} awayTeam={awayTeam} onRecordEvent={recordEvent} teamPositions={teamPositions} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} compact={true} />
+              <PianoInput 
+                homeTeam={homeTeam} 
+                awayTeam={awayTeam} 
+                onRecordEvent={recordEvent} 
+                teamPositions={teamPositions} 
+                selectedTeam={selectedTeam} 
+                setSelectedTeam={setSelectedTeam} 
+                compact={true} 
+              />
             </div>
           </div>
         )}
@@ -172,12 +217,12 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               
               <TabsContent value="summary">
                 <Card className="p-4 bg-white shadow-md">
-                  <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />
+                  <StatisticsDisplay statistics={safeStats} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
                 </Card>
               </TabsContent>
               
               <TabsContent value="radar">
-                <MatchRadarChart statistics={statistics} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />
+                <MatchRadarChart statistics={safeStats} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
               </TabsContent>
               
               <TabsContent value="heatmap">
@@ -190,43 +235,43 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                     <h3 className="text-lg font-semibold mb-2">Key Performance Insights</h3>
                     <div className="space-y-2">
                       {/* Generate some coaching insights based on the statistics */}
-                      {statistics.possession.home > 60 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                      {safeStats.possession.home > 60 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong Possession</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is dominating possession ({Math.round(statistics.possession.home)}%). 
+                            {homeTeam.name} is dominating possession ({Math.round(safeStats.possession.home)}%). 
                             Capitalize on this control with more forward passes.
                           </p>
                         </div>}
-                      {statistics.possession.away > 60 && <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
+                      {safeStats.possession.away > 60 && <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
                           <p className="font-medium">Possession Challenge</p>
                           <p className="text-sm text-gray-600">
-                            {awayTeam.name} is controlling possession ({Math.round(statistics.possession.away)}%). 
+                            {awayTeam.name} is controlling possession ({Math.round(safeStats.possession.away)}%). 
                             Consider adjusting press intensity and defensive shape.
                           </p>
                         </div>}
-                      {statistics.shots.home.onTarget + statistics.shots.home.offTarget > (statistics.shots.away.onTarget + statistics.shots.away.offTarget) * 2 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                      {safeStats.shots.home.onTarget + safeStats.shots.home.offTarget > (safeStats.shots.away.onTarget + safeStats.shots.away.offTarget) * 2 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Shot Dominance</p>
                           <p className="text-sm text-gray-600">
                             {homeTeam.name} is creating significantly more shooting opportunities. 
                             Continue with the current attacking approach.
                           </p>
                         </div>}
-                      {statistics.passes.home.attempted > 0 && statistics.passes.home.successful / statistics.passes.home.attempted < 0.7 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
+                      {safeStats.passes.home.attempted > 0 && safeStats.passes.home.successful / safeStats.passes.home.attempted < 0.7 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Passing Accuracy Concern</p>
                           <p className="text-sm text-gray-600">
                             {homeTeam.name} has a low pass completion rate 
-                            ({Math.round(statistics.passes.home.successful / statistics.passes.home.attempted * 100)}%). 
+                            ({Math.round(safeStats.passes.home.successful / safeStats.passes.home.attempted * 100)}%). 
                             Focus on safer passing options or adjust positioning.
                           </p>
                         </div>}
-                      {statistics.ballsLost.home > statistics.ballsLost.away * 1.5 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
+                      {safeStats.ballsLost.home > safeStats.ballsLost.away * 1.5 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Ball Retention Issue</p>
                           <p className="text-sm text-gray-600">
                             {homeTeam.name} is losing possession frequently. 
                             Consider adjusting buildup play and player positioning.
                           </p>
                         </div>}
-                      {statistics.duels.home.won > statistics.duels.home.lost * 1.5 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                      {safeStats.duels.home.won > safeStats.duels.home.lost * 1.5 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong in Duels</p>
                           <p className="text-sm text-gray-600">
                             {homeTeam.name} is winning most duels. 
@@ -266,13 +311,13 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                         <h4 className="font-medium">Tactical Adjustments</h4>
                         <ul className="text-sm list-disc pl-5 mt-1">
                           <li>
-                            {statistics.possession.home > statistics.possession.away ? "Consider more direct attacks when possession is established" : "Focus on winning second balls and transitions"}
+                            {safeStats.possession.home > safeStats.possession.away ? "Consider more direct attacks when possession is established" : "Focus on winning second balls and transitions"}
                           </li>
                           <li>
-                            {statistics.passes.home.successful > statistics.passes.away.successful ? "Use width more effectively to stretch defense" : "Tighten passing lanes and improve ball retention"}
+                            {safeStats.passes.home.successful > safeStats.passes.away.successful ? "Use width more effectively to stretch defense" : "Tighten passing lanes and improve ball retention"}
                           </li>
                           <li>
-                            {statistics.duels.home.won > statistics.duels.away.won ? "Encourage more 1v1 situations to exploit physical advantage" : "Focus on group defending and avoid isolated duels"}
+                            {safeStats.duels.home.won > safeStats.duels.away.won ? "Encourage more 1v1 situations to exploit physical advantage" : "Focus on group defending and avoid isolated duels"}
                           </li>
                         </ul>
                       </div>

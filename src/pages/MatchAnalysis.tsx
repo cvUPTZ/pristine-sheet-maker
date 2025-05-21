@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -36,6 +37,28 @@ import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCh
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
 
+// Define a default statistics object to prevent undefined errors
+const defaultStatistics: Statistics = {
+  possession: { home: 50, away: 50 },
+  shots: { 
+    home: { onTarget: 0, offTarget: 0, total: 0 }, 
+    away: { onTarget: 0, offTarget: 0, total: 0 } 
+  },
+  passes: { 
+    home: { successful: 0, attempted: 0, total: 0 }, 
+    away: { successful: 0, attempted: 0, total: 0 } 
+  },
+  ballsPlayed: { home: 0, away: 0 },
+  ballsLost: { home: 0, away: 0 },
+  duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
+  cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
+  crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
+  dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+  corners: { home: 0, away: 0 },
+  offsides: { home: 0, away: 0 },
+  freeKicks: { home: 0, away: 0 }
+};
+
 const MatchAnalysis: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const matchState = useMatchState();
@@ -48,9 +71,10 @@ const MatchAnalysis: React.FC = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(matchState.selectedPlayer);
   const [selectedTeam, setSelectedTeam] = useState(matchState.selectedTeam);
   const [matchEvents, setMatchEvents] = useState(matchState.matchEvents);
-  const [statistics, setStatistics] = useState(matchState.statistics);
-  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(matchState.ballTrackingPoints);
-  const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(matchState.timeSegments);
+  // Initialize with defaultStatistics to avoid undefined errors
+  const [statistics, setStatistics] = useState<Statistics>(matchState.statistics || defaultStatistics);
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(matchState.ballTrackingPoints || []);
+  const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(matchState.timeSegments || []);
   const [isRunning, setIsRunning] = useState(matchState.isRunning);
   const [elapsedTime, setElapsedTime] = useState(matchState.elapsedTime);
   const [setupComplete, setSetupComplete] = useState(matchState.setupComplete);
@@ -67,23 +91,26 @@ const MatchAnalysis: React.FC = () => {
         try {
           const matchData = JSON.parse(localStorage.getItem(`efootpad_match_${matchId}`) || '{}');
           
+          // Ensure statistics has a default value if not available in matchData
+          const safeStatistics = matchData.statistics || defaultStatistics;
+          
           // Update match state with loaded data
           matchState.setMatch(matchData);
-          matchState.setHomeTeam(matchData.homeTeam);
-          matchState.setAwayTeam(matchData.awayTeam);
-          matchState.setStatistics(matchData.statistics);
-          matchState.setElapsedTime(matchData.elapsedTime);
-          matchState.setTimeSegments(matchData.timeSegments);
+          matchState.setHomeTeam(matchData.homeTeam || { name: 'Home', players: [], formation: '' });
+          matchState.setAwayTeam(matchData.awayTeam || { name: 'Away', players: [], formation: '' });
+          matchState.setStatistics(safeStatistics);
+          matchState.setElapsedTime(matchData.elapsedTime || 0);
+          matchState.setTimeSegments(matchData.timeSegments || []);
           if (matchData.ballTrackingPoints) {
             matchState.setBallTrackingPoints(matchData.ballTrackingPoints);
           }
           
           setMatch(matchData);
-          setHomeTeam(matchData.homeTeam);
-          setAwayTeam(matchData.awayTeam);
-          setStatistics(matchData.statistics);
-          setElapsedTime(matchData.elapsedTime);
-          setTimeSegments(matchData.timeSegments);
+          setHomeTeam(matchData.homeTeam || { name: 'Home', players: [], formation: '' });
+          setAwayTeam(matchData.awayTeam || { name: 'Away', players: [], formation: '' });
+          setStatistics(safeStatistics);
+          setElapsedTime(matchData.elapsedTime || 0);
+          setTimeSegments(matchData.timeSegments || []);
           if (matchData.ballTrackingPoints) {
             setBallTrackingPoints(matchData.ballTrackingPoints);
           }
@@ -91,6 +118,8 @@ const MatchAnalysis: React.FC = () => {
           console.log("Loaded Match Data:", matchData);
         } catch (error) {
           console.error('Error loading match data:', error);
+          // Set default values in case of error
+          setStatistics(defaultStatistics);
         }
       }
     };
@@ -101,15 +130,16 @@ const MatchAnalysis: React.FC = () => {
   useEffect(() => {
     // Update local state when matchState changes
     setMatch(matchState.match);
-    setHomeTeam(matchState.homeTeam);
-    setAwayTeam(matchState.awayTeam);
+    setHomeTeam(matchState.homeTeam || { name: 'Home', players: [], formation: '' });
+    setAwayTeam(matchState.awayTeam || { name: 'Away', players: [], formation: '' });
     setTeamPositions(matchState.teamPositions);
     setSelectedPlayer(matchState.selectedPlayer);
     setSelectedTeam(matchState.selectedTeam);
     setMatchEvents(matchState.matchEvents);
-    setStatistics(matchState.statistics);
-    setBallTrackingPoints(matchState.ballTrackingPoints);
-    setTimeSegments(matchState.timeSegments);
+    // Ensure statistics always has a valid value
+    setStatistics(matchState.statistics || defaultStatistics);
+    setBallTrackingPoints(matchState.ballTrackingPoints || []);
+    setTimeSegments(matchState.timeSegments || []);
     setIsRunning(matchState.isRunning);
     setElapsedTime(matchState.elapsedTime);
     setSetupComplete(matchState.setupComplete);
@@ -229,7 +259,7 @@ const MatchAnalysis: React.FC = () => {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <Progress value={statistics.shots.home.onTarget} max={statistics.shots.home.onTarget + statistics.shots.away.onTarget} />
+                        <Progress value={statistics.shots.home.onTarget} max={statistics.shots.home.onTarget + statistics.shots.away.onTarget || 1} />
                         <div className="mt-2 flex justify-between text-sm text-muted-foreground">
                           <span>{homeTeam?.name || 'Home'}: {statistics.shots.home.onTarget}</span>
                           <span>{awayTeam?.name || 'Away'}: {statistics.shots.away.onTarget}</span>
@@ -356,7 +386,7 @@ const MatchAnalysis: React.FC = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Add the new visualizations section */}
+                  {/* Add the new visualizations section with proper null checks */}
                   {match && homeTeam && awayTeam && (
                     <MatchStatsVisualizer
                       homeTeam={homeTeam}
