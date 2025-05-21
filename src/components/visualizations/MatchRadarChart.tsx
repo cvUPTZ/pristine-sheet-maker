@@ -65,6 +65,18 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
         [awayTeamName]: statistics.ballsLost?.away || 0,
         fullMark: 10,
       },
+      {
+        stat: 'Duels Won',
+        [homeTeamName]: statistics.duels?.home?.won || 0,
+        [awayTeamName]: statistics.duels?.away?.won || 0,
+        fullMark: 20,
+      },
+      {
+        stat: 'Crosses',
+        [homeTeamName]: statistics.crosses?.home?.total || 0,
+        [awayTeamName]: statistics.crosses?.away?.total || 0,
+        fullMark: 15,
+      },
     ];
   };
 

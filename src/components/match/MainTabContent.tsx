@@ -3,17 +3,20 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon } from 'lucide-react';
+import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock } from 'lucide-react';
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
-import { BallTrackingPoint, Player, PlayerStatistics, Statistics } from '@/types';
+import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics } from '@/types';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
+import PianoInput from './PianoInput';
+import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
+import PianoIcon from '@/components/ui/icons/PianoIcon';
 
 interface MainTabContentProps {
-  activeTab: 'pitch' | 'stats' | 'details';
-  setActiveTab: (tab: 'pitch' | 'stats' | 'details') => void;
+  activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline';
+  setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline') => void;
   homeTeam: any;
   awayTeam: any;
   teamPositions: Record<number, { x: number; y: number }>;
@@ -29,6 +32,8 @@ interface MainTabContentProps {
   playerStats: PlayerStatistics[];
   handleUndo: () => void;
   handleSave: () => void;
+  timeSegments?: TimeSegmentStatistics[];
+  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
 }
 
 const MainTabContent: React.FC<MainTabContentProps> = ({
@@ -48,10 +53,13 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   statistics,
   playerStats,
   handleUndo,
-  handleSave
+  handleSave,
+  timeSegments = [],
+  recordEvent
 }) => {
-  const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap'>('summary');
+  const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline'>('summary');
   const [tableView, setTableView] = useState<'individual' | 'team'>('individual');
+  const [timelineView, setTimelineView] = useState<'ballsPlayed' | 'possession' | 'recoveryTime'>('ballsPlayed');
   
   return (
     <div>
@@ -61,6 +69,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             <Flag className="h-4 w-4" />
             Pitch
           </TabsTrigger>
+          <TabsTrigger value="piano" className="flex items-center gap-1">
+            <PianoIcon className="h-4 w-4" />
+            Piano
+          </TabsTrigger>
           <TabsTrigger value="stats" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
             Statistics
@@ -68,6 +80,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
           <TabsTrigger value="details" className="flex items-center gap-1">
             <TableIcon className="h-4 w-4" />
             Detailed Stats
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            Timeline
           </TabsTrigger>
         </TabsList>
         
@@ -84,6 +100,17 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             mode={mode}
             handlePitchClick={handlePitchClick}
             addBallTrackingPoint={addBallTrackingPoint}
+          />
+        </TabsContent>
+        
+        <TabsContent value="piano">
+          <PianoInput
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            onRecordEvent={recordEvent}
+            teamPositions={teamPositions}
+            selectedTeam={selectedTeam}
+            setSelectedTeam={setSelectedTeam}
           />
         </TabsContent>
         
@@ -161,6 +188,49 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 teamId={tableView === 'team' ? selectedTeam : undefined} 
               />
             </div>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="timeline">
+          <Card className="p-4 bg-white shadow-md">
+            <div className="flex justify-start mb-4 gap-2 overflow-x-auto">
+              <Button
+                variant={timelineView === 'ballsPlayed' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setTimelineView('ballsPlayed')}
+              >
+                Balls Played
+              </Button>
+              <Button 
+                variant={timelineView === 'possession' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimelineView('possession')}
+              >
+                Possession
+              </Button>
+              <Button 
+                variant={timelineView === 'recoveryTime' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimelineView('recoveryTime')}
+              >
+                Recovery Time
+              </Button>
+            </div>
+            
+            {timeSegments && timeSegments.length > 0 ? (
+              <TimeSegmentChart
+                timeSegments={timeSegments}
+                homeTeamName={homeTeam.name}
+                awayTeamName={awayTeam.name}
+                dataKey={timelineView}
+                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`}
+                description="Analysis of match progression in 5-minute intervals"
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No timeline data available
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

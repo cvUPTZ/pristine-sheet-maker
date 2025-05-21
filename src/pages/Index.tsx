@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatchState } from '@/hooks/useMatchState';
 import { useToast } from '@/components/ui/use-toast';
-import { Player } from '@/types';
+import { EventType, Player } from '@/types';
 import { getPlayerPositions } from '@/utils/formationUtils';
 import MatchHeader from '@/components/match/MatchHeader';
 import MatchSidebar from '@/components/match/MatchSidebar';
@@ -14,7 +14,7 @@ const MatchRecording = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details'>('pitch');
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline'>('pitch');
   
   const {
     homeTeam,
@@ -28,6 +28,7 @@ const MatchRecording = () => {
     ballTrackingMode,
     ballTrackingPoints,
     playerStats,
+    timeSegments,
     setSelectedTeam,
     setSelectedPlayer,
     toggleTimer,
@@ -41,6 +42,7 @@ const MatchRecording = () => {
     addBallTrackingPoint,
     trackBallMovement,
     saveMatch,
+    recordEvent,
   } = useMatchState();
   
   // Get player positions based on formations
@@ -96,6 +98,18 @@ const MatchRecording = () => {
         : "Click on the pitch to track ball movement",
     });
   };
+  
+  const handleRecordEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+    recordEvent(eventType, playerId, teamId, coordinates);
+    
+    const team = teamId === 'home' ? homeTeam : awayTeam;
+    const player = team.players.find(p => p.id === playerId);
+    
+    toast({
+      title: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} Recorded`,
+      description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam.name : awayTeam.name})`,
+    });
+  };
 
   if (!setupComplete) {
     return (
@@ -146,6 +160,8 @@ const MatchRecording = () => {
               playerStats={playerStats}
               handleUndo={handleUndo}
               handleSave={handleSave}
+              timeSegments={timeSegments}
+              recordEvent={handleRecordEvent}
             />
           </div>
           

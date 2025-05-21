@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Team, Player, MatchEvent, EventType, Statistics, BallTrackingPoint, Formation, PlayerStatistics } from '@/types';
+import { Team, Player, MatchEvent, EventType, Statistics, BallTrackingPoint, Formation, PlayerStatistics, TimeSegmentStatistics } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_HOME_TEAM: Team = {
@@ -15,6 +15,23 @@ const DEFAULT_AWAY_TEAM: Team = {
   name: 'Away Team',
   players: [],
   formation: '4-3-3',
+};
+
+// Create empty time segments
+const generateEmptyTimeSegments = (): TimeSegmentStatistics[] => {
+  const segments = [];
+  for (let i = 0; i < 90; i += 5) {
+    segments.push({
+      timeSegment: `${i}-${i + 5}`,
+      ballsPlayed: { home: 0, away: 0 },
+      ballsGiven: { home: 0, away: 0 },
+      ballsRecovered: { home: 0, away: 0 },
+      ballsLost: { home: 0, away: 0 },
+      possession: { home: 50, away: 50 },
+      recoveryTime: { home: 0, away: 0 }
+    });
+  }
+  return segments;
 };
 
 export const useMatchState = () => {
@@ -38,12 +55,41 @@ export const useMatchState = () => {
     },
     ballsPlayed: { home: 0, away: 0 },
     ballsLost: { home: 0, away: 0 },
+    duels: {
+      home: { won: 0, lost: 0, aerial: 0 },
+      away: { won: 0, lost: 0, aerial: 0 }
+    },
+    cards: {
+      home: { yellow: 0, red: 0 },
+      away: { yellow: 0, red: 0 }
+    },
+    crosses: {
+      home: { total: 0, successful: 0 },
+      away: { total: 0, successful: 0 }
+    },
+    dribbles: {
+      home: { successful: 0, attempted: 0 },
+      away: { successful: 0, attempted: 0 }
+    },
+    corners: {
+      home: 0,
+      away: 0
+    },
+    offsides: {
+      home: 0,
+      away: 0
+    },
+    freeKicks: {
+      home: 0,
+      away: 0
+    }
   });
   
   const [setupComplete, setSetupComplete] = useState(false);
   const [ballTrackingMode, setBallTrackingMode] = useState(false);
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>([]);
+  const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(generateEmptyTimeSegments());
   
   // Timer logic
   useEffect(() => {
@@ -82,6 +128,28 @@ export const useMatchState = () => {
     const homePasses = homeEvents.filter(e => e.type === 'pass');
     const awayPasses = awayEvents.filter(e => e.type === 'pass');
     
+    // Count duels
+    const homeDuelsWon = homeEvents.filter(e => e.type === 'tackle').length;
+    const awayDuelsWon = awayEvents.filter(e => e.type === 'tackle').length;
+    
+    // Count cards
+    const homeYellowCards = homeEvents.filter(e => e.type === 'card' && e.additionalData?.cardType === 'yellow').length;
+    const homeRedCards = homeEvents.filter(e => e.type === 'card' && e.additionalData?.cardType === 'red').length;
+    const awayYellowCards = awayEvents.filter(e => e.type === 'card' && e.additionalData?.cardType === 'yellow').length;
+    const awayRedCards = awayEvents.filter(e => e.type === 'card' && e.additionalData?.cardType === 'red').length;
+    
+    // Count crosses
+    const homeCrosses = homeEvents.filter(e => e.type === 'cross').length;
+    const homeSuccessfulCrosses = homeEvents.filter(e => e.type === 'cross' && e.additionalData?.successful === true).length;
+    const awayCrosses = awayEvents.filter(e => e.type === 'cross').length;
+    const awaySuccessfulCrosses = awayEvents.filter(e => e.type === 'cross' && e.additionalData?.successful === true).length;
+    
+    // Count dribbles
+    const homeDribbles = homeEvents.filter(e => e.type === 'dribble').length;
+    const homeSuccessfulDribbles = homeEvents.filter(e => e.type === 'dribble' && e.additionalData?.successful === true).length;
+    const awayDribbles = awayEvents.filter(e => e.type === 'dribble').length;
+    const awaySuccessfulDribbles = awayEvents.filter(e => e.type === 'dribble' && e.additionalData?.successful === true).length;
+    
     setStatistics({
       possession: { 
         home: homePercent, 
@@ -115,12 +183,133 @@ export const useMatchState = () => {
         home: homeEvents.filter(e => e.type === 'foul').length, 
         away: awayEvents.filter(e => e.type === 'foul').length 
       },
+      duels: {
+        home: {
+          won: homeDuelsWon,
+          lost: awayDuelsWon,
+          aerial: homeEvents.filter(e => e.type === 'header').length
+        },
+        away: {
+          won: awayDuelsWon,
+          lost: homeDuelsWon,
+          aerial: awayEvents.filter(e => e.type === 'header').length
+        }
+      },
+      cards: {
+        home: {
+          yellow: homeYellowCards,
+          red: homeRedCards
+        },
+        away: {
+          yellow: awayYellowCards,
+          red: awayRedCards
+        }
+      },
+      crosses: {
+        home: {
+          total: homeCrosses,
+          successful: homeSuccessfulCrosses
+        },
+        away: {
+          total: awayCrosses,
+          successful: awaySuccessfulCrosses
+        }
+      },
+      dribbles: {
+        home: {
+          successful: homeSuccessfulDribbles,
+          attempted: homeDribbles
+        },
+        away: {
+          successful: awaySuccessfulDribbles,
+          attempted: awayDribbles
+        }
+      },
+      corners: {
+        home: homeEvents.filter(e => e.type === 'corner').length,
+        away: awayEvents.filter(e => e.type === 'corner').length
+      },
+      offsides: {
+        home: homeEvents.filter(e => e.type === 'offside').length,
+        away: awayEvents.filter(e => e.type === 'offside').length
+      },
+      freeKicks: {
+        home: homeEvents.filter(e => e.type === 'free-kick').length,
+        away: awayEvents.filter(e => e.type === 'free-kick').length
+      }
     });
     
     // Update player statistics
     updatePlayerStats();
     
+    // Update time segments statistics
+    updateTimeSegments();
+    
   }, [events]);
+  
+  // Update time segments based on events
+  const updateTimeSegments = () => {
+    const newTimeSegments = generateEmptyTimeSegments();
+    
+    events.forEach(event => {
+      const segmentIndex = Math.min(Math.floor(event.timestamp / 60 / 5), 17); // 0-17 for 0-90 minutes
+      
+      if (segmentIndex >= 0 && segmentIndex < newTimeSegments.length) {
+        const segment = newTimeSegments[segmentIndex];
+        
+        // Update balls played
+        if (event.teamId === 'home') {
+          segment.ballsPlayed.home += 1;
+        } else {
+          segment.ballsPlayed.away += 1;
+        }
+        
+        // Update balls given (passes)
+        if (event.type === 'pass') {
+          if (event.teamId === 'home') {
+            segment.ballsGiven.home += 1;
+          } else {
+            segment.ballsGiven.away += 1;
+          }
+        }
+        
+        // Update balls recovered (interceptions, tackles)
+        if (event.type === 'tackle' || event.type === 'interception') {
+          if (event.teamId === 'home') {
+            segment.ballsRecovered.home += 1;
+          } else {
+            segment.ballsRecovered.away += 1;
+          }
+        }
+        
+        // Update balls lost (fouls)
+        if (event.type === 'foul') {
+          if (event.teamId === 'home') {
+            segment.ballsLost.home += 1;
+          } else {
+            segment.ballsLost.away += 1;
+          }
+        }
+      }
+    });
+    
+    // Calculate possession for each time segment
+    newTimeSegments.forEach(segment => {
+      const totalBallsPlayed = segment.ballsPlayed.home + segment.ballsPlayed.away;
+      if (totalBallsPlayed > 0) {
+        segment.possession.home = Math.round((segment.ballsPlayed.home / totalBallsPlayed) * 100);
+        segment.possession.away = 100 - segment.possession.home;
+      }
+      
+      // Simulate recovery time (in seconds)
+      segment.recoveryTime.home = segment.ballsRecovered.home > 0 ? 
+        Math.round(300 / segment.ballsRecovered.home) : 0;
+      segment.recoveryTime.away = segment.ballsRecovered.away > 0 ? 
+        Math.round(300 / segment.ballsRecovered.away) : 0;
+    });
+    
+    setTimeSegments(newTimeSegments);
+  };
   
   // Calculate individual player statistics
   const updatePlayerStats = () => {
@@ -151,7 +340,44 @@ export const useMatchState = () => {
         passes: playerEvents.filter(e => e.type === 'pass').length,
         shots: playerEvents.filter(e => e.type === 'shot' || e.type === 'goal').length,
         ballsPlayed: playerEvents.length,
-        fouls: playerEvents.filter(e => e.type === 'foul').length
+        fouls: playerEvents.filter(e => e.type === 'foul').length,
+        // New player statistics
+        ballsReceived: playerEvents.filter(e => {
+          // Count when this player is receiving a pass
+          const isPrevPass = events.some(prev => 
+            prev.type === 'pass' && 
+            prev.timestamp < e.timestamp && 
+            prev.timestamp > e.timestamp - 3 && 
+            prev.additionalData?.targetPlayerId === player.id
+          );
+          return isPrevPass;
+        }).length,
+        ballsRecovered: playerEvents.filter(e => e.type === 'interception' || e.type === 'tackle').length,
+        touches: playerEvents.length, // Simplified
+        duelsWon: playerEvents.filter(e => e.type === 'tackle').length,
+        duelsLost: events.filter(e => 
+          e.type === 'tackle' && 
+          e.additionalData?.againstPlayerId === player.id
+        ).length,
+        aerialDuelsWon: playerEvents.filter(e => e.type === 'header').length,
+        successfulDribbles: playerEvents.filter(e => 
+          e.type === 'dribble' && e.additionalData?.successful === true
+        ).length,
+        successfulCrosses: playerEvents.filter(e => 
+          e.type === 'cross' && e.additionalData?.successful === true
+        ).length,
+        passesForward: playerEvents.filter(e => 
+          e.type === 'pass' && e.additionalData?.direction === 'forward'
+        ).length,
+        passesBackward: playerEvents.filter(e => 
+          e.type === 'pass' && e.additionalData?.direction === 'backward'
+        ).length,
+        passesLateral: playerEvents.filter(e => 
+          e.type === 'pass' && e.additionalData?.direction === 'lateral'
+        ).length,
+        longPasses: playerEvents.filter(e => 
+          e.type === 'pass' && e.additionalData?.isLong === true
+        ).length,
       };
     });
     
@@ -167,7 +393,7 @@ export const useMatchState = () => {
     setIsRunning(false);
   };
 
-  const addEvent = (type: EventType, coordinates: { x: number; y: number }) => {
+  const addEvent = (type: EventType, coordinates: { x: number; y: number }, additionalData?: Record<string, any>) => {
     if (!selectedPlayer) return;
     
     const newEvent: MatchEvent = {
@@ -178,6 +404,7 @@ export const useMatchState = () => {
       type,
       timestamp: elapsedTime,
       coordinates,
+      additionalData
     };
     
     setEvents([...events, newEvent]);
@@ -190,8 +417,6 @@ export const useMatchState = () => {
       teamId: selectedTeam,
       playerId: selectedPlayer.id
     });
-    
-    setSelectedPlayer(null); // Reset selection after adding event
   };
 
   const undoLastEvent = () => {
@@ -209,7 +434,8 @@ export const useMatchState = () => {
       elapsedTime,
       date: new Date(),
       ballTrackingPoints,
-      playerStats
+      playerStats,
+      timeSegments
     };
     
     // This is a simplified version that saves to localStorage
@@ -264,6 +490,35 @@ export const useMatchState = () => {
     setBallTrackingPoints([]);
   };
 
+  // Record event from Piano Input
+  const recordEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+    const team = teamId === 'home' ? homeTeam : awayTeam;
+    const player = team.players.find(p => p.id === playerId);
+    
+    if (!player) return;
+    
+    const newEvent: MatchEvent = {
+      id: uuidv4(),
+      matchId,
+      teamId,
+      playerId,
+      type: eventType,
+      timestamp: elapsedTime,
+      coordinates,
+    };
+    
+    setEvents([...events, newEvent]);
+    
+    // Add ball tracking point
+    addBallTrackingPoint({
+      x: coordinates.x,
+      y: coordinates.y,
+      timestamp: elapsedTime,
+      teamId,
+      playerId
+    });
+  };
+
   return {
     homeTeam,
     awayTeam,
@@ -277,6 +532,7 @@ export const useMatchState = () => {
     ballTrackingMode,
     ballTrackingPoints,
     playerStats,
+    timeSegments,
     setSelectedTeam,
     setSelectedPlayer,
     toggleTimer,
@@ -292,5 +548,6 @@ export const useMatchState = () => {
     addBallTrackingPoint,
     trackBallMovement,
     resetBallTracking,
+    recordEvent,
   };
 };
