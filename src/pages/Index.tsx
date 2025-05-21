@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatchState } from '@/hooks/useMatchState';
@@ -108,7 +109,7 @@ const MatchRecording = () => {
     
     toast({
       title: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} Recorded`,
-      description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam?.name : awayTeam?.name})`,
+      description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam?.name || 'Home Team' : awayTeam?.name || 'Away Team'})`,
     });
   };
 
@@ -117,7 +118,9 @@ const MatchRecording = () => {
   };
 
   const handleCompleteSetup = () => {
-    completeSetup(homeTeam, awayTeam);
+    if (homeTeam && awayTeam) {
+      completeSetup(homeTeam, awayTeam);
+    }
   };
 
   if (!setupComplete) {
@@ -131,6 +134,16 @@ const MatchRecording = () => {
     );
   }
 
+  // Before rendering the main UI, ensure we have valid teams
+  if (!homeTeam || !awayTeam) {
+    return <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Loading Teams...</h1>
+        <p>Please wait while we load your teams data.</p>
+      </div>
+    </div>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
       <div className="max-w-6xl mx-auto">
@@ -138,12 +151,12 @@ const MatchRecording = () => {
           mode={mode}
           setMode={setMode}
           homeTeam={{
-            name: homeTeam?.name || "",
-            formation: homeTeam?.formation || '4-4-2'
+            name: homeTeam.name,
+            formation: homeTeam.formation || '4-4-2'
           }}
           awayTeam={{
-            name: awayTeam?.name || "",
-            formation: awayTeam?.formation || '4-4-2'
+            name: awayTeam.name,
+            formation: awayTeam.formation || '4-4-2'
           }}
           handleToggleTracking={handleToggleTracking}
           handleSave={handleSave}
@@ -188,14 +201,14 @@ const MatchRecording = () => {
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={trackBallMovement}
               homeTeam={{
-                name: homeTeam?.name || "",
-                players: homeTeam?.players || [],
-                formation: homeTeam?.formation || '4-4-2'
+                name: homeTeam.name,
+                players: homeTeam.players,
+                formation: homeTeam.formation || '4-4-2'
               }}
               awayTeam={{
-                name: awayTeam?.name || "",
-                players: awayTeam?.players || [],
-                formation: awayTeam?.formation || '4-4-2'
+                name: awayTeam.name,
+                players: awayTeam.players,
+                formation: awayTeam.formation || '4-4-2'
               }}
               statistics={statistics}
             />
@@ -215,14 +228,14 @@ const MatchRecording = () => {
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={trackBallMovement}
               homeTeam={{
-                name: homeTeam?.name || "",
-                players: homeTeam?.players || [],
-                formation: homeTeam?.formation || '4-4-2'
+                name: homeTeam.name,
+                players: homeTeam.players,
+                formation: homeTeam.formation || '4-4-2'
               }}
               awayTeam={{
-                name: awayTeam?.name || "",
-                players: awayTeam?.players || [],
-                formation: awayTeam?.formation || '4-4-2'
+                name: awayTeam.name,
+                players: awayTeam.players,
+                formation: awayTeam.formation || '4-4-2'
               }}
               statistics={statistics}
             />

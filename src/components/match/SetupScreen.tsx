@@ -10,8 +10,8 @@ import { toast } from 'sonner';
 import { createSimulatedTeams } from '@/utils/formationUtils';
 
 interface SetupScreenProps {
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: Team | null;
+  awayTeam: Team | null;
   updateTeams: (teams: { home: Team; away: Team }) => void;
   completeSetup: () => void;
 }
@@ -24,7 +24,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
 }) => {
   const handleStartMatch = () => {
     // Validation check before starting the match
-    if (homeTeam.players.length < 1 || awayTeam.players.length < 1) {
+    if (!homeTeam || !awayTeam || homeTeam.players.length < 1 || awayTeam.players.length < 1) {
       toast.error("Each team must have at least one player.");
       return;
     }

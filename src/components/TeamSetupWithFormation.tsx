@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { getPositionName, generatePlayersForFormation } from '@/utils/formationU
 import { toast } from 'sonner';
 
 interface TeamSetupWithFormationProps {
-  teams: { home: Team; away: Team };
+  teams: { home: Team | null; away: Team | null };
   onTeamsChange: (teams: { home: Team; away: Team }) => void;
   onConfirm: () => void;
 }
@@ -17,18 +18,52 @@ interface TeamSetupWithFormationProps {
 const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, onTeamsChange, onConfirm }) => {
   const [activeTab, setActiveTab] = useState<string>("home");
   
+  // Initialize default teams if null
+  useEffect(() => {
+    let needsUpdate = false;
+    const updatedTeams = { ...teams };
+    
+    if (!updatedTeams.home) {
+      updatedTeams.home = {
+        id: 'home-team',
+        name: 'Home Team',
+        players: [],
+        formation: '4-4-2'
+      };
+      needsUpdate = true;
+    }
+    
+    if (!updatedTeams.away) {
+      updatedTeams.away = {
+        id: 'away-team',
+        name: 'Away Team',
+        players: [],
+        formation: '4-3-3'
+      };
+      needsUpdate = true;
+    }
+    
+    if (needsUpdate) {
+      onTeamsChange(updatedTeams as { home: Team, away: Team });
+    }
+  }, []);
+  
   const updateTeamName = (teamId: 'home' | 'away', name: string) => {
+    if (!teams[teamId]) return;
+    
     onTeamsChange({
       ...teams,
       [teamId]: {
-        ...teams[teamId],
+        ...teams[teamId]!,
         name
       }
-    });
+    } as { home: Team, away: Team });
   };
   
   const updateTeamFormation = (teamId: 'home' | 'away', formation: Formation) => {
-    const team = teams[teamId];
+    if (!teams[teamId]) return;
+    
+    const team = teams[teamId]!;
     
     // Generate new players based on the formation
     const startId = teamId === 'home' ? 1 : 100;
@@ -41,13 +76,15 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
         formation,
         players: newPlayers
       }
-    });
+    } as { home: Team, away: Team });
     
     toast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${formation} with new players`);
   };
   
   const addPlayer = (teamId: 'home' | 'away') => {
-    const team = teams[teamId];
+    if (!teams[teamId]) return;
+    
+    const team = teams[teamId]!;
     const playerId = teamId === 'home' ? 
       Math.max(...team.players.map(p => p.id), 0) + 1 : 
       Math.max(...team.players.map(p => p.id), 100) + 1;
@@ -65,11 +102,13 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
         ...team,
         players: [...team.players, newPlayer]
       }
-    });
+    } as { home: Team, away: Team });
   };
   
   const updatePlayer = (teamId: 'home' | 'away', playerId: number, updates: Partial<Player>) => {
-    const team = teams[teamId];
+    if (!teams[teamId]) return;
+    
+    const team = teams[teamId]!;
     const updatedPlayers = team.players.map(player => 
       player.id === playerId ? { ...player, ...updates } : player
     );
@@ -80,11 +119,13 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
         ...team,
         players: updatedPlayers
       }
-    });
+    } as { home: Team, away: Team });
   };
   
   const removePlayer = (teamId: 'home' | 'away', playerId: number) => {
-    const team = teams[teamId];
+    if (!teams[teamId]) return;
+    
+    const team = teams[teamId]!;
     const updatedPlayers = team.players.filter(player => player.id !== playerId);
     
     onTeamsChange({
@@ -93,21 +134,24 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
         ...team,
         players: updatedPlayers
       }
-    });
+    } as { home: Team, away: Team });
   };
   
   // Initialize teams with default players if they have a formation but no players
   useEffect(() => {
-    // For home team
-    if (teams.home.formation && teams.home.players.length === 0) {
+    if (teams.home?.formation && teams.home.players.length === 0) {
       updateTeamFormation('home', teams.home.formation as Formation);
     }
     
-    // For away team
-    if (teams.away.formation && teams.away.players.length === 0) {
+    if (teams.away?.formation && teams.away.players.length === 0) {
       updateTeamFormation('away', teams.away.formation as Formation);
     }
-  }, []);
+  }, [teams.home?.formation, teams.away?.formation]);
+  
+  // Render nothing if teams are not initialized yet
+  if (!teams.home || !teams.away) {
+    return <div className="p-6 text-center">Loading teams...</div>;
+  }
   
   return (
     <div className="p-6">

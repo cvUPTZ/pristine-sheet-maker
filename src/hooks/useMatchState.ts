@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
