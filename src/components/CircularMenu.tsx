@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { EventType } from '@/types';
+import { X } from 'lucide-react';
 
 // Define the available event types and their colors
 const eventTypes: Record<EventType, { color: string; description: string }> = {
@@ -23,10 +24,11 @@ const eventTypes: Record<EventType, { color: string; description: string }> = {
   interception: { color: "bg-amber-500", description: "Intercept" }
 };
 
-// Array of the most common event types for the circular menu
-const COMMON_EVENTS: EventType[] = [
-  'pass', 'shot', 'tackle', 'foul', 'goal', 'assist', 'yellowCard', 'redCard'
-];
+// Inner ring - primary actions
+const PRIMARY_ACTIONS: EventType[] = ['pass', 'shot', 'goal', 'assist'];
+
+// Outer ring - secondary actions
+const SECONDARY_ACTIONS: EventType[] = ['tackle', 'foul', 'yellowCard', 'redCard', 'corner', 'offside', 'penalty', 'free-kick'];
 
 interface CircularMenuProps {
   visible: boolean;
@@ -45,13 +47,14 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
 
   // Calculate positions for items in a circle
   const calculatePosition = (index: number, total: number, radius: number) => {
-    const angle = (index * 2 * Math.PI) / total;
+    const angle = (index * 2 * Math.PI) / total - Math.PI / 2; // Start from top
     const x = radius * Math.cos(angle);
     const y = radius * Math.sin(angle);
     return { x, y };
   };
 
   const handleActionClick = (e: React.MouseEvent, eventType: EventType) => {
+    e.preventDefault();
     e.stopPropagation();
     onSelect(eventType);
     onClose();
@@ -65,37 +68,59 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
         onClose();
       }}
     >
-      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       
       <div 
-        className="absolute w-[280px] h-[280px]"
+        className="absolute"
         style={{
           left: `${position.x * 100}%`,
           top: `${position.y * 100}%`,
+          width: '300px',
+          height: '300px',
           transform: 'translate(-50%, -50%)'
         }}
       >
         {/* Center button to close */}
         <button 
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg z-10 border-2 border-gray-200"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg z-30 border-2 border-gray-200 hover:bg-gray-100 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
         >
-          <span className="text-sm font-medium text-gray-700">Close</span>
+          <X className="w-6 h-6 text-gray-700" />
         </button>
         
-        {/* Circular menu items */}
-        {COMMON_EVENTS.map((eventType, index) => {
-          const { x, y } = calculatePosition(index, COMMON_EVENTS.length, 100);
+        {/* Inner ring - Primary actions */}
+        {PRIMARY_ACTIONS.map((eventType, index) => {
+          const { x, y } = calculatePosition(index, PRIMARY_ACTIONS.length, 60);
           const info = eventTypes[eventType];
           
           return (
             <button
-              key={eventType}
+              key={`primary-${eventType}`}
               onClick={(e) => handleActionClick(e, eventType)}
-              className={`absolute w-16 h-16 rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110 border-2 border-white`}
+              className={`absolute w-16 h-16 rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-20`}
+              style={{
+                left: `calc(50% + ${x}px)`,
+                top: `calc(50% + ${y}px)`,
+              }}
+            >
+              <span className="text-xs font-semibold">{info.description}</span>
+            </button>
+          );
+        })}
+        
+        {/* Outer ring - Secondary actions */}
+        {SECONDARY_ACTIONS.map((eventType, index) => {
+          const { x, y } = calculatePosition(index, SECONDARY_ACTIONS.length, 120);
+          const info = eventTypes[eventType];
+          
+          return (
+            <button
+              key={`secondary-${eventType}`}
+              onClick={(e) => handleActionClick(e, eventType)}
+              className={`absolute w-14 h-14 rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-10`}
               style={{
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,

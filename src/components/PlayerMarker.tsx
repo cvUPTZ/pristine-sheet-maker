@@ -36,7 +36,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Show the circular menu on right-click
+    // Only show the circular menu on right-click when onEventSelect is available
     if (onEventSelect) {
       setShowMenu(true);
     }
@@ -72,7 +72,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         {player.number}
       </div>
       
-      {/* Circular menu for actions */}
+      {/* Circular menu for actions - only shown on right-click */}
       {onEventSelect && (
         <CircularMenu 
           visible={showMenu} 
