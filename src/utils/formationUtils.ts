@@ -1,4 +1,3 @@
-
 import { Formation, FormationPositions, Player, Team } from '@/types';
 
 // Define formation positions (normalized to field coordinates 0-1)
@@ -83,8 +82,8 @@ export const formationPositions: FormationPositions = {
   ]
 };
 
-// Get player positions based on team and formation
-export const getPlayerPositions = (team: Team, isHomeTeam: boolean) => {
+// Updated function to handle objects that might not have all Team properties
+export const getPlayerPositions = (team: Partial<Team> & { players: Player[], formation?: string }, isHomeTeam: boolean) => {
   const positions: Record<number, { x: number; y: number }> = {};
   
   // Default to 4-4-2 if no formation is specified
