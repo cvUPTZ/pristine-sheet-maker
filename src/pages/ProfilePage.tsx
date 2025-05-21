@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, User, Mail, Calendar, CheckCircle2 } from "lucide-react";
+import RoleRequirement from "@/components/RoleRequirement";
 
 export default function ProfilePage() {
   const { user, profile, loading } = useAuth();

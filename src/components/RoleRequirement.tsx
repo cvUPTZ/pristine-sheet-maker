@@ -1,58 +1,40 @@
 
-import { ReactNode } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShieldAlert } from "lucide-react";
+import React from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RoleRequirementProps {
-  children: ReactNode;
-  requiredRole: "admin" | "tracker" | "any";
-  fallback?: ReactNode;
+  requiredRole: 'admin' | 'tracker' | 'user' | 'authenticated' | 'any';
+  children: React.ReactNode;
 }
 
-export default function RoleRequirement({ 
-  children, 
-  requiredRole,
-  fallback
-}: RoleRequirementProps) {
-  const { isAdmin, isTracker, user, loading } = useAuth();
+const RoleRequirement: React.FC<RoleRequirementProps> = ({ requiredRole, children }) => {
+  const { user, isAdmin, isTracker } = useAuth();
   
-  // Still loading auth state
-  if (loading) {
-    return null;
+  // If requiredRole is 'any', show content regardless of role
+  if (requiredRole === 'any') {
+    return <>{children}</>;
   }
   
-  // Not authenticated
-  if (!user) {
-    return fallback || (
-      <Alert>
-        <ShieldAlert className="h-4 w-4" />
-        <AlertTitle>Authentication required</AlertTitle>
-        <AlertDescription>
-          Please sign in to access this feature.
-        </AlertDescription>
-      </Alert>
-    );
+  // Check if user is authenticated when that's the requirement
+  if (requiredRole === 'authenticated') {
+    return user ? <>{children}</> : null;
   }
   
-  // Check role requirements
-  const hasRequiredRole = 
-    requiredRole === "admin" ? isAdmin :
-    requiredRole === "tracker" ? isTracker :
-    true; // "any" role
-  
-  if (!hasRequiredRole) {
-    return fallback || (
-      <Alert>
-        <ShieldAlert className="h-4 w-4" />
-        <AlertTitle>Access Denied</AlertTitle>
-        <AlertDescription>
-          You don't have the required permissions to access this feature.
-        </AlertDescription>
-      </Alert>
-    );
+  // Check for specific roles
+  if (requiredRole === 'admin' && isAdmin) {
+    return <>{children}</>;
   }
   
-  // User has the required role
-  return <>{children}</>;
-}
+  if (requiredRole === 'tracker' && isTracker) {
+    return <>{children}</>;
+  }
+  
+  if (requiredRole === 'user' && user && !isAdmin && !isTracker) {
+    return <>{children}</>;
+  }
+  
+  // If none of the conditions are met, return null
+  return null;
+};
+
+export default RoleRequirement;
