@@ -64,8 +64,11 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const [showSubstitutionMenu, setShowSubstitutionMenu] = useState(false);
   const [benchPlayers, setBenchPlayers] = useState<Player[]>([]);
   const [playerName, setPlayerName] = useState('');
+  const [showActionCircle, setShowActionCircle] = useState(false);
+  const [targetPlayer, setTargetPlayer] = useState<Player | null>(null);
   
   // Define available actions for the piano with clearer categories and icons
+  // Remove pass actions as requested
   const offensiveActions: ActionButton[] = [
     { type: 'shot', label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white', icon: <Target className="w-5 h-5" />, additionalData: { cadre: true } },
     { type: 'goal', label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white', icon: <Trophy className="w-5 h-5" /> },
@@ -74,8 +77,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
   ];
   
   const playActions: ActionButton[] = [
-    { type: 'pass', label: 'PASSE', color: 'bg-sky-400 hover:bg-sky-500 text-black', icon: <Send className="w-5 h-5" />, additionalData: { decisive: false } },
-    { type: 'pass', label: 'PASSE DÉCISIVE', color: 'bg-indigo-400 hover:bg-indigo-500 text-white', icon: <Award className="w-5 h-5" />, additionalData: { decisive: true } },
+    // Removed pass actions as requested
     { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white', icon: <CornerUpRight className="w-5 h-5" /> },
     { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white', icon: <Flag className="w-5 h-5" /> }
   ];
@@ -90,7 +92,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const setPlayActions: ActionButton[] = [
     { type: 'corner', label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white', icon: <Flag className="w-5 h-5" /> },
     { type: 'penalty', label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white', icon: <Target className="w-5 h-5" /> },
-    { type: 'pass', label: 'TOUCHE', color: 'bg-gray-500 hover:bg-gray-600 text-white', icon: <Hand className="w-5 h-5" />, additionalData: { touchType: 'throw-in' } },
     { type: 'offside', label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white', icon: <Flag className="w-5 h-5" /> }
   ];
   
@@ -104,9 +105,26 @@ const PianoInput: React.FC<PianoInputProps> = ({
   const allActions = [...offensiveActions, ...playActions, ...defensiveActions, ...setPlayActions, ...specialActions];
   
   const handleSelectPlayer = (player: Player, team: 'home' | 'away') => {
-    setSelectedPlayer(player);
-    setSelectedTeam(team);
-    setPlayerName(player.name);
+    // If we already have a selected player and now selecting another player,
+    // interpret it as a pass from selected player to the newly clicked player
+    if (selectedPlayer && selectedPlayer.id !== player.id) {
+      setTargetPlayer(player);
+      // Record pass event
+      const position = teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
+      onRecordEvent('pass', selectedPlayer.id, selectedTeam, position);
+      
+      // Then update selected player to the target
+      setSelectedPlayer(player);
+      setSelectedTeam(team);
+      setPlayerName(player.name);
+      setShowActionCircle(true);
+    } else {
+      // First player selection
+      setSelectedPlayer(player);
+      setSelectedTeam(team);
+      setPlayerName(player.name);
+      setShowActionCircle(true);
+    }
   };
   
   const handleActionClick = (action: EventType, additionalData?: Record<string, any>) => {
@@ -122,6 +140,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
     
     // Reset selection after recording
     setSelectedAction(null);
+    setShowActionCircle(false);
   };
   
   const handleUndoAction = () => {
@@ -169,7 +188,8 @@ const PianoInput: React.FC<PianoInputProps> = ({
               </Button>
             </div>
             
-            <div className="relative h-[220px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
+            {/* Make the pitch container taller for better visibility */}
+            <div className="relative h-[280px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
               <FootballPitch>
                 {/* Render players for the selected team */}
                 {activePlayers.map((player) => (
@@ -189,31 +209,25 @@ const PianoInput: React.FC<PianoInputProps> = ({
             <div className="border rounded-md p-3 mb-4 bg-blue-50 shadow-inner flex items-center justify-between">
               <div className="font-semibold text-blue-800">Joueur: </div>
               {selectedPlayer ? (
-                <div className="flex items-center gap-2">
-                  <span className="bg-gray-200 text-gray-800 font-bold px-2 py-1 rounded-l-md">
-                    {selectedPlayer.number}
-                  </span>
-                  <span className="bg-blue-700 text-white px-2 py-1 rounded-r-md">
-                    {selectedPlayer.name}
-                  </span>
+                <div className="flex items-center gap-2 w-full justify-between">
+                  <div className="flex items-center">
+                    <span className="bg-gray-200 text-gray-800 font-bold px-2 py-1 rounded-l-md">
+                      {selectedPlayer.number}
+                    </span>
+                    <span className="bg-blue-700 text-white px-2 py-1 rounded-r-md">
+                      {selectedPlayer.name}
+                    </span>
+                  </div>
                   
-                  {/* Circular Action Menu */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        className="ml-2 bg-purple-600 hover:bg-purple-700 text-white"
-                        disabled={!selectedPlayer}
-                      >
-                        Actions
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-96 h-96 rounded-full p-0 border-0 shadow-xl bg-transparent" align="center">
-                      <div className="relative w-full h-full">
+                  {/* Show action circle directly without a button when a player is selected */}
+                  {showActionCircle && (
+                    <div className="relative w-64 h-64">
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                         {/* Central cancel button */}
                         <Button 
                           variant="destructive" 
-                          className="absolute top-[45%] left-[45%] rounded-full w-10 h-10 flex items-center justify-center shadow-md z-10"
-                          onClick={() => document.body.click()} // Close the popover
+                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full w-10 h-10 flex items-center justify-center shadow-md z-10"
+                          onClick={() => setShowActionCircle(false)}
                         >
                           <RotateCw className="h-5 w-5" />
                         </Button>
@@ -223,7 +237,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
                           const position = calculateCirclePosition(
                             index, 
                             allActions.length, 
-                            150 // radius
+                            100 // radius
                           );
                           
                           return (
@@ -231,7 +245,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
                               key={`${action.type}-${action.label}`}
                               onClick={() => handleActionClick(action.type, action.additionalData)}
                               disabled={!selectedPlayer}
-                              className={`absolute rounded-full w-16 h-16 ${action.color} flex flex-col items-center justify-center p-1 transform -translate-x-1/2 -translate-y-1/2 shadow-md transition-transform hover:scale-110`}
+                              className={`absolute rounded-full w-14 h-14 ${action.color} flex flex-col items-center justify-center p-1 transform -translate-x-1/2 -translate-y-1/2 shadow-md transition-transform hover:scale-110`}
                               style={{
                                 left: `calc(50% + ${position.x}px)`,
                                 top: `calc(50% + ${position.y}px)`,
@@ -240,48 +254,19 @@ const PianoInput: React.FC<PianoInputProps> = ({
                               <div className="flex items-center justify-center">
                                 {action.icon}
                               </div>
-                              <span className="text-[10px] font-semibold mt-1 leading-none">
+                              <span className="text-[8px] font-semibold mt-1 leading-none">
                                 {action.label}
                               </span>
                             </Button>
                           );
                         })}
                       </div>
-                    </PopoverContent>
-                  </Popover>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-gray-500">Sélectionnez un joueur</div>
               )}
-            </div>
-            
-            {/* Fallback piano keyboard for when popover isn't desirable */}
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold mb-2 text-gray-700">Actions Rapides</h3>
-              <div className="grid grid-cols-4 gap-1">
-                {offensiveActions.slice(0, 2).map((action) => (
-                  <Button
-                    key={action.label}
-                    onClick={() => handleActionClick(action.type, action.additionalData)}
-                    disabled={!selectedPlayer}
-                    className={`h-12 ${action.color} flex items-center justify-center gap-1`}
-                  >
-                    {action.icon}
-                    {action.label}
-                  </Button>
-                ))}
-                {playActions.slice(0, 2).map((action) => (
-                  <Button
-                    key={action.label}
-                    onClick={() => handleActionClick(action.type, action.additionalData)}
-                    disabled={!selectedPlayer}
-                    className={`h-12 ${action.color} flex items-center justify-center gap-1`}
-                  >
-                    {action.icon}
-                    {action.label}
-                  </Button>
-                ))}
-              </div>
             </div>
             
             {/* Substitution button */}
