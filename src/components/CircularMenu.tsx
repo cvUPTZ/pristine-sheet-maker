@@ -24,6 +24,15 @@ const eventTypes: Record<EventType, { color: string; description: string; icon?:
   interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️" }
 };
 
+// Group actions by categories
+const ACTION_CATEGORIES = {
+  'Attack': ['pass', 'shot', 'goal', 'assist'],
+  'Defense': ['tackle', 'interception'],
+  'Set Pieces': ['corner', 'free-kick', 'goal-kick', 'throw-in', 'penalty'],
+  'Violations': ['foul', 'offside', 'yellowCard', 'redCard'],
+  'Other': ['substitution']
+};
+
 // Inner ring - primary actions
 const PRIMARY_ACTIONS: EventType[] = ['pass', 'shot', 'goal', 'assist'];
 
@@ -70,6 +79,7 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
   const handleActionClick = (e: React.MouseEvent, eventType: EventType) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log("Action selected:", eventType);
     onSelect(eventType);
     onClose();
   };

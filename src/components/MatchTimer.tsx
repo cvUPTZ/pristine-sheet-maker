@@ -20,7 +20,7 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
   setElapsedTime
 }) => {
   // Ensure elapsedTime is a number to avoid NaN display
-  const safeElapsedTime = typeof elapsedTime === 'number' ? elapsedTime : 0;
+  const safeElapsedTime = isNaN(elapsedTime) ? 0 : elapsedTime;
   const minutes = Math.floor(safeElapsedTime / 60);
   const seconds = Math.floor(safeElapsedTime % 60);
   
@@ -31,9 +31,9 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
     if (isRunning) {
       interval = window.setInterval(() => {
         setElapsedTime(prevTime => {
-          // Ensure we're working with a number
-          const currentTime = typeof prevTime === 'number' ? prevTime : 0;
-          return currentTime + 1;
+          // Ensure we're working with a valid number
+          const prevTimeNum = isNaN(prevTime) ? 0 : Number(prevTime);
+          return prevTimeNum + 1;
         });
       }, 1000);
     }
@@ -45,18 +45,18 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
 
   const handleAddMinute = () => {
     setElapsedTime(prevTime => {
-      // Ensure we're working with a number
-      const currentTime = typeof prevTime === 'number' ? prevTime : 0;
-      return currentTime + 60;
+      // Ensure we're working with a valid number
+      const prevTimeNum = isNaN(prevTime) ? 0 : Number(prevTime);
+      return prevTimeNum + 60;
     });
   };
 
   const handleSubtractMinute = () => {
     setElapsedTime(prevTime => {
-      // Ensure we're working with a number
-      const currentTime = typeof prevTime === 'number' ? prevTime : 0;
+      // Ensure we're working with a valid number
+      const prevTimeNum = isNaN(prevTime) ? 0 : Number(prevTime);
       // Don't go below zero
-      return Math.max(0, currentTime - 60);
+      return Math.max(0, prevTimeNum - 60);
     });
   };
 

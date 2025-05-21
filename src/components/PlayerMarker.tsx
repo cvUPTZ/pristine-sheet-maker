@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Player, EventType } from '@/types';
 import CircularMenu from './CircularMenu';
+import { Button } from './ui/button';
 
 interface PlayerMarkerProps {
   player: Player;
@@ -43,6 +44,16 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     }
   };
   
+  const handleMenuButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (onEventSelect) {
+      console.log("Menu button clicked for player:", player.name);
+      setShowMenu(true);
+    }
+  };
+  
   const handleMenuSelect = (eventType: EventType) => {
     if (onEventSelect) {
       console.log("Event selected:", eventType, "for player:", player.name);
@@ -72,9 +83,26 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         onContextMenu={handleRightClick}
       >
         {player.number}
+        
+        {/* Action menu button that appears when player is selected */}
+        {selected && onEventSelect && (
+          <div 
+            className="absolute -bottom-7 left-1/2 transform -translate-x-1/2"
+            onClick={e => e.stopPropagation()}
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-6 w-6 rounded-full p-0 bg-white shadow-md hover:bg-gray-100"
+              onClick={handleMenuButtonClick}
+            >
+              +
+            </Button>
+          </div>
+        )}
       </div>
       
-      {/* Circular menu for actions - only shown on right-click */}
+      {/* Circular menu for actions - shown on right-click or button click */}
       {showMenu && (
         <CircularMenu 
           visible={showMenu} 

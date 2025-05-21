@@ -31,6 +31,9 @@ const Pitch: React.FC<PitchProps> = ({
   const handlePitchClick = (coordinates: { x: number; y: number }) => {
     if (ballTrackingMode) {
       onTrackBallMovement(coordinates);
+    } else {
+      // When clicking on empty pitch in piano mode, deselect player
+      onSelectPlayer(null);
     }
   };
 
