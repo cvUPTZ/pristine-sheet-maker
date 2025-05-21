@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock } from 'lucide-react';
+import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video } from 'lucide-react';
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
@@ -12,9 +12,11 @@ import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import PianoInput from './PianoInput';
 import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
 import PianoIcon from '@/components/ui/icons/PianoIcon';
+import VideoAnalyzer from '@/components/VideoAnalyzer';
+
 interface MainTabContentProps {
-  activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline';
-  setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline') => void;
+  activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
+  setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video') => void;
   homeTeam: any;
   awayTeam: any;
   teamPositions: Record<number, {
@@ -33,6 +35,7 @@ interface MainTabContentProps {
   }) => void;
   addBallTrackingPoint: (point: BallTrackingPoint) => void;
   statistics: Statistics;
+  setStatistics?: (stats: Statistics) => void;
   playerStats: PlayerStatistics[];
   handleUndo: () => void;
   handleSave: () => void;
@@ -42,6 +45,7 @@ interface MainTabContentProps {
     y: number;
   }) => void;
 }
+
 const MainTabContent: React.FC<MainTabContentProps> = ({
   activeTab,
   setActiveTab,
@@ -57,6 +61,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   handlePitchClick,
   addBallTrackingPoint,
   statistics,
+  setStatistics,
   playerStats,
   handleUndo,
   handleSave,
@@ -66,6 +71,13 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline' | 'coach'>('summary');
   const [tableView, setTableView] = useState<'individual' | 'team'>('individual');
   const [timelineView, setTimelineView] = useState<'ballsPlayed' | 'possession' | 'recoveryTime'>('ballsPlayed');
+  
+  const handleVideoAnalysisComplete = (videoStats: Statistics) => {
+    if (setStatistics) {
+      setStatistics(videoStats);
+    }
+  };
+
   return <div>
       <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
         <TabsList className="mb-4 overflow-x-auto flex w-full justify-start lg:justify-center no-scrollbar">
@@ -84,6 +96,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
           <TabsTrigger value="timeline" className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
             Timeline
+          </TabsTrigger>
+          <TabsTrigger value="video" className="flex items-center gap-1">
+            <Video className="h-4 w-4" />
+            Video Analysis
           </TabsTrigger>
         </TabsList>
         
@@ -268,6 +284,18 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </div>}
           </Card>
         </TabsContent>
+        
+        <TabsContent value="video">
+          <div className="grid grid-cols-1 gap-4">
+            <VideoAnalyzer onAnalysisComplete={handleVideoAnalysisComplete} />
+            {statistics && (
+              <Card className="p-4">
+                <h3 className="text-lg font-semibold mb-4">Video Analysis Results</h3>
+                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />
+              </Card>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
       
       <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
@@ -280,4 +308,5 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
       </div>
     </div>;
 };
+
 export default MainTabContent;
