@@ -1,3 +1,4 @@
+
 import { Formation, FormationPositions, Player, Team } from '@/types';
 
 // Define formation positions (normalized to field coordinates 0-1)
@@ -108,3 +109,53 @@ export const getPlayerPositions = (team: Partial<Team> & { players: Player[], fo
   
   return positions;
 };
+
+// New function to create simulated teams for testing
+export const createSimulatedTeams = () => {
+  // Create home team with 4-4-2 formation
+  const homeTeam: Team = {
+    id: "home-team",
+    name: "Home FC",
+    formation: "4-4-2",
+    players: Array.from({ length: 11 }, (_, i) => ({
+      id: i + 1,
+      name: `Home Player ${i + 1}`,
+      number: i + 1,
+      position: getPositionName("4-4-2", i)
+    }))
+  };
+  
+  // Create away team with 4-3-3 formation
+  const awayTeam: Team = {
+    id: "away-team",
+    name: "Away United",
+    formation: "4-3-3",
+    players: Array.from({ length: 11 }, (_, i) => ({
+      id: 100 + i + 1,
+      name: `Away Player ${i + 1}`,
+      number: i + 1,
+      position: getPositionName("4-3-3", i)
+    }))
+  };
+  
+  return { homeTeam, awayTeam };
+};
+
+// Helper function to get position name based on formation and index
+function getPositionName(formation: string, index: number): string {
+  if (index === 0) return 'Goalkeeper';
+  
+  if (formation === '4-4-2') {
+    const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
+    return positions[index] || 'Sub';
+  } else if (formation === '4-3-3') {
+    const positions = ['GK', 'LB', 'CB', 'CB', 'RB', 'CM', 'CM', 'CM', 'LW', 'ST', 'RW'];
+    return positions[index] || 'Sub';
+  } else if (formation === '3-5-2') {
+    const positions = ['GK', 'CB', 'CB', 'CB', 'LWB', 'CM', 'CM', 'CM', 'RWB', 'ST', 'ST'];
+    return positions[index] || 'Sub';
+  } else {
+    const positions = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD'];
+    return positions[index] || 'Sub';
+  }
+}

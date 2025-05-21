@@ -11,10 +11,12 @@ interface PitchViewProps {
   homeTeam: {
     name: string;
     players: Player[];
+    formation?: string;
   };
   awayTeam: {
     name: string;
     players: Player[];
+    formation?: string;
   };
   teamPositions: Record<number, { x: number; y: number }>;
   selectedPlayer: Player | null;
@@ -40,9 +42,12 @@ const PitchView: React.FC<PitchViewProps> = ({
   handlePitchClick,
   addBallTrackingPoint
 }) => {
-  // Use the teamPositions if provided, otherwise generate them based on formations
-  const homePositions = { ...getPlayerPositions(homeTeam, true), ...teamPositions };
-  const awayPositions = { ...getPlayerPositions(awayTeam, false), ...teamPositions };
+  // Generate separate position maps for home and away teams
+  const homePositions = getPlayerPositions(homeTeam, true);
+  const awayPositions = getPlayerPositions(awayTeam, false);
+  
+  // Combine with any provided positions from props (for custom positioning)
+  const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
   
   return (
     <div className="mb-4 relative">
@@ -61,7 +66,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             key={`home-${player.id}`}
             player={player}
             teamColor="#1A365D" // Home team color
-            position={homePositions[player.id] || { x: 0.5, y: 0.9 }}
+            position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
             onClick={() => {
               setSelectedTeam('home');
               handlePlayerSelect(player);
@@ -76,7 +81,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             key={`away-${player.id}`}
             player={player}
             teamColor="#D3212C" // Away team color
-            position={awayPositions[player.id] || { x: 0.5, y: 0.1 }}
+            position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
             onClick={() => {
               setSelectedTeam('away');
               handlePlayerSelect(player);

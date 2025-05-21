@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Team } from '@/types';
 import { toast } from 'sonner';
+import { createSimulatedTeams } from '@/utils/formationUtils';
 
 interface SetupScreenProps {
   homeTeam: Team;
@@ -36,6 +37,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     // All validation passed
     completeSetup();
   };
+  
+  // Function to create and use simulated teams for testing
+  const loadSimulatedTeams = () => {
+    const { homeTeam: simulatedHome, awayTeam: simulatedAway } = createSimulatedTeams();
+    updateTeams({ home: simulatedHome, away: simulatedAway });
+    toast.success("Simulated teams loaded successfully.");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
@@ -57,6 +65,16 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             onTeamsChange={updateTeams}
             onConfirm={handleStartMatch}
           />
+          
+          <div className="px-6 pb-6 pt-0 flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={loadSimulatedTeams}
+              className="w-full md:w-auto"
+            >
+              Load Simulated Teams
+            </Button>
+          </div>
         </Card>
       </div>
     </div>
