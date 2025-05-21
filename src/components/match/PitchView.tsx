@@ -73,9 +73,7 @@ const PitchView: React.FC<PitchViewProps> = ({
               setSelectedTeam('home');
               handlePlayerSelect(player);
             }}
-            onEventSelect={handleEventSelect ? 
-              (eventType, player, coords) => handleEventSelect(eventType, player, coords) : 
-              undefined}
+            onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
           />
         ))}
@@ -91,9 +89,7 @@ const PitchView: React.FC<PitchViewProps> = ({
               setSelectedTeam('away');
               handlePlayerSelect(player);
             }}
-            onEventSelect={handleEventSelect ? 
-              (eventType, player, coords) => handleEventSelect(eventType, player, coords) : 
-              undefined}
+            onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
           />
         ))}

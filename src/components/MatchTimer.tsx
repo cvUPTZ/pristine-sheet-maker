@@ -19,8 +19,10 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
   elapsedTime,
   setElapsedTime
 }) => {
-  const minutes = Math.floor(elapsedTime / 60);
-  const seconds = Math.floor(elapsedTime % 60);
+  // Ensure elapsedTime is a number to avoid NaN display
+  const safeElapsedTime = typeof elapsedTime === 'number' ? elapsedTime : 0;
+  const minutes = Math.floor(safeElapsedTime / 60);
+  const seconds = Math.floor(safeElapsedTime % 60);
   
   // Add effect to increment timer when running
   useEffect(() => {
@@ -28,7 +30,11 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
     
     if (isRunning) {
       interval = window.setInterval(() => {
-        setElapsedTime(prevTime => prevTime + 1);
+        setElapsedTime(prevTime => {
+          // Ensure we're working with a number
+          const currentTime = typeof prevTime === 'number' ? prevTime : 0;
+          return currentTime + 1;
+        });
       }, 1000);
     }
     
@@ -38,13 +44,20 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
   }, [isRunning, setElapsedTime]);
 
   const handleAddMinute = () => {
-    setElapsedTime(elapsedTime + 60);
+    setElapsedTime(prevTime => {
+      // Ensure we're working with a number
+      const currentTime = typeof prevTime === 'number' ? prevTime : 0;
+      return currentTime + 60;
+    });
   };
 
   const handleSubtractMinute = () => {
-    if (elapsedTime >= 60) {
-      setElapsedTime(elapsedTime - 60);
-    }
+    setElapsedTime(prevTime => {
+      // Ensure we're working with a number
+      const currentTime = typeof prevTime === 'number' ? prevTime : 0;
+      // Don't go below zero
+      return Math.max(0, currentTime - 60);
+    });
   };
 
   return (

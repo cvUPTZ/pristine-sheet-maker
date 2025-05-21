@@ -35,6 +35,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log("Right click detected on player:", player.name);
     
     // Only show the circular menu on right-click when onEventSelect is available
     if (onEventSelect) {
@@ -44,6 +45,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   
   const handleMenuSelect = (eventType: EventType) => {
     if (onEventSelect) {
+      console.log("Event selected:", eventType, "for player:", player.name);
       onEventSelect(eventType, player, position);
     }
     setShowMenu(false);
@@ -73,7 +75,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
       </div>
       
       {/* Circular menu for actions - only shown on right-click */}
-      {showMenu && onEventSelect && (
+      {showMenu && (
         <CircularMenu 
           visible={showMenu} 
           position={position}
