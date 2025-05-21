@@ -22,14 +22,29 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   updateTeams,
   completeSetup
 }) => {
+  // Create default empty teams to prevent null issues
+  const safeHomeTeam = homeTeam || {
+    id: 'home',
+    name: 'Home Team',
+    formation: '4-4-2',
+    players: []
+  };
+  
+  const safeAwayTeam = awayTeam || {
+    id: 'away',
+    name: 'Away Team',
+    formation: '4-3-3',
+    players: []
+  };
+
   const handleStartMatch = () => {
     // Validation check before starting the match
-    if (!homeTeam || !awayTeam || homeTeam.players.length < 1 || awayTeam.players.length < 1) {
+    if (!safeHomeTeam.players.length || !safeAwayTeam.players.length) {
       toast.error("Each team must have at least one player.");
       return;
     }
     
-    if (!homeTeam.formation || !awayTeam.formation) {
+    if (!safeHomeTeam.formation || !safeAwayTeam.formation) {
       toast.error("Please select a formation for both teams.");
       return;
     }
@@ -61,7 +76,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         
         <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
           <TeamSetupWithFormation 
-            teams={{ home: homeTeam, away: awayTeam }}
+            teams={{ home: safeHomeTeam, away: safeAwayTeam }}
             onTeamsChange={updateTeams}
             onConfirm={handleStartMatch}
           />

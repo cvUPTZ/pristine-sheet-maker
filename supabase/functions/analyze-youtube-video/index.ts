@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { videoUrl } = await req.json();
+    const { videoUrl, startOffset = '0s', endOffset = '' } = await req.json();
     
     if (!videoUrl) {
       return new Response(
@@ -44,8 +44,8 @@ serve(async (req) => {
     const videoInfo = await getYouTubeVideoInfo(videoId);
     console.log("Analyzing video:", videoInfo.title);
 
-    // Use Gemini to analyze video content
-    const analysisResult = await analyzeVideoWithGemini(videoUrl, videoInfo);
+    // Use Gemini 2.5 Flash to analyze video content
+    const analysisResult = await analyzeVideoWithGemini(videoUrl, videoInfo, startOffset, endOffset);
     
     return new Response(
       JSON.stringify({ 
@@ -97,62 +97,78 @@ async function getYouTubeVideoInfo(videoId: string) {
   };
 }
 
-// Use Gemini to analyze the video content
-async function analyzeVideoWithGemini(videoUrl: string, videoInfo: any) {
+// Use Gemini to analyze the video content using the new Gemini 2.5 Flash model
+async function analyzeVideoWithGemini(
+  videoUrl: string, 
+  videoInfo: any, 
+  startOffset: string = '0s',
+  endOffset: string = ''
+) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is not set");
   }
 
-  // Construct a prompt that asks Gemini to analyze the soccer match
-  const prompt = `
-    Please analyze this soccer match video: ${videoUrl}
-    
-    Extract the following statistics and format them as JSON:
-    
-    1. Overall match statistics:
-       - Possession percentages for both teams
-       - Number of shots, shots on target for both teams
-       - Number of passes and pass completion rate for both teams
-       - Number of fouls committed by both teams
-       - Number of corners for both teams
-       
-    2. For each team:
-       - Top performing players 
-       - Ball recoveries
-       - Duels won
-       - Crosses attempted and completed
-       
-    3. Time-segment analysis:
-       - Break down the match into 15 minute segments
-       - For each segment, track possession percentages, shots, and key events
-       - Identify momentum shifts during the match
-    
-    Please format your response as valid JSON that matches the Statistics type in a TypeScript application.
-  `;
-
   try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+    // Create request payload for Gemini 2.5 Flash with direct video reference
+    const requestBody = {
+      model: "models/gemini-2.5-flash-preview-05-20",
+      contents: [
+        {
+          parts: [
+            {
+              fileData: {
+                fileUri: videoUrl,
+                mimeType: "video/mp4"
+              },
+              videoMetadata: {
+                startOffset: startOffset,
+                endOffset: endOffset || undefined
+              }
+            },
+            {
+              text: `
+                Please analyze this soccer match video and extract the following statistics as JSON:
+                
+                1. Overall match statistics:
+                   - Possession percentages for both teams
+                   - Number of shots, shots on target for both teams
+                   - Number of passes and pass completion rate for both teams
+                   - Number of fouls committed by both teams
+                   - Number of corners for both teams
+                   
+                2. For each team:
+                   - Top performing players 
+                   - Ball recoveries
+                   - Duels won
+                   - Crosses attempted and completed
+                   
+                3. Time-segment analysis:
+                   - Break down the match into 15 minute segments
+                   - For each segment, track possession percentages, shots, and key events
+                   - Identify momentum shifts during the match
+                
+                Format your response as valid JSON only, with no additional text.
+              `
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        topK: 40,
+        topP: 0.95
+      }
+    };
+
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -164,7 +180,6 @@ async function analyzeVideoWithGemini(videoUrl: string, videoInfo: any) {
     const result = await response.json();
     
     // Extract the JSON from the response
-    // Note: In a real implementation, you would parse the response more carefully
     let jsonContent = "";
     if (result.candidates && 
         result.candidates[0] && 

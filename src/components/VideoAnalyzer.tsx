@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Statistics } from '@/types';
+import { Separator } from '@/components/ui/separator';
 
 interface VideoAnalyzerProps {
   onAnalysisComplete?: (statistics: Statistics) => void;
@@ -13,9 +14,26 @@ interface VideoAnalyzerProps {
 
 const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => {
   const [videoUrl, setVideoUrl] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+
+  const formatTimeToSeconds = (time: string): string => {
+    // Convert time formats like "1:30" or "1:30:45" to seconds for Gemini
+    if (!time) return '';
+    
+    const parts = time.split(':').map(Number);
+    if (parts.length === 1) {
+      return `${parts[0]}s`;
+    } else if (parts.length === 2) {
+      return `${parts[0] * 60 + parts[1]}s`;
+    } else if (parts.length === 3) {
+      return `${parts[0] * 3600 + parts[1] * 60 + parts[2]}s`;
+    }
+    return '';
+  };
 
   const analyzeVideo = async () => {
     if (!videoUrl) {
@@ -47,9 +65,17 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         description: "Video analysis in progress. This might take a few minutes.",
       });
 
+      // Convert time inputs to seconds format for Gemini
+      const startOffset = formatTimeToSeconds(startTime);
+      const endOffset = formatTimeToSeconds(endTime);
+
       // Call the Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('analyze-youtube-video', {
-        body: { videoUrl },
+        body: { 
+          videoUrl,
+          startOffset,
+          endOffset
+        },
       });
 
       clearInterval(progressInterval);
@@ -130,18 +156,43 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex space-x-2">
+          <div className="flex flex-col space-y-2">
             <Input
               placeholder="Enter YouTube URL (e.g., https://www.youtube.com/watch?v=...)"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               disabled={isAnalyzing}
             />
+            
+            <Separator className="my-2" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Start time (optional)</p>
+                <Input
+                  placeholder="e.g., 1:30 or 1:30:45"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  disabled={isAnalyzing}
+                />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">End time (optional)</p>
+                <Input
+                  placeholder="e.g., 10:30 or 1:30:45"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  disabled={isAnalyzing}
+                />
+              </div>
+            </div>
+            
             <Button 
               onClick={analyzeVideo} 
               disabled={isAnalyzing || !videoUrl}
+              className="w-full mt-2"
             >
-              {isAnalyzing ? "Analyzing..." : "Analyze"}
+              {isAnalyzing ? "Analyzing..." : "Analyze Video"}
             </Button>
           </div>
           
@@ -162,7 +213,7 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         </div>
       </CardContent>
       <CardFooter className="text-xs text-gray-500">
-        Analysis powered by Google Gemini AI. Results may vary based on video quality and content.
+        Analysis powered by Google Gemini 2.5 Flash. Results may vary based on video quality and content.
       </CardFooter>
     </Card>
   );
