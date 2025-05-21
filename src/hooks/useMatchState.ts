@@ -247,11 +247,21 @@ export const useMatchState = () => {
   const trackBallMovement = (coordinates: { x: number; y: number }) => {
     if (!ballTrackingMode) return;
     
+    // If coordinates are (0,0) and we have an active button click, clear the tracking points
+    if (coordinates.x === 0 && coordinates.y === 0) {
+      setBallTrackingPoints([]);
+      return;
+    }
+    
     addBallTrackingPoint({
       x: coordinates.x,
       y: coordinates.y,
       timestamp: elapsedTime
     });
+  };
+  
+  const resetBallTracking = () => {
+    setBallTrackingPoints([]);
   };
 
   return {
@@ -281,5 +291,6 @@ export const useMatchState = () => {
     toggleBallTrackingMode,
     addBallTrackingPoint,
     trackBallMovement,
+    resetBallTracking,
   };
 };

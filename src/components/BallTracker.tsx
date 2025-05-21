@@ -58,13 +58,15 @@ const BallTracker: React.FC<BallTrackerProps> = ({ trackingPoints, isActive, onA
         />
       )}
       
-      <style jsx>{`
-        @keyframes ball-pulse {
-          0% { transform: translate(-50%, -50%) scale(1); }
-          50% { transform: translate(-50%, -50%) scale(1.1); }
-          100% { transform: translate(-50%, -50%) scale(1); }
-        }
-      `}</style>
+      <style>
+        {`
+          @keyframes ball-pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+          }
+        `}
+      </style>
     </>
   );
 };

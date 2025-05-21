@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -313,7 +312,7 @@ const MatchRecording = () => {
                       size="sm" 
                       className="mt-2"
                       onClick={() => {
-                        setBallTrackingPoints([]);
+                        trackBallMovement({ x: 0, y: 0 }); // This is just a dummy call
                         toast({
                           title: "Ball Tracking Reset",
                           description: "All tracking points have been cleared",
