@@ -2,563 +2,456 @@ import React, { useState, useEffect } from 'react';
 import { Player, EventType, BallTrackingPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import FootballPitch from '@/components/FootballPitch';
-import PlayerMarker from '@/components/PlayerMarker';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Keyboard,
-  Target,
-  Trophy,
-  ArrowUp,
-  Flag,
-  Shield,
-  RotateCw,
-  Hand,
-  Star,
-  CheckCircle,
-  XCircle,
-  Circle,
-  Pause,
-  Send,
-  CornerUpRight,
-  Award,
-  ArrowRight,
-  X
-} from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import FootballPitch from '../FootballPitch';
+import PlayerMarker from '../PlayerMarker';
 import { getPlayerPositions } from '@/utils/formationUtils';
 
 interface PianoInputProps {
   homeTeam: {
     name: string;
     players: Player[];
+    formation?: string;
   };
   awayTeam: {
     name: string;
     players: Player[];
+    formation?: string;
   };
   onRecordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
-  teamPositions: Record<number, { x: number; y: number }>;
-  selectedTeam: 'home' | 'away';
-  setSelectedTeam: (team: 'home' | 'away') => void;
+  teamPositions?: Record<number, { x: number; y: number }>;
+  selectedTeam?: 'home' | 'away';
+  setSelectedTeam?: (team: 'home' | 'away') => void;
+  compact?: boolean; // New prop to support compact mode when displayed alongside the pitch
 }
 
-// Define a type for the action buttons to include additionalData
-interface ActionButton {
-  type: EventType;
-  label: string;
-  color: string;
-  icon: React.ReactNode;
-  additionalData?: Record<string, any>;
+interface PlayerEventPair {
+  player: Player;
+  teamId: 'home' | 'away';
+  eventType: EventType;
 }
+
+// Define event types with colors and descriptions
+const eventTypes: { [key in EventType]?: { color: string; description: string } } = {
+  'pass': { color: 'bg-blue-500', description: 'Pass' },
+  'shot': { color: 'bg-orange-500', description: 'Shot' },
+  'goal': { color: 'bg-green-500', description: 'Goal' },
+  'foul': { color: 'bg-red-500', description: 'Foul' },
+  'tackle': { color: 'bg-purple-500', description: 'Tackle' },
+  'interception': { color: 'bg-yellow-500', description: 'Interception' },
+  'header': { color: 'bg-pink-500', description: 'Header' },
+  'cross': { color: 'bg-indigo-500', description: 'Cross' },
+  'dribble': { color: 'bg-teal-500', description: 'Dribble' },
+  'corner': { color: 'bg-amber-500', description: 'Corner' },
+  'offside': { color: 'bg-lime-500', description: 'Offside' },
+  'card': { color: 'bg-rose-500', description: 'Card' },
+  'free-kick': { color: 'bg-cyan-500', description: 'Free Kick' }
+};
 
 const PianoInput: React.FC<PianoInputProps> = ({
   homeTeam,
   awayTeam,
   onRecordEvent,
-  teamPositions,
-  selectedTeam,
-  setSelectedTeam
+  teamPositions = {},
+  selectedTeam = 'home',
+  setSelectedTeam = () => {},
+  compact = false
 }) => {
+  const [activeTab, setActiveTab] = useState<'home' | 'away'>(selectedTeam);
+  const [selectedEventType, setSelectedEventType] = useState<EventType>('pass');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [selectedAction, setSelectedAction] = useState<EventType | null>(null);
-  const [showSubstitutionMenu, setShowSubstitutionMenu] = useState(false);
-  const [benchPlayers, setBenchPlayers] = useState<Player[]>([]);
-  const [playerName, setPlayerName] = useState('');
-  const [showActionCircle, setShowActionCircle] = useState(false);
-  const [targetPlayer, setTargetPlayer] = useState<Player | null>(null);
-  const [ballPositionHistory, setBallPositionHistory] = useState<BallTrackingPoint[]>([]);
-  const [currentBallHolder, setCurrentBallHolder] = useState<{player: Player, team: 'home' | 'away'} | null>(null);
-  const [interceptions, setInterceptions] = useState<{from: {player: Player, team: 'home'|'away'}, to: {player: Player, team: 'home'|'away'}, position: {x: number, y: number}}[]>([]);
+  const [eventSequence, setEventSequence] = useState<PlayerEventPair[]>([]);
+  const [ballPosition, setBallPosition] = useState<{x: number, y: number} | null>(null);
+  const [animateBall, setAnimateBall] = useState(false);
   
-  // Generate separate position maps for home and away teams
+  // Track ball movement history
+  const [ballHistory, setBallHistory] = useState<{
+    fromPlayer: { id: number; teamId: 'home' | 'away' },
+    toPlayer: { id: number; teamId: 'home' | 'away' },
+    coordinates: { start: { x: number, y: number }, end: { x: number, y: number } },
+    eventType: EventType
+  }[]>([]);
+  
+  // Current player with the ball
+  const [currentBallHolder, setCurrentBallHolder] = useState<{
+    player: Player;
+    teamId: 'home' | 'away';
+    since: number;
+  } | null>(null);
+  
+  // Intercepted ball paths
+  const [interceptedPaths, setInterceptedPaths] = useState<{
+    point: {x: number, y: number},
+    timestamp: number
+  }[]>([]);
+
+  // Generate player positions based on formations
   const homePositions = getPlayerPositions(homeTeam, true);
   const awayPositions = getPlayerPositions(awayTeam, false);
   
-  // Combine with any provided positions from props (for custom positioning)
+  // Combine with any provided positions from props
   const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
   
-  // Define available actions for the piano with clearer categories and icons
-  // Remove pass actions as requested
-  const offensiveActions: ActionButton[] = [
-    { type: 'shot', label: 'TIR', color: 'bg-orange-500 hover:bg-orange-600 text-white', icon: <Target className="w-5 h-5" />, additionalData: { cadre: true } },
-    { type: 'goal', label: 'BUT', color: 'bg-green-500 hover:bg-green-600 text-white', icon: <Trophy className="w-5 h-5" /> },
-    { type: 'shot', label: 'NON CADRÉ', color: 'bg-yellow-500 hover:bg-yellow-600 text-black', icon: <XCircle className="w-5 h-5" />, additionalData: { cadre: false } },
-    { type: 'header', label: 'TÊTE', color: 'bg-blue-500 hover:bg-blue-600 text-white', icon: <ArrowUp className="w-5 h-5" /> }
-  ];
-  
-  const playActions: ActionButton[] = [
-    // Re-adding pass action for recording passes between players
-    { type: 'pass', label: 'PASSE', color: 'bg-blue-400 hover:bg-blue-500 text-white', icon: <Send className="w-5 h-5" /> },
-    { type: 'cross', label: 'CENTRE', color: 'bg-violet-400 hover:bg-violet-500 text-white', icon: <CornerUpRight className="w-5 h-5" /> },
-    { type: 'free-kick', label: 'COUP FRANC', color: 'bg-rose-400 hover:bg-rose-500 text-white', icon: <Flag className="w-5 h-5" /> }
-  ];
-  
-  const defensiveActions: ActionButton[] = [
-    { type: 'tackle', label: 'TACLE', color: 'bg-red-500 hover:bg-red-600 text-white', icon: <Shield className="w-5 h-5" /> },
-    { type: 'foul', label: 'FAUTE', color: 'bg-red-600 hover:bg-red-700 text-white', icon: <Pause className="w-5 h-5" /> },
-    { type: 'card', label: 'JAUNE', color: 'bg-yellow-400 hover:bg-yellow-500 text-black', icon: <Star className="w-5 h-5" />, additionalData: { cardType: 'yellow' } },
-    { type: 'card', label: 'ROUGE', color: 'bg-red-600 hover:bg-red-700 text-white', icon: <Star className="w-5 h-5 fill-current" />, additionalData: { cardType: 'red' } }
-  ];
-  
-  const setPlayActions: ActionButton[] = [
-    { type: 'corner', label: 'CORNER', color: 'bg-purple-500 hover:bg-purple-600 text-white', icon: <Flag className="w-5 h-5" /> },
-    { type: 'penalty', label: 'PENALTY', color: 'bg-pink-500 hover:bg-pink-600 text-white', icon: <Target className="w-5 h-5" /> },
-    { type: 'offside', label: 'HORS JEU', color: 'bg-blue-700 hover:bg-blue-800 text-white', icon: <Flag className="w-5 h-5" /> }
-  ];
-  
-  const specialActions: ActionButton[] = [
-    { type: 'interception', label: 'INTERCEPTION', color: 'bg-purple-700 hover:bg-purple-800 text-white', icon: <X className="w-5 h-5" />, additionalData: { isInterception: true } },
-    { type: 'header', label: 'POTEAU', color: 'bg-amber-500 hover:bg-amber-600 text-black', icon: <Circle className="w-5 h-5" />, additionalData: { hitPost: true } },
-    { type: 'shot', label: 'CADRÉ', color: 'bg-lime-500 hover:bg-lime-600 text-black', icon: <CheckCircle className="w-5 h-5" />, additionalData: { cadre: true } }
-  ];
-  
-  // Combine all actions for the circular menu
-  const allActions = [...offensiveActions, ...playActions, ...defensiveActions, ...setPlayActions, ...specialActions];
-  
-  // Effect to handle initial ball position
+  // Keep track of the active team
   useEffect(() => {
-    if (selectedTeam && !currentBallHolder) {
-      const team = selectedTeam === 'home' ? homeTeam : awayTeam;
-      if (team.players.length > 0) {
-        // Start with a central midfielder or a forward as default ball holder
-        const defaultPosition = team.players.find(p => p.position === 'CM' || p.position === 'CF') || team.players[0];
-        setCurrentBallHolder({
-          player: defaultPosition,
-          team: selectedTeam
-        });
-      }
-    }
-  }, [selectedTeam, homeTeam, awayTeam]);
-  
-  const handleSelectPlayer = (player: Player, team: 'home' | 'away') => {
-    // If we already have a selected player and now selecting another player,
-    // interpret it as a pass from selected player to the newly clicked player
-    if (selectedPlayer && selectedPlayer.id !== player.id) {
-      setTargetPlayer(player);
+    setActiveTab(selectedTeam);
+  }, [selectedTeam]);
+
+  const handleTeamTabChange = (value: string) => {
+    const team = value as 'home' | 'away';
+    setActiveTab(team);
+    setSelectedTeam(team);
+    setSelectedPlayer(null);
+  };
+
+  const handleEventTypeSelect = (eventType: EventType) => {
+    setSelectedEventType(eventType);
+  };
+
+  const handlePlayerSelect = (player: Player, teamId: 'home' | 'away', coordinates: {x: number, y: number}) => {
+    // Don't allow event recording without selecting an event type
+    if (!selectedEventType) return;
+    
+    setSelectedPlayer(player);
+    
+    // Determine if this is an interception based on current ball holder
+    let isInterception = false;
+    if (currentBallHolder && 
+        currentBallHolder.teamId !== teamId && 
+        (selectedEventType === 'interception' || selectedEventType === 'tackle')) {
+      isInterception = true;
       
-      // Check if players are from different teams - this is an interception
-      if (selectedTeam !== team) {
-        // Record the interception
-        const fromPosition = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
-        const toPosition = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
-        
-        // Calculate the middle point where interception happens
-        const interceptionPoint = {
-          x: (fromPosition.x + toPosition.x) / 2,
-          y: (fromPosition.y + toPosition.y) / 2
-        };
-        
-        // Add to interceptions list
-        setInterceptions([...interceptions, {
-          from: { player: selectedPlayer, team: selectedTeam },
-          to: { player, team },
-          position: interceptionPoint
-        }]);
-        
-        // Record interception event
-        onRecordEvent('interception', player.id, team, interceptionPoint);
-        
-        // Update ball history with interception point
-        setBallPositionHistory([
-          ...ballPositionHistory, 
-          {
-            x: fromPosition.x,
-            y: fromPosition.y,
-            timestamp: Date.now(),
-            teamId: selectedTeam,
-            playerId: selectedPlayer.id
-          },
-          {
-            x: interceptionPoint.x,
-            y: interceptionPoint.y,
-            timestamp: Date.now() + 1,
-            teamId: team,
-            playerId: player.id
-          }
-        ]);
-      } else {
-        // It's a regular pass within same team
-        const position = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
-        onRecordEvent('pass', selectedPlayer.id, selectedTeam, position);
-        
-        // Add to ball history
-        const targetPosition = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
-        setBallPositionHistory([
-          ...ballPositionHistory, 
-          {
-            x: position.x,
-            y: position.y,
-            timestamp: Date.now(),
-            teamId: selectedTeam,
-            playerId: selectedPlayer.id
-          },
-          {
-            x: targetPosition.x,
-            y: targetPosition.y,
-            timestamp: Date.now() + 1,
-            teamId: team,
-            playerId: player.id
-          }
-        ]);
-      }
+      const interceptPosition = {
+        x: (combinedPositions[currentBallHolder.player.id]?.x + coordinates.x) / 2,
+        y: (combinedPositions[currentBallHolder.player.id]?.y + coordinates.y) / 2
+      };
       
-      // Update current ball holder
-      setCurrentBallHolder({
-        player,
-        team
-      });
-      
-      // Then update selected player to the target
-      setSelectedPlayer(player);
-      setSelectedTeam(team);
-      setPlayerName(player.name);
-      setShowActionCircle(true);
-    } else {
-      // First player selection
-      setSelectedPlayer(player);
-      setSelectedTeam(team);
-      setPlayerName(player.name);
-      setShowActionCircle(true);
-      
-      // Update current ball holder
-      setCurrentBallHolder({
-        player,
-        team
-      });
-      
-      // Update ball history with this position
-      const position = combinedPositions[player.id] || { x: 0.5, y: 0.5 };
-      setBallPositionHistory([...ballPositionHistory, {
-        x: position.x,
-        y: position.y,
-        timestamp: Date.now(),
-        teamId: team,
-        playerId: player.id
+      setInterceptedPaths([...interceptedPaths, {
+        point: interceptPosition,
+        timestamp: Date.now()
       }]);
     }
-  };
-  
-  const handleActionClick = (action: EventType, additionalData?: Record<string, any>) => {
-    if (!selectedPlayer) return;
-    
-    setSelectedAction(action);
-    
-    // Get player position from teamPositions or default to center of field
-    const position = combinedPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 };
     
     // Record the event
-    onRecordEvent(action, selectedPlayer.id, selectedTeam, position);
+    onRecordEvent(selectedEventType, player.id, teamId, coordinates);
     
-    // Update ball tracking for certain actions
-    if (action === 'shot' || action === 'goal') {
-      // For shots and goals, ball moves toward the goal
-      const targetY = selectedTeam === 'home' ? 0.05 : 0.95;
-      setBallPositionHistory([
-        ...ballPositionHistory,
-        {
-          x: position.x,
-          y: position.y,
-          timestamp: Date.now(),
-          teamId: selectedTeam,
-          playerId: selectedPlayer.id
+    // Add to event sequence
+    setEventSequence([...eventSequence, {
+      player,
+      teamId,
+      eventType: selectedEventType
+    }]);
+
+    // Update ball position
+    setBallPosition(coordinates);
+    setAnimateBall(true);
+    
+    // If we have a previous ball holder, record the ball movement
+    if (currentBallHolder) {
+      const startPos = combinedPositions[currentBallHolder.player.id] || { x: 0.5, y: 0.5 };
+      
+      setBallHistory([...ballHistory, {
+        fromPlayer: {
+          id: currentBallHolder.player.id,
+          teamId: currentBallHolder.teamId
         },
-        {
-          x: position.x,
-          y: targetY,
-          timestamp: Date.now() + 1,
-          teamId: selectedTeam,
-          playerId: selectedPlayer.id
-        }
-      ]);
-      
-      // If it's a goal, ball is in the net
-      if (action === 'goal') {
-        setCurrentBallHolder(null); // Ball is in the net
-      }
+        toPlayer: {
+          id: player.id,
+          teamId
+        },
+        coordinates: {
+          start: { x: startPos.x, y: startPos.y },
+          end: { x: coordinates.x, y: coordinates.y }
+        },
+        eventType: selectedEventType
+      }]);
     }
     
-    // Reset selection after recording
-    setSelectedAction(null);
-    setShowActionCircle(false);
+    // Update current ball holder
+    setCurrentBallHolder({
+      player,
+      teamId,
+      since: Date.now()
+    });
+    
+    // Reset animation state after animation completes
+    setTimeout(() => {
+      setAnimateBall(false);
+    }, 500);
   };
-  
-  const handleUndoAction = () => {
-    // Remove last ball position
-    if (ballPositionHistory.length > 0) {
-      setBallPositionHistory(ballPositionHistory.slice(0, -1));
-    }
+
+  // Clean up old intercepted paths (older than 5 seconds)
+  useEffect(() => {
+    const now = Date.now();
+    const cleanup = () => {
+      setInterceptedPaths(prev => 
+        prev.filter(path => now - path.timestamp < 5000)
+      );
+    };
     
-    // Reset current ball holder to previous player if possible
-    if (ballPositionHistory.length > 1) {
-      const previousPoint = ballPositionHistory[ballPositionHistory.length - 2];
-      const team = previousPoint.teamId as 'home' | 'away';
-      const players = team === 'home' ? homeTeam.players : awayTeam.players;
-      const player = players.find(p => p.id === previousPoint.playerId);
-      
-      if (player) {
-        setCurrentBallHolder({ player, team });
-        setSelectedPlayer(player);
-        setSelectedTeam(team);
-      }
-    } else {
-      setCurrentBallHolder(null);
-    }
-    
-    // Remove last interception if there are any
-    if (interceptions.length > 0) {
-      setInterceptions(interceptions.slice(0, -1));
-    }
-    
-    console.log('Undo last action');
+    const timer = setInterval(cleanup, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Function to handle pitch click for mobile use
+  const handlePitchClick = (coordinates: { x: number; y: number }) => {
+    // Handle click on the pitch itself (for mobile use)
   };
-  
-  // Filter active players and bench players
-  const activePlayers = selectedTeam === 'home' ? homeTeam.players : awayTeam.players;
-  
-  // Calculate positions for circular menu items
-  const calculateCirclePosition = (index: number, total: number, radius: number) => {
-    const angleStep = (2 * Math.PI) / total;
-    const angle = index * angleStep;
-    const x = radius * Math.cos(angle);
-    const y = radius * Math.sin(angle);
-    return { x, y };
-  };
-  
-  // Get current ball position for display
-  const currentBallPosition = ballPositionHistory.length > 0 ? 
-    ballPositionHistory[ballPositionHistory.length - 1] : null;
-  
-  // Find the last few positions to show the path
-  const lastPositions = ballPositionHistory.length > 5 ? 
-    ballPositionHistory.slice(-5) : ballPositionHistory;
-  
+
   return (
     <div className="w-full">
-      <Card className="mb-4 overflow-visible">
-        <CardHeader className="bg-gradient-to-r from-blue-700 to-purple-700 py-3">
-          <CardTitle className="text-center text-lg text-white flex items-center justify-center gap-2">
-            <Keyboard className="h-5 w-5" />
-            Piano de Saisie de Match
+      <Card className={`${compact ? "h-full" : ""}`}>
+        <CardHeader className={`${compact ? "pb-2" : "pb-6"}`}>
+          <CardTitle className={`${compact ? "text-lg" : "text-xl"} flex items-center justify-between`}>
+            <span>Event Piano</span>
+            {compact && (
+              <span className="text-xs text-muted-foreground">
+                Select player and event type
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 bg-gray-50">
-          <div className="mb-4">
-            <div className="flex justify-between mb-3">
-              <Button 
-                variant={selectedTeam === 'home' ? 'default' : 'outline'} 
-                onClick={() => setSelectedTeam('home')}
-                className={`w-1/2 mr-1 ${selectedTeam === 'home' ? 'bg-blue-700' : ''}`}
-              >
-                {homeTeam.name}
-              </Button>
-              <Button 
-                variant={selectedTeam === 'away' ? 'default' : 'outline'} 
-                onClick={() => setSelectedTeam('away')}
-                className={`w-1/2 ml-1 ${selectedTeam === 'away' ? 'bg-red-700' : ''}`}
-              >
-                {awayTeam.name}
-              </Button>
-            </div>
-            
-            {/* Stadium with full height taking most of the available space */}
-            <div className="relative h-[65vh] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
-              <FootballPitch>
-                {/* Render home team players */}
-                {homeTeam.players.map((player) => (
-                  <PlayerMarker
-                    key={`home-${player.id}`}
-                    player={player}
-                    teamColor="#1A365D" // Home team color
-                    position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
-                    onClick={() => handleSelectPlayer(player, 'home')}
-                    selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
-                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.team === 'home'}
-                  />
-                ))}
-                
-                {/* Render away team players */}
-                {awayTeam.players.map((player) => (
-                  <PlayerMarker
-                    key={`away-${player.id}`}
-                    player={player}
-                    teamColor="#D3212C" // Away team color
-                    position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
-                    onClick={() => handleSelectPlayer(player, 'away')}
-                    selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
-                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.team === 'away'}
-                  />
-                ))}
+        <CardContent className="pb-0 pt-0">
+          <div className={`flex ${compact ? "flex-col" : "space-x-4"}`}>
+            {/* Left column */}
+            <div className={`${compact ? "w-full" : "w-1/3"} space-y-4`}>
+              {/* Team selection */}
+              <Tabs value={activeTab} onValueChange={handleTeamTabChange} className="w-full">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="home" className="text-football-home">
+                    {homeTeam.name}
+                  </TabsTrigger>
+                  <TabsTrigger value="away" className="text-football-away">
+                    {awayTeam.name}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-                {/* Ball path history */}
-                {lastPositions.length > 1 && (
-                  <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
-                    <defs>
-                      <marker 
-                        id="arrowhead" 
-                        markerWidth="10" 
-                        markerHeight="7" 
-                        refX="0" 
-                        refY="3.5" 
-                        orient="auto"
-                      >
-                        <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.8)" />
-                      </marker>
-                    </defs>
-                    <path 
-                      d={`M ${lastPositions.map(p => `${p.x * 100}% ${p.y * 100}%`).join(' L ')}`}
-                      stroke="rgba(255,255,255,0.7)"
-                      strokeWidth="2"
-                      fill="none"
-                      strokeDasharray="5,5"
-                      markerEnd="url(#arrowhead)"
-                    />
-                  </svg>
-                )}
-
-                {/* Render interception markers */}
-                {interceptions.map((interception, index) => (
-                  <div 
-                    key={`interception-${index}`}
-                    className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 z-30"
-                    style={{
-                      left: `${interception.position.x * 100}%`,
-                      top: `${interception.position.y * 100}%`,
-                    }}
+              {/* Event type selection */}
+              <div className={`grid ${compact ? "grid-cols-2 gap-1" : "grid-cols-3 gap-2"}`}>
+                {Object.entries(eventTypes).map(([type, { color, description }]) => (
+                  <Button
+                    key={type}
+                    variant={selectedEventType === type ? "default" : "outline"}
+                    size={compact ? "sm" : "default"}
+                    className={`${selectedEventType === type ? color + " text-white" : ""}`}
+                    onClick={() => handleEventTypeSelect(type as EventType)}
                   >
-                    <div className="w-full h-full flex items-center justify-center">
-                      <X 
-                        className="text-red-500 stroke-[3px]" 
-                        size={24}
-                      />
-                      <div className="absolute inset-0 bg-red-500 rounded-full opacity-30 animate-pulse"></div>
-                    </div>
-                  </div>
+                    {description}
+                  </Button>
                 ))}
+              </div>
 
-                {/* Current ball position */}
-                {currentBallHolder && (
-                  <div
-                    className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md ball-pulse"
-                    style={{
-                      left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
-                      top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`,
-                    }}
-                  />
-                )}
-              </FootballPitch>
-            </div>
-            
-            {/* Player selection info */}
-            <div className="border rounded-md p-3 mb-4 bg-blue-50 shadow-inner flex items-center justify-between">
-              <div className="font-semibold text-blue-800">Joueur: </div>
-              {selectedPlayer ? (
-                <div className="flex items-center gap-2 w-full justify-between">
-                  <div className="flex items-center">
-                    <span className="bg-gray-200 text-gray-800 font-bold px-2 py-1 rounded-l-md">
-                      {selectedPlayer.number}
-                    </span>
-                    <span className="bg-blue-700 text-white px-2 py-1 rounded-r-md">
-                      {selectedPlayer.name}
-                    </span>
-                  </div>
-                  
-                  {/* Show action circle directly without a button when a player is selected */}
-                  {showActionCircle && (
-                    <div className="relative w-64 h-64">
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        {/* Central cancel button */}
-                        <Button 
-                          variant="destructive" 
-                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full w-10 h-10 flex items-center justify-center shadow-md z-10"
-                          onClick={() => setShowActionCircle(false)}
-                        >
-                          <RotateCw className="h-5 w-5" />
-                        </Button>
-                        
-                        {/* Action buttons in a circle */}
-                        {allActions.map((action, index) => {
-                          const position = calculateCirclePosition(
-                            index, 
-                            allActions.length, 
-                            100 // radius
-                          );
-                          
-                          return (
-                            <Button
-                              key={`${action.type}-${action.label}`}
-                              onClick={() => handleActionClick(action.type, action.additionalData)}
-                              disabled={!selectedPlayer}
-                              className={`absolute rounded-full w-14 h-14 ${action.color} flex flex-col items-center justify-center p-1 transform -translate-x-1/2 -translate-y-1/2 shadow-md transition-transform hover:scale-110`}
-                              style={{
-                                left: `calc(50% + ${position.x}px)`,
-                                top: `calc(50% + ${position.y}px)`,
-                              }}
-                            >
-                              <div className="flex items-center justify-center">
-                                {action.icon}
-                              </div>
-                              <span className="text-[8px] font-semibold mt-1 leading-none">
-                                {action.label}
-                              </span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
+              {/* Recent events log (only show in non-compact mode) */}
+              {!compact && (
+                <div className="border rounded-md p-2 h-36 overflow-y-auto">
+                  <h3 className="font-medium mb-1 text-sm">Recent Events</h3>
+                  {eventSequence.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No events recorded yet</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {[...eventSequence].reverse().slice(0, 5).map((event, idx) => (
+                        <li key={idx} className="text-xs border-b pb-1 flex justify-between">
+                          <span className="font-medium">
+                            {event.player.name} ({event.teamId})
+                          </span>
+                          <span className={`px-1.5 rounded-full text-white ${eventTypes[event.eventType]?.color}`}>
+                            {eventTypes[event.eventType]?.description}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-              ) : (
-                <div className="text-gray-500">Sélectionnez un joueur</div>
               )}
             </div>
-            
-            {/* Undo button */}
-            <div className="mt-2 mb-2">
-              <Button 
-                variant="outline" 
-                onClick={handleUndoAction}
-                className="w-full border-amber-500 text-amber-800 hover:bg-amber-50"
-              >
-                <RotateCw className="mr-2 h-4 w-4" /> Annuler dernière action
-              </Button>
-            </div>
-            
-            {/* Substitution button */}
-            <div className="mt-4">
-              <Button 
-                variant="default"
-                onClick={() => setShowSubstitutionMenu(!showSubstitutionMenu)}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white h-12 shadow-md"
-              >
-                REMPLACEMENTS
-              </Button>
-              
-              {showSubstitutionMenu && (
-                <div className="mt-2 p-3 border border-gray-300 rounded-md bg-white shadow-md">
-                  <h4 className="font-medium mb-2 text-gray-700">Substitutions</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {benchPlayers.length === 0 ? (
-                      <p className="text-muted-foreground text-sm col-span-3">Aucun remplaçant disponible</p>
-                    ) : (
-                      benchPlayers.map(player => (
-                        <Button 
-                          key={player.id}
-                          variant="outline" 
-                          className="flex items-center justify-between"
-                          onClick={() => handleSelectPlayer(player, selectedTeam)}
+
+            {/* Right column - Player selection and visualization */}
+            <div className={`${compact ? "w-full mt-2" : "w-2/3"}`}>
+              {/* Pitch with player positions */}
+              <div className="relative">
+                <FootballPitch 
+                  onClick={handlePitchClick}
+                  className={`${compact ? "h-[30vh]" : "h-[45vh]"} w-full`}
+                >
+                  {/* Home team players */}
+                  {activeTab === 'home' && homeTeam.players.map((player) => (
+                    <PlayerMarker
+                      key={`home-${player.id}`}
+                      player={player}
+                      teamColor="#1A365D"
+                      position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
+                      onClick={() => handlePlayerSelect(
+                        player, 
+                        'home',
+                        combinedPositions[player.id] || { x: 0.5, y: 0.9 }
+                      )}
+                      selected={selectedPlayer?.id === player.id}
+                      hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'home'}
+                    />
+                  ))}
+                  
+                  {/* Away team players */}
+                  {activeTab === 'away' && awayTeam.players.map((player) => (
+                    <PlayerMarker
+                      key={`away-${player.id}`}
+                      player={player}
+                      teamColor="#D3212C"
+                      position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
+                      onClick={() => handlePlayerSelect(
+                        player,
+                        'away',
+                        combinedPositions[player.id] || { x: 0.5, y: 0.1 }
+                      )}
+                      selected={selectedPlayer?.id === player.id}
+                      hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'away'}
+                    />
+                  ))}
+                  
+                  {/* Ball movement history - draw lines between players */}
+                  {ballHistory.slice(-5).map((historyItem, index) => {
+                    const { start, end } = historyItem.coordinates;
+                    
+                    // Check if this path was intercepted
+                    const wasIntercepted = interceptedPaths.some(path => 
+                      Math.abs(path.point.x - end.x) < 0.1 && 
+                      Math.abs(path.point.y - end.y) < 0.1
+                    );
+                    
+                    return (
+                      <React.Fragment key={`history-${index}`}>
+                        {/* Draw the path line */}
+                        <svg 
+                          className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                          style={{ zIndex: 5 }}
                         >
-                          <span className="mr-2 bg-gray-200 px-1 rounded">{player.number}</span>
-                          <span className="truncate">{player.name}</span>
-                        </Button>
-                      ))
-                    )}
-                  </div>
+                          <line 
+                            x1={`${start.x * 100}%`} 
+                            y1={`${start.y * 100}%`} 
+                            x2={`${end.x * 100}%`} 
+                            y2={`${end.y * 100}%`} 
+                            stroke={wasIntercepted ? "#ff3333" : "#ffffff"} 
+                            strokeWidth="2" 
+                            strokeDasharray={wasIntercepted ? "5,5" : index === ballHistory.length - 1 ? "none" : "5,5"} 
+                            opacity={0.7 - (0.1 * (ballHistory.length - index - 1))} 
+                          />
+                        </svg>
+                      </React.Fragment>
+                    );
+                  })}
+                  
+                  {/* Interception markers */}
+                  {interceptedPaths.map((path, idx) => (
+                    <div 
+                      key={`intercept-${idx}`}
+                      className="absolute w-4 h-4 transform -translate-x-1/2 -translate-y-1/2 z-15"
+                      style={{
+                        left: `${path.point.x * 100}%`,
+                        top: `${path.point.y * 100}%`,
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16">
+                        <path d="M2 2L14 14M2 14L14 2" stroke="#ff3333" strokeWidth="3" />
+                      </svg>
+                    </div>
+                  ))}
+                  
+                  {/* Current ball position */}
+                  {currentBallHolder && (
+                    <div
+                      className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md ball-pulse"
+                      style={{
+                        left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
+                        top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`,
+                      }}
+                    />
+                  )}
+                </FootballPitch>
+              </div>
+              
+              {/* Player selection info */}
+              {!compact && selectedPlayer && (
+                <div className="mt-2 p-2 bg-gray-100 rounded-md">
+                  <p className="text-sm font-medium">
+                    Selected: {selectedPlayer.name} (#{selectedPlayer.number})
+                    <span className={`ml-2 px-2 py-0.5 rounded-full ${
+                      activeTab === 'home' ? 'bg-football-home' : 'bg-football-away'
+                    } text-white text-xs`}>
+                      {activeTab === 'home' ? homeTeam.name : awayTeam.name}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Click a player to record a {eventTypes[selectedEventType]?.description} event
+                  </p>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Player grid (only in compact mode) */}
+          {compact && (
+            <div className="mt-2">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-[20vh] overflow-y-auto pb-2">
+                {activeTab === 'home' ? 
+                  homeTeam.players.map((player) => (
+                    <Button 
+                      key={`player-btn-${player.id}`}
+                      size="sm"
+                      variant={selectedPlayer?.id === player.id ? "default" : "outline"}
+                      className={`${selectedPlayer?.id === player.id ? "bg-football-home text-white" : ""} text-xs flex flex-col h-auto py-1`}
+                      onClick={() => handlePlayerSelect(
+                        player, 
+                        'home',
+                        combinedPositions[player.id] || { x: 0.5, y: 0.9 }
+                      )}
+                    >
+                      <span className="font-bold">{player.number}</span>
+                      <span className="truncate">{player.name}</span>
+                    </Button>
+                  )) :
+                  awayTeam.players.map((player) => (
+                    <Button 
+                      key={`player-btn-${player.id}`}
+                      size="sm"
+                      variant={selectedPlayer?.id === player.id ? "default" : "outline"}
+                      className={`${selectedPlayer?.id === player.id ? "bg-football-away text-white" : ""} text-xs flex flex-col h-auto py-1`}
+                      onClick={() => handlePlayerSelect(
+                        player, 
+                        'away',
+                        combinedPositions[player.id] || { x: 0.5, y: 0.1 }
+                      )}
+                    >
+                      <span className="font-bold">{player.number}</span>
+                      <span className="truncate">{player.name}</span>
+                    </Button>
+                  ))
+                }
+              </div>
+            </div>
+          )}
+          
+          {/* Legend (only in non-compact mode) */}
+          {!compact && (
+            <div className="mt-4 flex flex-wrap gap-1 text-xs items-center">
+              <span className="font-medium mr-1">Legend:</span>
+              <div className="flex items-center">
+                <div className="w-3 h-0.5 bg-white"></div>
+                <span className="ml-1">Current path</span>
+              </div>
+              <div className="flex items-center ml-2">
+                <div className="w-3 h-0.5 bg-white dashed-line"></div>
+                <span className="ml-1">Previous path</span>
+              </div>
+              <div className="flex items-center ml-2">
+                <div className="w-3 h-0.5 bg-red-500 dashed-line"></div>
+                <span className="ml-1">Intercepted</span>
+              </div>
+              <div className="flex items-center ml-2">
+                <div className="inline-block w-2 h-2 bg-white border border-black rounded-full"></div>
+                <span className="ml-1">Ball</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -573,6 +466,10 @@ const PianoInput: React.FC<PianoInputProps> = ({
           
           .ball-pulse {
             animation: ball-pulse 1s infinite;
+          }
+          
+          .dashed-line {
+            stroke-dasharray: 5,5;
           }
         `}
       </style>

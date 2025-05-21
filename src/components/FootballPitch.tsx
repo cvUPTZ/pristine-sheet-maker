@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 interface FootballPitchProps {
   onClick?: (coordinates: { x: number; y: number }) => void;
   children?: React.ReactNode;
+  className?: string;
 }
 
-const FootballPitch: React.FC<FootballPitchProps> = ({ onClick, children }) => {
+const FootballPitch: React.FC<FootballPitchProps> = ({ onClick, children, className }) => {
   const [hoverPosition, setHoverPosition] = useState<{x: number, y: number} | null>(null);
   
   const handlePitchClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -32,7 +33,7 @@ const FootballPitch: React.FC<FootballPitchProps> = ({ onClick, children }) => {
 
   return (
     <div 
-      className="relative w-full aspect-[68/105] bg-gradient-to-b from-football-pitch to-[#2a7d35] rounded-md overflow-hidden border-2 border-white shadow-lg"
+      className={`relative aspect-[68/105] bg-gradient-to-b from-football-pitch to-[#2a7d35] rounded-md overflow-hidden border-2 border-white shadow-lg ${className || 'w-full'}`}
       onClick={handlePitchClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}

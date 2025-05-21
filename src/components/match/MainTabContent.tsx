@@ -57,7 +57,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   timeSegments = [],
   recordEvent
 }) => {
-  const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline'>('summary');
+  const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline' | 'coach'>('summary');
   const [tableView, setTableView] = useState<'individual' | 'team'>('individual');
   const [timelineView, setTimelineView] = useState<'ballsPlayed' | 'possession' | 'recoveryTime'>('ballsPlayed');
   
@@ -67,11 +67,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         <TabsList className="mb-4 overflow-x-auto flex w-full justify-start lg:justify-center no-scrollbar">
           <TabsTrigger value="pitch" className="flex items-center gap-1">
             <Flag className="h-4 w-4" />
-            Pitch
-          </TabsTrigger>
-          <TabsTrigger value="piano" className="flex items-center gap-1">
-            <PianoIcon className="h-4 w-4" />
-            Piano
+            Match Analysis
           </TabsTrigger>
           <TabsTrigger value="stats" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
@@ -88,30 +84,34 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         </TabsList>
         
         <TabsContent value="pitch">
-          <PitchView
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            teamPositions={teamPositions}
-            selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeam}
-            setSelectedTeam={setSelectedTeam}
-            handlePlayerSelect={handlePlayerSelect}
-            ballTrackingPoints={ballTrackingPoints}
-            mode={mode}
-            handlePitchClick={handlePitchClick}
-            addBallTrackingPoint={addBallTrackingPoint}
-          />
-        </TabsContent>
-        
-        <TabsContent value="piano">
-          <PianoInput
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            onRecordEvent={recordEvent}
-            teamPositions={teamPositions}
-            selectedTeam={selectedTeam}
-            setSelectedTeam={setSelectedTeam}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <PitchView
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                teamPositions={teamPositions}
+                selectedPlayer={selectedPlayer}
+                selectedTeam={selectedTeam}
+                setSelectedTeam={setSelectedTeam}
+                handlePlayerSelect={handlePlayerSelect}
+                ballTrackingPoints={ballTrackingPoints}
+                mode={mode}
+                handlePitchClick={handlePitchClick}
+                addBallTrackingPoint={addBallTrackingPoint}
+              />
+            </div>
+            <div>
+              <PianoInput
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                onRecordEvent={recordEvent}
+                teamPositions={teamPositions}
+                selectedTeam={selectedTeam}
+                setSelectedTeam={setSelectedTeam}
+                compact={true}
+              />
+            </div>
+          </div>
         </TabsContent>
         
         <TabsContent value="stats">
@@ -128,6 +128,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 <TabsTrigger value="heatmap" className="text-xs md:text-sm">
                   <MapPinIcon className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                   Heatmap
+                </TabsTrigger>
+                <TabsTrigger value="coach" className="text-xs md:text-sm">
+                  Coach Analysis
                 </TabsTrigger>
               </TabsList>
               
@@ -157,6 +160,139 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   selectedTeam={selectedTeam}
                   onSelectTeam={setSelectedTeam}
                 />
+              </TabsContent>
+
+              <TabsContent value="coach">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="p-4 bg-white shadow-md">
+                    <h3 className="text-lg font-semibold mb-2">Key Performance Insights</h3>
+                    <div className="space-y-2">
+                      {/* Generate some coaching insights based on the statistics */}
+                      {statistics.possession.home > 60 && (
+                        <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                          <p className="font-medium">Strong Possession</p>
+                          <p className="text-sm text-gray-600">
+                            {homeTeam.name} is dominating possession ({Math.round(statistics.possession.home)}%). 
+                            Capitalize on this control with more forward passes.
+                          </p>
+                        </div>
+                      )}
+                      {statistics.possession.away > 60 && (
+                        <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
+                          <p className="font-medium">Possession Challenge</p>
+                          <p className="text-sm text-gray-600">
+                            {awayTeam.name} is controlling possession ({Math.round(statistics.possession.away)}%). 
+                            Consider adjusting press intensity and defensive shape.
+                          </p>
+                        </div>
+                      )}
+                      {(statistics.shots.home.onTarget + statistics.shots.home.offTarget) > 
+                       (statistics.shots.away.onTarget + statistics.shots.away.offTarget) * 2 && (
+                        <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                          <p className="font-medium">Shot Dominance</p>
+                          <p className="text-sm text-gray-600">
+                            {homeTeam.name} is creating significantly more shooting opportunities. 
+                            Continue with the current attacking approach.
+                          </p>
+                        </div>
+                      )}
+                      {statistics.passes.home.attempted > 0 && 
+                       (statistics.passes.home.successful / statistics.passes.home.attempted) < 0.7 && (
+                        <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
+                          <p className="font-medium">Passing Accuracy Concern</p>
+                          <p className="text-sm text-gray-600">
+                            {homeTeam.name} has a low pass completion rate 
+                            ({Math.round((statistics.passes.home.successful / statistics.passes.home.attempted) * 100)}%). 
+                            Focus on safer passing options or adjust positioning.
+                          </p>
+                        </div>
+                      )}
+                      {statistics.ballsLost.home > statistics.ballsLost.away * 1.5 && (
+                        <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
+                          <p className="font-medium">Ball Retention Issue</p>
+                          <p className="text-sm text-gray-600">
+                            {homeTeam.name} is losing possession frequently. 
+                            Consider adjusting buildup play and player positioning.
+                          </p>
+                        </div>
+                      )}
+                      {statistics.duels.home.won > statistics.duels.home.lost * 1.5 && (
+                        <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
+                          <p className="font-medium">Strong in Duels</p>
+                          <p className="text-sm text-gray-600">
+                            {homeTeam.name} is winning most duels. 
+                            Continue with physical play and direct challenges.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 bg-white shadow-md">
+                    <h3 className="text-lg font-semibold mb-2">Player Recommendations</h3>
+                    <div className="space-y-3">
+                      {/* Top performers based on different metrics */}
+                      {playerStats.filter(p => p.team === 'home').length > 0 && (
+                        <>
+                          <div>
+                            <h4 className="font-medium text-sm">Top Passers</h4>
+                            <ul className="text-sm">
+                              {playerStats
+                                .filter(p => p.team === 'home')
+                                .sort((a, b) => b.passes - a.passes)
+                                .slice(0, 3)
+                                .map((player, i) => (
+                                  <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                                    <span>#{player.player.number} {player.player.name}</span>
+                                    <span>{player.passes} passes</span>
+                                  </li>
+                                ))
+                              }
+                            </ul>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm">Goal Threats</h4>
+                            <ul className="text-sm">
+                              {playerStats
+                                .filter(p => p.team === 'home')
+                                .sort((a, b) => b.shots - a.shots)
+                                .slice(0, 3)
+                                .map((player, i) => (
+                                  <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                                    <span>#{player.player.number} {player.player.name}</span>
+                                    <span>{player.shots} shots</span>
+                                  </li>
+                                ))
+                              }
+                            </ul>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Tactical suggestions */}
+                      <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                        <h4 className="font-medium">Tactical Adjustments</h4>
+                        <ul className="text-sm list-disc pl-5 mt-1">
+                          <li>
+                            {statistics.possession.home > statistics.possession.away 
+                              ? "Consider more direct attacks when possession is established" 
+                              : "Focus on winning second balls and transitions"}
+                          </li>
+                          <li>
+                            {statistics.passes.home.successful > statistics.passes.away.successful 
+                              ? "Use width more effectively to stretch defense" 
+                              : "Tighten passing lanes and improve ball retention"}
+                          </li>
+                          <li>
+                            {statistics.duels.home.won > statistics.duels.away.won 
+                              ? "Encourage more 1v1 situations to exploit physical advantage" 
+                              : "Focus on group defending and avoid isolated duels"}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
