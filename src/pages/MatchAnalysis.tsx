@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -59,14 +58,29 @@ const defaultStatistics: Statistics = {
   freeKicks: { home: 0, away: 0 }
 };
 
+// Define default team objects to satisfy the Team interface
+const defaultHomeTeam: Team = {
+  id: 'home-default',  // Added required id property
+  name: 'Home',
+  players: [],
+  formation: ''
+};
+
+const defaultAwayTeam: Team = {
+  id: 'away-default',  // Added required id property
+  name: 'Away',
+  players: [],
+  formation: ''
+};
+
 const MatchAnalysis: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const matchState = useMatchState();
   const { toast } = useToast()
 
   const [match, setMatch] = useState(matchState.match);
-  const [homeTeam, setHomeTeam] = useState(matchState.homeTeam);
-  const [awayTeam, setAwayTeam] = useState(matchState.awayTeam);
+  const [homeTeam, setHomeTeam] = useState(matchState.homeTeam || defaultHomeTeam);
+  const [awayTeam, setAwayTeam] = useState(matchState.awayTeam || defaultAwayTeam);
   const [teamPositions, setTeamPositions] = useState(matchState.teamPositions);
   const [selectedPlayer, setSelectedPlayer] = useState(matchState.selectedPlayer);
   const [selectedTeam, setSelectedTeam] = useState(matchState.selectedTeam);
@@ -94,10 +108,10 @@ const MatchAnalysis: React.FC = () => {
           // Ensure statistics has a default value if not available in matchData
           const safeStatistics = matchData.statistics || defaultStatistics;
           
-          // Update match state with loaded data
+          // Update match state with loaded data, using defaults where needed
           matchState.setMatch(matchData);
-          matchState.setHomeTeam(matchData.homeTeam || { name: 'Home', players: [], formation: '' });
-          matchState.setAwayTeam(matchData.awayTeam || { name: 'Away', players: [], formation: '' });
+          matchState.setHomeTeam(matchData.homeTeam || defaultHomeTeam);
+          matchState.setAwayTeam(matchData.awayTeam || defaultAwayTeam);
           matchState.setStatistics(safeStatistics);
           matchState.setElapsedTime(matchData.elapsedTime || 0);
           matchState.setTimeSegments(matchData.timeSegments || []);
@@ -106,8 +120,8 @@ const MatchAnalysis: React.FC = () => {
           }
           
           setMatch(matchData);
-          setHomeTeam(matchData.homeTeam || { name: 'Home', players: [], formation: '' });
-          setAwayTeam(matchData.awayTeam || { name: 'Away', players: [], formation: '' });
+          setHomeTeam(matchData.homeTeam || defaultHomeTeam);
+          setAwayTeam(matchData.awayTeam || defaultAwayTeam);
           setStatistics(safeStatistics);
           setElapsedTime(matchData.elapsedTime || 0);
           setTimeSegments(matchData.timeSegments || []);
@@ -120,6 +134,8 @@ const MatchAnalysis: React.FC = () => {
           console.error('Error loading match data:', error);
           // Set default values in case of error
           setStatistics(defaultStatistics);
+          setHomeTeam(defaultHomeTeam);
+          setAwayTeam(defaultAwayTeam);
         }
       }
     };
@@ -130,8 +146,8 @@ const MatchAnalysis: React.FC = () => {
   useEffect(() => {
     // Update local state when matchState changes
     setMatch(matchState.match);
-    setHomeTeam(matchState.homeTeam || { name: 'Home', players: [], formation: '' });
-    setAwayTeam(matchState.awayTeam || { name: 'Away', players: [], formation: '' });
+    setHomeTeam(matchState.homeTeam || defaultHomeTeam);
+    setAwayTeam(matchState.awayTeam || defaultAwayTeam);
     setTeamPositions(matchState.teamPositions);
     setSelectedPlayer(matchState.selectedPlayer);
     setSelectedTeam(matchState.selectedTeam);
@@ -522,8 +538,8 @@ const MatchAnalysis: React.FC = () => {
               handleActionSelect={handleActionSelect}
               ballTrackingPoints={ballTrackingPoints}
               trackBallMovement={matchState.trackBallMovement}
-              homeTeam={homeTeam || { name: 'Home', players: [], formation: '' }}
-              awayTeam={awayTeam || { name: 'Away', players: [], formation: '' }}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
               statistics={statistics}
               updateStatistics={matchState.setStatistics}
               setTimeSegments={matchState.setTimeSegments}
