@@ -8,15 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch } from '@/types';
-import type { Team, Player } from '@/types';
-
-interface Player {
-  id: number;
-  name: string;
-  number: number;
-  position: string;
-}
+import { TimeSegmentStatistics, BallTrackingPoint, SavedMatch, Player } from '@/types';
 
 interface MatchEvent {
   id: string;
