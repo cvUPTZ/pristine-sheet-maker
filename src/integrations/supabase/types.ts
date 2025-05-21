@@ -301,6 +301,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tracker_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_category: string
+          id: string
+          tracker_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_category: string
+          id?: string
+          tracker_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_category?: string
+          id?: string
+          tracker_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -309,7 +336,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      user_role: "admin" | "teacher" | "user"
+      user_role: "admin" | "teacher" | "user" | "tracker"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -425,7 +452,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["admin", "teacher", "user"],
+      user_role: ["admin", "teacher", "user", "tracker"],
     },
   },
 } as const

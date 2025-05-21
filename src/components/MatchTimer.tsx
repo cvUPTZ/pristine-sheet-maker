@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Minus, Play, Pause, TimerReset } from 'lucide-react';
+import { TimerReset, Play, Pause, Plus, Minus } from 'lucide-react';
 
 interface MatchTimerProps {
   isRunning: boolean;

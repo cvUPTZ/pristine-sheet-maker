@@ -46,7 +46,9 @@ const Dashboard: React.FC = () => {
       return matches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     };
 
-    setRecentMatches(loadSavedMatches());
+    const matches = loadSavedMatches();
+    console.log('Loaded matches:', matches);
+    setRecentMatches(matches);
   }, []);
 
   const totalMatchesPlayed = recentMatches.length;
