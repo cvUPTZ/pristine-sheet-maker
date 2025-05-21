@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +20,11 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Save, Trash2 } from "lucide-react";
+import { 
+  getAllTrackerAssignments,
+  createTrackerAssignment,
+  deleteTrackerAssignment
+} from "@/supabase/functions";
 
 // Map event categories
 const EVENT_CATEGORIES = [
@@ -51,19 +55,15 @@ export default function TrackerAssignment() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('role', 'tracker' as any);
+          .eq('role', 'tracker');
           
         if (error) throw error;
         
         setTrackers(data as UserProfile[]);
         
         // Fetch existing assignments
-        const { data: assignmentsData, error: assignmentsError } = await supabase
-          .rpc('get_all_tracker_assignments');
-          
-        if (assignmentsError) throw assignmentsError;
-        
-        setAssignments(assignmentsData as unknown as TrackerAssignmentType[]);
+        const assignmentsData = await getAllTrackerAssignments();
+        setAssignments(assignmentsData);
       } catch (error) {
         console.error("Error fetching trackers:", error);
         toast({
@@ -99,18 +99,10 @@ export default function TrackerAssignment() {
       }
       
       // Insert the new assignment
-      const { data, error } = await supabase
-        .rpc('create_tracker_assignment', {
-          p_tracker_id: selectedTracker,
-          p_event_category: selectedCategory,
-          p_created_by: user.id
-        });
-        
-      if (error) throw error;
+      const data = await createTrackerAssignment(selectedTracker, selectedCategory, user.id);
       
-      const newAssignment = data && data.length > 0 ? data[0] as unknown as TrackerAssignmentType : null;
-      
-      if (newAssignment) {
+      if (data && data.length > 0) {
+        const newAssignment = data[0];
         setAssignments([...assignments, newAssignment]);
         
         toast({
@@ -137,12 +129,7 @@ export default function TrackerAssignment() {
     try {
       setSaving(true);
       
-      const { error } = await supabase
-        .rpc('delete_tracker_assignment', {
-          p_assignment_id: assignmentId
-        });
-        
-      if (error) throw error;
+      await deleteTrackerAssignment(assignmentId);
       
       setAssignments(assignments.filter(a => a.id !== assignmentId));
       

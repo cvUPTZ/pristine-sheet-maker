@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import MatchAnalysis from "./pages/MatchAnalysis";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
+import Analysis from "./pages/Analysis";
+import ProfilePage from "./pages/ProfilePage";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
@@ -33,6 +35,8 @@ const App = () => (
               <Route path="/match/:matchId" element={<MatchAnalysis />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/statistics" element={<Statistics />} />
+              <Route path="/analysis" element={<Analysis />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
             
             {/* Tracker routes */}

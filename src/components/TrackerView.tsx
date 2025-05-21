@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { TrackerAssignment } from "@/types/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventType } from "@/types";
 import { Loader2 } from "lucide-react";
+import { getTrackerAssignments } from "@/supabase/functions";
 
 interface TrackerViewProps {
   onCategorySelect?: (category: string, events: EventType[]) => void;
@@ -33,19 +32,13 @@ export default function TrackerView({ onCategorySelect }: TrackerViewProps) {
       try {
         setLoading(true);
         
-        // Use direct query with type casting since the database schema isn't fully reflected in types
-        const { data, error } = await supabase
-          .rpc('get_tracker_assignments', { user_id: user.id });
-          
-        if (error) throw error;
+        const data = await getTrackerAssignments(user.id);
         
-        // Safely cast the data to our type
-        const typedData = data as unknown as TrackerAssignment[];
-        setAssignments(typedData);
+        setAssignments(data);
         
         // Set the first category as selected if available
-        if (typedData.length > 0 && onCategorySelect) {
-          const firstCategory = typedData[0].event_category;
+        if (data.length > 0 && onCategorySelect) {
+          const firstCategory = data[0].event_category;
           setSelectedCategory(firstCategory);
           
           const categoryEvents = EVENT_CATEGORIES.find(c => c.id === firstCategory)?.events || [];
