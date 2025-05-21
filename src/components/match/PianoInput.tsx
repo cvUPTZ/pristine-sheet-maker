@@ -188,8 +188,8 @@ const PianoInput: React.FC<PianoInputProps> = ({
               </Button>
             </div>
             
-            {/* Make the pitch container taller for better visibility */}
-            <div className="relative h-[280px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
+            {/* Increase the height of the pitch container for better visibility */}
+            <div className="relative h-[400px] border-2 border-gray-300 rounded-md overflow-hidden mb-4 shadow-inner">
               <FootballPitch>
                 {/* Render players for the selected team */}
                 {activePlayers.map((player) => (
