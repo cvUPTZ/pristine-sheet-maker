@@ -4,24 +4,24 @@ import { EventType } from '@/types';
 import { X } from 'lucide-react';
 
 // Define the available event types and their colors
-const eventTypes: Record<EventType, { color: string; description: string; icon?: string; category: string }> = {
-  pass: { color: "bg-blue-500", description: "Pass", icon: "↗", category: "offensive" },
-  shot: { color: "bg-red-500", description: "Shot", icon: "🥅", category: "offensive" },
-  tackle: { color: "bg-green-500", description: "Tackle", icon: "👟", category: "defensive" },
-  foul: { color: "bg-yellow-500", description: "Foul", icon: "⚠️", category: "defensive" },
-  corner: { color: "bg-indigo-500", description: "Corner", icon: "⛳", category: "set-piece" },
-  offside: { color: "bg-orange-500", description: "Offside", icon: "🚩", category: "offensive" },
-  goal: { color: "bg-emerald-500", description: "Goal", icon: "⚽", category: "offensive" },
-  assist: { color: "bg-purple-500", description: "Assist", icon: "👟", category: "offensive" },
-  yellowCard: { color: "bg-yellow-400", description: "Yellow", icon: "🟨", category: "discipline" },
-  redCard: { color: "bg-red-600", description: "Red", icon: "🟥", category: "discipline" },
-  substitution: { color: "bg-green-400", description: "Sub", icon: "🔄", category: "management" },
-  card: { color: "bg-yellow-300", description: "Card", icon: "📇", category: "discipline" },
-  penalty: { color: "bg-red-400", description: "Penalty", icon: "⚠️", category: "set-piece" },
-  "free-kick": { color: "bg-cyan-500", description: "Free Kick", icon: "⚽", category: "set-piece" },
-  "goal-kick": { color: "bg-teal-500", description: "Goal Kick", icon: "🥅", category: "set-piece" },
-  "throw-in": { color: "bg-sky-500", description: "Throw-in", icon: "🤾", category: "set-piece" },
-  interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️", category: "defensive" }
+const eventTypes: Record<EventType, { color: string; description: string; icon?: string }> = {
+  pass: { color: "bg-blue-500", description: "Pass", icon: "↗" },
+  shot: { color: "bg-red-500", description: "Shot", icon: "🥅" },
+  tackle: { color: "bg-green-500", description: "Tackle", icon: "👟" },
+  foul: { color: "bg-yellow-500", description: "Foul", icon: "⚠️" },
+  corner: { color: "bg-indigo-500", description: "Corner", icon: "⛳" },
+  offside: { color: "bg-orange-500", description: "Offside", icon: "🚩" },
+  goal: { color: "bg-emerald-500", description: "Goal", icon: "⚽" },
+  assist: { color: "bg-purple-500", description: "Assist", icon: "👟" },
+  yellowCard: { color: "bg-yellow-400", description: "Yellow", icon: "🟨" },
+  redCard: { color: "bg-red-600", description: "Red", icon: "🟥" },
+  substitution: { color: "bg-green-400", description: "Sub", icon: "🔄" },
+  card: { color: "bg-yellow-300", description: "Card", icon: "📇" },
+  penalty: { color: "bg-red-400", description: "Penalty", icon: "⚠️" },
+  "free-kick": { color: "bg-cyan-500", description: "Free Kick", icon: "⚽" },
+  "goal-kick": { color: "bg-teal-500", description: "Goal Kick", icon: "🥅" },
+  "throw-in": { color: "bg-sky-500", description: "Throw-in", icon: "🤾" },
+  interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️" }
 };
 
 // Inner ring - primary actions
@@ -121,8 +121,6 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
                 animation: `fadeIn 0.3s ease forwards ${index * 0.05}s`,
                 opacity: 0,
               }}
-              data-category={info.category}
-              data-action-type={eventType}
             >
               <div className="flex flex-col items-center">
                 <span className="text-lg">{info.icon}</span>
@@ -148,8 +146,6 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
                 animation: `fadeIn 0.3s ease forwards ${(index + PRIMARY_ACTIONS.length) * 0.05}s`,
                 opacity: 0,
               }}
-              data-category={info.category}
-              data-action-type={eventType}
             >
               <div className="flex flex-col items-center">
                 <span className="text-sm">{info.icon}</span>
