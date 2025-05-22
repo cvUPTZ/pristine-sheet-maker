@@ -68,12 +68,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUserRole = async (userId: string) => {
     try {
       // Use RPC to call our secure function
-      const { data, error } = await supabase.rpc('get_user_role', {
-        user_id_param: userId
-      }) as { data: 'admin' | 'tracker' | 'viewer' | null, error: any };
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_role`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ user_id_param: userId })
+        });
 
-      if (error) {
-        console.error('Error fetching user role:', error);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data) {
+          setUserRole(data as 'admin' | 'tracker' | 'viewer');
+        }
+      } catch (rpcError) {
+        console.error('RPC error fetching user role:', rpcError);
+        
         // Fallback to direct query with fetch API
         try {
           const response = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
@@ -94,11 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (fallbackError) {
           console.error('Fallback user role query failed:', fallbackError);
         }
-        return;
-      }
-
-      if (data) {
-        setUserRole(data as 'admin' | 'tracker' | 'viewer');
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
