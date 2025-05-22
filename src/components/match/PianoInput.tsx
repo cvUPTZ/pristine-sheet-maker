@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Player, EventType, BallTrackingPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,6 +110,16 @@ const eventTypes: Record<EventType, {
     description: "Interception"
   }
 };
+
+// Group actions by categories for better organization
+const ACTION_CATEGORIES = {
+  'Attack': ['pass', 'shot', 'goal', 'assist'],
+  'Defense': ['tackle', 'interception'],
+  'Set Pieces': ['corner', 'free-kick', 'goal-kick', 'throw-in', 'penalty'],
+  'Violations': ['foul', 'offside', 'yellowCard', 'redCard'],
+  'Other': ['substitution']
+};
+
 const PianoInput: React.FC<PianoInputProps> = ({
   homeTeam,
   awayTeam,
@@ -286,6 +297,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
   }) => {
     // Handle click on the pitch itself (for mobile use)
   };
+  
   return <div className="w-full">
       <Card className={`${compact ? "h-full" : ""}`}>
         <CardHeader className={`${compact ? "pb-2" : "pb-6"}`}>
@@ -312,8 +324,23 @@ const PianoInput: React.FC<PianoInputProps> = ({
                 </TabsList>
               </Tabs>
 
-              {/* Event type selection */}
-              
+              {/* Event type selection - THIS WAS MISSING */}
+              <div className="border rounded-md p-2 overflow-y-auto">
+                <h3 className="font-medium mb-1 text-sm">Event Type</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  {Object.entries(eventTypes).map(([type, info]) => (
+                    <Button
+                      key={type}
+                      size="sm"
+                      variant={selectedEventType === type ? "default" : "outline"}
+                      className={`text-xs h-8 ${selectedEventType === type ? info.color : ""}`}
+                      onClick={() => handleEventTypeSelect(type as EventType)}
+                    >
+                      {info.description}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
               {/* Recent events log (only show in non-compact mode) */}
               {!compact && <div className="border rounded-md p-2 h-36 overflow-y-auto">
