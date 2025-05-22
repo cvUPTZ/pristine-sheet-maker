@@ -103,7 +103,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   // Helper function to determine if circular menu should be shown
   const shouldShowCircularMenu = activeTab === 'pitch' || activeTab === 'piano';
   
-  // Add the missing handleEventSelect function
+  // Add the missing handleEventSelect function with proper BallTrackingPoint type
   const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
     // First select the player
     handlePlayerSelect(player);
@@ -113,7 +113,15 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     
     // If it's a ball-related event, we'll track the ball movement too
     if (['pass', 'shot', 'goal'].includes(eventType)) {
-      addBallTrackingPoint(coordinates);
+      // Create a proper BallTrackingPoint object with all required properties
+      const ballPoint: BallTrackingPoint = {
+        x: coordinates.x,
+        y: coordinates.y,
+        timestamp: Date.now(),
+        playerId: player.id,
+        teamId: selectedTeam
+      };
+      addBallTrackingPoint(ballPoint);
     }
   };
 
