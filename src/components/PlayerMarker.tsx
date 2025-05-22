@@ -13,7 +13,7 @@ interface PlayerMarkerProps {
   selected?: boolean;
   hasBall?: boolean;
   onEventSelect?: (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => void;
-  allowCircularMenu?: boolean; // New prop to control circular menu visibility
+  allowCircularMenu?: boolean;
 }
 
 const PlayerMarker: React.FC<PlayerMarkerProps> = ({ 
@@ -24,7 +24,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   selected = false,
   hasBall = false,
   onEventSelect,
-  allowCircularMenu = true // Default to true for backward compatibility
+  allowCircularMenu = true
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isSmall = useBreakpoint('sm');
@@ -35,6 +35,11 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     if (onClick) {
       onClick(player);
     }
+    
+    // Show the circular menu immediately on player click if allowed
+    if (selected && onEventSelect && allowCircularMenu) {
+      setShowMenu(true);
+    }
   };
   
   const handleRightClick = (e: React.MouseEvent) => {
@@ -42,16 +47,6 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     e.stopPropagation();
     
     // Only show the circular menu on right-click when onEventSelect is available AND allowCircularMenu is true
-    if (onEventSelect && allowCircularMenu) {
-      setShowMenu(true);
-    }
-  };
-  
-  const handleMenuButtonClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
-    // Only show the circular menu when onEventSelect is available AND allowCircularMenu is true
     if (onEventSelect && allowCircularMenu) {
       setShowMenu(true);
     }
@@ -75,39 +70,22 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
           hasBall ? 'ring-4 ring-yellow-300 animate-pulse' : ''
         } ${
           showMenu ? 'opacity-75' : selected ? 'opacity-100' : 'opacity-70'
-        } touch-manipulation`} // Added touch-manipulation for better touch experience
+        } touch-manipulation`}
         style={{
           left: `${position.x * 100}%`,
           top: `${position.y * 100}%`,
           backgroundColor: teamColor,
           color: teamColor === '#1A365D' ? 'white' : 'white',
           boxShadow: hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : selected ? '0 0 15px rgba(255, 255, 255, 0.8)' : 'none',
-          fontSize: isSmall ? '0.65rem' : '0.75rem' // Slightly smaller font on mobile
+          fontSize: isSmall ? '0.65rem' : '0.75rem'
         }}
         onClick={handleClick}
         onContextMenu={handleRightClick}
       >
         {player.number}
-        
-        {/* Action menu button that appears when player is selected */}
-        {selected && onEventSelect && allowCircularMenu && (
-          <div 
-            className={`absolute ${isSmall ? '-bottom-5' : '-bottom-7'} left-1/2 transform -translate-x-1/2`}
-            onClick={e => e.stopPropagation()}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              className={`${isSmall ? 'h-5 w-5' : 'h-6 w-6'} rounded-full p-0 bg-white shadow-md hover:bg-gray-100`}
-              onClick={handleMenuButtonClick}
-            >
-              +
-            </Button>
-          </div>
-        )}
       </div>
       
-      {/* Circular menu for actions - shown on right-click or button click */}
+      {/* Circular menu for actions - shown on player click or right-click */}
       {showMenu && allowCircularMenu && (
         <CircularMenu 
           visible={showMenu} 
