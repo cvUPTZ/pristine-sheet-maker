@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
@@ -29,8 +30,8 @@ const initialMatchState: MatchState = {
   matchEvents: [],
   statistics: {
     possession: { home: 50, away: 50 },
-    shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
-    passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+    shots: { home: { onTarget: 0, offTarget: 0, total: 0 }, away: { onTarget: 0, offTarget: 0, total: 0 } },
+    passes: { home: { successful: 0, attempted: 0, total: 0 }, away: { successful: 0, attempted: 0, total: 0 } },
     ballsPlayed: { home: 0, away: 0 },
     ballsLost: { home: 0, away: 0 },
     duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
@@ -58,6 +59,7 @@ interface MatchActions {
   setSelectedPlayer: (player: Player | null) => void;
   setSelectedTeam: (team: 'home' | 'away') => void;
   addMatchEvent: (event: MatchEvent) => void;
+  setMatchEvents: (events: MatchEvent[]) => void;
   updateStatistics: (stats: Partial<Statistics>) => void;
   addBallTrackingPoint: (point: BallTrackingPoint) => void;
   setBallTrackingPoints: (points: BallTrackingPoint[]) => void; 
@@ -111,6 +113,10 @@ export const useMatchState = (): MatchState & MatchActions => {
 
   const addMatchEvent = useCallback((event: MatchEvent) => {
     setState(prev => ({ ...prev, matchEvents: [...prev.matchEvents, event] }));
+  }, []);
+  
+  const setMatchEvents = useCallback((events: MatchEvent[]) => {
+    setState(prev => ({ ...prev, matchEvents: events }));
   }, []);
 
   const updateStatistics = useCallback((stats: Partial<Statistics>) => {
@@ -235,6 +241,7 @@ export const useMatchState = (): MatchState & MatchActions => {
         homeTeam: prev.homeTeam,
         awayTeam: prev.awayTeam,
         events: prev.matchEvents,
+        matchEvents: prev.matchEvents,
         statistics: prev.statistics,
         ballTrackingPoints: prev.ballTrackingPoints,
         timeSegments: matchTimeSegments,
@@ -264,7 +271,83 @@ export const useMatchState = (): MatchState & MatchActions => {
         timestamp: prev.elapsedTime,
         coordinates
       };
-      return { ...prev, matchEvents: [...prev.matchEvents, event] };
+      const updatedEvents = [...prev.matchEvents, event];
+      
+      // Also update related statistics based on the event type
+      let updatedStats = { ...prev.statistics };
+      
+      if (eventType === 'pass') {
+        if (teamId === 'home') {
+          updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+          updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
+          updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+        } else {
+          updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+          updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
+          updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+        }
+      } else if (eventType === 'shot') {
+        if (teamId === 'home') {
+          updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+          // Randomly determine if it's on target for this example
+          if (Math.random() > 0.5) {
+            updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+          } else {
+            updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+          }
+        } else {
+          updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+          if (Math.random() > 0.5) {
+            updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+          } else {
+            updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+          }
+        }
+      } else if (eventType === 'goal') {
+        if (teamId === 'home') {
+          updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+          updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+        } else {
+          updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+          updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+        }
+      } else if (eventType === 'corner') {
+        if (teamId === 'home') {
+          updatedStats.corners.home = (updatedStats.corners.home || 0) + 1;
+        } else {
+          updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
+        }
+      } else if (eventType === 'foul') {
+        // Update foul statistics if we have them
+      } else if (eventType === 'yellowCard') {
+        if (teamId === 'home') {
+          updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1;
+        } else {
+          updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
+        }
+      } else if (eventType === 'redCard') {
+        if (teamId === 'home') {
+          updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1;
+        } else {
+          updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
+        }
+      }
+      
+      // Recalculate possession based on events
+      const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id || e.teamId === 'home').length;
+      const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id || e.teamId === 'away').length;
+      const totalEvents = homeEventsCount + awayEventsCount;
+      
+      if (totalEvents > 0) {
+        updatedStats.possession.home = Math.round((homeEventsCount / totalEvents) * 100);
+        updatedStats.possession.away = 100 - updatedStats.possession.home;
+      }
+      
+      return { 
+        ...prev, 
+        matchEvents: updatedEvents,
+        statistics: updatedStats
+      };
     });
   }, []);
 
@@ -289,6 +372,7 @@ export const useMatchState = (): MatchState & MatchActions => {
     setSelectedPlayer,
     setSelectedTeam,
     addMatchEvent,
+    setMatchEvents,
     updateStatistics,
     addBallTrackingPoint,
     setBallTrackingPoints,

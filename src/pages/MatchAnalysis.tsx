@@ -32,10 +32,13 @@ import {
 import { useMatchState } from '@/hooks/useMatchState';
 import MatchSidebar from '@/components/match/MatchSidebar';
 import Pitch from '@/components/Pitch';
-import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics } from '@/types';
+import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType } from '@/types';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
+import MatchEventsTimeline from '@/components/MatchEventsTimeline';
+import PianoInput from '@/components/match/PianoInput';
+import MatchTimer from '@/components/MatchTimer';
 
 // Define a default statistics object to prevent undefined errors
 const defaultStatistics: Statistics = {
@@ -117,12 +120,16 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.ballTrackingPoints) {
             matchState.setBallTrackingPoints(matchData.ballTrackingPoints);
           }
+          if (matchData.matchEvents) {
+            matchState.setMatchEvents(matchData.matchEvents);
+          }
           
           setMatch(matchData);
           setHomeTeam(matchData.homeTeam || defaultHomeTeam);
           setAwayTeam(matchData.awayTeam || defaultAwayTeam);
           setStatistics(safeStatistics);
           setElapsedTime(matchData.elapsedTime || 0);
+          setMatchEvents(matchData.matchEvents || []);
           setTimeSegments(matchData.timeSegments || []);
           if (matchData.ballTrackingPoints) {
             setBallTrackingPoints(matchData.ballTrackingPoints);
@@ -188,7 +195,7 @@ const MatchAnalysis: React.FC = () => {
     setBallTrackingMode(matchState.ballTrackingMode);
   }, [matchState]);
 
-  const handleActionSelect = (action: string) => {
+  const handleActionSelect = (action: EventType) => {
     if (!selectedPlayer) {
       toast({
         title: "No Player Selected",
@@ -198,11 +205,25 @@ const MatchAnalysis: React.FC = () => {
     }
 
     matchState.recordEvent(
-      action as any,
+      action,
       selectedPlayer.id,
       selectedTeam,
-      { x: 0, y: 0 }
+      teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 }
     );
+    
+    toast({
+      title: "Event Recorded",
+      description: `${action} recorded for ${selectedPlayer.name}`,
+    });
+  };
+
+  const handlePianoEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+    matchState.recordEvent(eventType, playerId, teamId, coordinates);
+    
+    toast({
+      title: "Event Recorded",
+      description: `${eventType} event recorded successfully`,
+    });
   };
 
   // Add a handler to calculate time segments
@@ -227,7 +248,7 @@ const MatchAnalysis: React.FC = () => {
             </Button>
             <h1 className="text-xl font-semibold text-gray-900">Match Analysis</h1>
           </div>
-          <div className="space-x-2">
+          <div className="space-x-2 overflow-x-auto flex">
             <Button onClick={() => setActiveTab('pitch')} variant={activeTab === 'pitch' ? 'default' : 'outline'}>Pitch</Button>
             <Button onClick={() => setActiveTab('stats')} variant={activeTab === 'stats' ? 'default' : 'outline'}>Stats</Button>
             <Button onClick={() => setActiveTab('details')} variant={activeTab === 'details' ? 'default' : 'outline'}>Details</Button>
@@ -457,17 +478,25 @@ const MatchAnalysis: React.FC = () => {
                         <Label>Away Team</Label>
                         <Input type="text" value={awayTeam?.name || ''} disabled />
                       </div>
-                      <div>
-                        <Label>Elapsed Time</Label>
-                        <Input type="text" value={elapsedTime.toString()} disabled />
+                      <div className="mt-4">
+                        <Label className="mb-2 block">Match Timer</Label>
+                        <MatchTimer
+                          isRunning={isRunning}
+                          onToggle={toggleTimer}
+                          onReset={resetTimer}
+                          elapsedTime={elapsedTime}
+                          setElapsedTime={updateElapsedTime}
+                        />
                       </div>
                       <div>
                         <Label>Match Events</Label>
-                        <ul>
-                          {matchEvents.map((event) => (
-                            <li key={event.id}>{event.type} - Player ID: {event.playerId}</li>
-                          ))}
-                        </ul>
+                        <div className="border rounded-md p-4 mt-2 max-h-[400px] overflow-y-auto">
+                          <MatchEventsTimeline 
+                            events={matchEvents} 
+                            homeTeam={homeTeam}
+                            awayTeam={awayTeam}
+                          />
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -485,24 +514,14 @@ const MatchAnalysis: React.FC = () => {
                   <CardContent>
                     {homeTeam && awayTeam ? (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm">
-                            Selected Team: {selectedTeam === 'home' ? homeTeam.name : awayTeam.name}
-                          </div>
-                          <div className="space-x-2">
-                            <Button onClick={() => setSelectedTeam('home')} variant={selectedTeam === 'home' ? 'default' : 'outline'}>Home</Button>
-                            <Button onClick={() => setSelectedTeam('away')} variant={selectedTeam === 'away' ? 'default' : 'outline'}>Away</Button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm">
-                            Selected Player: {selectedPlayer?.name || 'None'}
-                          </div>
-                        </div>
-                        <div>
-                          <Button onClick={() => setMode('piano')} variant={mode === 'piano' ? 'default' : 'outline'}>Piano Mode</Button>
-                          <Button onClick={() => setMode('tracking')} variant={mode === 'tracking' ? 'default' : 'outline'}>Tracking Mode</Button>
-                        </div>
+                        <PianoInput
+                          homeTeam={homeTeam}
+                          awayTeam={awayTeam}
+                          onRecordEvent={handlePianoEvent}
+                          teamPositions={teamPositions}
+                          selectedTeam={selectedTeam}
+                          setSelectedTeam={setSelectedTeam}
+                        />
                       </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -522,15 +541,29 @@ const MatchAnalysis: React.FC = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={matchEvents.map(e => ({ timestamp: e.timestamp, type: e.type, playerId: e.playerId }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="timestamp" />
-                        <YAxis />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="playerId" stroke="#8884d8" fill="#8884d8" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    {matchEvents.length > 0 ? (
+                      <div className="space-y-4">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <AreaChart data={matchEvents.map(e => ({ timestamp: e.timestamp, type: e.type, playerId: e.playerId }))}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="timestamp" />
+                            <YAxis />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="playerId" stroke="#8884d8" fill="#8884d8" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                        
+                        <MatchEventsTimeline 
+                          events={matchEvents} 
+                          homeTeam={homeTeam}
+                          awayTeam={awayTeam}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No match events recorded yet
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
