@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -101,6 +102,20 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
 
   // Helper function to determine if circular menu should be shown
   const shouldShowCircularMenu = activeTab === 'pitch' || activeTab === 'piano';
+  
+  // Add the missing handleEventSelect function
+  const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
+    // First select the player
+    handlePlayerSelect(player);
+    
+    // Then record the event using the provided recordEvent function
+    recordEvent(eventType, player.id, selectedTeam, coordinates);
+    
+    // If it's a ball-related event, we'll track the ball movement too
+    if (['pass', 'shot', 'goal'].includes(eventType)) {
+      addBallTrackingPoint(coordinates);
+    }
+  };
 
   // Make sure statistics is never undefined
   const safeStats = statistics || defaultStatistics;
