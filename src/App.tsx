@@ -33,13 +33,13 @@ const App = () => (
             } />
             
             <Route path="/match" element={
-              <RequireAuth>
+              <RequireAuth requiredRoles={['admin', 'tracker']}>
                 <Index />
               </RequireAuth>
             } />
             
             <Route path="/match/:matchId" element={
-              <RequireAuth>
+              <RequireAuth requiredRoles={['admin', 'tracker']}>
                 <MatchAnalysis />
               </RequireAuth>
             } />

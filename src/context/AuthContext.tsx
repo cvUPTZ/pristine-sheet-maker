@@ -14,6 +14,14 @@ type AuthContextType = {
   userRole: 'admin' | 'tracker' | 'viewer' | null;
 };
 
+// Define the shape of the user_roles table for TypeScript
+type UserRole = {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'tracker' | 'viewer';
+  created_at: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -58,11 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRole = async (userId: string) => {
     try {
+      // Use type assertion to tell TypeScript about our table structure
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .single() as { data: UserRole | null, error: any };
 
       if (error) {
         console.error('Error fetching user role:', error);

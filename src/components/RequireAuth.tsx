@@ -4,8 +4,14 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+export const RequireAuth: React.FC<{ 
+  children: React.ReactNode;
+  requiredRoles?: Array<'admin' | 'tracker' | 'viewer'>;
+}> = ({ 
+  children, 
+  requiredRoles 
+}) => {
+  const { user, loading, userRole } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -17,10 +23,25 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   }
 
+  // If user is not logged in, redirect to auth page
   if (!user) {
-    // Redirect to auth page but save the current location they were trying to access
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // If specific roles are required, check user's role
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!userRole || !requiredRoles.includes(userRole)) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
+          <p className="text-gray-600">Required roles: {requiredRoles.join(', ')}</p>
+          <p className="text-gray-600">Your role: {userRole || 'none'}</p>
+        </div>
+      );
+    }
+  }
+
+  // User is authenticated and has required role (if any)
   return <>{children}</>;
 };
