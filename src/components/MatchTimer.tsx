@@ -23,6 +23,8 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
   const { toast } = useToast();
   const intervalRef = useRef<number | null>(null);
   const lastTickTimeRef = useRef<number | null>(null);
+  const hasToastedStartRef = useRef<boolean>(false);
+  const hasToastedPauseRef = useRef<boolean>(false);
   
   // Ensure elapsedTime is a number to avoid NaN display
   const safeElapsedTime = isNaN(elapsedTime) ? 0 : elapsedTime;
@@ -64,24 +66,30 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
       // Set up a new interval with higher resolution (100ms) for smoother updates
       intervalRef.current = window.setInterval(handleTimerTick, 100);
       
-      // Notify that timer has started
-      toast({
-        title: "Timer Started",
-        description: "Match timer is now running",
-        duration: 2000
-      });
+      // Notify that timer has started (only once per start)
+      if (!hasToastedStartRef.current) {
+        toast({
+          title: "Timer Started",
+          description: "Match timer is now running",
+          duration: 2000
+        });
+        hasToastedStartRef.current = true;
+        hasToastedPauseRef.current = false;
+      }
     } else if (intervalRef.current) {
       // Clear the interval when stopped
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
       lastTickTimeRef.current = null;
       
-      if (safeElapsedTime > 0) {
+      if (safeElapsedTime > 0 && !hasToastedPauseRef.current) {
         toast({
           title: "Timer Paused",
           description: `Current time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
           duration: 2000
         });
+        hasToastedPauseRef.current = true;
+        hasToastedStartRef.current = false;
       }
     }
     
@@ -96,6 +104,8 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
 
   const handleReset = () => {
     onReset();
+    hasToastedStartRef.current = false;
+    hasToastedPauseRef.current = false;
     toast({
       title: "Timer Reset",
       description: "Match timer has been reset to 00:00",
