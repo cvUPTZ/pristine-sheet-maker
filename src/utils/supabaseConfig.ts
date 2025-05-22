@@ -1,0 +1,4 @@
+
+// Constants for Supabase configuration
+export const SUPABASE_URL = "https://itwnghrwolvydupxmnqw.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0d25naHJ3b2x2eWR1cHhtbnF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0OTQ1MzAsImV4cCI6MjA0OTA3MDUzMH0.kYGz7VengZjUvokGlAE4dDSEbrFKbg2fq09RuTNv31k";

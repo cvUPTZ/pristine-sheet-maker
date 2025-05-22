@@ -1,7 +1,9 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig';
 
 type AuthContextType = {
   user: User | null;
@@ -68,16 +70,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Use RPC to call our secure function
       const { data, error } = await supabase.rpc('get_user_role', {
         user_id_param: userId
-      });
+      }) as { data: 'admin' | 'tracker' | 'viewer' | null, error: any };
 
       if (error) {
         console.error('Error fetching user role:', error);
         // Fallback to direct query with fetch API
         try {
-          const response = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
+          const response = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
             headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
             }
           });
           

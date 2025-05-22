@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { MatchEvent, Player, EventType } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig';
 
 // Define TypeScript interface for our database tables
 interface MatchEventDB {
@@ -44,10 +45,10 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     const loadEvents = async () => {
       try {
         // Use the Fetch API instead of direct Supabase client to work around type issues
-        const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events?match_id=eq.${matchId}&order=timestamp.asc`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/match_events?match_id=eq.${matchId}&order=timestamp.asc`, {
           headers: {
-            'apikey': supabase.supabaseKey,
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           }
         });
@@ -166,10 +167,10 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
         if (status === 'SUBSCRIBED') {
           // Get user profile using fetch API
           try {
-            const profileResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
+            const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
               headers: {
-                'apikey': supabase.supabaseKey,
-                'Authorization': `Bearer ${supabase.supabaseKey}`,
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json'
               }
             });
@@ -178,10 +179,10 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
             const fullName = profileData?.[0]?.full_name || user.email;
             
             // Get user role using fetch API
-            const roleResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
+            const roleResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
               headers: {
-                'apikey': supabase.supabaseKey,
-                'Authorization': `Bearer ${supabase.supabaseKey}`,
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json'
               }
             });
@@ -219,11 +220,11 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
 
     try {
       // Use fetch API to post the event
-      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/match_events`, {
         method: 'POST',
         headers: {
-          'apikey': supabase.supabaseKey,
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
