@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Fetch user role if authenticated
         if (newSession?.user) {
           setTimeout(() => {
-            fetchUserRole(newSession);
+            fetchUserRoleFromDB(newSession);
           }, 0);
         } else {
           setUserRole(null);
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRole(initialSession);
+        fetchUserRoleFromDB(initialSession);
       }
       
       setLoading(false);
@@ -65,36 +65,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserRole = async (currentSession: Session) => {
-    if (!currentSession?.access_token || !currentSession?.user?.id) {
-      console.log('No session or user ID available to fetch role');
+  // First method: Use Supabase client with session token
+  const fetchUserRoleWithSupabase = async (currentSession: Session) => {
+    try {
+      // Use Supabase client which already has the auth token
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentSession.user.id)
+        .single();
+      
+      if (error) {
+        console.error('Supabase query error:', error);
+        return null;
+      }
+      
+      console.log('Role data from Supabase client:', data);
+      return data?.role as 'admin' | 'tracker' | 'viewer' | null;
+    } catch (error) {
+      console.error('Error in fetchUserRoleWithSupabase:', error);
+      return null;
+    }
+  };
+
+  // Second method: Direct fetch API
+  const fetchUserRoleWithFetch = async (currentSession: Session) => {
+    try {
+      // Use direct fetch with the session token
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${currentSession.user.id}&select=role`, 
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        console.error(`API error: ${response.status}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log('Role data from fetch API:', data);
+      
+      if (data && data.length > 0) {
+        return data[0].role as 'admin' | 'tracker' | 'viewer';
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error in fetchUserRoleWithFetch:', error);
+      return null;
+    }
+  };
+
+  // Third method: Temporary hard-coded role for admin@efoot.com
+  const getHardcodedRole = (email: string) => {
+    if (email === 'admin@efoot.com') {
+      console.log('Setting hardcoded admin role for admin@efoot.com');
+      return 'admin' as const;
+    }
+    return null;
+  };
+
+  // Try all methods to get the role
+  const fetchUserRoleFromDB = async (currentSession: Session) => {
+    if (!currentSession?.user) {
+      console.log('No user in session');
+      setUserRole(null);
       return;
     }
     
+    console.log('Attempting to fetch role for user:', currentSession.user.email);
+    
     try {
-      // Direct query using the access token from the session
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${currentSession.user.id}&select=role`, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${currentSession.access_token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      // Try hardcoded role first (temporary solution)
+      const hardcodedRole = getHardcodedRole(currentSession.user.email || '');
+      if (hardcodedRole) {
+        setUserRole(hardcodedRole);
+        return;
       }
       
-      const roleData = await response.json();
-      console.log('User role data:', roleData);
-      
-      if (roleData && roleData.length > 0) {
-        const role = roleData[0].role as 'admin' | 'tracker' | 'viewer';
-        console.log('Setting user role to:', role);
-        setUserRole(role);
-      } else {
-        console.log('No role found for user');
-        setUserRole(null);
+      // Try Supabase client first
+      const roleFromSupabase = await fetchUserRoleWithSupabase(currentSession);
+      if (roleFromSupabase) {
+        console.log('Setting user role from Supabase client:', roleFromSupabase);
+        setUserRole(roleFromSupabase);
+        return;
       }
+      
+      // Fall back to fetch API
+      const roleFromFetch = await fetchUserRoleWithFetch(currentSession);
+      if (roleFromFetch) {
+        console.log('Setting user role from fetch API:', roleFromFetch);
+        setUserRole(roleFromFetch);
+        return;
+      }
+      
+      console.log('No role found after trying all methods');
+      setUserRole(null);
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole(null);
