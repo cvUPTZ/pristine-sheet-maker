@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Fetch user role if authenticated
         if (newSession?.user) {
           setTimeout(() => {
-            fetchUserRole(newSession.user.id);
+            fetchUserRole(newSession);
           }, 0);
         } else {
           setUserRole(null);
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRole(initialSession.user.id);
+        fetchUserRole(initialSession);
       }
       
       setLoading(false);
@@ -65,54 +65,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (currentSession: Session) => {
+    if (!currentSession?.access_token || !currentSession?.user?.id) {
+      console.log('No session or user ID available to fetch role');
+      return;
+    }
+    
     try {
-      // Use RPC to call our secure function
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_role`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({ user_id_param: userId })
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
+      // Direct query using the access token from the session
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${currentSession.user.id}&select=role`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${currentSession.access_token}`
         }
-
-        const data = await response.json();
-        if (data) {
-          setUserRole(data as 'admin' | 'tracker' | 'viewer');
-        }
-      } catch (rpcError) {
-        console.error('RPC error fetching user role:', rpcError);
-        
-        // Fallback to direct query with fetch API
-        try {
-          const response = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
-          }
-          
-          const roleData = await response.json();
-          if (roleData && roleData.length > 0) {
-            setUserRole(roleData[0].role as 'admin' | 'tracker' | 'viewer');
-          }
-        } catch (fallbackError) {
-          console.error('Fallback user role query failed:', fallbackError);
-        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const roleData = await response.json();
+      console.log('User role data:', roleData);
+      
+      if (roleData && roleData.length > 0) {
+        const role = roleData[0].role as 'admin' | 'tracker' | 'viewer';
+        console.log('Setting user role to:', role);
+        setUserRole(role);
+      } else {
+        console.log('No role found for user');
+        setUserRole(null);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
+      setUserRole(null);
     }
   };
 
