@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -100,6 +99,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     }
   };
 
+  // Helper function to determine if circular menu should be shown
+  const shouldShowCircularMenu = activeTab === 'pitch' || activeTab === 'piano';
+
   // Make sure statistics is never undefined
   const safeStats = statistics || defaultStatistics;
 
@@ -175,6 +177,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 selectedTeam={selectedTeam} 
                 setSelectedTeam={setSelectedTeam} 
                 handlePlayerSelect={handlePlayerSelect} 
+                handleEventSelect={shouldShowCircularMenu ? handleEventSelect : undefined}
                 ballTrackingPoints={ballTrackingPoints} 
                 mode={mode} 
                 handlePitchClick={handlePitchClick} 

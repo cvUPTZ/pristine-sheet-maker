@@ -13,6 +13,7 @@ interface PlayerMarkerProps {
   selected?: boolean;
   hasBall?: boolean;
   onEventSelect?: (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => void;
+  allowCircularMenu?: boolean; // New prop to control circular menu visibility
 }
 
 const PlayerMarker: React.FC<PlayerMarkerProps> = ({ 
@@ -22,7 +23,8 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   onClick, 
   selected = false,
   hasBall = false,
-  onEventSelect
+  onEventSelect,
+  allowCircularMenu = true // Default to true for backward compatibility
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isSmall = useBreakpoint('sm');
@@ -39,8 +41,8 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Only show the circular menu on right-click when onEventSelect is available
-    if (onEventSelect) {
+    // Only show the circular menu on right-click when onEventSelect is available AND allowCircularMenu is true
+    if (onEventSelect && allowCircularMenu) {
       setShowMenu(true);
     }
   };
@@ -49,7 +51,8 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     e.stopPropagation();
     e.preventDefault();
     
-    if (onEventSelect) {
+    // Only show the circular menu when onEventSelect is available AND allowCircularMenu is true
+    if (onEventSelect && allowCircularMenu) {
       setShowMenu(true);
     }
   };
@@ -87,7 +90,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         {player.number}
         
         {/* Action menu button that appears when player is selected */}
-        {selected && onEventSelect && (
+        {selected && onEventSelect && allowCircularMenu && (
           <div 
             className={`absolute ${isSmall ? '-bottom-5' : '-bottom-7'} left-1/2 transform -translate-x-1/2`}
             onClick={e => e.stopPropagation()}
@@ -105,7 +108,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
       </div>
       
       {/* Circular menu for actions - shown on right-click or button click */}
-      {showMenu && (
+      {showMenu && allowCircularMenu && (
         <CircularMenu 
           visible={showMenu} 
           position={position}

@@ -70,7 +70,7 @@ const Pitch: React.FC<PitchProps> = ({
       handlePlayerSelect={handlePlayerSelect}
       handleEventSelect={handleEventSelect}
       ballTrackingPoints={emptyTrackingPoints}
-      mode={ballTrackingMode ? 'tracking' : 'piano'}
+      mode={ballTrackingMode ? 'tracking' : 'piano'} // This is fine, both modes should allow the circular menu
       handlePitchClick={handlePitchClick}
       addBallTrackingPoint={onTrackBallMovement}
     />

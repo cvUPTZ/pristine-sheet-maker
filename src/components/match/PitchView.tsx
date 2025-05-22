@@ -57,6 +57,9 @@ const PitchView: React.FC<PitchViewProps> = ({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const currentBreakpoint = useCurrentBreakpoint();
   
+  // Determine if circular menu should be allowed based on mode
+  const allowCircularMenu = mode === 'piano' || mode === 'tracking';
+  
   // Update container size on mount and window resize
   useEffect(() => {
     const updateSize = () => {
@@ -107,6 +110,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             }}
             onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
+            allowCircularMenu={allowCircularMenu}
           />
         ))}
         
@@ -123,6 +127,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             }}
             onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
+            allowCircularMenu={allowCircularMenu}
           />
         ))}
         

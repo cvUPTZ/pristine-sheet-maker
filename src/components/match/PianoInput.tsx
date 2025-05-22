@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Player, EventType, BallTrackingPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -298,6 +297,11 @@ const PianoInput: React.FC<PianoInputProps> = ({
     // Handle click on the pitch itself (for mobile use)
   };
   
+  // Use a simplified handleEventSelect function for PianoInput's context
+  const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
+    handlePlayerSelect(player, activeTab as 'home' | 'away', coordinates);
+  };
+  
   return <div className="w-full">
       <Card className={`${compact ? "h-full" : ""}`}>
         <CardHeader className={`${compact ? "pb-2" : "pb-6"}`}>
@@ -364,22 +368,30 @@ const PianoInput: React.FC<PianoInputProps> = ({
               <div className="relative">
                 <FootballPitch onClick={handlePitchClick} className={`${compact ? "h-[30vh]" : "h-[45vh]"} w-full`}>
                   {/* Home team players */}
-                  {activeTab === 'home' && homeTeam.players.map(player => <PlayerMarker key={`home-${player.id}`} player={player} teamColor="#1A365D" position={combinedPositions[player.id] || {
-                  x: 0.5,
-                  y: 0.9
-                }} onClick={() => handlePlayerSelect(player, 'home', combinedPositions[player.id] || {
-                  x: 0.5,
-                  y: 0.9
-                })} selected={selectedPlayer?.id === player.id} hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'home'} />)}
+                  {activeTab === 'home' && homeTeam.players.map(player => <PlayerMarker 
+                    key={`home-${player.id}`} 
+                    player={player} 
+                    teamColor="#1A365D" 
+                    position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }} 
+                    onClick={() => handlePlayerSelect(player, 'home', combinedPositions[player.id] || { x: 0.5, y: 0.9 })} 
+                    selected={selectedPlayer?.id === player.id} 
+                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'home'}
+                    onEventSelect={handleEventSelect}
+                    allowCircularMenu={true} // Always allow circular menu in piano tab
+                  />)}
                   
                   {/* Away team players */}
-                  {activeTab === 'away' && awayTeam.players.map(player => <PlayerMarker key={`away-${player.id}`} player={player} teamColor="#D3212C" position={combinedPositions[player.id] || {
-                  x: 0.5,
-                  y: 0.1
-                }} onClick={() => handlePlayerSelect(player, 'away', combinedPositions[player.id] || {
-                  x: 0.5,
-                  y: 0.1
-                })} selected={selectedPlayer?.id === player.id} hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'away'} />)}
+                  {activeTab === 'away' && awayTeam.players.map(player => <PlayerMarker 
+                    key={`away-${player.id}`} 
+                    player={player} 
+                    teamColor="#D3212C" 
+                    position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }} 
+                    onClick={() => handlePlayerSelect(player, 'away', combinedPositions[player.id] || { x: 0.5, y: 0.1 })} 
+                    selected={selectedPlayer?.id === player.id} 
+                    hasBall={currentBallHolder?.player.id === player.id && currentBallHolder?.teamId === 'away'}
+                    onEventSelect={handleEventSelect}
+                    allowCircularMenu={true} // Always allow circular menu in piano tab
+                  />)}
                   
                   {/* Ball movement history - draw lines between players */}
                   {ballHistory.slice(-5).map((historyItem, index) => {
@@ -436,16 +448,10 @@ const PianoInput: React.FC<PianoInputProps> = ({
           {/* Player grid (only in compact mode) */}
           {compact && <div className="mt-2">
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-[20vh] overflow-y-auto pb-2">
-                {activeTab === 'home' ? homeTeam.players.map(player => <Button key={`player-btn-${player.id}`} size="sm" variant={selectedPlayer?.id === player.id ? "default" : "outline"} className={`${selectedPlayer?.id === player.id ? "bg-football-home text-white" : ""} text-xs flex flex-col h-auto py-1`} onClick={() => handlePlayerSelect(player, 'home', combinedPositions[player.id] || {
-              x: 0.5,
-              y: 0.9
-            })}>
+                {activeTab === 'home' ? homeTeam.players.map(player => <Button key={`player-btn-${player.id}`} size="sm" variant={selectedPlayer?.id === player.id ? "default" : "outline"} className={`${selectedPlayer?.id === player.id ? "bg-football-home text-white" : ""} text-xs flex flex-col h-auto py-1`} onClick={() => handlePlayerSelect(player, 'home', combinedPositions[player.id] || { x: 0.5, y: 0.9 })}>
                       <span className="font-bold">{player.number}</span>
                       <span className="truncate">{player.name}</span>
-                    </Button>) : awayTeam.players.map(player => <Button key={`player-btn-${player.id}`} size="sm" variant={selectedPlayer?.id === player.id ? "default" : "outline"} className={`${selectedPlayer?.id === player.id ? "bg-football-away text-white" : ""} text-xs flex flex-col h-auto py-1`} onClick={() => handlePlayerSelect(player, 'away', combinedPositions[player.id] || {
-              x: 0.5,
-              y: 0.1
-            })}>
+                    </Button>) : awayTeam.players.map(player => <Button key={`player-btn-${player.id}`} size="sm" variant={selectedPlayer?.id === player.id ? "default" : "outline"} className={`${selectedPlayer?.id === player.id ? "bg-football-away text-white" : ""} text-xs flex flex-col h-auto py-1`} onClick={() => handlePlayerSelect(player, 'away', combinedPositions[player.id] || { x: 0.5, y: 0.1 })}>
                       <span className="font-bold">{player.number}</span>
                       <span className="truncate">{player.name}</span>
                     </Button>)}
