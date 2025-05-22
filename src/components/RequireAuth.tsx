@@ -37,6 +37,7 @@ export const RequireAuth: React.FC<{
           <p className="text-gray-600">You don't have permission to access this page.</p>
           <p className="text-gray-600">Required roles: {requiredRoles.join(', ')}</p>
           <p className="text-gray-600">Your role: {userRole || 'none'}</p>
+          <p className="text-gray-600 mt-4">The user_roles table might not exist or you don't have a role assigned.</p>
         </div>
       );
     }

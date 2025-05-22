@@ -43,14 +43,20 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
 
     const loadEvents = async () => {
       try {
-        // Use type assertion for the match_events table
-        const { data, error } = await (supabase
-          .from('match_events') as any)
-          .select('*')
-          .eq('match_id', matchId)
-          .order('timestamp', { ascending: true });
-
-        if (error) throw error;
+        // Use the raw POST method to bypass TypeScript restrictions
+        const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events?match_id=eq.${matchId}&order=timestamp.asc`, {
+          headers: {
+            'apikey': supabase.supabaseKey,
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
         
         // Convert DB events to app format
         if (data) {
@@ -158,25 +164,33 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Get user profile to track presence
-          const { data: profileData } = await (supabase
-            .from('profiles') as any)
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-            
-          // Get user role
-          const { data: roleData } = await (supabase
-            .from('user_roles') as any)
-            .select('role')
-            .eq('user_id', user.id)
-            .single();
+          // Get user profile using generic API
+          const profileResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
+            headers: {
+              'apikey': supabase.supabaseKey,
+              'Authorization': `Bearer ${supabase.supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const profileData = await profileResponse.json();
+          const fullName = profileData?.[0]?.full_name || user.email;
+          
+          // Get user role using generic API
+          const roleResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
+            headers: {
+              'apikey': supabase.supabaseKey,
+              'Authorization': `Bearer ${supabase.supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const roleData = await roleResponse.json();
+          const role = roleData?.[0]?.role || 'viewer';
             
           // Track user presence
           await channel.track({
             id: user.id,
-            name: profileData?.full_name || user.email,
-            role: roleData?.role || 'viewer',
+            name: fullName,
+            role: role,
             online_at: new Date().toISOString(),
           });
         }
@@ -198,10 +212,16 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     if (!matchId || !user) return;
 
     try {
-      // Use type assertion for the match_events table
-      const { data, error } = await (supabase
-        .from('match_events') as any)
-        .insert({
+      // Use raw POST request to bypass TypeScript restrictions
+      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events`, {
+        method: 'POST',
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
           match_id: matchId,
           event_type: eventType,
           player_id: playerId,
@@ -210,11 +230,13 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
           timestamp: timestamp,
           created_by: user.id
         })
-        .select();
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-      // Local optimistic update is not needed as the postgres_changes subscription will handle it
+      const data = await response.json();
       return data;
     } catch (error: any) {
       console.error('Error recording event:', error.message);

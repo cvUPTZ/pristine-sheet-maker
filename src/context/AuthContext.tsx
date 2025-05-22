@@ -14,8 +14,8 @@ type AuthContextType = {
   userRole: 'admin' | 'tracker' | 'viewer' | null;
 };
 
-// Define the shape of the user_roles table for TypeScript
-type UserRole = {
+// Define interfaces for custom tables not in the auto-generated types
+interface UserRole {
   id: string;
   user_id: string;
   role: 'admin' | 'tracker' | 'viewer';
@@ -66,20 +66,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRole = async (userId: string) => {
     try {
-      // Use type assertion to work around the type mismatch
-      const { data, error } = await (supabase
-        .from('user_roles') as any)
-        .select('role')
-        .eq('user_id', userId)
-        .single();
+      // Use raw query method to bypass type checking
+      const { data, error } = await supabase.rpc('get_user_role', {
+        user_id_param: userId
+      });
 
       if (error) {
         console.error('Error fetching user role:', error);
+        // Fallback to direct query with type assertion
+        const fallbackResult = await supabase
+          .from('user_roles' as any)
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+        if (fallbackResult.error) {
+          console.error('Fallback user role query failed:', fallbackResult.error);
+          return;
+        }
+        
+        if (fallbackResult.data) {
+          setUserRole(fallbackResult.data.role as 'admin' | 'tracker' | 'viewer');
+        }
         return;
       }
 
       if (data) {
-        setUserRole(data.role as 'admin' | 'tracker' | 'viewer');
+        setUserRole(data as 'admin' | 'tracker' | 'viewer');
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
