@@ -13,6 +13,8 @@ import Statistics from "./pages/Statistics";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Admin from "./pages/Admin";
+import Header from "./components/Header";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <Header />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             
@@ -53,6 +56,12 @@ const App = () => (
             <Route path="/statistics" element={
               <RequireAuth>
                 <Statistics />
+              </RequireAuth>
+            } />
+
+            <Route path="/admin" element={
+              <RequireAuth requiredRoles={['admin']}>
+                <Admin />
               </RequireAuth>
             } />
             
