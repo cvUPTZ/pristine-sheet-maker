@@ -4,6 +4,8 @@ import { Player, EventType } from '@/types';
 import CircularMenu from './CircularMenu';
 import { Button } from './ui/button';
 import { useBreakpoint } from '@/hooks/use-mobile';
+import { useAuth } from '@/context/AuthContext';
+import { motion } from 'framer-motion';
 
 interface PlayerMarkerProps {
   player: Player;
@@ -31,6 +33,10 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   const markerRef = useRef<HTMLDivElement>(null);
   const touchTimeoutRef = useRef<number | null>(null);
   const touchStartTimeRef = useRef<number>(0);
+  const { userRole } = useAuth();
+  
+  // Check if user has permission to record events
+  const canRecordEvents = userRole === 'admin' || userRole === 'tracker';
   
   // Close menu when clicking elsewhere
   useEffect(() => {
@@ -56,7 +62,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     }
     
     // If the player is already selected and circular menu is allowed, toggle the menu
-    if (selected && onEventSelect && allowCircularMenu) {
+    if (selected && onEventSelect && allowCircularMenu && canRecordEvents) {
       setShowMenu(prev => !prev);
     }
   };
@@ -71,7 +77,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     }
     
     // Then show the circular menu
-    if (onEventSelect && allowCircularMenu) {
+    if (onEventSelect && allowCircularMenu && canRecordEvents) {
       setShowMenu(true);
     }
   };
@@ -87,7 +93,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     
     // Set a timeout to detect long press (500ms)
     touchTimeoutRef.current = window.setTimeout(() => {
-      if (onEventSelect && allowCircularMenu) {
+      if (onEventSelect && allowCircularMenu && canRecordEvents) {
         // First select the player if not already selected
         if (onClick && !selected) {
           onClick(player);
@@ -116,7 +122,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   };
   
   const handleMenuSelect = (eventType: EventType) => {
-    if (onEventSelect) {
+    if (onEventSelect && canRecordEvents) {
       onEventSelect(eventType, player, position);
     }
     setShowMenu(false);
@@ -128,7 +134,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
 
   return (
     <>
-      <div
+      <motion.div
         ref={markerRef}
         className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all ${
           selected ? 'ring-2 ring-white scale-110 z-30' : 'opacity-70 z-20'
@@ -150,12 +156,22 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         data-testid={`player-marker-${player.id}`}
+        whileTap={{ scale: 1.2 }}
+        initial={{ scale: 1 }}
+        animate={{ 
+          scale: selected ? 1.1 : 1,
+          opacity: selected ? 1 : 0.7
+        }}
+        transition={{ duration: 0.2 }}
       >
         {player.number}
-      </div>
+        {!canRecordEvents && (
+          <div className="absolute top-0 right-0 w-2 h-2 bg-gray-400 rounded-full border border-white"></div>
+        )}
+      </motion.div>
       
-      {/* Circular menu for actions */}
-      {showMenu && allowCircularMenu && (
+      {/* Circular menu for actions - only show if user has permission */}
+      {showMenu && allowCircularMenu && canRecordEvents && (
         <CircularMenu 
           visible={showMenu} 
           position={position}
