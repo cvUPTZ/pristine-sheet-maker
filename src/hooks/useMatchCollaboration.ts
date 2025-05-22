@@ -43,7 +43,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
 
     const loadEvents = async () => {
       try {
-        // Use the raw POST method to bypass TypeScript restrictions
+        // Use the Fetch API instead of direct Supabase client to work around type issues
         const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events?match_id=eq.${matchId}&order=timestamp.asc`, {
           headers: {
             'apikey': supabase.supabaseKey,
@@ -59,7 +59,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
         const data = await response.json();
         
         // Convert DB events to app format
-        if (data) {
+        if (data && Array.isArray(data)) {
           const formattedEvents: MatchEvent[] = data.map((event: MatchEventDB) => ({
             id: event.id,
             matchId: event.match_id,
@@ -164,35 +164,41 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Get user profile using generic API
-          const profileResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
-            headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const profileData = await profileResponse.json();
-          const fullName = profileData?.[0]?.full_name || user.email;
-          
-          // Get user role using generic API
-          const roleResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
-            headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const roleData = await roleResponse.json();
-          const role = roleData?.[0]?.role || 'viewer';
+          // Get user profile using fetch API
+          try {
+            const profileResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
+              headers: {
+                'apikey': supabase.supabaseKey,
+                'Authorization': `Bearer ${supabase.supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
             
-          // Track user presence
-          await channel.track({
-            id: user.id,
-            name: fullName,
-            role: role,
-            online_at: new Date().toISOString(),
-          });
+            const profileData = await profileResponse.json();
+            const fullName = profileData?.[0]?.full_name || user.email;
+            
+            // Get user role using fetch API
+            const roleResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
+              headers: {
+                'apikey': supabase.supabaseKey,
+                'Authorization': `Bearer ${supabase.supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            const roleData = await roleResponse.json();
+            const role = roleData?.[0]?.role || 'viewer';
+              
+            // Track user presence
+            await channel.track({
+              id: user.id,
+              name: fullName,
+              role: role,
+              online_at: new Date().toISOString(),
+            });
+          } catch (error) {
+            console.error('Error setting up presence:', error);
+          }
         }
       });
 
@@ -212,7 +218,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     if (!matchId || !user) return;
 
     try {
-      // Use raw POST request to bypass TypeScript restrictions
+      // Use fetch API to post the event
       const response = await fetch(`${supabase.supabaseUrl}/rest/v1/match_events`, {
         method: 'POST',
         headers: {

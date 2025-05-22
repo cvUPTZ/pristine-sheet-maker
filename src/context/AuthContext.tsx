@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,27 +65,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRole = async (userId: string) => {
     try {
-      // Use raw query method to bypass type checking
+      // Use RPC to call our secure function
       const { data, error } = await supabase.rpc('get_user_role', {
         user_id_param: userId
       });
 
       if (error) {
         console.error('Error fetching user role:', error);
-        // Fallback to direct query with type assertion
-        const fallbackResult = await supabase
-          .from('user_roles' as any)
-          .select('role')
-          .eq('user_id', userId)
-          .maybeSingle();
+        // Fallback to direct query with fetch API
+        try {
+          const response = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
+            headers: {
+              'apikey': supabase.supabaseKey,
+              'Authorization': `Bearer ${supabase.supabaseKey}`
+            }
+          });
           
-        if (fallbackResult.error) {
-          console.error('Fallback user role query failed:', fallbackResult.error);
-          return;
-        }
-        
-        if (fallbackResult.data) {
-          setUserRole(fallbackResult.data.role as 'admin' | 'tracker' | 'viewer');
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+          
+          const roleData = await response.json();
+          if (roleData && roleData.length > 0) {
+            setUserRole(roleData[0].role as 'admin' | 'tracker' | 'viewer');
+          }
+        } catch (fallbackError) {
+          console.error('Fallback user role query failed:', fallbackError);
         }
         return;
       }

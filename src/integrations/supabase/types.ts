@@ -85,6 +85,42 @@ export type Database = {
           },
         ]
       }
+      match_events: {
+        Row: {
+          coordinates: Json | null
+          created_at: string
+          created_by: string
+          event_type: string
+          id: string
+          match_id: string
+          player_id: number | null
+          team: string | null
+          timestamp: number | null
+        }
+        Insert: {
+          coordinates?: Json | null
+          created_at?: string
+          created_by: string
+          event_type: string
+          id?: string
+          match_id: string
+          player_id?: number | null
+          team?: string | null
+          timestamp?: number | null
+        }
+        Update: {
+          coordinates?: Json | null
+          created_at?: string
+          created_by?: string
+          event_type?: string
+          id?: string
+          match_id?: string
+          player_id?: number | null
+          team?: string | null
+          timestamp?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -325,6 +361,27 @@ export type Database = {
           id?: string
           tracker_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }
