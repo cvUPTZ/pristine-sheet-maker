@@ -43,18 +43,18 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
 
     const loadEvents = async () => {
       try {
-        // Use type assertion for the new match_events table
-        const { data, error } = await supabase
-          .from('match_events')
+        // Use type assertion for the match_events table
+        const { data, error } = await (supabase
+          .from('match_events') as any)
           .select('*')
           .eq('match_id', matchId)
-          .order('timestamp', { ascending: true }) as { data: MatchEventDB[] | null, error: any };
+          .order('timestamp', { ascending: true });
 
         if (error) throw error;
         
         // Convert DB events to app format
         if (data) {
-          const formattedEvents: MatchEvent[] = data.map(event => ({
+          const formattedEvents: MatchEvent[] = data.map((event: MatchEventDB) => ({
             id: event.id,
             matchId: event.match_id,
             teamId: event.team || '',
@@ -159,18 +159,18 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           // Get user profile to track presence
-          const { data: profileData } = await supabase
-            .from('profiles')
+          const { data: profileData } = await (supabase
+            .from('profiles') as any)
             .select('full_name')
             .eq('id', user.id)
-            .single() as { data: { full_name: string } | null, error: any };
+            .single();
             
           // Get user role
-          const { data: roleData } = await supabase
-            .from('user_roles')
+          const { data: roleData } = await (supabase
+            .from('user_roles') as any)
             .select('role')
             .eq('user_id', user.id)
-            .single() as { data: { role: string } | null, error: any };
+            .single();
             
           // Track user presence
           await channel.track({
@@ -199,8 +199,8 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
 
     try {
       // Use type assertion for the match_events table
-      const { data, error } = await supabase
-        .from('match_events')
+      const { data, error } = await (supabase
+        .from('match_events') as any)
         .insert({
           match_id: matchId,
           event_type: eventType,
@@ -210,7 +210,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
           timestamp: timestamp,
           created_by: user.id
         })
-        .select() as { data: MatchEventDB[] | null, error: any };
+        .select();
 
       if (error) throw error;
 

@@ -66,12 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRole = async (userId: string) => {
     try {
-      // Use type assertion to tell TypeScript about our table structure
-      const { data, error } = await supabase
-        .from('user_roles')
+      // Use type assertion to work around the type mismatch
+      const { data, error } = await (supabase
+        .from('user_roles') as any)
         .select('role')
         .eq('user_id', userId)
-        .single() as { data: UserRole | null, error: any };
+        .single();
 
       if (error) {
         console.error('Error fetching user role:', error);
