@@ -1,5 +1,4 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
 interface MatchState {
@@ -87,6 +86,9 @@ export const useMatchState = (): MatchState & MatchActions => {
   const [state, setState] = useState<MatchState>(initialMatchState);
   const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
 
+  // Use a ref to track intervals
+  const timerRef = useRef<number>();
+
   const setMatch = useCallback((match: Match) => {
     setState(prev => ({ ...prev, match }));
   }, []);
@@ -160,6 +162,12 @@ export const useMatchState = (): MatchState & MatchActions => {
 
   const resetTimer = useCallback(() => {
     setState(prev => ({ ...prev, elapsedTime: 0, isRunning: false }));
+    
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = undefined;
+    }
   }, []);
 
   const setElapsedTime = useCallback((time: number | ((prevTime: number) => number)) => {

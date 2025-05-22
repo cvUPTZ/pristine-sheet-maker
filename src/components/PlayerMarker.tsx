@@ -67,18 +67,18 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     <>
       <div
         className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-          selected ? 'ring-2 ring-white scale-110' : ''
+          selected ? 'ring-2 ring-white scale-110' : 'opacity-70'
         } ${
           hasBall ? 'ring-4 ring-yellow-300 animate-pulse' : ''
         } ${
-          showMenu ? 'opacity-75' : 'opacity-100'
+          showMenu ? 'opacity-75' : selected ? 'opacity-100' : 'opacity-70'
         } touch-manipulation`} // Added touch-manipulation for better touch experience
         style={{
           left: `${position.x * 100}%`,
           top: `${position.y * 100}%`,
           backgroundColor: teamColor,
           color: teamColor === '#1A365D' ? 'white' : 'white',
-          boxShadow: hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : 'none',
+          boxShadow: hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : selected ? '0 0 15px rgba(255, 255, 255, 0.8)' : 'none',
           fontSize: isSmall ? '0.65rem' : '0.75rem' // Slightly smaller font on mobile
         }}
         onClick={handleClick}

@@ -24,12 +24,19 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
   const minutes = Math.floor(safeElapsedTime / 60);
   const seconds = Math.floor(safeElapsedTime % 60);
   
+  // Fix: Use React.useRef to track if the timer is already running
+  const timerRef = React.useRef<number>();
+  
   // Add effect to increment timer when running
   useEffect(() => {
-    let interval: number | undefined;
+    // Clear any existing interval first to prevent multiple intervals
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = undefined;
+    }
     
     if (isRunning) {
-      interval = window.setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         setElapsedTime(prevTime => {
           // Ensure we're working with a valid number
           const prevTimeNum = isNaN(prevTime) ? 0 : Number(prevTime);
@@ -39,7 +46,7 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isRunning, setElapsedTime]);
 
