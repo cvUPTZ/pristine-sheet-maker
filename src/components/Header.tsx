@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, Users, Shield } from 'lucide-react';
+import { LogOut, Users, Shield, User } from 'lucide-react';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();
@@ -16,6 +16,15 @@ const Header = () => {
         <Link to="/" className="font-bold text-xl">Football Analytics</Link>
       </div>
       <div className="flex items-center gap-4">
+        <div className="flex items-center text-sm text-muted-foreground">
+          <User size={16} className="mr-1" />
+          <span className="mr-2">{user.email}</span>
+          {userRole && (
+            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
+              {userRole}
+            </span>
+          )}
+        </div>
         {userRole === 'admin' && (
           <Button variant="ghost" asChild>
             <Link to="/admin">
