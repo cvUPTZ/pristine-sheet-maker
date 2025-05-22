@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -60,14 +61,14 @@ const defaultStatistics: Statistics = {
 
 // Define default team objects to satisfy the Team interface
 const defaultHomeTeam: Team = {
-  id: 'home-default',  // Added required id property
+  id: 'home-default',
   name: 'Home',
   players: [],
   formation: ''
 };
 
 const defaultAwayTeam: Team = {
-  id: 'away-default',  // Added required id property
+  id: 'away-default',
   name: 'Away',
   players: [],
   formation: ''
@@ -79,8 +80,8 @@ const MatchAnalysis: React.FC = () => {
   const { toast } = useToast()
 
   const [match, setMatch] = useState(matchState.match);
-  const [homeTeam, setHomeTeam] = useState(matchState.homeTeam || defaultHomeTeam);
-  const [awayTeam, setAwayTeam] = useState(matchState.awayTeam || defaultAwayTeam);
+  const [homeTeam, setHomeTeam] = useState<Team>(matchState.homeTeam || defaultHomeTeam);
+  const [awayTeam, setAwayTeam] = useState<Team>(matchState.awayTeam || defaultAwayTeam);
   const [teamPositions, setTeamPositions] = useState(matchState.teamPositions);
   const [selectedPlayer, setSelectedPlayer] = useState(matchState.selectedPlayer);
   const [selectedTeam, setSelectedTeam] = useState(matchState.selectedTeam);
@@ -93,9 +94,7 @@ const MatchAnalysis: React.FC = () => {
   const [elapsedTime, setElapsedTime] = useState(matchState.elapsedTime);
   const [setupComplete, setSetupComplete] = useState(matchState.setupComplete);
   const [ballTrackingMode, setBallTrackingMode] = useState(matchState.ballTrackingMode);
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>(
-    matchState.activeTab
-  );
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>("pitch");
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
 
   useEffect(() => {
@@ -143,6 +142,33 @@ const MatchAnalysis: React.FC = () => {
     loadMatchData();
   }, [matchId, matchState]);
 
+  // Simple toggle function for the timer
+  const toggleTimer = () => {
+    setIsRunning(prev => !prev);
+    matchState.toggleTimer();
+  };
+
+  // Function to reset timer
+  const resetTimer = () => {
+    setElapsedTime(0);
+    setIsRunning(false);
+    matchState.resetTimer();
+  };
+
+  // Function to update elapsed time
+  const updateElapsedTime = (time: number | ((prevTime: number) => number)) => {
+    if (typeof time === 'function') {
+      setElapsedTime(prev => {
+        const newTime = time(prev);
+        matchState.setElapsedTime(newTime);
+        return newTime;
+      });
+    } else {
+      setElapsedTime(time);
+      matchState.setElapsedTime(time);
+    }
+  };
+
   useEffect(() => {
     // Update local state when matchState changes
     setMatch(matchState.match);
@@ -160,7 +186,6 @@ const MatchAnalysis: React.FC = () => {
     setElapsedTime(matchState.elapsedTime);
     setSetupComplete(matchState.setupComplete);
     setBallTrackingMode(matchState.ballTrackingMode);
-    setActiveTab(matchState.activeTab);
   }, [matchState]);
 
   const handleActionSelect = (action: string) => {
@@ -168,7 +193,7 @@ const MatchAnalysis: React.FC = () => {
       toast({
         title: "No Player Selected",
         description: "Please select a player before choosing an action.",
-      })
+      });
       return;
     }
 
@@ -216,7 +241,7 @@ const MatchAnalysis: React.FC = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video')}>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
               <TabsContent value="pitch" className="mt-4">
                 <Card>
                   <CardHeader>
@@ -275,7 +300,7 @@ const MatchAnalysis: React.FC = () => {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <Progress value={statistics.shots.home.onTarget} max={statistics.shots.home.onTarget + statistics.shots.away.onTarget || 1} />
+                        <Progress value={statistics.shots.home.onTarget} max={Math.max(1, statistics.shots.home.onTarget + statistics.shots.away.onTarget)} />
                         <div className="mt-2 flex justify-between text-sm text-muted-foreground">
                           <span>{homeTeam?.name || 'Home'}: {statistics.shots.home.onTarget}</span>
                           <span>{awayTeam?.name || 'Away'}: {statistics.shots.away.onTarget}</span>
@@ -392,7 +417,7 @@ const MatchAnalysis: React.FC = () => {
                             <TableCell>{statistics.offsides.home}</TableCell>
                             <TableCell>{statistics.offsides.away}</TableCell>
                           </TableRow>
-                           <TableRow>
+                          <TableRow>
                             <TableCell className="font-medium">Free Kicks</TableCell>
                             <TableCell>{statistics.freeKicks.home}</TableCell>
                             <TableCell>{statistics.freeKicks.away}</TableCell>
@@ -403,7 +428,7 @@ const MatchAnalysis: React.FC = () => {
                   </Card>
 
                   {/* Add the new visualizations section with proper null checks */}
-                  {match && homeTeam && awayTeam && (
+                  {homeTeam && awayTeam && (
                     <MatchStatsVisualizer
                       homeTeam={homeTeam}
                       awayTeam={awayTeam}
@@ -440,7 +465,7 @@ const MatchAnalysis: React.FC = () => {
                         <Label>Match Events</Label>
                         <ul>
                           {matchEvents.map((event) => (
-                            <li key={event.id}>{event.type} - {event.playerId}</li>
+                            <li key={event.id}>{event.type} - Player ID: {event.playerId}</li>
                           ))}
                         </ul>
                       </div>
@@ -498,7 +523,7 @@ const MatchAnalysis: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={matchEvents}>
+                      <AreaChart data={matchEvents.map(e => ({ timestamp: e.timestamp, type: e.type, playerId: e.playerId }))}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" />
                         <YAxis />
@@ -529,10 +554,10 @@ const MatchAnalysis: React.FC = () => {
           <div className="lg:col-span-1">
             <MatchSidebar 
               isRunning={isRunning}
-              toggleTimer={matchState.toggleTimer}
-              resetTimer={matchState.resetTimer}
+              toggleTimer={toggleTimer}
+              resetTimer={resetTimer}
               elapsedTime={elapsedTime}
-              setElapsedTime={matchState.setElapsedTime}
+              setElapsedTime={updateElapsedTime}
               mode={mode}
               selectedPlayer={selectedPlayer}
               handleActionSelect={handleActionSelect}
