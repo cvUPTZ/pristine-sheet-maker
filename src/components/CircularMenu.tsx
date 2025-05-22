@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { EventType } from '@/types';
 import { X } from 'lucide-react';
 
@@ -24,19 +24,10 @@ const eventTypes: Record<EventType, { color: string; description: string; icon?:
   interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️" }
 };
 
-// Group actions by categories
-const ACTION_CATEGORIES = {
-  'Attack': ['pass', 'shot', 'goal', 'assist'],
-  'Defense': ['tackle', 'interception'],
-  'Set Pieces': ['corner', 'free-kick', 'goal-kick', 'throw-in', 'penalty'],
-  'Violations': ['foul', 'offside', 'yellowCard', 'redCard'],
-  'Other': ['substitution']
-};
-
-// Inner ring - primary actions
+// Frequently used actions for quick access
 const PRIMARY_ACTIONS: EventType[] = ['pass', 'shot', 'goal', 'assist'];
 
-// Outer ring - secondary actions
+// Secondary actions
 const SECONDARY_ACTIONS: EventType[] = ['tackle', 'foul', 'yellowCard', 'redCard', 'corner', 'offside', 'penalty', 'free-kick'];
 
 interface CircularMenuProps {
@@ -44,7 +35,7 @@ interface CircularMenuProps {
   position?: { x: number; y: number };
   onSelect: (eventType: EventType) => void;
   onClose: () => void;
-  isMobile?: boolean; // Added the isMobile prop
+  isMobile?: boolean;
 }
 
 const CircularMenu: React.FC<CircularMenuProps> = ({ 
@@ -52,20 +43,40 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
   position = { x: 0.5, y: 0.5 }, 
   onSelect, 
   onClose,
-  isMobile = false // Default to false if not provided
+  isMobile = false
 }) => {
-  // Handle escape key to close menu
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Handle clicks outside the menu to close it
   useEffect(() => {
     if (!visible) return;
     
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    
+    // Close on Escape key
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
       }
     };
     
+    document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    
+    // Auto-close after inactivity (5 seconds)
+    const autoCloseTimer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(autoCloseTimer);
+    };
   }, [visible, onClose]);
   
   if (!visible) return null;
@@ -81,22 +92,20 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
   const handleActionClick = (e: React.MouseEvent, eventType: EventType) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("Action selected:", eventType);
     onSelect(eventType);
-    onClose();
   };
 
   // Adjust sizes based on mobile view
   const containerSize = isMobile ? '240px' : '300px';
   const centerButtonSize = isMobile ? 'w-12 h-12' : 'w-14 h-14';
   const primaryButtonSize = isMobile ? 'w-14 h-14' : 'w-16 h-16';
-  const secondaryButtonSize = isMobile ? 'w-12 h-12' : 'w-14 h-14';
+  const secondaryButtonSize = isMobile ? 'w-10 h-10' : 'w-12 h-12';
   const primaryRadius = isMobile ? 50 : 60;
-  const secondaryRadius = isMobile ? 100 : 120;
+  const secondaryRadius = isMobile ? 90 : 110;
 
   return (
     <div 
-      className="fixed inset-0 z-50 pointer-events-auto"
+      className="fixed inset-0 z-50 pointer-events-auto touch-none"
       onClick={(e) => {
         e.stopPropagation();
         onClose();
@@ -105,6 +114,7 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       
       <div 
+        ref={menuRef}
         className="absolute"
         style={{
           left: `${position.x * 100}%`,
@@ -134,17 +144,17 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
             <button
               key={`primary-${eventType}`}
               onClick={(e) => handleActionClick(e, eventType)}
-              className={`absolute ${primaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-20`}
+              className={`absolute ${primaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 active:scale-95 border-2 border-white z-20`}
               style={{
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
-                animation: `fadeIn 0.3s ease forwards ${index * 0.05}s`,
+                animation: `fadeIn 0.2s ease forwards ${index * 0.04}s`,
                 opacity: 0,
               }}
             >
               <div className="flex flex-col items-center">
                 <span className={isMobile ? "text-base" : "text-lg"}>{info.icon}</span>
-                <span className="text-xs font-semibold">{info.description}</span>
+                <span className={`${isMobile ? "text-xs" : "text-sm"} font-semibold`}>{info.description}</span>
               </div>
             </button>
           );
@@ -159,17 +169,17 @@ const CircularMenu: React.FC<CircularMenuProps> = ({
             <button
               key={`secondary-${eventType}`}
               onClick={(e) => handleActionClick(e, eventType)}
-              className={`absolute ${secondaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 border-2 border-white z-10`}
+              className={`absolute ${secondaryButtonSize} rounded-full ${info.color} text-white flex items-center justify-center shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 active:scale-95 border border-white z-10`}
               style={{
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
-                animation: `fadeIn 0.3s ease forwards ${(index + PRIMARY_ACTIONS.length) * 0.05}s`,
+                animation: `fadeIn 0.2s ease forwards ${(index + PRIMARY_ACTIONS.length) * 0.04}s`,
                 opacity: 0,
               }}
             >
               <div className="flex flex-col items-center">
                 <span className={isMobile ? "text-xs" : "text-sm"}>{info.icon}</span>
-                <span className={`${isMobile ? "text-[0.65rem]" : "text-xs"} font-semibold`}>{info.description.substring(0, isMobile ? 4 : 10)}</span>
+                <span className={`${isMobile ? "text-[0.6rem]" : "text-xs"} font-semibold`}>{info.description.substring(0, isMobile ? 4 : 8)}</span>
               </div>
             </button>
           );

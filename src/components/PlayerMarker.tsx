@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Player, EventType } from '@/types';
 import CircularMenu from './CircularMenu';
 import { Button } from './ui/button';
@@ -28,6 +28,25 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isSmall = useBreakpoint('sm');
+  const markerRef = useRef<HTMLDivElement>(null);
+  const touchTimeoutRef = useRef<number | null>(null);
+  const touchStartTimeRef = useRef<number>(0);
+  
+  // Close menu when clicking elsewhere
+  useEffect(() => {
+    if (!showMenu) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (markerRef.current && !markerRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
   
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -36,9 +55,9 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
       onClick(player);
     }
     
-    // Show the circular menu immediately on player click if allowed
+    // If the player is already selected and circular menu is allowed, toggle the menu
     if (selected && onEventSelect && allowCircularMenu) {
-      setShowMenu(true);
+      setShowMenu(prev => !prev);
     }
   };
   
@@ -46,9 +65,53 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Only show the circular menu on right-click when onEventSelect is available AND allowCircularMenu is true
+    // First select the player if not already selected
+    if (onClick && !selected) {
+      onClick(player);
+    }
+    
+    // Then show the circular menu
     if (onEventSelect && allowCircularMenu) {
       setShowMenu(true);
+    }
+  };
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    touchStartTimeRef.current = Date.now();
+    
+    // Clear any existing timeout
+    if (touchTimeoutRef.current) {
+      window.clearTimeout(touchTimeoutRef.current);
+    }
+    
+    // Set a timeout to detect long press (500ms)
+    touchTimeoutRef.current = window.setTimeout(() => {
+      if (onEventSelect && allowCircularMenu) {
+        // First select the player if not already selected
+        if (onClick && !selected) {
+          onClick(player);
+        }
+        setShowMenu(true);
+      }
+      touchTimeoutRef.current = null;
+    }, 500);
+  };
+  
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    
+    // Clear the timeout
+    if (touchTimeoutRef.current) {
+      window.clearTimeout(touchTimeoutRef.current);
+      touchTimeoutRef.current = null;
+      
+      // If it was a short tap (less than 500ms), treat it as a regular click
+      if (Date.now() - touchStartTimeRef.current < 500) {
+        if (onClick) {
+          onClick(player);
+        }
+      }
     }
   };
   
@@ -59,17 +122,20 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     setShowMenu(false);
   };
 
+  // Dynamic sizing based on screen size
   const markerSize = isSmall ? 'w-[6%]' : 'w-[5%]';
+  const pulseAnimation = hasBall ? 'animate-pulse' : '';
 
   return (
     <>
       <div
+        ref={markerRef}
         className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-          selected ? 'ring-2 ring-white scale-110' : 'opacity-70'
+          selected ? 'ring-2 ring-white scale-110 z-30' : 'opacity-70 z-20'
         } ${
-          hasBall ? 'ring-4 ring-yellow-300 animate-pulse' : ''
+          hasBall ? 'ring-4 ring-yellow-300 ' + pulseAnimation : ''
         } ${
-          showMenu ? 'opacity-75' : selected ? 'opacity-100' : 'opacity-70'
+          showMenu ? 'opacity-75 z-40' : selected ? 'opacity-100' : 'opacity-70'
         } touch-manipulation`}
         style={{
           left: `${position.x * 100}%`,
@@ -81,11 +147,14 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         }}
         onClick={handleClick}
         onContextMenu={handleRightClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        data-testid={`player-marker-${player.id}`}
       >
         {player.number}
       </div>
       
-      {/* Circular menu for actions - shown on player click or right-click */}
+      {/* Circular menu for actions */}
       {showMenu && allowCircularMenu && (
         <CircularMenu 
           visible={showMenu} 
