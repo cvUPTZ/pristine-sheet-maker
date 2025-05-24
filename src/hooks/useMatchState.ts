@@ -31,6 +31,8 @@ export interface BallPath {
   endCoordinates: { x: number; y: number; };
   eventType: EventType; // Should be 'pass', but could be other ball-moving events
   timestamp: number;
+  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
+  clientId?: string;
 }
 
 const initialMatchState: MatchState = {
@@ -336,34 +338,102 @@ export const useMatchState = (): MatchState & MatchActions => {
         console.error("Team ID could not be determined in recordEvent. Home/Away team may not be set.");
         return;
       }
-      
+
       if (matchIdForCollaboration && collaborativeRecordEventFn && state.match?.id) {
-        // Collaborative mode: send event via collaborative function
-        collaborativeRecordEventFn(
-          eventType,
-          playerId,
-          actualTeamId, // Pass the actual team ID string
-          coordinates,
-          currentElapsedTime // Use captured timestamp
-        );
-        // DO NOT update local state directly here. It will be updated via Supabase subscription.
-      } else {
-        // Local mode: update state directly
+        const clientId = `optimistic-${Date.now()}`;
+        // Optimistically update local state
         setState(prev => {
-          const event: MatchEvent = {
-            id: `event-${Date.now()}`,
-            matchId: prev.match?.id || 'temp-match', // Use existing matchId or temp
+          const optimisticEvent: MatchEvent = {
+            id: clientId, // Use clientId as temporary ID
+            matchId: prev.match?.id || matchIdForCollaboration,
             teamId: actualTeamId,
             playerId,
             type: eventType,
             timestamp: currentElapsedTime,
             coordinates,
             relatedPlayerId,
+            status: 'pending_confirmation',
+            clientId: clientId,
+            optimisticCreationTime: Date.now(),
+          };
+          const updatedEvents = [...prev.matchEvents, optimisticEvent];
+          let updatedStats = { ...prev.statistics };
+
+          // Update stats based on the optimistic event
+          // (This logic is the same as the non-collaborative part below)
+          if (eventType === 'pass') {
+            if (teamIdStr === 'home') {
+              updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+              updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
+              updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+            } else {
+              updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+              updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
+              updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+            }
+          } else if (eventType === 'shot') {
+             if (teamIdStr === 'home') {
+                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+                // Assuming a simple logic for onTarget/offTarget for optimistic updates
+                if (Math.random() > 0.5) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1; else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+             } else {
+                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+                if (Math.random() > 0.5) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1; else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+             }
+          } else if (eventType === 'goal') {
+             if (teamIdStr === 'home') {
+                updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+             } else {
+                updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+             }
+          } else if (eventType === 'corner') {
+             if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1; else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
+          } else if (eventType === 'yellowCard') {
+             if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1; else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
+          } else if (eventType === 'redCard') {
+             if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1; else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
+          }
+          // Simplified possession update
+          const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id).length;
+          const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id).length;
+          const totalEvents = homeEventsCount + awayEventsCount;
+          if (totalEvents > 0) {
+            updatedStats.possession.home = Math.round((homeEventsCount / totalEvents) * 100);
+            updatedStats.possession.away = 100 - updatedStats.possession.home;
+          }
+          return { ...prev, matchEvents: updatedEvents, statistics: updatedStats };
+        });
+
+        // Call collaborative function with original data (no clientId or status)
+        collaborativeRecordEventFn(
+          eventType,
+          playerId,
+          actualTeamId,
+          coordinates,
+          currentElapsedTime
+          // relatedPlayerId is not part of CollaborativeRecordEventFn definition,
+          // if it needs to be passed, the type definition for CollaborativeRecordEventFn should be updated.
+        );
+      } else {
+        // Local mode or no collaborative function: update state directly with 'confirmed' status
+        setState(prev => {
+          const event: MatchEvent = {
+            id: `event-${Date.now()}`,
+            matchId: prev.match?.id || 'temp-match',
+            teamId: actualTeamId,
+            playerId,
+            type: eventType,
+            timestamp: currentElapsedTime,
+            coordinates,
+            relatedPlayerId,
+            status: 'confirmed', // Default to confirmed for local mode
           };
           const updatedEvents = [...prev.matchEvents, event];
-          
           let updatedStats = { ...prev.statistics };
-          // Update stats (logic copied from original recordEvent, ensure it's complete)
+
+          // Update stats (logic copied from original recordEvent)
           if (eventType === 'pass') {
             if (teamIdStr === 'home') {
               updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
@@ -397,7 +467,7 @@ export const useMatchState = (): MatchState & MatchActions => {
           } else if (eventType === 'redCard') {
              if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1; else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
           }
-          // Simplified possession update - consider a more robust calculation if needed
+          // Simplified possession update
           const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id).length;
           const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id).length;
           const totalEvents = homeEventsCount + awayEventsCount;
@@ -410,7 +480,7 @@ export const useMatchState = (): MatchState & MatchActions => {
         });
       }
     },
-    [state.elapsedTime, state.homeTeam, state.awayTeam, state.match] // Dependencies for captured values
+    [state.elapsedTime, state.homeTeam, state.awayTeam, state.match] // Dependencies
   );
 
   const recordPass = useCallback(
@@ -425,13 +495,18 @@ export const useMatchState = (): MatchState & MatchActions => {
       matchIdForCollaboration?: string
     ) => {
       const actualPasserTeamId = passerTeamIdStr === 'home' ? state.homeTeam?.id : state.awayTeam?.id;
-       if (!actualPasserTeamId) {
+      if (!actualPasserTeamId) {
         console.error("Passer Team ID could not be determined in recordPass.");
         return;
       }
 
-      // For collaborative mode, recordEvent will handle the collaborative call
-      // For local mode, recordEvent will update stats, and we'll add to ballPathHistory here
+      // recordEvent will handle creating the MatchEvent, including clientId and status if collaborative.
+      // We need to capture the clientId if generated by recordEvent to use in BallPath,
+      // but recordEvent doesn't return it.
+      // For now, recordEvent will create its optimistic event.
+      // recordPass will create its own optimistic BallPath entry.
+      // Reconciliation later will need to be robust.
+
       recordEvent(
         'pass',
         passer.id,
@@ -442,30 +517,51 @@ export const useMatchState = (): MatchState & MatchActions => {
         receiver.id // Pass receiver.id as relatedPlayerId
       );
 
-      // If not in collaborative mode, update ballPathHistory locally.
-      // In collaborative mode, this will be rebuilt by processEventsForLocalState.
-      if (!(matchIdForCollaboration && collaborativeRecordEventFn)) {
-        setState(prev => {
-          // Ensure homeTeam and awayTeam are checked again as they are from `prev` context
-          if (!prev.homeTeam || !prev.awayTeam) return prev; 
-          const actualPasserTeamIdForPath = passerTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
-          const actualReceiverTeamIdForPath = receiverTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
+      // Regardless of mode, add to ballPathHistory.
+      // If collaborative, it's an optimistic update.
+      // If local, it's a confirmed update.
+      setState(prev => {
+        if (!prev.homeTeam || !prev.awayTeam) {
+            console.error("Cannot record pass: Home or Away team not set in previous state.");
+            return prev;
+        }
+        const currentElapsedTime = prev.elapsedTime; // Use prev.elapsedTime from setState context
+        const actualPasserTeamIdForPath = passerTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
+        const actualReceiverTeamIdForPath = receiverTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
 
-          const newBallPath: BallPath = {
-            id: `ballpath-${Date.now()}`,
-            passer: { id: passer.id, teamId: actualPasserTeamIdForPath },
-            receiver: { id: receiver.id, teamId: actualReceiverTeamIdForPath },
-            startCoordinates: passerCoords,
-            endCoordinates: receiverCoords,
-            eventType: 'pass',
-            timestamp: prev.elapsedTime, // Use prev.elapsedTime for consistency within setState
-          };
-          return {
-            ...prev,
-            ballPathHistory: [...prev.ballPathHistory, newBallPath],
-          };
-        });
-      }
+        if (!actualPasserTeamIdForPath || !actualReceiverTeamIdForPath) {
+            console.error("Cannot determine team IDs for ball path.");
+            return prev;
+        }
+        
+        let ballPathEntryId: string;
+        let ballPathStatus: 'pending_confirmation' | 'confirmed' | 'failed' | 'optimistic' = 'confirmed';
+        let ballPathClientId: string | undefined = undefined;
+
+        if (matchIdForCollaboration && collaborativeRecordEventFn) {
+          ballPathClientId = `optimistic-ballpath-${Date.now()}`;
+          ballPathEntryId = ballPathClientId;
+          ballPathStatus = 'pending_confirmation';
+        } else {
+          ballPathEntryId = `ballpath-${Date.now()}`;
+        }
+
+        const newBallPath: BallPath = {
+          id: ballPathEntryId,
+          passer: { id: passer.id, teamId: actualPasserTeamIdForPath },
+          receiver: { id: receiver.id, teamId: actualReceiverTeamIdForPath },
+          startCoordinates: passerCoords,
+          endCoordinates: receiverCoords,
+          eventType: 'pass',
+          timestamp: currentElapsedTime,
+          status: ballPathStatus,
+          clientId: ballPathClientId,
+        };
+        return {
+          ...prev,
+          ballPathHistory: [...prev.ballPathHistory, newBallPath],
+        };
+      });
     },
     [recordEvent, state.homeTeam, state.awayTeam] // recordEvent is a dependency
   );

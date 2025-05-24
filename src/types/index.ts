@@ -29,6 +29,9 @@ export interface MatchEvent {
   type: EventType;
   timestamp: number;
   coordinates: { x: number; y: number };
+  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
+  clientId?: string;
+  optimisticCreationTime?: number;
 }
 
 export type EventType =

@@ -211,13 +211,59 @@ const MatchAnalysis: React.FC = () => {
 
   // Effect to process collaborative events and update local state
   useEffect(() => {
-    if (matchId && collaborativeEvents && collaborativeEvents.length > 0) {
-      console.log("Processing collaborative events:", collaborativeEvents);
-      matchState.processEventsForLocalState(collaborativeEvents);
+    if (matchId && collaborativeEvents) { // Process even if collaborativeEvents is empty to handle timeouts
+      console.log("Received collaborative events:", collaborativeEvents);
+      const currentLocalEvents = matchState.matchEvents;
+      const homeTeamId = matchState.homeTeam?.id;
+      const awayTeamId = matchState.awayTeam?.id;
+
+      const TIMESTAMP_DELTA = 5000; // 5 seconds
+      const MAX_OPTIMISTIC_EVENT_AGE = 20000; // 20 seconds
+
+      const reconciledEventsMap = new Map<string, MatchEvent>();
+      const collaborativeEventIdsUsed = new Set<string>();
+
+      // 1. Process current local events
+      currentLocalEvents.forEach(localEvent => {
+        if (localEvent.status === 'pending_confirmation' && localEvent.clientId) {
+          const match = collaborativeEvents.find(serverEvent =>
+            !collaborativeEventIdsUsed.has(serverEvent.id) &&
+            localEvent.type === serverEvent.type &&
+            localEvent.playerId === serverEvent.playerId &&
+            localEvent.teamId === serverEvent.teamId && // Ensure teamId is the actual ID
+            Math.abs(localEvent.timestamp - serverEvent.timestamp) <= TIMESTAMP_DELTA
+          );
+
+          if (match) {
+            reconciledEventsMap.set(match.id, { ...match, status: 'confirmed' }); // Use server event, mark as confirmed
+            collaborativeEventIdsUsed.add(match.id);
+          } else {
+            if (localEvent.optimisticCreationTime && (Date.now() - localEvent.optimisticCreationTime > MAX_OPTIMISTIC_EVENT_AGE)) {
+              reconciledEventsMap.set(localEvent.clientId, { ...localEvent, status: 'failed' });
+            } else {
+              reconciledEventsMap.set(localEvent.clientId, localEvent); // Keep as pending
+            }
+          }
+        } else {
+          // Confirmed or failed local events, or events without clientId (older schema or non-optimistic)
+          reconciledEventsMap.set(localEvent.id, localEvent);
+        }
+      });
+
+      // 2. Add new server events not already processed
+      collaborativeEvents.forEach(serverEvent => {
+        if (!collaborativeEventIdsUsed.has(serverEvent.id) && !reconciledEventsMap.has(serverEvent.id)) {
+          // If it wasn't used to confirm an optimistic event and isn't already in the map from local processing
+          reconciledEventsMap.set(serverEvent.id, { ...serverEvent, status: 'confirmed' });
+        }
+      });
+      
+      const finalReconciledEvents = Array.from(reconciledEventsMap.values());
+      console.log("Final reconciled events:", finalReconciledEvents);
+      matchState.processEventsForLocalState(finalReconciledEvents);
     }
-    // If matchId is not present, or collaborativeEvents is empty, this effect does nothing,
-    // which is fine as local state updates would be handled directly by recordEvent/recordPass.
-  }, [collaborativeEvents, matchId, matchState.processEventsForLocalState]);
+    // If matchId is not present, this effect does nothing.
+  }, [collaborativeEvents, matchId, matchState]); // matchState is included because we access its properties
 
 
   // Wrapped event handlers

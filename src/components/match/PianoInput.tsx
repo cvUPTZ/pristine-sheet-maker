@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FootballPitch from '../FootballPitch';
 import PlayerMarker from '../PlayerMarker';
 import { getPlayerPositions } from '@/utils/formationUtils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 interface PianoInputProps {
   homeTeam: {
     name: string;
@@ -30,19 +31,21 @@ interface PianoInputProps {
   compact?: boolean; 
   ballPathHistory?: BallPath[]; // From useMatchState via MatchAnalysis
   onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
+  matchEvents?: MatchEvent[]; // Added matchEvents prop
 }
 
 // Assuming BallPath is imported or defined elsewhere (e.g., in types/index.ts or directly in useMatchState)
 // For this context, if not globally defined, we might need a local reference or import.
 // Let's assume it's available globally for now or imported from '@/types' or '@/hooks/useMatchState'
-import { BallPath } from '@/hooks/useMatchState'; // Or from '@/types' if moved there
+import { BallPath, MatchEvent } from '@/hooks/useMatchState'; // Or from '@/types' if moved there. Ensure MatchEvent is imported.
 import { useToast } from '@/components/ui/use-toast'; // Import useToast
 
-interface PlayerEventPair {
-  player: Player;
-  teamId: 'home' | 'away';
-  eventType: EventType;
-}
+// PlayerEventPair interface is removed as eventSequence state is removed
+// interface PlayerEventPair {
+//   player: Player;
+//   teamId: 'home' | 'away';
+//   eventType: EventType;
+// }
 
 // Define event types with colors and descriptions
 const eventTypes: Record<EventType, {
@@ -136,14 +139,32 @@ const PianoInput: React.FC<PianoInputProps> = ({
   selectedTeam = 'home',
   setSelectedTeam = () => {},
   compact = false,
-  ballPathHistory = [], // Default to empty array if not provided
-  onRecordPass
+  ballPathHistory = [], 
+  onRecordPass,
+  matchEvents = [] // Destructure matchEvents prop with a default empty array
 }) => {
   const { toast } = useToast(); // Initialize useToast
+
+  const EVENT_SHORTCUTS: Record<string, EventType> = {
+    'p': 'pass',
+    's': 'shot',
+    't': 'tackle',
+    'f': 'foul',
+    'i': 'interception',
+    'c': 'corner',
+    'g': 'goal',
+    // Add more if desired, e.g., 'o' for offside
+  };
+
+  const SHORTCUT_KEYS_DISPLAY: Record<EventType, string> = {};
+  for (const key in EVENT_SHORTCUTS) {
+    SHORTCUT_KEYS_DISPLAY[EVENT_SHORTCUTS[key]] = key.toUpperCase();
+  }
+
   const [activeTab, setActiveTab] = useState<'home' | 'away'>(selectedTeam);
   const [selectedEventType, setSelectedEventType] = useState<EventType>('pass');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [eventSequence, setEventSequence] = useState<PlayerEventPair[]>([]);
+  // const [eventSequence, setEventSequence] = useState<PlayerEventPair[]>([]); // Removed eventSequence state variable
   const [ballPosition, setBallPosition] = useState<{
     x: number;
     y: number;
@@ -186,6 +207,32 @@ const PianoInput: React.FC<PianoInputProps> = ({
   useEffect(() => {
     setActiveTab(selectedTeam);
   }, [selectedTeam]);
+
+  // Keyboard shortcuts for event type selection
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.altKey || event.metaKey || 
+          (event.target instanceof HTMLInputElement) || 
+          (event.target instanceof HTMLTextAreaElement) ||
+          (event.target instanceof HTMLSelectElement)) {
+        return;
+      }
+
+      const keyPressed = event.key.toLowerCase();
+      const targetEventType = EVENT_SHORTCUTS[keyPressed];
+
+      if (targetEventType) {
+        handleEventTypeSelect(targetEventType);
+        event.preventDefault(); 
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleEventTypeSelect]); // Assuming handleEventTypeSelect is stable
+
   const handleTeamTabChange = (value: string) => {
     const team = value as 'home' | 'away';
     setActiveTab(team);
@@ -384,19 +431,32 @@ const PianoInput: React.FC<PianoInputProps> = ({
               {/* Event type selection - THIS WAS MISSING */}
               <div className="border rounded-md p-2 overflow-y-auto">
                 <h3 className="font-medium mb-1 text-sm">Event Type</h3>
-                <div className="grid grid-cols-2 gap-1">
-                  {Object.entries(eventTypes).map(([type, info]) => (
-                    <Button
-                      key={type}
-                      size="sm"
-                      variant={selectedEventType === type ? "default" : "outline"}
-                      className={`text-xs h-8 ${selectedEventType === type ? info.color : ""}`}
-                      onClick={() => handleEventTypeSelect(type as EventType)}
-                    >
-                      {info.description}
-                    </Button>
+                <Accordion type="multiple" collapsible className="w-full">
+                  {Object.entries(ACTION_CATEGORIES).map(([categoryName, eventTypeList]) => (
+                    <AccordionItem value={categoryName} key={categoryName}>
+                      <AccordionTrigger className="text-sm py-2">{categoryName}</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="grid grid-cols-2 gap-1 p-1">
+                          {(eventTypeList as EventType[]).map((eventType: EventType) => {
+                            const info = eventTypes[eventType];
+                            if (!info) return null; // Should not happen if ACTION_CATEGORIES is correct
+                            return (
+                              <Button
+                                key={eventType}
+                                size="sm"
+                                variant={selectedEventType === eventType ? "default" : "outline"}
+                                className={`text-xs h-auto py-1.5 whitespace-normal ${selectedEventType === eventType ? info.color : ""}`}
+                                onClick={() => handleEventTypeSelect(eventType)}
+                              >
+                                {SHORTCUT_KEYS_DISPLAY[eventType] ? `${info.description} (${SHORTCUT_KEYS_DISPLAY[eventType]})` : info.description}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </div>
+                </Accordion>
               </div>
 
               {/* Recent events log (only show in non-compact mode) */}
@@ -448,18 +508,36 @@ const PianoInput: React.FC<PianoInputProps> = ({
                   
                   {/* Ball movement history - draw lines between players using ballPathHistory prop */}
                   {ballPathHistory.slice(-5).map((pathItem, index) => {
-                  const { startCoordinates, endCoordinates, eventType } = pathItem;
+                  // Destructure status and clientId from pathItem
+                  const { startCoordinates, endCoordinates, eventType, status, id, clientId } = pathItem; 
                   
-                  // Check if this path was intercepted - This logic might need adjustment
-                  // if interceptions are marked differently or not directly on BallPath items.
-                  // For now, we assume interception check might be based on eventType or a separate mechanism.
-                  // Let's simplify and assume wasIntercepted is false for now, or rely on eventType if it's 'interception'.
                   const wasIntercepted = interceptedPaths.some(path => 
                     Math.abs(path.point.x - endCoordinates.x) < 0.1 && 
                     Math.abs(path.point.y - endCoordinates.y) < 0.1
                   );
 
-                  return <React.Fragment key={pathItem.id}>
+                  let strokeColor = "#ffffff"; // Default for confirmed
+                  // Corrected logic for default dash: latest path is solid, others are dashed
+                  let strokeDash = index === ballPathHistory.slice(-5).length - 1 ? "none" : "5,5"; 
+                  let lineOpacity = 0.7 - 0.1 * (ballPathHistory.slice(-5).length - 1 - index);
+
+
+                  if (wasIntercepted) { 
+                    strokeColor = "#ff3333";
+                    strokeDash = "5,5";
+                  } else if (status === 'pending_confirmation') {
+                    strokeColor = "#cccccc"; 
+                    strokeDash = "3,3";
+                    lineOpacity = 0.5;
+                  } else if (status === 'failed') {
+                    strokeColor = "#ff9999"; 
+                    strokeDash = "2,2";
+                    lineOpacity = 0.4;
+                  }
+                  // 'confirmed' status uses the default #ffffff and existing dash logic if not intercepted.
+                  // If it's the most recent confirmed path, it will be solid white. Older confirmed paths will be dashed white.
+
+                  return <React.Fragment key={id || clientId || `ballpath-${index}`}>
                         {/* Draw the path line */}
                         <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
                       zIndex: 5
@@ -467,10 +545,10 @@ const PianoInput: React.FC<PianoInputProps> = ({
                           <line 
                             x1={`${startCoordinates.x * 100}%`} y1={`${startCoordinates.y * 100}%`} 
                             x2={`${endCoordinates.x * 100}%`} y2={`${endCoordinates.y * 100}%`} 
-                            stroke={wasIntercepted ? "#ff3333" : "#ffffff"} 
+                            stroke={strokeColor}
                             strokeWidth="2" 
-                            strokeDasharray={wasIntercepted ? "5,5" : index === ballPathHistory.length - 1 ? "none" : "5,5"} 
-                            opacity={0.7 - 0.1 * (ballPathHistory.length - index - 1)} 
+                            strokeDasharray={strokeDash}
+                            opacity={lineOpacity}
                           />
                         </svg>
                       </React.Fragment>;
