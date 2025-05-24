@@ -20,6 +20,8 @@ interface MatchState {
   isPassTrackingModeActive: boolean;
   potentialPasser: Player | null;
   ballPathHistory: BallPath[];
+  homeEventsCount: number;
+  awayEventsCount: number;
 }
 
 // Define the BallPath interface
@@ -31,8 +33,8 @@ export interface BallPath {
   endCoordinates: { x: number; y: number; };
   eventType: EventType; // Should be 'pass', but could be other ball-moving events
   timestamp: number;
-  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
-  clientId?: string;
+  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed'; // Mirrored from MatchEvent
+  clientId?: string; // Mirrored from MatchEvent for optimistic paths
 }
 
 const initialMatchState: MatchState = {
@@ -66,7 +68,9 @@ const initialMatchState: MatchState = {
   playerStats: [],
   isPassTrackingModeActive: false,
   potentialPasser: null,
-  ballPathHistory: []
+  ballPathHistory: [],
+  homeEventsCount: 0,
+  awayEventsCount: 0,
 };
 
 interface MatchActions {
@@ -96,7 +100,16 @@ interface MatchActions {
   undoLastEvent: () => void;
   trackBallMovement: (coordinates: { x: number; y: number }) => void;
   saveMatch: () => string;
-  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
+  recordEvent: (
+    eventType: EventType, 
+    playerId: number, 
+    teamIdStr: 'home' | 'away', 
+    coordinates: { x: number; y: number },
+    collaborativeRecordEventFn?: CollaborativeRecordEventFn,
+    matchIdForCollaboration?: string,
+    relatedPlayerId?: number,
+    passerCoordsForBallPath?: { x: number; y: number }
+  ) => void;
   calculateTimeSegments: () => TimeSegmentStatistics[];
   calculatePlayerStats: () => PlayerStatistics[];
   togglePassTrackingMode: () => void;
@@ -111,16 +124,21 @@ interface MatchActions {
     collaborativeRecordEventFn?: CollaborativeRecordEventFn,
     matchIdForCollaboration?: string
   ) => void;
-  processEventsForLocalState: (events: MatchEvent[]) => void; // New action
+  processEventsForLocalState: (events: MatchEvent[]) => void; 
+  setBallPathHistory: (paths: BallPath[]) => void;
+  processSingleRemoteEvent: (newEvent: MatchEvent) => void; 
 }
 
 // Define the type for the collaborative recordEvent function
+// This signature should match how it's called and what the backend expects
 type CollaborativeRecordEventFn = (
   eventType: EventType,
   playerId: number,
   teamId: string, // Actual team ID string
   coordinates: { x: number; y: number },
-  timestamp: number
+  timestamp: number,
+  eventId?: string, // For optimistic event tracking, can be clientId
+  relatedPlayerId?: number
 ) => void;
 
 export const useMatchState = (): MatchState & MatchActions => {
@@ -159,7 +177,39 @@ export const useMatchState = (): MatchState & MatchActions => {
   }, []);
   
   const setMatchEvents = useCallback((events: MatchEvent[]) => {
-    setState(prev => ({ ...prev, matchEvents: events }));
+    setState(prev => {
+      if (!prev.homeTeam || !prev.awayTeam) {
+        console.warn("setMatchEvents: Home or Away team not set. Cannot accurately calculate event counts for possession.");
+        return { ...prev, matchEvents: events };
+      }
+      let newHomeEventsCount = 0;
+      let newAwayEventsCount = 0;
+      events.forEach(event => {
+        if (event.teamId === prev.homeTeam!.id) {
+          newHomeEventsCount++;
+        } else if (event.teamId === prev.awayTeam!.id) {
+          newAwayEventsCount++;
+        }
+      });
+
+      const newTotalEvents = newHomeEventsCount + newAwayEventsCount;
+      const newPossessionHome = newTotalEvents > 0 ? Math.round((newHomeEventsCount / newTotalEvents) * 100) : 50;
+      const newPossessionAway = newTotalEvents > 0 ? 100 - newPossessionHome : 50;
+
+      return {
+        ...prev,
+        matchEvents: events,
+        homeEventsCount: newHomeEventsCount,
+        awayEventsCount: newAwayEventsCount,
+        statistics: {
+          ...prev.statistics,
+          possession: {
+            home: newPossessionHome,
+            away: newPossessionAway,
+          },
+        },
+      };
+    });
   }, []);
 
   const updateStatistics = useCallback((stats: Partial<Statistics>) => {
@@ -182,6 +232,8 @@ export const useMatchState = (): MatchState & MatchActions => {
       ...prev,
       matchEvents: prev.matchEvents.slice(0, -1),
       ballTrackingPoints: prev.ballTrackingPoints.slice(0, -1),
+      // Note: Undoing ballPathHistory and recalculating stats would be more complex here.
+      // This is a simplified undo.
     }));
   }, []);
 
@@ -250,7 +302,12 @@ export const useMatchState = (): MatchState & MatchActions => {
     setState(prev => ({ ...prev, potentialPasser: player }));
   }, []);
 
+  const setBallPathHistory = useCallback((paths: BallPath[]) => {
+    setState(prev => ({ ...prev, ballPathHistory: paths }));
+  }, []);
+
   const addEvent = useCallback((type: EventType, coordinates: { x: number; y: number }) => {
+    // This is a simplified local event adder, consider using recordEvent for consistency
     setState(prev => {
       const event: MatchEvent = {
         id: `event-${Date.now()}`,
@@ -259,14 +316,16 @@ export const useMatchState = (): MatchState & MatchActions => {
         playerId: prev.selectedPlayer?.id || 0,
         type,
         timestamp: prev.elapsedTime,
-        coordinates
+        coordinates,
+        status: 'confirmed'
       };
+      // For full consistency, this should also update stats and ballPathHistory like recordEvent does.
       return { ...prev, matchEvents: [...prev.matchEvents, event] };
     });
   }, []);
 
   const undoLastEvent = useCallback(() => {
-    undoLastAction();
+    undoLastAction(); // This is a simplified undo, doesn't fully revert stats/ballPathHistory
   }, [undoLastAction]);
 
   const trackBallMovement = useCallback((coordinates: { x: number; y: number }) => {
@@ -274,210 +333,213 @@ export const useMatchState = (): MatchState & MatchActions => {
       const point: BallTrackingPoint = {
         x: coordinates.x,
         y: coordinates.y,
-        timestamp: Date.now(),
+        timestamp: Date.now(), // Consider using prev.elapsedTime for consistency
         playerId: prev.selectedPlayer?.id,
         teamId: prev.selectedTeam === 'home' ? prev.homeTeam?.id : prev.awayTeam?.id
       };
       return { ...prev, ballTrackingPoints: [...prev.ballTrackingPoints, point] };
     });
   }, []);
-
+  
   const saveMatch = useCallback((): string => {
-    const matchId = `match-${Date.now()}`;
+    const matchId = state.match?.id || `match-${Date.now()}`; // Use existing matchId if available
     
-    return setState(prev => {
-      // Calculate time segments if not already done
-      let matchTimeSegments = prev.timeSegments;
-      if (matchTimeSegments.length === 0 && prev.ballTrackingPoints.length > 0) {
-        matchTimeSegments = calculateTimeSegments();
-      }
-      
-      // Calculate player statistics
-      const playerStats = calculatePlayerStats();
-      
-      const matchData = {
-        matchId,
-        date: new Date().toISOString(),
-        elapsedTime: prev.elapsedTime,
-        homeTeam: prev.homeTeam,
-        awayTeam: prev.awayTeam,
-        events: prev.matchEvents,
-        matchEvents: prev.matchEvents,
-        statistics: prev.statistics,
-        ballTrackingPoints: prev.ballTrackingPoints,
-        timeSegments: matchTimeSegments,
-        playerStats
-      };
-      
-      console.log('Saving match data:', matchData);
-      
-      try {
-        localStorage.setItem(`efootpad_match_${matchId}`, JSON.stringify(matchData));
-      } catch (error) {
-        console.error('Error saving match data:', error);
-      }
-      
-      return prev;
-    }), matchId;
-  }, []);
+    // Calculate time segments if not already done
+    let matchTimeSegments = state.timeSegments;
+    if (matchTimeSegments.length === 0 && state.ballTrackingPoints.length > 0) {
+      matchTimeSegments = calculateTimeSegments(); // `this` context is not available, so call directly
+    }
+    
+    // Calculate player statistics
+    const playerStats = calculatePlayerStats(); // `this` context is not available
+    
+    const matchData = {
+      matchId,
+      date: new Date().toISOString(), // Or state.match.date if available
+      elapsedTime: state.elapsedTime,
+      homeTeam: state.homeTeam,
+      awayTeam: state.awayTeam,
+      matchEvents: state.matchEvents, // events seems redundant with matchEvents
+      statistics: state.statistics,
+      ballTrackingPoints: state.ballTrackingPoints,
+      timeSegments: matchTimeSegments,
+      playerStats,
+      ballPathHistory: state.ballPathHistory,
+    };
+    
+    console.log('Saving match data:', matchData);
+    
+    try {
+      localStorage.setItem(`efootpad_match_${matchId}`, JSON.stringify(matchData));
+    } catch (error) {
+      console.error('Error saving match data:', error);
+    }
+    
+    return matchId;
+  }, [state]); // Add all state dependencies used
+
 
   const recordEvent = useCallback(
     (
       eventType: EventType,
       playerId: number,
       teamIdStr: 'home' | 'away', // This is 'home' or 'away' string
-      coordinates: { x: number; y: number },
+      coordinates: { x: number; y: number }, // For pass, these are receiver's coords
       collaborativeRecordEventFn?: CollaborativeRecordEventFn,
       matchIdForCollaboration?: string,
-      relatedPlayerId?: number
+      relatedPlayerId?: number, // For pass, this is receiver's ID
+      passerCoordsForBallPath?: { x: number; y: number } // For pass, these are passer's coords
     ) => {
-      const currentElapsedTime = state.elapsedTime; // Capture current time for consistency
+      const currentElapsedTime = state.elapsedTime;
       const actualTeamId = teamIdStr === 'home' ? state.homeTeam?.id : state.awayTeam?.id;
 
       if (!actualTeamId) {
-        console.error("Team ID could not be determined in recordEvent. Home/Away team may not be set.");
+        console.error("Team ID could not be determined. Home/Away team may not be set.");
         return;
       }
 
-      if (matchIdForCollaboration && collaborativeRecordEventFn && state.match?.id) {
-        const clientId = `optimistic-${Date.now()}`;
-        // Optimistically update local state
-        setState(prev => {
-          const optimisticEvent: MatchEvent = {
-            id: clientId, // Use clientId as temporary ID
-            matchId: prev.match?.id || matchIdForCollaboration,
-            teamId: actualTeamId,
-            playerId,
-            type: eventType,
-            timestamp: currentElapsedTime,
-            coordinates,
-            relatedPlayerId,
-            status: 'pending_confirmation',
-            clientId: clientId,
-            optimisticCreationTime: Date.now(),
-          };
-          const updatedEvents = [...prev.matchEvents, optimisticEvent];
-          let updatedStats = { ...prev.statistics };
+      const applyEventToState = (prev: MatchState, eventToApply: MatchEvent): MatchState => {
+        let updatedStats = JSON.parse(JSON.stringify(prev.statistics)); // Deep copy for modification
+        let updatedBallPathHistory = [...prev.ballPathHistory];
+        let newHomeEventsCount = prev.homeEventsCount;
+        let newAwayEventsCount = prev.awayEventsCount;
 
-          // Update stats based on the optimistic event
-          // (This logic is the same as the non-collaborative part below)
-          if (eventType === 'pass') {
-            if (teamIdStr === 'home') {
-              updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
-              updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
-              updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
-            } else {
-              updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
-              updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
-              updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+        // Determine event's team ('home' or 'away') for stat updates
+        const eventTeamStr = eventToApply.teamId === prev.homeTeam?.id ? 'home' : 
+                             eventToApply.teamId === prev.awayTeam?.id ? 'away' : null;
+
+        if (eventTeamStr) { // Proceed only if team is identifiable
+            if (eventToApply.teamId === prev.homeTeam?.id) {
+              newHomeEventsCount++;
+            } else if (eventToApply.teamId === prev.awayTeam?.id) {
+              newAwayEventsCount++;
             }
-          } else if (eventType === 'shot') {
-             if (teamIdStr === 'home') {
+
+            if (eventToApply.type === 'pass') {
+              if (eventTeamStr === 'home') {
+                updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+                updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1; // Assuming recorded pass is successful
+                updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+              } else {
+                updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+                updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
+                updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+              }
+              if (passerCoordsForBallPath && eventToApply.relatedPlayerId && prev.homeTeam && prev.awayTeam) {
+                const receiverTeam = prev.homeTeam.players.some(p => p.id === eventToApply.relatedPlayerId) ? prev.homeTeam :
+                                     prev.awayTeam.players.some(p => p.id === eventToApply.relatedPlayerId) ? prev.awayTeam : null;
+                const actualReceiverTeamId = receiverTeam?.id;
+
+                if (actualReceiverTeamId) {
+                    const newPath: BallPath = {
+                      id: `ballpath-${eventToApply.id}`,
+                      passer: { id: eventToApply.playerId, teamId: eventToApply.teamId },
+                      receiver: { id: eventToApply.relatedPlayerId, teamId: actualReceiverTeamId },
+                      startCoordinates: passerCoordsForBallPath,
+                      endCoordinates: eventToApply.coordinates,
+                      eventType: 'pass',
+                      timestamp: eventToApply.timestamp,
+                      status: eventToApply.status === 'pending_confirmation' ? 'optimistic' : 'confirmed',
+                      clientId: eventToApply.clientId,
+                    };
+                    updatedBallPathHistory.push(newPath);
+                }
+              }
+            } else if (eventToApply.type === 'shot') {
+              if (eventTeamStr === 'home') {
                 updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-                // Assuming a simple logic for onTarget/offTarget for optimistic updates
-                if (Math.random() > 0.5) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1; else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
-             } else {
+                if (eventToApply.meta?.onTarget) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+                else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+              } else {
                 updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-                if (Math.random() > 0.5) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1; else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
-             }
-          } else if (eventType === 'goal') {
-             if (teamIdStr === 'home') {
+                if (eventToApply.meta?.onTarget) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+                else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+              }
+            } else if (eventToApply.type === 'goal') {
+              if (eventTeamStr === 'home') {
                 updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
                 updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-             } else {
+              } else {
                 updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
                 updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-             }
-          } else if (eventType === 'corner') {
-             if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1; else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
-          } else if (eventType === 'yellowCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1; else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
-          } else if (eventType === 'redCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1; else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
-          }
-          // Simplified possession update
-          const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id).length;
-          const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id).length;
-          const totalEvents = homeEventsCount + awayEventsCount;
-          if (totalEvents > 0) {
-            updatedStats.possession.home = Math.round((homeEventsCount / totalEvents) * 100);
-            updatedStats.possession.away = 100 - updatedStats.possession.home;
-          }
-          return { ...prev, matchEvents: updatedEvents, statistics: updatedStats };
-        });
+              }
+            } else if (eventToApply.type === 'corner') {
+              if (eventTeamStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1;
+              else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
+            } else if (eventToApply.type === 'yellowCard') {
+              if (eventTeamStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1;
+              else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
+            } else if (eventToApply.type === 'redCard') {
+              if (eventTeamStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1;
+              else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
+            }
+            // ... other event types
 
-        // Call collaborative function with original data (no clientId or status)
+            const totalEvents = newHomeEventsCount + newAwayEventsCount;
+            if (totalEvents > 0) {
+              updatedStats.possession.home = Math.round((newHomeEventsCount / totalEvents) * 100);
+              updatedStats.possession.away = 100 - updatedStats.possession.home;
+            } else {
+              updatedStats.possession = { home: 50, away: 50 };
+            }
+        }
+
+        return {
+          ...prev,
+          matchEvents: [...prev.matchEvents, eventToApply],
+          statistics: updatedStats,
+          ballPathHistory: updatedBallPathHistory,
+          homeEventsCount: newHomeEventsCount,
+          awayEventsCount: newAwayEventsCount,
+        };
+      };
+      
+      if (matchIdForCollaboration && collaborativeRecordEventFn && state.match?.id) {
+        // Collaborative mode
+        const clientId = `optimistic-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const optimisticEvent: MatchEvent = {
+          id: clientId, 
+          matchId: state.match.id, // Use the actual match ID from state
+          teamId: actualTeamId,
+          playerId,
+          type: eventType,
+          timestamp: currentElapsedTime,
+          coordinates,
+          relatedPlayerId,
+          status: 'pending_confirmation',
+          clientId: clientId,
+          optimisticCreationTime: Date.now(),
+        };
+
+        console.log('[useMatchState] Optimistically applying event (collab):', optimisticEvent);
+        setState(prev => applyEventToState(prev, optimisticEvent));
+
         collaborativeRecordEventFn(
           eventType,
           playerId,
           actualTeamId,
           coordinates,
-          currentElapsedTime
-          // relatedPlayerId is not part of CollaborativeRecordEventFn definition,
-          // if it needs to be passed, the type definition for CollaborativeRecordEventFn should be updated.
+          currentElapsedTime,
+          clientId, // Send clientId as the event's temporary ID
+          relatedPlayerId
         );
       } else {
-        // Local mode or no collaborative function: update state directly with 'confirmed' status
-        setState(prev => {
-          const event: MatchEvent = {
-            id: `event-${Date.now()}`,
-            matchId: prev.match?.id || 'temp-match',
-            teamId: actualTeamId,
-            playerId,
-            type: eventType,
-            timestamp: currentElapsedTime,
-            coordinates,
-            relatedPlayerId,
-            status: 'confirmed', // Default to confirmed for local mode
-          };
-          const updatedEvents = [...prev.matchEvents, event];
-          let updatedStats = { ...prev.statistics };
-
-          // Update stats (logic copied from original recordEvent)
-          if (eventType === 'pass') {
-            if (teamIdStr === 'home') {
-              updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
-              updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
-              updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
-            } else {
-              updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
-              updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
-              updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
-            }
-          } else if (eventType === 'shot') {
-             if (teamIdStr === 'home') {
-                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-                if (Math.random() > 0.5) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1; else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
-             } else {
-                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-                if (Math.random() > 0.5) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1; else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
-             }
-          } else if (eventType === 'goal') {
-             if (teamIdStr === 'home') {
-                updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
-                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-             } else {
-                updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
-                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-             }
-          } else if (eventType === 'corner') {
-             if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1; else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
-          } else if (eventType === 'yellowCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1; else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
-          } else if (eventType === 'redCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1; else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
-          }
-          // Simplified possession update
-          const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id).length;
-          const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id).length;
-          const totalEvents = homeEventsCount + awayEventsCount;
-          if (totalEvents > 0) {
-            updatedStats.possession.home = Math.round((homeEventsCount / totalEvents) * 100);
-            updatedStats.possession.away = 100 - updatedStats.possession.home;
-          }
-          
-          return { ...prev, matchEvents: updatedEvents, statistics: updatedStats };
-        });
+        // Local mode or no collaborative function
+        const eventId = `event-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const confirmedEvent: MatchEvent = {
+          id: eventId,
+          matchId: state.match?.id || 'temp-match', // Fallback if match not fully set up
+          teamId: actualTeamId,
+          playerId,
+          type: eventType,
+          timestamp: currentElapsedTime,
+          coordinates,
+          relatedPlayerId,
+          status: 'confirmed', 
+        };
+        
+        console.log('[useMatchState] Applying event (local):', confirmedEvent);
+        setState(prev => applyEventToState(prev, confirmedEvent));
       }
     },
     [state.elapsedTime, state.homeTeam, state.awayTeam, state.match] // Dependencies
@@ -494,76 +556,18 @@ export const useMatchState = (): MatchState & MatchActions => {
       collaborativeRecordEventFn?: CollaborativeRecordEventFn,
       matchIdForCollaboration?: string
     ) => {
-      const actualPasserTeamId = passerTeamIdStr === 'home' ? state.homeTeam?.id : state.awayTeam?.id;
-      if (!actualPasserTeamId) {
-        console.error("Passer Team ID could not be determined in recordPass.");
-        return;
-      }
-
-      // recordEvent will handle creating the MatchEvent, including clientId and status if collaborative.
-      // We need to capture the clientId if generated by recordEvent to use in BallPath,
-      // but recordEvent doesn't return it.
-      // For now, recordEvent will create its optimistic event.
-      // recordPass will create its own optimistic BallPath entry.
-      // Reconciliation later will need to be robust.
-
       recordEvent(
         'pass',
         passer.id,
-        passerTeamIdStr,
-        receiverCoords, // Pass event occurs at receiver's location
+        passerTeamIdStr, // Team of the player performing the action (passer)
+        receiverCoords, // Coordinates where the pass is received (event location)
         collaborativeRecordEventFn,
         matchIdForCollaboration,
-        receiver.id // Pass receiver.id as relatedPlayerId
+        receiver.id,    // relatedPlayerId is the receiver
+        passerCoords    // passerCoordsForBallPath for BallPath start
       );
-
-      // Regardless of mode, add to ballPathHistory.
-      // If collaborative, it's an optimistic update.
-      // If local, it's a confirmed update.
-      setState(prev => {
-        if (!prev.homeTeam || !prev.awayTeam) {
-            console.error("Cannot record pass: Home or Away team not set in previous state.");
-            return prev;
-        }
-        const currentElapsedTime = prev.elapsedTime; // Use prev.elapsedTime from setState context
-        const actualPasserTeamIdForPath = passerTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
-        const actualReceiverTeamIdForPath = receiverTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
-
-        if (!actualPasserTeamIdForPath || !actualReceiverTeamIdForPath) {
-            console.error("Cannot determine team IDs for ball path.");
-            return prev;
-        }
-        
-        let ballPathEntryId: string;
-        let ballPathStatus: 'pending_confirmation' | 'confirmed' | 'failed' | 'optimistic' = 'confirmed';
-        let ballPathClientId: string | undefined = undefined;
-
-        if (matchIdForCollaboration && collaborativeRecordEventFn) {
-          ballPathClientId = `optimistic-ballpath-${Date.now()}`;
-          ballPathEntryId = ballPathClientId;
-          ballPathStatus = 'pending_confirmation';
-        } else {
-          ballPathEntryId = `ballpath-${Date.now()}`;
-        }
-
-        const newBallPath: BallPath = {
-          id: ballPathEntryId,
-          passer: { id: passer.id, teamId: actualPasserTeamIdForPath },
-          receiver: { id: receiver.id, teamId: actualReceiverTeamIdForPath },
-          startCoordinates: passerCoords,
-          endCoordinates: receiverCoords,
-          eventType: 'pass',
-          timestamp: currentElapsedTime,
-          status: ballPathStatus,
-          clientId: ballPathClientId,
-        };
-        return {
-          ...prev,
-          ballPathHistory: [...prev.ballPathHistory, newBallPath],
-        };
-      });
     },
-    [recordEvent, state.homeTeam, state.awayTeam] // recordEvent is a dependency
+    [recordEvent] // Only depends on the merged recordEvent
   );
 
   const processEventsForLocalState = useCallback((events: MatchEvent[]) => {
@@ -576,9 +580,18 @@ export const useMatchState = (): MatchState & MatchActions => {
       // 1. Reset/Initialize relevant state
       const newStats = JSON.parse(JSON.stringify(initialMatchState.statistics)); // Deep copy
       const newBallPathHistory: BallPath[] = [];
+      let currentHomeEventsCount = 0;
+      let currentAwayEventsCount = 0;
 
       // 2. Process events to rebuild statistics and ballPathHistory
       events.forEach(event => {
+        // Increment event counts
+        if (event.teamId === prev.homeTeam!.id) {
+          currentHomeEventsCount++;
+        } else if (event.teamId === prev.awayTeam!.id) {
+          currentAwayEventsCount++;
+        }
+
         const teamIdStr = event.teamId === prev.homeTeam?.id ? 'home' : 
                           event.teamId === prev.awayTeam?.id ? 'away' : null;
 
@@ -596,33 +609,37 @@ export const useMatchState = (): MatchState & MatchActions => {
             newStats.passes.away.total = (newStats.passes.away.total || 0) + 1;
           }
           // Reconstruct BallPath if relatedPlayerId (receiver) exists
-          if (event.relatedPlayerId && event.coordinates) {
+          if (event.relatedPlayerId && event.coordinates) { // Check for coordinates too
              const passerPlayer = prev.homeTeam?.players.find(p => p.id === event.playerId) || prev.awayTeam?.players.find(p => p.id === event.playerId);
              const receiverPlayer = prev.homeTeam?.players.find(p => p.id === event.relatedPlayerId) || prev.awayTeam?.players.find(p => p.id === event.relatedPlayerId);
              const receiverTeamId = receiverPlayer ? (prev.homeTeam?.players.some(p=>p.id === receiverPlayer.id) ? prev.homeTeam.id : prev.awayTeam?.id) : null;
 
+             // Use event.meta.startCoordinates if available from server, otherwise approximate with teamPositions
+             const startCoords = event.meta?.startCoordinates || prev.teamPositions[passerPlayer?.id || -1] || {x:0,y:0};
 
-             if (passerPlayer && receiverPlayer && prev.teamPositions[passerPlayer.id] && receiverTeamId) {
+             if (passerPlayer && receiverPlayer && receiverTeamId) {
                 newBallPathHistory.push({
                   id: `ballpath-evt-${event.id}`,
                   passer: { id: passerPlayer.id, teamId: event.teamId }, // event.teamId is passer's team
                   receiver: { id: receiverPlayer.id, teamId: receiverTeamId },
-                  startCoordinates: prev.teamPositions[passerPlayer.id], // This is an approximation, real start coord might not be in event
+                  startCoordinates: startCoords, 
                   endCoordinates: event.coordinates,
                   eventType: 'pass',
                   timestamp: event.timestamp,
+                  status: event.status === 'pending_confirmation' ? 'optimistic' : 'confirmed',
+                  clientId: event.clientId,
                 });
              }
           }
         } else if (event.type === 'shot') {
            if (teamIdStr === 'home') {
               newStats.shots.home.total = (newStats.shots.home.total || 0) + 1;
-              // Note: onTarget/offTarget might be harder to derive accurately just from event type
-              // This part might need adjustment based on how shot outcomes are stored or if they are separate events
-              if (Math.random() > 0.5) newStats.shots.home.onTarget = (newStats.shots.home.onTarget || 0) + 1; else newStats.shots.home.offTarget = (newStats.shots.home.offTarget || 0) + 1;
+              if (event.meta?.onTarget) newStats.shots.home.onTarget = (newStats.shots.home.onTarget || 0) + 1;
+              else newStats.shots.home.offTarget = (newStats.shots.home.offTarget || 0) + 1;
            } else {
               newStats.shots.away.total = (newStats.shots.away.total || 0) + 1;
-              if (Math.random() > 0.5) newStats.shots.away.onTarget = (newStats.shots.away.onTarget || 0) + 1; else newStats.shots.away.offTarget = (newStats.shots.away.offTarget || 0) + 1;
+              if (event.meta?.onTarget) newStats.shots.away.onTarget = (newStats.shots.away.onTarget || 0) + 1;
+              else newStats.shots.away.offTarget = (newStats.shots.away.offTarget || 0) + 1;
            }
         } else if (event.type === 'goal') {
            if (teamIdStr === 'home') {
@@ -643,11 +660,9 @@ export const useMatchState = (): MatchState & MatchActions => {
       });
       
       // Update possession from the processed events
-      const homeEventsCount = events.filter(e => e.teamId === prev.homeTeam?.id).length;
-      const awayEventsCount = events.filter(e => e.teamId === prev.awayTeam?.id).length;
-      const totalProcEvents = homeEventsCount + awayEventsCount;
+      const totalProcEvents = currentHomeEventsCount + currentAwayEventsCount;
       if (totalProcEvents > 0) {
-        newStats.possession.home = Math.round((homeEventsCount / totalProcEvents) * 100);
+        newStats.possession.home = Math.round((currentHomeEventsCount / totalProcEvents) * 100);
         newStats.possession.away = 100 - newStats.possession.home;
       } else {
         newStats.possession = { home: 50, away: 50 }; // Default if no events
@@ -658,22 +673,183 @@ export const useMatchState = (): MatchState & MatchActions => {
         matchEvents: events, // Set the new source of truth for events
         statistics: newStats,
         ballPathHistory: newBallPathHistory,
+        homeEventsCount: currentHomeEventsCount,
+        awayEventsCount: currentAwayEventsCount,
+      };
+    });
+  }, []);
+
+  const processSingleRemoteEvent = useCallback((newEvent: MatchEvent) => {
+    setState(prev => {
+      if (!prev.homeTeam || !prev.awayTeam) {
+        console.warn("[processSingleRemoteEvent] Home or Away team not set. Skipping event processing.", newEvent);
+        return prev;
+      }
+
+      // Check if the event already exists by ID or clientId (if it's a confirmation of an optimistic event)
+      const existingEventIndex = prev.matchEvents.findIndex(event => event.id === newEvent.id || (event.clientId && event.clientId === newEvent.clientId));
+
+      if (existingEventIndex !== -1) {
+        console.log('[processSingleRemoteEvent] Received confirmation/update for existing event: ', newEvent.id);
+        // Update the existing event, especially its status and potentially other server-authoritative data
+        const updatedMatchEvents = [...prev.matchEvents];
+        updatedMatchEvents[existingEventIndex] = { 
+            ...updatedMatchEvents[existingEventIndex], // keep optimistic data if not overwritten
+            ...newEvent, // server data takes precedence
+            status: 'confirmed' // ensure status is confirmed
+        }; 
+        
+        // Potentially re-calculate stats if newEvent significantly changes things,
+        // or rely on a full `processEventsForLocalState` call if many such updates happen.
+        // For a single event, a full recalc might be overkill.
+        // For now, just update the event in the list. Full reconciliation might be better handled by `processEventsForLocalState`.
+        return { ...prev, matchEvents: updatedMatchEvents };
+      }
+
+      // Event does not exist, process it as a genuinely new remote event by applying it
+      console.log('[processSingleRemoteEvent] Processing new remote event by adding it:', newEvent);
+      // Use the same logic as recordEvent's applyEventToState, but with the incoming newEvent
+      // Need to ensure newEvent has `status: 'confirmed'` if not already set by server
+      const eventToAdd = { ...newEvent, status: newEvent.status || 'confirmed' } as MatchEvent;
+      
+      // Re-use applyEventToState logic - this requires applyEventToState to be defined outside recordEvent or passed
+      // For simplicity here, we replicate parts of the logic. A better refactor would make applyEventToState reusable.
+      let updatedStats = JSON.parse(JSON.stringify(prev.statistics));
+      let updatedBallPathHistory = [...prev.ballPathHistory];
+      const updatedMatchEventsList = [...prev.matchEvents, eventToAdd];
+      
+      let newHomeEventsCount = prev.homeEventsCount;
+      let newAwayEventsCount = prev.awayEventsCount;
+
+      const teamIdStr = eventToAdd.teamId === prev.homeTeam.id ? 'home' : 
+                        eventToAdd.teamId === prev.awayTeam.id ? 'away' : null;
+
+      if (teamIdStr) {
+        if (eventToAdd.teamId === prev.homeTeam.id) {
+          newHomeEventsCount++;
+        } else if (eventToAdd.teamId === prev.awayTeam.id) {
+          newAwayEventsCount++;
+        }
+
+        if (eventToAdd.type === 'pass') {
+          if (teamIdStr === 'home') {
+            updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+            updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
+            updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+          } else {
+            updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+            updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
+            updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+          }
+          if (eventToAdd.relatedPlayerId && eventToAdd.coordinates) {
+            const passerPlayer = prev.homeTeam?.players.find(p => p.id === eventToAdd.playerId) || prev.awayTeam?.players.find(p => p.id === eventToAdd.playerId);
+            const receiverPlayer = prev.homeTeam?.players.find(p => p.id === eventToAdd.relatedPlayerId) || prev.awayTeam?.players.find(p => p.id === eventToAdd.relatedPlayerId);
+            const receiverTeamId = receiverPlayer ? (prev.homeTeam?.players.some(p => p.id === receiverPlayer.id) ? prev.homeTeam.id : prev.awayTeam.id) : null;
+            const startCoords = eventToAdd.meta?.startCoordinates || prev.teamPositions[passerPlayer?.id || -1] || {x:0,y:0};
+
+            if (passerPlayer && receiverPlayer && receiverTeamId) {
+              updatedBallPathHistory.push({
+                id: `ballpath-evt-${eventToAdd.id}`,
+                passer: { id: passerPlayer.id, teamId: eventToAdd.teamId },
+                receiver: { id: receiverPlayer.id, teamId: receiverTeamId },
+                startCoordinates: startCoords,
+                endCoordinates: eventToAdd.coordinates,
+                eventType: 'pass',
+                timestamp: eventToAdd.timestamp,
+                status: 'confirmed', // Remote events are confirmed
+              });
+            }
+          }
+        } // ... other event types similar to processEventsForLocalState / recordEvent ...
+         else if (eventToAdd.type === 'shot') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+            if (eventToAdd.meta?.onTarget) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+          } else {
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+            if (eventToAdd.meta?.onTarget) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+          }
+        } else if (eventToAdd.type === 'goal') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+          } else {
+            updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+          }
+        } // etc.
+      }
+
+      const totalEvents = newHomeEventsCount + newAwayEventsCount;
+      if (totalEvents > 0) {
+        updatedStats.possession.home = Math.round((newHomeEventsCount / totalEvents) * 100);
+        updatedStats.possession.away = 100 - updatedStats.possession.home;
+      } else {
+        updatedStats.possession = { home: 50, away: 50 };
+      }
+      
+      return {
+        ...prev,
+        matchEvents: updatedMatchEventsList,
+        statistics: updatedStats,
+        ballPathHistory: updatedBallPathHistory,
+        homeEventsCount: newHomeEventsCount,
+        awayEventsCount: newAwayEventsCount,
       };
     });
   }, []);
 
 
   const calculateTimeSegments = useCallback((): TimeSegmentStatistics[] => {
-    // Implementation preserved from original
-    console.log("Calculating time segments...");
-    return [];
-  }, [state.ballTrackingPoints, state.homeTeam, state.awayTeam]);
+    // Basic implementation - can be expanded
+    console.log("Calculating time segments (basic)...");
+    if (!state.homeTeam || !state.awayTeam || state.ballTrackingPoints.length < 2) {
+      return [];
+    }
+    // This is a placeholder. A real implementation would involve more complex logic.
+    const segments: TimeSegmentStatistics[] = [];
+    // Example: create one segment for the whole match for now
+    const duration = state.elapsedTime; // Or derive from ballTrackingPoints timestamps
+    if (duration > 0) {
+      segments.push({
+        startTime: 0,
+        endTime: duration,
+        homePossession: state.statistics.possession.home,
+        awayPossession: state.statistics.possession.away,
+        // ... other aggregated stats for the segment
+      });
+    }
+    return segments;
+  }, [state.ballTrackingPoints, state.homeTeam, state.awayTeam, state.elapsedTime, state.statistics.possession]);
 
   const calculatePlayerStats = useCallback((): PlayerStatistics[] => {
-    // Implementation preserved from original
-    console.log("Calculating player stats...");
-    return [];
-  }, [state.ballTrackingPoints, state.homeTeam, state.awayTeam]);
+    // Basic implementation - can be expanded
+    console.log("Calculating player stats (basic)...");
+    if (!state.homeTeam || !state.awayTeam) return [];
+
+    const allPlayers = [...(state.homeTeam.players || []), ...(state.awayTeam.players || [])];
+    const playerStats: PlayerStatistics[] = [];
+
+    allPlayers.forEach(player => {
+      const eventsForPlayer = state.matchEvents.filter(e => e.playerId === player.id);
+      const passes = eventsForPlayer.filter(e => e.type === 'pass').length;
+      const shots = eventsForPlayer.filter(e => e.type === 'shot').length;
+      const goals = eventsForPlayer.filter(e => e.type === 'goal').length;
+      
+      playerStats.push({
+        playerId: player.id,
+        name: player.name,
+        teamId: player.teamId || (state.homeTeam?.players.some(p => p.id === player.id) ? state.homeTeam.id : state.awayTeam?.id),
+        passes,
+        shots,
+        goals,
+        // ... other stats
+      });
+    });
+    return playerStats;
+  }, [state.matchEvents, state.homeTeam, state.awayTeam]);
 
   return {
     ...state,
@@ -709,6 +885,8 @@ export const useMatchState = (): MatchState & MatchActions => {
     togglePassTrackingMode,
     setPotentialPasser,
     recordPass,
-    processEventsForLocalState
+    processEventsForLocalState,
+    setBallPathHistory,
+    processSingleRemoteEvent
   };
 };

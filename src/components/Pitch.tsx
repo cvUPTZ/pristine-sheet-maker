@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Team, Player, EventType } from '@/types';
+import { Team, Player, EventType, BallTrackingPoint } from '@/types';
 import PitchView from './match/PitchView';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast'; // Import useToast
@@ -25,6 +25,7 @@ interface PitchProps {
   setPotentialPasser?: (player: Player | null) => void; 
   // Add onRecordPass prop for the new action
   onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
+  ballTrackingPoints: BallTrackingPoint[];
 }
 
 const Pitch: React.FC<PitchProps> = ({
@@ -42,7 +43,8 @@ const Pitch: React.FC<PitchProps> = ({
   isPassTrackingModeActive = false,
   potentialPasser = null,
   setPotentialPasser = () => {},
-  onRecordPass // Destructure the new prop
+  onRecordPass, // Destructure the new prop
+  ballTrackingPoints
 }) => {
   const { toast } = useToast(); // Initialize useToast
   // Track last event to prevent rapid duplicate events
@@ -175,9 +177,6 @@ const Pitch: React.FC<PitchProps> = ({
     }
   };
 
-  // Use an empty array if no tracking points should be displayed
-  const emptyTrackingPoints: any[] = [];
-
   return (
     <div className="relative">
       {/* Collaboration indicator */}
@@ -208,7 +207,7 @@ const Pitch: React.FC<PitchProps> = ({
         setSelectedTeam={onSelectTeam}
         handlePlayerSelect={handlePlayerSelect}
         handleEventSelect={handleEventSelect} // This is for circular menu etc.
-        ballTrackingPoints={emptyTrackingPoints}
+        ballTrackingPoints={ballTrackingPoints}
         mode={ballTrackingMode ? 'tracking' : 'piano'} 
         handlePitchClick={handlePitchClick}
         addBallTrackingPoint={onTrackBallMovement}

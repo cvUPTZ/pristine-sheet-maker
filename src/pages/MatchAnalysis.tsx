@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -85,7 +84,11 @@ const MatchAnalysis: React.FC = () => {
 
   // Initialize useMatchCollaboration
   // Note: The recordEvent from useMatchCollaboration is the one to be passed to useMatchState's actions
-  const { events: collaborativeEvents, recordEvent: collaborativeRecordEventFn } = useMatchCollaboration({ 
+  const { 
+    events: collaborativeEvents, 
+    lastReceivedEvent, // Maintained for potential future use or if switching strategies, but not used by the chosen optimistic logic directly
+    recordEvent: collaborativeRecordEventFn 
+  } = useMatchCollaboration({ 
     matchId: matchId || undefined // Pass undefined if matchId is null/undefined
   });
 
@@ -134,6 +137,8 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.matchEvents) {
             matchState.setMatchEvents(matchData.matchEvents);
           }
+          const loadedBallPathHistory = matchData.ballPathHistory || [];
+          matchState.setBallPathHistory(loadedBallPathHistory);
           
           setMatch(matchData);
           setHomeTeam(matchData.homeTeam || defaultHomeTeam);
@@ -145,6 +150,7 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.ballTrackingPoints) {
             setBallTrackingPoints(matchData.ballTrackingPoints);
           }
+          setBallPathHistory(loadedBallPathHistory);
           
           console.log("Loaded Match Data:", matchData);
         } catch (error) {
@@ -214,46 +220,56 @@ const MatchAnalysis: React.FC = () => {
     if (matchId && collaborativeEvents) { // Process even if collaborativeEvents is empty to handle timeouts
       console.log("Received collaborative events:", collaborativeEvents);
       const currentLocalEvents = matchState.matchEvents;
-      const homeTeamId = matchState.homeTeam?.id;
+      // These IDs might be used by processEventsForLocalState or were intended for future use.
+      // For the current reconciliation logic, they are not directly used in this block.
+      const homeTeamId = matchState.homeTeam?.id; 
       const awayTeamId = matchState.awayTeam?.id;
 
-      const TIMESTAMP_DELTA = 5000; // 5 seconds
-      const MAX_OPTIMISTIC_EVENT_AGE = 20000; // 20 seconds
+      const TIMESTAMP_DELTA = 5000; // 5 seconds, for matching optimistic events to server events
+      const MAX_OPTIMISTIC_EVENT_AGE = 20000; // 20 seconds, timeout for optimistic events
 
       const reconciledEventsMap = new Map<string, MatchEvent>();
-      const collaborativeEventIdsUsed = new Set<string>();
+      const collaborativeEventIdsUsed = new Set<string>(); // To track server events already matched
 
-      // 1. Process current local events
+      // 1. Process current local events (optimistic or already confirmed/failed)
       currentLocalEvents.forEach(localEvent => {
         if (localEvent.status === 'pending_confirmation' && localEvent.clientId) {
+          // Try to find a matching server event for this optimistic local event
           const match = collaborativeEvents.find(serverEvent =>
-            !collaborativeEventIdsUsed.has(serverEvent.id) &&
+            !collaborativeEventIdsUsed.has(serverEvent.id) && // Server event not already used
             localEvent.type === serverEvent.type &&
             localEvent.playerId === serverEvent.playerId &&
-            localEvent.teamId === serverEvent.teamId && // Ensure teamId is the actual ID
+            localEvent.teamId === serverEvent.teamId && // Match actual team ID
             Math.abs(localEvent.timestamp - serverEvent.timestamp) <= TIMESTAMP_DELTA
           );
 
           if (match) {
-            reconciledEventsMap.set(match.id, { ...match, status: 'confirmed' }); // Use server event, mark as confirmed
-            collaborativeEventIdsUsed.add(match.id);
+            // Found a match: use the server event, mark as confirmed
+            reconciledEventsMap.set(match.id, { ...match, status: 'confirmed' });
+            collaborativeEventIdsUsed.add(match.id); // Mark server event as used
           } else {
+            // No match found: check if optimistic event has timed out
             if (localEvent.optimisticCreationTime && (Date.now() - localEvent.optimisticCreationTime > MAX_OPTIMISTIC_EVENT_AGE)) {
               reconciledEventsMap.set(localEvent.clientId, { ...localEvent, status: 'failed' });
             } else {
-              reconciledEventsMap.set(localEvent.clientId, localEvent); // Keep as pending
+              // Not timed out, keep as pending
+              reconciledEventsMap.set(localEvent.clientId, localEvent);
             }
           }
         } else {
-          // Confirmed or failed local events, or events without clientId (older schema or non-optimistic)
-          reconciledEventsMap.set(localEvent.id, localEvent);
+          // Local event is already confirmed, failed, or doesn't have clientId (older/non-optimistic)
+          // Use its own ID (or clientId if that's the primary key for such events)
+          const eventId = localEvent.id || localEvent.clientId;
+          if (eventId) {
+             reconciledEventsMap.set(eventId, localEvent);
+          }
         }
       });
 
-      // 2. Add new server events not already processed
+      // 2. Add new server events not already processed (i.e., not used to confirm an optimistic event)
       collaborativeEvents.forEach(serverEvent => {
         if (!collaborativeEventIdsUsed.has(serverEvent.id) && !reconciledEventsMap.has(serverEvent.id)) {
-          // If it wasn't used to confirm an optimistic event and isn't already in the map from local processing
+          // This server event is new and didn't match any local optimistic event
           reconciledEventsMap.set(serverEvent.id, { ...serverEvent, status: 'confirmed' });
         }
       });
@@ -262,8 +278,8 @@ const MatchAnalysis: React.FC = () => {
       console.log("Final reconciled events:", finalReconciledEvents);
       matchState.processEventsForLocalState(finalReconciledEvents);
     }
-    // If matchId is not present, this effect does nothing.
-  }, [collaborativeEvents, matchId, matchState]); // matchState is included because we access its properties
+    // If matchId is not present or collaborativeEvents is null/undefined, this effect does nothing.
+  }, [collaborativeEvents, matchId, matchState]); // matchState is included because we access its properties like matchEvents, homeTeam, awayTeam and its methods
 
 
   // Wrapped event handlers
@@ -405,6 +421,7 @@ const MatchAnalysis: React.FC = () => {
                         potentialPasser={potentialPasser}
                         setPotentialPasser={matchState.setPotentialPasser}
                         onRecordPass={wrappedRecordPass} // Pass the wrapped action
+                        ballTrackingPoints={ballTrackingPoints} // Pass the ball tracking points
                         handleEventSelect={ (eventType, playerFromMarker, coords) => {
                             let teamIdStr: 'home' | 'away';
                             if (homeTeam && homeTeam.players.some(p => p.id === playerFromMarker.id)) {

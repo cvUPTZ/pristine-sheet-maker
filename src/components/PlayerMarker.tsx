@@ -130,15 +130,13 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     setShowMenu(false);
   };
 
-  // Dynamic sizing based on screen size
-  const markerSize = isSmall ? 'w-[6%]' : 'w-[5%]';
   const pulseAnimation = hasBall ? 'animate-pulse' : '';
 
   return (
     <>
       <motion.div
         ref={markerRef}
-        className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all 
+        className={`absolute ${isSmall ? 'w-[8%]' : 'w-[6%]'} ${isSmall ? 'min-w-[36px]' : 'min-w-[40px]'} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all 
           ${isPotentialPasser ? 'ring-4 ring-green-500 scale-110 z-30' : 
             selected ? 'ring-2 ring-white scale-110 z-30' : 'opacity-70 z-20'} 
           ${hasBall ? 'ring-4 ring-yellow-300 ' + pulseAnimation : ''} 
