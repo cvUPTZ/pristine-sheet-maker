@@ -29,7 +29,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useMatchState } from '@/hooks/useMatchState';
+import { useMatchState, BallPath } from '@/hooks/useMatchState'; // Import BallPath
+import { useMatchCollaboration } from '@/hooks/useMatchCollaboration'; // Import useMatchCollaboration
 import MatchSidebar from '@/components/match/MatchSidebar';
 import Pitch from '@/components/Pitch';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType } from '@/types';
@@ -78,9 +79,15 @@ const defaultAwayTeam: Team = {
 };
 
 const MatchAnalysis: React.FC = () => {
-  const { matchId } = useParams<{ matchId: string }>();
+  const { matchId } = useParams<{ matchId: string }>(); // Ensure matchId is treated as potentially undefined if it can be
   const matchState = useMatchState();
-  const { toast } = useToast()
+  const { toast } = useToast();
+
+  // Initialize useMatchCollaboration
+  // Note: The recordEvent from useMatchCollaboration is the one to be passed to useMatchState's actions
+  const { events: collaborativeEvents, recordEvent: collaborativeRecordEventFn } = useMatchCollaboration({ 
+    matchId: matchId || undefined // Pass undefined if matchId is null/undefined
+  });
 
   const [match, setMatch] = useState(matchState.match);
   const [homeTeam, setHomeTeam] = useState<Team>(matchState.homeTeam || defaultHomeTeam);
@@ -99,6 +106,10 @@ const MatchAnalysis: React.FC = () => {
   const [ballTrackingMode, setBallTrackingMode] = useState(matchState.ballTrackingMode);
   const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>("pitch");
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
+  const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(matchState.isPassTrackingModeActive);
+  const [potentialPasser, setPotentialPasser] = useState(matchState.potentialPasser);
+  const [ballPathHistory, setBallPathHistory] = useState(matchState.ballPathHistory || []);
+
 
   useEffect(() => {
     // Load match data from localStorage based on matchId
@@ -193,7 +204,51 @@ const MatchAnalysis: React.FC = () => {
     setElapsedTime(matchState.elapsedTime);
     setSetupComplete(matchState.setupComplete);
     setBallTrackingMode(matchState.ballTrackingMode);
+    setIsPassTrackingModeActive(matchState.isPassTrackingModeActive);
+    setPotentialPasser(matchState.potentialPasser);
+    setBallPathHistory(matchState.ballPathHistory || []);
   }, [matchState]);
+
+  // Effect to process collaborative events and update local state
+  useEffect(() => {
+    if (matchId && collaborativeEvents && collaborativeEvents.length > 0) {
+      console.log("Processing collaborative events:", collaborativeEvents);
+      matchState.processEventsForLocalState(collaborativeEvents);
+    }
+    // If matchId is not present, or collaborativeEvents is empty, this effect does nothing,
+    // which is fine as local state updates would be handled directly by recordEvent/recordPass.
+  }, [collaborativeEvents, matchId, matchState.processEventsForLocalState]);
+
+
+  // Wrapped event handlers
+  const wrappedRecordEvent = (
+    eventType: EventType, 
+    playerId: number, 
+    teamIdStr: 'home' | 'away', 
+    coordinates: { x: number; y: number },
+    relatedPlayerId?: number
+  ) => {
+    if (matchId && collaborativeRecordEventFn) {
+      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, collaborativeRecordEventFn, matchId, relatedPlayerId);
+    } else {
+      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, undefined, undefined, relatedPlayerId);
+    }
+  };
+
+  const wrappedRecordPass = (
+    passer: Player, 
+    receiver: Player, 
+    passerTeamIdStr: 'home' | 'away', 
+    receiverTeamIdStr: 'home' | 'away', 
+    passerCoords: {x: number, y: number}, 
+    receiverCoords: {x: number, y: number}
+  ) => {
+    if (matchId && collaborativeRecordEventFn) {
+      matchState.recordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords, collaborativeRecordEventFn, matchId);
+    } else {
+      matchState.recordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
+    }
+  };
 
   const handleActionSelect = (action: EventType) => {
     if (!selectedPlayer) {
@@ -204,13 +259,16 @@ const MatchAnalysis: React.FC = () => {
       return;
     }
 
-    matchState.recordEvent(
+    // Use wrappedRecordEvent
+    wrappedRecordEvent(
       action,
       selectedPlayer.id,
-      selectedTeam,
+      selectedTeam, // 'home' or 'away'
       teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 }
     );
     
+    // Toast remains here for immediate UI feedback, even in collaborative mode.
+    // The actual state update will come via subscription if collaborative.
     toast({
       title: "Event Recorded",
       description: `${action} recorded for ${selectedPlayer.name}`,
@@ -218,11 +276,24 @@ const MatchAnalysis: React.FC = () => {
   };
 
   const handlePianoEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
-    matchState.recordEvent(eventType, playerId, teamId, coordinates);
+    // Use wrappedRecordEvent for events from PianoInput that are not passes
+    // Passes from PianoInput are handled by its onRecordPass prop, which calls wrappedRecordPass
+    wrappedRecordEvent(eventType, playerId, teamId, coordinates);
+
+    // Toast logic remains for immediate feedback
+    let playerName = "Unknown Player";
+    const teamToSearch = teamId === 'home' ? homeTeam : awayTeam;
+    const player = teamToSearch?.players.find(p => p.id === playerId);
+    if (player) {
+      playerName = player.name;
+    }
     
+    // Capitalize eventType for display
+    const displayEventType = eventType.charAt(0).toUpperCase() + eventType.slice(1);
+
     toast({
       title: "Event Recorded",
-      description: `${eventType} event recorded successfully`,
+      description: `${displayEventType} for ${playerName}`,
     });
   };
 
@@ -264,7 +335,7 @@ const MatchAnalysis: React.FC = () => {
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
               <TabsContent value="pitch" className="mt-4">
-                <Card>
+                <Card className={isPassTrackingModeActive ? "border-2 border-green-500 shadow-lg" : ""}>
                   <CardHeader>
                     <CardTitle>Match Visualization</CardTitle>
                     <CardDescription>
@@ -284,6 +355,24 @@ const MatchAnalysis: React.FC = () => {
                         onSelectTeam={matchState.setSelectedTeam}
                         ballTrackingMode={ballTrackingMode}
                         onTrackBallMovement={matchState.trackBallMovement}
+                        isPassTrackingModeActive={isPassTrackingModeActive}
+                        potentialPasser={potentialPasser}
+                        setPotentialPasser={matchState.setPotentialPasser}
+                        onRecordPass={wrappedRecordPass} // Pass the wrapped action
+                        handleEventSelect={ (eventType, playerFromMarker, coords) => {
+                            let teamIdStr: 'home' | 'away';
+                            if (homeTeam && homeTeam.players.some(p => p.id === playerFromMarker.id)) {
+                              teamIdStr = 'home';
+                            } else if (awayTeam && awayTeam.players.some(p => p.id === playerFromMarker.id)) {
+                              teamIdStr = 'away';
+                            } else {
+                              console.error("Could not determine team for player from Pitch event:", playerFromMarker);
+                              // Attempt to use selectedTeam as a fallback, though less accurate if player isn't on selectedTeam
+                              teamIdStr = selectedTeam; 
+                              // return; // Or handle error appropriately
+                            }
+                            wrappedRecordEvent(eventType, playerFromMarker.id, teamIdStr, coords, undefined);
+                          }}
                       />
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -517,10 +606,12 @@ const MatchAnalysis: React.FC = () => {
                         <PianoInput
                           homeTeam={homeTeam}
                           awayTeam={awayTeam}
-                          onRecordEvent={handlePianoEvent}
+                          onRecordEvent={handlePianoEvent} // For non-pass events from Piano
+                          onRecordPass={wrappedRecordPass} // For pass events from Piano
                           teamPositions={teamPositions}
                           selectedTeam={selectedTeam}
                           setSelectedTeam={setSelectedTeam}
+                          ballPathHistory={ballPathHistory} 
                         />
                       </div>
                     ) : (
@@ -602,6 +693,8 @@ const MatchAnalysis: React.FC = () => {
               updateStatistics={matchState.setStatistics}
               setTimeSegments={matchState.setTimeSegments}
               calculateTimeSegments={matchState.calculateTimeSegments}
+              isPassTrackingModeActive={isPassTrackingModeActive}
+              togglePassTrackingMode={matchState.togglePassTrackingMode}
             />
           </div>
         </div>

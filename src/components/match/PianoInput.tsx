@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Player, EventType, BallTrackingPoint } from '@/types';
+import { Player, EventType } from '@/types'; // Removed BallTrackingPoint as it's not used directly
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,8 +27,17 @@ interface PianoInputProps {
   }>;
   selectedTeam?: 'home' | 'away';
   setSelectedTeam?: (team: 'home' | 'away') => void;
-  compact?: boolean; // New prop to support compact mode when displayed alongside the pitch
+  compact?: boolean; 
+  ballPathHistory?: BallPath[]; // From useMatchState via MatchAnalysis
+  onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
 }
+
+// Assuming BallPath is imported or defined elsewhere (e.g., in types/index.ts or directly in useMatchState)
+// For this context, if not globally defined, we might need a local reference or import.
+// Let's assume it's available globally for now or imported from '@/types' or '@/hooks/useMatchState'
+import { BallPath } from '@/hooks/useMatchState'; // Or from '@/types' if moved there
+import { useToast } from '@/components/ui/use-toast'; // Import useToast
+
 interface PlayerEventPair {
   player: Player;
   teamId: 'home' | 'away';
@@ -126,8 +135,11 @@ const PianoInput: React.FC<PianoInputProps> = ({
   teamPositions = {},
   selectedTeam = 'home',
   setSelectedTeam = () => {},
-  compact = false
+  compact = false,
+  ballPathHistory = [], // Default to empty array if not provided
+  onRecordPass
 }) => {
+  const { toast } = useToast(); // Initialize useToast
   const [activeTab, setActiveTab] = useState<'home' | 'away'>(selectedTeam);
   const [selectedEventType, setSelectedEventType] = useState<EventType>('pass');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -137,29 +149,11 @@ const PianoInput: React.FC<PianoInputProps> = ({
     y: number;
   } | null>(null);
   const [animateBall, setAnimateBall] = useState(false);
+  const [lastRecordTime, setLastRecordTime] = useState(0); // For debounce
 
-  // Track ball movement history
-  const [ballHistory, setBallHistory] = useState<{
-    fromPlayer: {
-      id: number;
-      teamId: 'home' | 'away';
-    };
-    toPlayer: {
-      id: number;
-      teamId: 'home' | 'away';
-    };
-    coordinates: {
-      start: {
-        x: number;
-        y: number;
-      };
-      end: {
-        x: number;
-        y: number;
-      };
-    };
-    eventType: EventType;
-  }[]>([]);
+  const DEBOUNCE_DELAY = 200; // 200ms debounce
+
+  // Local ballHistory is removed, will use ballPathHistory prop
 
   // Current player with the ball
   const [currentBallHolder, setCurrentBallHolder] = useState<{
@@ -205,6 +199,13 @@ const PianoInput: React.FC<PianoInputProps> = ({
     x: number;
     y: number;
   }) => {
+    const now = Date.now();
+    if (now - lastRecordTime < DEBOUNCE_DELAY) {
+      console.log("PianoInput: Debounced player select action.");
+      return;
+    }
+    setLastRecordTime(now);
+
     // Don't allow event recording without selecting an event type
     if (!selectedEventType) return;
     setSelectedPlayer(player);
@@ -221,52 +222,45 @@ const PianoInput: React.FC<PianoInputProps> = ({
         point: interceptPosition,
         timestamp: Date.now()
       }]);
+      // For interception, still call onRecordEvent for the interception itself
+      onRecordEvent(selectedEventType, player.id, teamId, coordinates);
     }
 
-    // Record the event
-    onRecordEvent(selectedEventType, player.id, teamId, coordinates);
+    // If it's a pass and onRecordPass is available, use it.
+    if (selectedEventType === 'pass' && onRecordPass && currentBallHolder) {
+      const passer = currentBallHolder.player;
+      const receiver = player; // The clicked player is the receiver
+      const passerTeamIdStr = currentBallHolder.teamId;
+      const receiverTeamIdStr = teamId;
+      const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
+      const receiverCoords = coordinates; // Receiver's coordinates are the event coordinates
 
-    // Add to event sequence
+      onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
+      toast({
+        title: "Pass Recorded (Piano)",
+        description: `Pass from ${passer.name} to ${receiver.name}`,
+      });
+      // The onRecordEvent for 'pass' is skipped here as recordPass handles event creation & stats.
+    } else if (selectedEventType !== 'pass' || !onRecordPass) { 
+      // For non-pass events, or if onRecordPass is not provided (fallback), use onRecordEvent.
+      // This also handles the case where selectedEventType is 'pass' but currentBallHolder is null (e.g., first touch)
+      onRecordEvent(selectedEventType, player.id, teamId, coordinates);
+    }
+    
+    // Add to local event sequence for UI display (this is fine)
     setEventSequence([...eventSequence, {
       player,
       teamId,
       eventType: selectedEventType
     }]);
 
-    // Update ball position
+    // Update ball position for animation (this is fine)
     setBallPosition(coordinates);
     setAnimateBall(true);
 
-    // If we have a previous ball holder, record the ball movement
-    if (currentBallHolder) {
-      const startPos = combinedPositions[currentBallHolder.player.id] || {
-        x: 0.5,
-        y: 0.5
-      };
-      setBallHistory([...ballHistory, {
-        fromPlayer: {
-          id: currentBallHolder.player.id,
-          teamId: currentBallHolder.teamId
-        },
-        toPlayer: {
-          id: player.id,
-          teamId
-        },
-        coordinates: {
-          start: {
-            x: startPos.x,
-            y: startPos.y
-          },
-          end: {
-            x: coordinates.x,
-            y: coordinates.y
-          }
-        },
-        eventType: selectedEventType
-      }]);
-    }
+    // Local ballHistory update is removed. Central ballPathHistory is used for rendering.
 
-    // Update current ball holder
+    // Update current ball holder (player who was just clicked, i.e., the receiver or active player)
     setCurrentBallHolder({
       player,
       teamId,
@@ -299,7 +293,66 @@ const PianoInput: React.FC<PianoInputProps> = ({
   
   // Use a simplified handleEventSelect function for PianoInput's context
   const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
-    handlePlayerSelect(player, activeTab as 'home' | 'away', coordinates);
+    const now = Date.now();
+    if (now - lastRecordTime < DEBOUNCE_DELAY) {
+      console.log("PianoInput: Debounced event select action from circular menu.");
+      return;
+    }
+    setLastRecordTime(now);
+    
+    // Option: If you want the main panel's selected event type to also update when an event is chosen from circular menu:
+    // setSelectedEventType(eventType); 
+
+    setSelectedPlayer(player); // Still useful to highlight the player
+
+    // Note: The original code for handleEventSelect had `onRecordEvent` called twice if it wasn't a pass.
+    // This was likely a bug from previous refactoring. Correcting it here.
+    // The logic should be: if it's a pass and onRecordPass is available, use it. Otherwise, use onRecordEvent.
+
+    // Add to event sequence using the eventType from the circular menu
+    setEventSequence(prev => [...prev, {
+      player,
+      teamId: activeTab as 'home' | 'away',
+      eventType: eventType 
+    }]);
+
+    setBallPosition(coordinates);
+    setAnimateBall(true);
+
+    // If it's a pass from circular menu and onRecordPass is available
+    if (eventType === 'pass' && onRecordPass && currentBallHolder) {
+        const passer = currentBallHolder.player;
+        const receiver = player; // Player from menu is receiver
+        const passerTeamIdStr = currentBallHolder.teamId;
+        const receiverTeamIdStr = activeTab as 'home' | 'away'; // Team of the currently active tab
+        const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
+        const receiverCoords = coordinates; // Coordinates from menu click
+
+        onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
+        toast({
+            title: "Pass Recorded (Piano Menu)",
+            description: `Pass from ${passer.name} to ${receiver.name}`,
+        });
+        // The onRecordEvent for 'pass' is skipped here because recordPass in useMatchState handles the event creation.
+    } else { 
+        // For non-pass events from circular menu, or if onRecordPass is not provided (fallback for pass)
+        // The onRecordEvent call here will trigger the toast from MatchAnalysis.handlePianoEvent
+        onRecordEvent(eventType, player.id, activeTab as 'home' | 'away', coordinates);
+    }
+    
+    // Local ballHistory update is removed. Central ballPathHistory is used for rendering.
+
+    // Update current ball holder (player who was just clicked, i.e., the receiver or active player)
+    setCurrentBallHolder({
+      player,
+      teamId: activeTab as 'home' | 'away',
+      since: Date.now()
+    });
+
+    // Reset animation state after animation completes
+    setTimeout(() => {
+      setAnimateBall(false);
+    }, 500);
   };
   
   return <div className="w-full">
@@ -393,21 +446,32 @@ const PianoInput: React.FC<PianoInputProps> = ({
                     allowCircularMenu={true} // Always allow circular menu in piano tab
                   />)}
                   
-                  {/* Ball movement history - draw lines between players */}
-                  {ballHistory.slice(-5).map((historyItem, index) => {
-                  const {
-                    start,
-                    end
-                  } = historyItem.coordinates;
+                  {/* Ball movement history - draw lines between players using ballPathHistory prop */}
+                  {ballPathHistory.slice(-5).map((pathItem, index) => {
+                  const { startCoordinates, endCoordinates, eventType } = pathItem;
+                  
+                  // Check if this path was intercepted - This logic might need adjustment
+                  // if interceptions are marked differently or not directly on BallPath items.
+                  // For now, we assume interception check might be based on eventType or a separate mechanism.
+                  // Let's simplify and assume wasIntercepted is false for now, or rely on eventType if it's 'interception'.
+                  const wasIntercepted = interceptedPaths.some(path => 
+                    Math.abs(path.point.x - endCoordinates.x) < 0.1 && 
+                    Math.abs(path.point.y - endCoordinates.y) < 0.1
+                  );
 
-                  // Check if this path was intercepted
-                  const wasIntercepted = interceptedPaths.some(path => Math.abs(path.point.x - end.x) < 0.1 && Math.abs(path.point.y - end.y) < 0.1);
-                  return <React.Fragment key={`history-${index}`}>
+                  return <React.Fragment key={pathItem.id}>
                         {/* Draw the path line */}
                         <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
                       zIndex: 5
                     }}>
-                          <line x1={`${start.x * 100}%`} y1={`${start.y * 100}%`} x2={`${end.x * 100}%`} y2={`${end.y * 100}%`} stroke={wasIntercepted ? "#ff3333" : "#ffffff"} strokeWidth="2" strokeDasharray={wasIntercepted ? "5,5" : index === ballHistory.length - 1 ? "none" : "5,5"} opacity={0.7 - 0.1 * (ballHistory.length - index - 1)} />
+                          <line 
+                            x1={`${startCoordinates.x * 100}%`} y1={`${startCoordinates.y * 100}%`} 
+                            x2={`${endCoordinates.x * 100}%`} y2={`${endCoordinates.y * 100}%`} 
+                            stroke={wasIntercepted ? "#ff3333" : "#ffffff"} 
+                            strokeWidth="2" 
+                            strokeDasharray={wasIntercepted ? "5,5" : index === ballPathHistory.length - 1 ? "none" : "5,5"} 
+                            opacity={0.7 - 0.1 * (ballPathHistory.length - index - 1)} 
+                          />
                         </svg>
                       </React.Fragment>;
                 })}

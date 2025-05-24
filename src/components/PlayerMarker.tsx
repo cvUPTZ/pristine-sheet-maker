@@ -16,6 +16,7 @@ interface PlayerMarkerProps {
   hasBall?: boolean;
   onEventSelect?: (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => void;
   allowCircularMenu?: boolean;
+  isPotentialPasser?: boolean;
 }
 
 const PlayerMarker: React.FC<PlayerMarkerProps> = ({ 
@@ -26,7 +27,8 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
   selected = false,
   hasBall = false,
   onEventSelect,
-  allowCircularMenu = true
+  allowCircularMenu = true,
+  isPotentialPasser = false
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isSmall = useBreakpoint('sm');
@@ -136,19 +138,20 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
     <>
       <motion.div
         ref={markerRef}
-        className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-          selected ? 'ring-2 ring-white scale-110 z-30' : 'opacity-70 z-20'
-        } ${
-          hasBall ? 'ring-4 ring-yellow-300 ' + pulseAnimation : ''
-        } ${
-          showMenu ? 'opacity-75 z-40' : selected ? 'opacity-100' : 'opacity-70'
-        } touch-manipulation`}
+        className={`absolute ${markerSize} aspect-square rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all 
+          ${isPotentialPasser ? 'ring-4 ring-green-500 scale-110 z-30' : 
+            selected ? 'ring-2 ring-white scale-110 z-30' : 'opacity-70 z-20'} 
+          ${hasBall ? 'ring-4 ring-yellow-300 ' + pulseAnimation : ''} 
+          ${showMenu ? 'opacity-75 z-40' : (selected || isPotentialPasser) ? 'opacity-100' : 'opacity-70'} 
+          touch-manipulation`}
         style={{
           left: `${position.x * 100}%`,
           top: `${position.y * 100}%`,
           backgroundColor: teamColor,
-          color: teamColor === '#1A365D' ? 'white' : 'white',
-          boxShadow: hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : selected ? '0 0 15px rgba(255, 255, 255, 0.8)' : 'none',
+          color: teamColor === '#1A365D' ? 'white' : 'white', // Example: ensure contrast
+          boxShadow: isPotentialPasser ? '0 0 15px rgba(0, 255, 0, 0.7)' : 
+                     hasBall ? '0 0 10px rgba(255, 255, 0, 0.6)' : 
+                     selected ? '0 0 15px rgba(255, 255, 255, 0.8)' : 'none',
           fontSize: isSmall ? '0.65rem' : '0.75rem'
         }}
         onClick={handleClick}
@@ -159,8 +162,8 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({
         whileTap={{ scale: 1.2 }}
         initial={{ scale: 1 }}
         animate={{ 
-          scale: selected ? 1.1 : 1,
-          opacity: selected ? 1 : 0.7
+          scale: (selected || isPotentialPasser) ? 1.1 : 1,
+          opacity: (selected || isPotentialPasser) ? 1 : 0.7
         }}
         transition={{ duration: 0.2 }}
       >

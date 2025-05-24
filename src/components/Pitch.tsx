@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Team, Player, EventType } from '@/types';
 import PitchView from './match/PitchView';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/use-toast'; // Import useToast
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,6 +20,11 @@ interface PitchProps {
   onSelectTeam: (team: 'home' | 'away') => void;
   ballTrackingMode: boolean;
   onTrackBallMovement: (coordinates: { x: number; y: number }) => void;
+  isPassTrackingModeActive?: boolean; 
+  potentialPasser?: Player | null;    
+  setPotentialPasser?: (player: Player | null) => void; 
+  // Add onRecordPass prop for the new action
+  onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
 }
 
 const Pitch: React.FC<PitchProps> = ({
@@ -32,8 +38,13 @@ const Pitch: React.FC<PitchProps> = ({
   selectedTeam,
   onSelectTeam,
   ballTrackingMode,
-  onTrackBallMovement
+  onTrackBallMovement,
+  isPassTrackingModeActive = false,
+  potentialPasser = null,
+  setPotentialPasser = () => {},
+  onRecordPass // Destructure the new prop
 }) => {
+  const { toast } = useToast(); // Initialize useToast
   // Track last event to prevent rapid duplicate events
   const [lastEventTime, setLastEventTime] = useState(0);
   const [processingEvent, setProcessingEvent] = useState(false);
@@ -62,17 +73,60 @@ const Pitch: React.FC<PitchProps> = ({
   // Enhanced player selection with anti-bounce protection
   const handlePlayerSelect = (player: Player) => {
     const now = Date.now();
-    
-    // Prevent selections that are too close together (within 300ms)
-    if (now - lastEventTime < 300) {
+    if (now - lastEventTime < 300) { // Debounce
       return;
     }
-    
     setLastEventTime(now);
-    onSelectPlayer(player);
+
+    if (isPassTrackingModeActive) {
+      if (!potentialPasser) {
+        setPotentialPasser(player);
+        onSelectPlayer(player); // Visually select the potential passer
+      } else {
+        if (potentialPasser.id === player.id) {
+          // Clicked on the potential passer again, maybe deselect or do nothing
+          setPotentialPasser(null); // Option: deselect passer
+          onSelectPlayer(null); // Option: deselect player visually
+          return;
+        }
+        // This is the receiver (player variable)
+        const passerTeamIdStr: 'home' | 'away' = homeTeam.players.some(p => p.id === potentialPasser.id) ? 'home' : 'away';
+        const receiverTeamIdStr: 'home' | 'away' = homeTeam.players.some(p => p.id === player.id) ? 'home' : 
+                                                 awayTeam.players.some(p => p.id === player.id) ? 'away' : passerTeamIdStr; // Default to passer's team if receiver not found (should not happen)
+
+        const passerCoords = teamPositions[potentialPasser.id] || { x: 0.5, y: 0.5 };
+        const receiverCoords = teamPositions[player.id] || { x: 0.5, y: 0.5 };
+
+        if (onRecordPass) {
+          onRecordPass(potentialPasser, player, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
+          toast({
+            title: "Pass Recorded",
+            description: `Pass from ${potentialPasser.name} to ${player.name}`,
+          });
+        } else {
+          // Fallback or error if onRecordPass is not provided, though it should be.
+          // For now, let's keep the old handleEventSelect as a fallback if you want to test without wiring everything up immediately.
+          // However, the goal is to replace this.
+          console.warn("onRecordPass not provided to Pitch.tsx. Falling back to handleEventSelect for pass.");
+          if (handleEventSelect) {
+            handleEventSelect('pass', potentialPasser, receiverCoords);
+          }
+        }
+        
+        // Update ball position to receiver, select receiver
+        // onTrackBallMovement might be redundant if recordPass also handles ball position logic implicitly via events
+        onTrackBallMovement(receiverCoords); 
+        onSelectPlayer(player); // Select the receiver
+        setPotentialPasser(null); // Clear the potential passer
+      }
+    } else {
+      onSelectPlayer(player); // Default behavior when not in pass tracking mode
+    }
   };
   
   // Enhanced event selection with event processing feedback and realtime collaboration
+  // This handleEventSelect is for the circular menu or other direct event selections.
+  // It is NOT directly called by the pass tracking logic anymore if onRecordPass is used.
   const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
     const now = Date.now();
     
@@ -153,11 +207,12 @@ const Pitch: React.FC<PitchProps> = ({
         selectedTeam={selectedTeam}
         setSelectedTeam={onSelectTeam}
         handlePlayerSelect={handlePlayerSelect}
-        handleEventSelect={handleEventSelect}
+        handleEventSelect={handleEventSelect} // This is for circular menu etc.
         ballTrackingPoints={emptyTrackingPoints}
         mode={ballTrackingMode ? 'tracking' : 'piano'} 
         handlePitchClick={handlePitchClick}
         addBallTrackingPoint={onTrackBallMovement}
+        potentialPasser={potentialPasser} // Pass down for PlayerMarker styling
       />
     </div>
   );

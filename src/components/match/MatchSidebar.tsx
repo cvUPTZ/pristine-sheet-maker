@@ -38,6 +38,8 @@ interface MatchSidebarProps {
   updateStatistics?: (stats: Statistics) => void;
   setTimeSegments?: (segments: TimeSegmentStatistics[]) => void;
   calculateTimeSegments?: () => TimeSegmentStatistics[];
+  isPassTrackingModeActive: boolean;
+  togglePassTrackingMode: () => void;
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
@@ -56,7 +58,9 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   statistics,
   updateStatistics,
   setTimeSegments,
-  calculateTimeSegments
+  calculateTimeSegments,
+  isPassTrackingModeActive,
+  togglePassTrackingMode
 }) => {
   const { toast } = useToast();
   const [hasCalculatedSegments, setHasCalculatedSegments] = useState(false);
@@ -103,6 +107,17 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
           elapsedTime={elapsedTime} 
           setElapsedTime={setElapsedTime} 
         />
+      </Card>
+
+      <Card className="p-4 bg-white shadow-md">
+        <h3 className="font-semibold mb-2 text-sm">Controls</h3>
+        <Button 
+          onClick={togglePassTrackingMode} 
+          variant={isPassTrackingModeActive ? "default" : "outline"}
+          className="w-full"
+        >
+          {isPassTrackingModeActive ? "Pass Mode: ON" : "Pass Mode: OFF"}
+        </Button>
       </Card>
       
       <Accordion type="single" collapsible defaultValue="actions" className="lg:hidden">

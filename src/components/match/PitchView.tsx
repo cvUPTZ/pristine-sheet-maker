@@ -29,6 +29,7 @@ interface PitchViewProps {
   mode: 'piano' | 'tracking';
   handlePitchClick: (coordinates: { x: number; y: number }) => void;
   addBallTrackingPoint: (point: BallTrackingPoint) => void;
+  potentialPasser?: Player | null; // Added from Pitch.tsx
 }
 
 const PitchView: React.FC<PitchViewProps> = ({
@@ -43,7 +44,8 @@ const PitchView: React.FC<PitchViewProps> = ({
   ballTrackingPoints,
   mode,
   handlePitchClick,
-  addBallTrackingPoint
+  addBallTrackingPoint,
+  potentialPasser = null // Added default
 }) => {
   // Generate separate position maps for home and away teams
   const homePositions = getPlayerPositions(homeTeam, true);
@@ -111,6 +113,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
             allowCircularMenu={allowCircularMenu}
+            isPotentialPasser={potentialPasser?.id === player.id}
           />
         ))}
         
@@ -128,6 +131,7 @@ const PitchView: React.FC<PitchViewProps> = ({
             onEventSelect={handleEventSelect}
             selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
             allowCircularMenu={allowCircularMenu}
+            isPotentialPasser={potentialPasser?.id === player.id}
           />
         ))}
         
