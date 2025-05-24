@@ -64,9 +64,20 @@ const MatchEventsTimeline: React.FC<MatchEventsTimelineProps> = ({ events, homeT
         const teamName = event.teamId === 'home' ? homeTeam.name : awayTeam.name;
         const playerName = getPlayerName(event.teamId, event.playerId);
         const eventType = event.type.charAt(0).toUpperCase() + event.type.slice(1).replace('-', ' ');
+
+        let statusStyle: React.CSSProperties = {};
+        let statusText = '';
+
+        if (event.status === 'pending_confirmation') {
+          statusStyle = { opacity: 0.6, fontStyle: 'italic' };
+          statusText = '(Pending)';
+        } else if (event.status === 'failed') {
+          statusStyle = { textDecoration: 'line-through', color: 'red' };
+          statusText = '(Failed)';
+        }
         
         return (
-          <div key={event.id} className="flex items-start">
+          <div key={event.id} className="flex items-start" style={statusStyle}>
             <div className="flex-none w-14 text-right font-mono font-medium text-sm mt-1">
               {formatTime(event.timestamp)}
             </div>
@@ -77,7 +88,7 @@ const MatchEventsTimeline: React.FC<MatchEventsTimelineProps> = ({ events, homeT
             
             <div className="flex-1">
               <div className="font-medium">
-                {eventType}
+                {eventType} {statusText && <span className="text-xs ml-1">{statusText}</span>}
               </div>
               <div className="text-sm text-muted-foreground">
                 {playerName}, {teamName}
