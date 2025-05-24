@@ -85,9 +85,16 @@ const MatchAnalysis: React.FC = () => {
 
   // Initialize useMatchCollaboration
   // Note: The recordEvent from useMatchCollaboration is the one to be passed to useMatchState's actions
-  const { events: collaborativeEvents, recordEvent: collaborativeRecordEventFn } = useMatchCollaboration({ 
+  const { 
+    events: collaborativeEvents, 
+    lastReceivedEvent, 
+    recordEvent: collaborativeRecordEventFn 
+  } = useMatchCollaboration({ 
     matchId: matchId || undefined // Pass undefined if matchId is null/undefined
   });
+
+  const [lastProcessedEventId, setLastProcessedEventId] = useState<string | null>(null);
+  const [initialEventsProcessed, setInitialEventsProcessed] = useState(false);
 
   const [match, setMatch] = useState(matchState.match);
   const [homeTeam, setHomeTeam] = useState<Team>(matchState.homeTeam || defaultHomeTeam);
@@ -134,6 +141,8 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.matchEvents) {
             matchState.setMatchEvents(matchData.matchEvents);
           }
+          const loadedBallPathHistory = matchData.ballPathHistory || [];
+          matchState.setBallPathHistory(loadedBallPathHistory);
           
           setMatch(matchData);
           setHomeTeam(matchData.homeTeam || defaultHomeTeam);
@@ -145,6 +154,7 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.ballTrackingPoints) {
             setBallTrackingPoints(matchData.ballTrackingPoints);
           }
+          setBallPathHistory(loadedBallPathHistory);
           
           console.log("Loaded Match Data:", matchData);
         } catch (error) {
@@ -211,13 +221,28 @@ const MatchAnalysis: React.FC = () => {
 
   // Effect to process collaborative events and update local state
   useEffect(() => {
-    if (matchId && collaborativeEvents && collaborativeEvents.length > 0) {
-      console.log("Processing collaborative events:", collaborativeEvents);
+    // Process the initial batch of events
+    if (matchId && collaborativeEvents && collaborativeEvents.length > 0 && !initialEventsProcessed) {
+      console.log("Processing initial collaborative events batch:", collaborativeEvents);
       matchState.processEventsForLocalState(collaborativeEvents);
+      setInitialEventsProcessed(true); // Mark initial processing as done
+      // Set the last processed ID to the last event from the initial batch to avoid reprocessing it via single event logic
+      if (collaborativeEvents.length > 0) {
+        setLastProcessedEventId(collaborativeEvents[collaborativeEvents.length - 1].id);
+      }
     }
-    // If matchId is not present, or collaborativeEvents is empty, this effect does nothing,
-    // which is fine as local state updates would be handled directly by recordEvent/recordPass.
-  }, [collaborativeEvents, matchId, matchState.processEventsForLocalState]);
+  }, [collaborativeEvents, matchId, matchState.processEventsForLocalState, initialEventsProcessed]);
+
+  // Effect to process single new remote events incrementally
+  useEffect(() => {
+    if (lastReceivedEvent && matchState.processSingleRemoteEvent) {
+      if (lastReceivedEvent.id !== lastProcessedEventId) {
+        console.log("Processing single remote event:", lastReceivedEvent);
+        matchState.processSingleRemoteEvent(lastReceivedEvent);
+        setLastProcessedEventId(lastReceivedEvent.id);
+      }
+    }
+  }, [lastReceivedEvent, matchState.processSingleRemoteEvent, lastProcessedEventId]);
 
 
   // Wrapped event handlers
@@ -359,6 +384,7 @@ const MatchAnalysis: React.FC = () => {
                         potentialPasser={potentialPasser}
                         setPotentialPasser={matchState.setPotentialPasser}
                         onRecordPass={wrappedRecordPass} // Pass the wrapped action
+                        ballTrackingPoints={ballTrackingPoints} // Pass the ball tracking points
                         handleEventSelect={ (eventType, playerFromMarker, coords) => {
                             let teamIdStr: 'home' | 'away';
                             if (homeTeam && homeTeam.players.some(p => p.id === playerFromMarker.id)) {

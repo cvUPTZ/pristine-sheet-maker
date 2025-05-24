@@ -467,7 +467,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
                           <line 
                             x1={`${startCoordinates.x * 100}%`} y1={`${startCoordinates.y * 100}%`} 
                             x2={`${endCoordinates.x * 100}%`} y2={`${endCoordinates.y * 100}%`} 
-                            stroke={wasIntercepted ? "#ff3333" : "#ffffff"} 
+                            stroke={wasIntercepted ? "#ff3333" : "#000000"} 
                             strokeWidth="2" 
                             strokeDasharray={wasIntercepted ? "5,5" : index === ballPathHistory.length - 1 ? "none" : "5,5"} 
                             opacity={0.7 - 0.1 * (ballPathHistory.length - index - 1)} 

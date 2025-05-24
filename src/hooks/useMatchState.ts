@@ -20,6 +20,8 @@ interface MatchState {
   isPassTrackingModeActive: boolean;
   potentialPasser: Player | null;
   ballPathHistory: BallPath[];
+  homeEventsCount: number;
+  awayEventsCount: number;
 }
 
 // Define the BallPath interface
@@ -64,7 +66,9 @@ const initialMatchState: MatchState = {
   playerStats: [],
   isPassTrackingModeActive: false,
   potentialPasser: null,
-  ballPathHistory: []
+  ballPathHistory: [],
+  homeEventsCount: 0,
+  awayEventsCount: 0,
 };
 
 interface MatchActions {
@@ -109,7 +113,9 @@ interface MatchActions {
     collaborativeRecordEventFn?: CollaborativeRecordEventFn,
     matchIdForCollaboration?: string
   ) => void;
-  processEventsForLocalState: (events: MatchEvent[]) => void; // New action
+  processEventsForLocalState: (events: MatchEvent[]) => void; 
+  setBallPathHistory: (paths: BallPath[]) => void;
+  processSingleRemoteEvent: (newEvent: MatchEvent) => void; 
 }
 
 // Define the type for the collaborative recordEvent function
@@ -157,7 +163,39 @@ export const useMatchState = (): MatchState & MatchActions => {
   }, []);
   
   const setMatchEvents = useCallback((events: MatchEvent[]) => {
-    setState(prev => ({ ...prev, matchEvents: events }));
+    setState(prev => {
+      if (!prev.homeTeam || !prev.awayTeam) {
+        console.warn("setMatchEvents: Home or Away team not set. Cannot accurately calculate event counts for possession.");
+        return { ...prev, matchEvents: events };
+      }
+      let newHomeEventsCount = 0;
+      let newAwayEventsCount = 0;
+      events.forEach(event => {
+        if (event.teamId === prev.homeTeam!.id) {
+          newHomeEventsCount++;
+        } else if (event.teamId === prev.awayTeam!.id) {
+          newAwayEventsCount++;
+        }
+      });
+
+      const newTotalEvents = newHomeEventsCount + newAwayEventsCount;
+      const newPossessionHome = newTotalEvents > 0 ? Math.round((newHomeEventsCount / newTotalEvents) * 100) : 50;
+      const newPossessionAway = newTotalEvents > 0 ? 100 - newPossessionHome : 50;
+
+      return {
+        ...prev,
+        matchEvents: events,
+        homeEventsCount: newHomeEventsCount,
+        awayEventsCount: newAwayEventsCount,
+        statistics: {
+          ...prev.statistics,
+          possession: {
+            home: newPossessionHome,
+            away: newPossessionAway,
+          },
+        },
+      };
+    });
   }, []);
 
   const updateStatistics = useCallback((stats: Partial<Statistics>) => {
@@ -248,6 +286,10 @@ export const useMatchState = (): MatchState & MatchActions => {
     setState(prev => ({ ...prev, potentialPasser: player }));
   }, []);
 
+  const setBallPathHistory = useCallback((paths: BallPath[]) => {
+    setState(prev => ({ ...prev, ballPathHistory: paths }));
+  }, []);
+
   const addEvent = useCallback((type: EventType, coordinates: { x: number; y: number }) => {
     setState(prev => {
       const event: MatchEvent = {
@@ -304,7 +346,8 @@ export const useMatchState = (): MatchState & MatchActions => {
         statistics: prev.statistics,
         ballTrackingPoints: prev.ballTrackingPoints,
         timeSegments: matchTimeSegments,
-        playerStats
+        playerStats,
+        ballPathHistory: prev.ballPathHistory,
       };
       
       console.log('Saving match data:', matchData);
@@ -327,90 +370,146 @@ export const useMatchState = (): MatchState & MatchActions => {
       coordinates: { x: number; y: number },
       collaborativeRecordEventFn?: CollaborativeRecordEventFn,
       matchIdForCollaboration?: string,
-      relatedPlayerId?: number
+      relatedPlayerId?: number,
+      // Pass specific coordinates for passer if eventType is 'pass', for BallPath creation
+      passerCoordsForBallPath?: { x: number; y: number } 
     ) => {
-      const currentElapsedTime = state.elapsedTime; // Capture current time for consistency
+      const currentElapsedTime = state.elapsedTime;
       const actualTeamId = teamIdStr === 'home' ? state.homeTeam?.id : state.awayTeam?.id;
 
       if (!actualTeamId) {
-        console.error("Team ID could not be determined in recordEvent. Home/Away team may not be set.");
+        console.error("Team ID could not be determined. Home/Away team may not be set.");
         return;
       }
+
+      const eventId = `cl_event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newEvent: MatchEvent = {
+        id: eventId,
+        matchId: state.match?.id || matchIdForCollaboration || 'temp-match',
+        teamId: actualTeamId,
+        playerId,
+        type: eventType,
+        timestamp: currentElapsedTime,
+        coordinates, // These are receiver's coordinates for a pass
+        relatedPlayerId,
+      };
+
+      // Optimistic update logic, applicable to both collab and local if structured well
+      const applyOptimisticUpdate = (prev: MatchState): MatchState => {
+        let updatedStats = JSON.parse(JSON.stringify(prev.statistics));
+        let updatedBallPathHistory = [...prev.ballPathHistory];
+        let newHomeEventsCount = prev.homeEventsCount;
+        let newAwayEventsCount = prev.awayEventsCount;
+
+        // Update event counts
+        if (newEvent.teamId === prev.homeTeam?.id) {
+          newHomeEventsCount++;
+        } else if (newEvent.teamId === prev.awayTeam?.id) {
+          newAwayEventsCount++;
+        }
+
+        // Update specific event type stats
+        if (newEvent.type === 'pass') {
+          if (teamIdStr === 'home') {
+            updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+            updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
+            updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+          } else {
+            updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+            updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
+            updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+          }
+          // Optimistically update ballPathHistory for pass
+          // Ensure passerCoordsForBallPath and relatedPlayerId (receiverId) are available
+          if (passerCoordsForBallPath && newEvent.relatedPlayerId && prev.homeTeam && prev.awayTeam) {
+            const receiverTeamIdStr = prev.homeTeam.players.some(p => p.id === newEvent.relatedPlayerId) ? 'home' : 'away';
+            const actualReceiverTeamId = receiverTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
+
+            const newPath: BallPath = {
+              id: `ballpath-${newEvent.id}`, // Link BallPath to event
+              passer: { id: newEvent.playerId, teamId: newEvent.teamId },
+              receiver: { id: newEvent.relatedPlayerId, teamId: actualReceiverTeamId! },
+              startCoordinates: passerCoordsForBallPath,
+              endCoordinates: newEvent.coordinates, // newEvent.coordinates are receiver's coords
+              eventType: 'pass',
+              timestamp: newEvent.timestamp,
+            };
+            updatedBallPathHistory.push(newPath);
+            console.log('[useMatchState] Optimistically added to ballPathHistory:', newPath);
+          }
+
+        } else if (newEvent.type === 'shot') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+            // Placeholder for onTarget/offTarget, assuming meta if available
+            if (newEvent.meta?.onTarget) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+          } else {
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+            if (newEvent.meta?.onTarget) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+          }
+        } else if (newEvent.type === 'goal') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+          } else {
+            updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+          }
+        } else if (newEvent.type === 'corner') {
+          if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1;
+          else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
+        } else if (newEvent.type === 'yellowCard') {
+          if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1;
+          else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
+        } else if (newEvent.type === 'redCard') {
+          if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1;
+          else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
+        }
+        // ... other event types
+
+        // Update possession
+        const totalEvents = newHomeEventsCount + newAwayEventsCount;
+        if (totalEvents > 0) {
+          updatedStats.possession.home = Math.round((newHomeEventsCount / totalEvents) * 100);
+          updatedStats.possession.away = 100 - updatedStats.possession.home;
+        } else {
+          updatedStats.possession = { home: 50, away: 50 };
+        }
+
+        return {
+          ...prev,
+          matchEvents: [...prev.matchEvents, newEvent],
+          statistics: updatedStats,
+          ballPathHistory: updatedBallPathHistory,
+          homeEventsCount: newHomeEventsCount,
+          awayEventsCount: newAwayEventsCount,
+        };
+      };
       
       if (matchIdForCollaboration && collaborativeRecordEventFn && state.match?.id) {
-        // Collaborative mode: send event via collaborative function
+        // Collaborative mode: Optimistic update first
+        console.log('[useMatchState] Optimistically applying event (collab):', newEvent);
+        setState(applyOptimisticUpdate);
+        
+        // Then send to backend
         collaborativeRecordEventFn(
           eventType,
           playerId,
-          actualTeamId, // Pass the actual team ID string
-          coordinates,
-          currentElapsedTime // Use captured timestamp
+          actualTeamId,
+          coordinates, // Receiver's coords for pass
+          currentElapsedTime,
+          eventId, // Pass the generated eventId
+          relatedPlayerId // Pass receiverId for pass
         );
-        // DO NOT update local state directly here. It will be updated via Supabase subscription.
       } else {
-        // Local mode: update state directly
-        setState(prev => {
-          const event: MatchEvent = {
-            id: `event-${Date.now()}`,
-            matchId: prev.match?.id || 'temp-match', // Use existing matchId or temp
-            teamId: actualTeamId,
-            playerId,
-            type: eventType,
-            timestamp: currentElapsedTime,
-            coordinates,
-            relatedPlayerId,
-          };
-          const updatedEvents = [...prev.matchEvents, event];
-          
-          let updatedStats = { ...prev.statistics };
-          // Update stats (logic copied from original recordEvent, ensure it's complete)
-          if (eventType === 'pass') {
-            if (teamIdStr === 'home') {
-              updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
-              updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1;
-              updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
-            } else {
-              updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
-              updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1;
-              updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
-            }
-          } else if (eventType === 'shot') {
-             if (teamIdStr === 'home') {
-                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-                if (Math.random() > 0.5) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1; else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
-             } else {
-                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-                if (Math.random() > 0.5) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1; else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
-             }
-          } else if (eventType === 'goal') {
-             if (teamIdStr === 'home') {
-                updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
-                updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
-             } else {
-                updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
-                updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
-             }
-          } else if (eventType === 'corner') {
-             if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1; else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
-          } else if (eventType === 'yellowCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1; else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
-          } else if (eventType === 'redCard') {
-             if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1; else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
-          }
-          // Simplified possession update - consider a more robust calculation if needed
-          const homeEventsCount = updatedEvents.filter(e => e.teamId === prev.homeTeam?.id).length;
-          const awayEventsCount = updatedEvents.filter(e => e.teamId === prev.awayTeam?.id).length;
-          const totalEvents = homeEventsCount + awayEventsCount;
-          if (totalEvents > 0) {
-            updatedStats.possession.home = Math.round((homeEventsCount / totalEvents) * 100);
-            updatedStats.possession.away = 100 - updatedStats.possession.home;
-          }
-          
-          return { ...prev, matchEvents: updatedEvents, statistics: updatedStats };
-        });
+        // Local mode: update state directly using the same optimistic logic
+        console.log('[useMatchState] Applying event (local):', newEvent);
+        setState(applyOptimisticUpdate);
       }
     },
-    [state.elapsedTime, state.homeTeam, state.awayTeam, state.match] // Dependencies for captured values
+    [state.elapsedTime, state.homeTeam, state.awayTeam, state.match]
   );
 
   const recordPass = useCallback(
@@ -430,44 +529,22 @@ export const useMatchState = (): MatchState & MatchActions => {
         return;
       }
 
-      // For collaborative mode, recordEvent will handle the collaborative call
-      // For local mode, recordEvent will update stats, and we'll add to ballPathHistory here
+      // For collaborative mode, recordEvent will handle the optimistic update including BallPath.
+      // For local mode, recordEvent will also handle BallPath if passerCoordsForBallPath is passed.
       recordEvent(
         'pass',
         passer.id,
         passerTeamIdStr,
-        receiverCoords, // Pass event occurs at receiver's location
+        receiverCoords, // Pass event occurs at receiver's location (this is newEvent.coordinates in recordEvent)
         collaborativeRecordEventFn,
         matchIdForCollaboration,
-        receiver.id // Pass receiver.id as relatedPlayerId
+        receiver.id, // Pass receiver.id as relatedPlayerId
+        passerCoords // Pass passerCoords for BallPath creation in recordEvent
       );
-
-      // If not in collaborative mode, update ballPathHistory locally.
-      // In collaborative mode, this will be rebuilt by processEventsForLocalState.
-      if (!(matchIdForCollaboration && collaborativeRecordEventFn)) {
-        setState(prev => {
-          // Ensure homeTeam and awayTeam are checked again as they are from `prev` context
-          if (!prev.homeTeam || !prev.awayTeam) return prev; 
-          const actualPasserTeamIdForPath = passerTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
-          const actualReceiverTeamIdForPath = receiverTeamIdStr === 'home' ? prev.homeTeam.id : prev.awayTeam.id;
-
-          const newBallPath: BallPath = {
-            id: `ballpath-${Date.now()}`,
-            passer: { id: passer.id, teamId: actualPasserTeamIdForPath },
-            receiver: { id: receiver.id, teamId: actualReceiverTeamIdForPath },
-            startCoordinates: passerCoords,
-            endCoordinates: receiverCoords,
-            eventType: 'pass',
-            timestamp: prev.elapsedTime, // Use prev.elapsedTime for consistency within setState
-          };
-          return {
-            ...prev,
-            ballPathHistory: [...prev.ballPathHistory, newBallPath],
-          };
-        });
-      }
+      // The specific ballPathHistory update logic is now consolidated into recordEvent's optimistic update path.
+      // No separate setState for ballPathHistory needed here for either mode.
     },
-    [recordEvent, state.homeTeam, state.awayTeam] // recordEvent is a dependency
+    [recordEvent] // Dependencies: only recordEvent as team/state access is within recordEvent
   );
 
   const processEventsForLocalState = useCallback((events: MatchEvent[]) => {
@@ -480,9 +557,18 @@ export const useMatchState = (): MatchState & MatchActions => {
       // 1. Reset/Initialize relevant state
       const newStats = JSON.parse(JSON.stringify(initialMatchState.statistics)); // Deep copy
       const newBallPathHistory: BallPath[] = [];
+      let currentHomeEventsCount = 0;
+      let currentAwayEventsCount = 0;
 
       // 2. Process events to rebuild statistics and ballPathHistory
       events.forEach(event => {
+        // Increment event counts
+        if (event.teamId === prev.homeTeam!.id) {
+          currentHomeEventsCount++;
+        } else if (event.teamId === prev.awayTeam!.id) {
+          currentAwayEventsCount++;
+        }
+
         const teamIdStr = event.teamId === prev.homeTeam?.id ? 'home' : 
                           event.teamId === prev.awayTeam?.id ? 'away' : null;
 
@@ -500,6 +586,7 @@ export const useMatchState = (): MatchState & MatchActions => {
             newStats.passes.away.total = (newStats.passes.away.total || 0) + 1;
           }
           // Reconstruct BallPath if relatedPlayerId (receiver) exists
+          console.log('[processEvents] Processing pass event:', event);
           if (event.relatedPlayerId && event.coordinates) {
              const passerPlayer = prev.homeTeam?.players.find(p => p.id === event.playerId) || prev.awayTeam?.players.find(p => p.id === event.playerId);
              const receiverPlayer = prev.homeTeam?.players.find(p => p.id === event.relatedPlayerId) || prev.awayTeam?.players.find(p => p.id === event.relatedPlayerId);
@@ -507,6 +594,7 @@ export const useMatchState = (): MatchState & MatchActions => {
 
 
              if (passerPlayer && receiverPlayer && prev.teamPositions[passerPlayer.id] && receiverTeamId) {
+                console.log('[processEvents] Creating BallPath with:', { passerPlayer, receiverPlayer, passerTeamPos: prev.teamPositions[passerPlayer.id], receiverCoords: event.coordinates });
                 newBallPathHistory.push({
                   id: `ballpath-evt-${event.id}`,
                   passer: { id: passerPlayer.id, teamId: event.teamId }, // event.teamId is passer's team
@@ -516,7 +604,11 @@ export const useMatchState = (): MatchState & MatchActions => {
                   eventType: 'pass',
                   timestamp: event.timestamp,
                 });
+             } else {
+               console.log('[processEvents] Cannot create BallPath due to missing player data or passer position:', { passerExists: !!passerPlayer, receiverExists: !!receiverPlayer, passerPosAvailable: !!prev.teamPositions[passerPlayer?.id], receiverTeamIdExists: !!receiverTeamId });
              }
+          } else {
+            console.log('[processEvents] Pass event missing relatedPlayerId or coordinates, cannot create BallPath:', event);
           }
         } else if (event.type === 'shot') {
            if (teamIdStr === 'home') {
@@ -547,24 +639,150 @@ export const useMatchState = (): MatchState & MatchActions => {
       });
       
       // Update possession from the processed events
-      const homeEventsCount = events.filter(e => e.teamId === prev.homeTeam?.id).length;
-      const awayEventsCount = events.filter(e => e.teamId === prev.awayTeam?.id).length;
-      const totalProcEvents = homeEventsCount + awayEventsCount;
+      const totalProcEvents = currentHomeEventsCount + currentAwayEventsCount;
       if (totalProcEvents > 0) {
-        newStats.possession.home = Math.round((homeEventsCount / totalProcEvents) * 100);
+        newStats.possession.home = Math.round((currentHomeEventsCount / totalProcEvents) * 100);
         newStats.possession.away = 100 - newStats.possession.home;
       } else {
         newStats.possession = { home: 50, away: 50 }; // Default if no events
       }
 
+      console.log('[processEvents] Reconstructed ballPathHistory with length:', newBallPathHistory.length);
       return {
         ...prev,
         matchEvents: events, // Set the new source of truth for events
         statistics: newStats,
         ballPathHistory: newBallPathHistory,
+        homeEventsCount: currentHomeEventsCount,
+        awayEventsCount: currentAwayEventsCount,
       };
     });
   }, []);
+
+  const processSingleRemoteEvent = useCallback((newEvent: MatchEvent) => {
+    setState(prev => {
+      if (!prev.homeTeam || !prev.awayTeam) {
+        console.warn("[processSingleRemoteEvent] Home or Away team not set. Skipping event processing.", newEvent);
+        return prev;
+      }
+
+      // Check if the event already exists (echo of an optimistic update)
+      if (prev.matchEvents.some(event => event.id === newEvent.id)) {
+        console.log('[processSingleRemoteEvent] Received echo for optimistically applied event: ', newEvent.id);
+        // Optionally, update the existing event if newEvent has more authoritative data.
+        // For now, just return prev as the event is already applied.
+        return prev;
+      }
+
+      // Event does not exist, process it as a genuinely new remote event
+      console.log('[processSingleRemoteEvent] Processing new remote event:', newEvent);
+      let updatedStats = JSON.parse(JSON.stringify(prev.statistics));
+      let updatedBallPathHistory = [...prev.ballPathHistory];
+      const updatedMatchEvents = [...prev.matchEvents, newEvent]; // Add the new event
+      
+      let newHomeEventsCount = prev.homeEventsCount;
+      let newAwayEventsCount = prev.awayEventsCount;
+
+      const teamIdStr = newEvent.teamId === prev.homeTeam.id ? 'home' : 
+                        newEvent.teamId === prev.awayTeam.id ? 'away' : null;
+
+      if (teamIdStr) {
+        if (newEvent.teamId === prev.homeTeam.id) {
+          newHomeEventsCount++;
+        } else if (newEvent.teamId === prev.awayTeam.id) {
+          newAwayEventsCount++;
+        }
+
+        if (newEvent.type === 'pass') {
+          if (teamIdStr === 'home') {
+            updatedStats.passes.home.attempted = (updatedStats.passes.home.attempted || 0) + 1;
+            updatedStats.passes.home.successful = (updatedStats.passes.home.successful || 0) + 1; // Assuming success
+            updatedStats.passes.home.total = (updatedStats.passes.home.total || 0) + 1;
+          } else {
+            updatedStats.passes.away.attempted = (updatedStats.passes.away.attempted || 0) + 1;
+            updatedStats.passes.away.successful = (updatedStats.passes.away.successful || 0) + 1; // Assuming success
+            updatedStats.passes.away.total = (updatedStats.passes.away.total || 0) + 1;
+          }
+
+          // Create and add new BallPath for the pass event
+          if (newEvent.relatedPlayerId && newEvent.coordinates) {
+            const passerPlayer = prev.homeTeam?.players.find(p => p.id === newEvent.playerId) || 
+                                 prev.awayTeam?.players.find(p => p.id === newEvent.playerId);
+            const receiverPlayer = prev.homeTeam?.players.find(p => p.id === newEvent.relatedPlayerId) || 
+                                   prev.awayTeam?.players.find(p => p.id === newEvent.relatedPlayerId);
+            const receiverTeamId = receiverPlayer ? 
+                                   (prev.homeTeam?.players.some(p => p.id === receiverPlayer.id) ? prev.homeTeam.id : prev.awayTeam?.id) 
+                                   : null;
+
+            if (passerPlayer && receiverPlayer && prev.teamPositions[passerPlayer.id] && receiverTeamId) {
+              const newPath: BallPath = {
+                id: `ballpath-evt-${newEvent.id}`, // Ensure unique ID
+                passer: { id: passerPlayer.id, teamId: newEvent.teamId },
+                receiver: { id: receiverPlayer.id, teamId: receiverTeamId },
+                startCoordinates: prev.teamPositions[passerPlayer.id], // Approximation
+                endCoordinates: newEvent.coordinates,
+                eventType: 'pass',
+                timestamp: newEvent.timestamp,
+              };
+              updatedBallPathHistory.push(newPath);
+            } else {
+               console.warn('[processSingleRemoteEvent] Could not create BallPath for pass event due to missing data:', { event: newEvent, passerPlayer, receiverPlayer, receiverTeamId });
+            }
+          }
+        } else if (newEvent.type === 'shot') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+            // Assuming some logic to determine on/off target, placeholder:
+            if (newEvent.meta?.onTarget) updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            else updatedStats.shots.home.offTarget = (updatedStats.shots.home.offTarget || 0) + 1;
+          } else {
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+            if (newEvent.meta?.onTarget) updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            else updatedStats.shots.away.offTarget = (updatedStats.shots.away.offTarget || 0) + 1;
+          }
+        } else if (newEvent.type === 'goal') {
+          if (teamIdStr === 'home') {
+            updatedStats.shots.home.onTarget = (updatedStats.shots.home.onTarget || 0) + 1;
+            updatedStats.shots.home.total = (updatedStats.shots.home.total || 0) + 1;
+          } else {
+            updatedStats.shots.away.onTarget = (updatedStats.shots.away.onTarget || 0) + 1;
+            updatedStats.shots.away.total = (updatedStats.shots.away.total || 0) + 1;
+          }
+        } else if (newEvent.type === 'corner') {
+          if (teamIdStr === 'home') updatedStats.corners.home = (updatedStats.corners.home || 0) + 1;
+          else updatedStats.corners.away = (updatedStats.corners.away || 0) + 1;
+        } else if (newEvent.type === 'yellowCard') {
+          if (teamIdStr === 'home') updatedStats.cards.home.yellow = (updatedStats.cards.home.yellow || 0) + 1;
+          else updatedStats.cards.away.yellow = (updatedStats.cards.away.yellow || 0) + 1;
+        } else if (newEvent.type === 'redCard') {
+          if (teamIdStr === 'home') updatedStats.cards.home.red = (updatedStats.cards.home.red || 0) + 1;
+          else updatedStats.cards.away.red = (updatedStats.cards.away.red || 0) + 1;
+        }
+        // Add other event types as needed...
+      }
+
+      // Recalculate possession based on the new counts
+      const totalEvents = newHomeEventsCount + newAwayEventsCount;
+      if (totalEvents > 0) {
+        updatedStats.possession.home = Math.round((newHomeEventsCount / totalEvents) * 100);
+        updatedStats.possession.away = 100 - updatedStats.possession.home;
+      } else {
+        // Default possession if no events
+        updatedStats.possession = { home: 50, away: 50 };
+      }
+      
+      console.log('[processSingleRemoteEvent] Applied event:', newEvent, 'New stats:', updatedStats, 'New paths:', updatedBallPathHistory.length);
+
+      return {
+        ...prev,
+        matchEvents: updatedMatchEvents,
+        statistics: updatedStats,
+        ballPathHistory: updatedBallPathHistory,
+        homeEventsCount: newHomeEventsCount,
+        awayEventsCount: newAwayEventsCount,
+      };
+    });
+  }, []); // Dependencies: Ensure any direct state access outside setState (like initialMatchState) is stable or included.
 
 
   const calculateTimeSegments = useCallback((): TimeSegmentStatistics[] => {
@@ -613,6 +831,8 @@ export const useMatchState = (): MatchState & MatchActions => {
     togglePassTrackingMode,
     setPotentialPasser,
     recordPass,
-    processEventsForLocalState
+    processEventsForLocalState,
+    setBallPathHistory,
+    processSingleRemoteEvent
   };
 };
