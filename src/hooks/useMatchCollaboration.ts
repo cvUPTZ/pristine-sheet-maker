@@ -33,7 +33,8 @@ interface UseMatchCollaborationProps {
 
 export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) => {
   const [users, setUsers] = useState<CollaborativeUser[]>([]);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]); // For initial load and full history
+  const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null); // For incremental updates
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -114,7 +115,10 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
               y: newEvent.coordinates.y || 0 
             } : { x: 0, y: 0 }
           };
+          // Update the list of all events (for initial load or full history needs)
           setEvents(prev => [...prev, formattedEvent]);
+          // Set the single last received event for incremental processing
+          setLastReceivedEvent(formattedEvent); 
           
           toast({
             title: "New Event",
@@ -214,7 +218,9 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     playerId: number,
     teamId: string,
     coordinates: { x: number; y: number },
-    timestamp: number
+    timestamp: number,
+    eventId?: string, // Add eventId, make it optional for now if other calls don't provide it
+    relatedPlayerId?: number // Add relatedPlayerId, make it optional
   ) => {
     if (!matchId || !user) return;
 
@@ -230,12 +236,15 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
         },
         body: JSON.stringify({
           match_id: matchId,
+          id: eventId, // Use the provided eventId
+          match_id: matchId,
           event_type: eventType,
           player_id: playerId,
           team: teamId,
           coordinates: coordinates,
           timestamp: timestamp,
-          created_by: user.id
+          created_by: user.id,
+          related_player_id: relatedPlayerId // Add related_player_id to the body
         })
       });
 
@@ -258,6 +267,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
   return {
     users,
     events,
+    lastReceivedEvent, // Expose the new state
     isLoading,
     recordEvent
   };

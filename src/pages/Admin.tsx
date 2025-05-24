@@ -88,56 +88,41 @@ const Admin = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      // Get all users
-      const usersResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,created_at,full_name`, {
+      if (!session?.access_token) {
+        throw new Error("User session not found. Cannot fetch users.");
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/get-all-users`, {
+        method: 'GET',
         headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
           'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${session?.access_token}`
-        }
+        },
       });
-      
-      if (!usersResponse.ok) {
-        throw new Error(`Failed to fetch profiles: ${usersResponse.statusText}`);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Failed to fetch users: ${response.statusText}`);
       }
       
-      const profilesData = await usersResponse.json();
-      
-      // Get all user roles
-      const rolesResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?select=user_id,role`, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      });
-      
-      if (!rolesResponse.ok) {
-        throw new Error(`Failed to fetch roles: ${rolesResponse.statusText}`);
+      if (result.usersWithRoles) {
+        setUsers(result.usersWithRoles);
+      } else {
+        // Handle cases where the expected data structure is not returned
+        console.error('Fetched data does not contain usersWithRoles:', result);
+        throw new Error('Invalid data structure received from server.');
       }
-      
-      const rolesData = await rolesResponse.json();
-      
-      // Map roles to users
-      const usersWithRoles = profilesData.map((user: any) => {
-        const userRole = Array.isArray(rolesData) 
-          ? rolesData.find((role: any) => role.user_id === user.id) 
-          : null;
-        
-        return {
-          id: user.id,
-          email: user.full_name, // Using full_name as we don't have email in profiles
-          created_at: user.created_at,
-          role: userRole ? userRole.role : null
-        };
-      });
-      
-      setUsers(usersWithRoles);
-    } catch (error) {
-      console.error('Error fetching users:', error);
+
+    } catch (error: any) {
+      console.error('Error fetching users via Edge Function:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load users. Please try again later.',
+        title: 'Error Fetching Users',
+        description: error.message || 'Failed to load users. Please try again later.',
         variant: 'destructive',
       });
+      setUsers([]); // Clear users on error or set to a default
     } finally {
       setIsLoading(false);
     }
@@ -231,50 +216,47 @@ const Admin = () => {
 
   const createNewUser = async () => {
     try {
-      // Create new user with Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: newUserEmail,
-        password: newUserPassword,
-        email_confirm: true,
-        user_metadata: { full_name: newUserFullName }
+      if (!session?.access_token) {
+        throw new Error("User session not found. Cannot create user.");
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY 
+        },
+        body: JSON.stringify({
+          email: newUserEmail,
+          password: newUserPassword,
+          fullName: newUserFullName, 
+          role: selectedRole 
+        }),
       });
 
-      if (error) {
-        throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Failed to create user: ${response.statusText}`);
       }
 
-      // Add role for the new user
-      if (data.user) {
-        await fetch(`${SUPABASE_URL}/rest/v1/user_roles`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({ 
-            user_id: data.user.id,
-            role: selectedRole
-          })
-        });
-        
-        toast({
-          title: 'User Created',
-          description: `${newUserEmail} has been successfully created with ${selectedRole} role.`,
-        });
-        
-        // Refresh user list
-        await fetchUsers();
-        
-        // Reset form and close dialog
-        setNewUserEmail('');
-        setNewUserPassword('');
-        setNewUserFullName('');
-        setIsNewUserDialogOpen(false);
-      }
+      // User created successfully by the Edge Function
+      toast({
+        title: 'User Created',
+        description: `${newUserEmail} has been successfully created with ${selectedRole} role. User ID: ${result.userId}`,
+      });
+
+      await fetchUsers(); // Refresh user list
+
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserFullName('');
+      setSelectedRole('viewer'); // Reset role selection for next creation
+      setIsNewUserDialogOpen(false);
+
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      console.error('Error creating user via Edge Function:', error);
       toast({
         title: 'Error Creating User',
         description: error.message || 'Failed to create user.',

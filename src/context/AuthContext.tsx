@@ -13,6 +13,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   userRole: 'admin' | 'tracker' | 'viewer' | null;
+  assignedEventCategories: string[] | null;
 };
 
 // Define interfaces for custom tables not in the auto-generated types
@@ -30,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'admin' | 'tracker' | 'viewer' | null>(null);
+  const [assignedEventCategories, setAssignedEventCategories] = useState<string[] | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,7 +58,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRoleFromDB(initialSession);
+        fetchUserRoleFromDB(initialSession).then(role => {
+          if (initialSession.user && role === 'tracker') {
+            fetchTrackerAssignments(initialSession.user.id);
+          } else {
+            setAssignedEventCategories(null);
+          }
+        });
+      } else {
+        setAssignedEventCategories(null);
       }
       
       setLoading(false);
@@ -64,6 +74,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, []);
+
+
+  const fetchTrackerAssignments = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tracker_assignments')
+        .select('event_category')
+        .eq('tracker_id', userId);
+
+      if (error) {
+        console.error('Error fetching tracker assignments:', error);
+        toast({
+          title: "Error",
+          description: "Could not fetch tracker event assignments.",
+          variant: "destructive",
+        });
+        setAssignedEventCategories([]); // Default to empty or handle appropriately
+        return;
+      }
+      setAssignedEventCategories(data ? data.map(item => item.event_category) : []);
+    } catch (e) {
+      console.error('Exception fetching tracker assignments:', e);
+      setAssignedEventCategories([]);
+       toast({
+          title: "Error",
+          description: "An exception occurred while fetching tracker assignments.",
+          variant: "destructive",
+        });
+    }
+  };
+  
+  // Effect to fetch assignments when user or role changes (specifically when role becomes 'tracker')
+  useEffect(() => {
+    if (user && userRole === 'tracker') {
+      fetchTrackerAssignments(user.id);
+    } else {
+      setAssignedEventCategories(null); // Clear assignments if not a tracker or no user
+    }
+  }, [user, userRole]); // supabase client is stable, not needed as dependency here
 
   // First method: Use Supabase client with session token
   const fetchUserRoleWithSupabase = async (currentSession: Session) => {
@@ -131,44 +180,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Try all methods to get the role
-  const fetchUserRoleFromDB = async (currentSession: Session) => {
+  const fetchUserRoleFromDB = async (currentSession: Session): Promise<'admin' | 'tracker' | 'viewer' | null> => {
     if (!currentSession?.user) {
       console.log('No user in session');
       setUserRole(null);
-      return;
+      return null;
     }
     
     console.log('Attempting to fetch role for user:', currentSession.user.email);
     
     try {
-      // Try hardcoded role first (temporary solution)
       const hardcodedRole = getHardcodedRole(currentSession.user.email || '');
       if (hardcodedRole) {
         setUserRole(hardcodedRole);
-        return;
+        return hardcodedRole;
       }
       
-      // Try Supabase client first
       const roleFromSupabase = await fetchUserRoleWithSupabase(currentSession);
       if (roleFromSupabase) {
         console.log('Setting user role from Supabase client:', roleFromSupabase);
         setUserRole(roleFromSupabase);
-        return;
+        return roleFromSupabase;
       }
       
-      // Fall back to fetch API
       const roleFromFetch = await fetchUserRoleWithFetch(currentSession);
       if (roleFromFetch) {
         console.log('Setting user role from fetch API:', roleFromFetch);
         setUserRole(roleFromFetch);
-        return;
+        return roleFromFetch;
       }
       
       console.log('No role found after trying all methods');
       setUserRole(null);
+      return null;
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole(null);
+      return null;
     }
   };
 
@@ -260,6 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp,
       signOut,
       userRole,
+      assignedEventCategories,
     }}>
       {children}
     </AuthContext.Provider>
