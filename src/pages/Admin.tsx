@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -53,6 +52,7 @@ interface UserWithRole extends User {
 }
 
 // Define the list of event types
+// MODIFIED: Added 'export' keyword
 export const EVENT_TYPES = [
   "Attack", "Pass (P)", "Shot (S)", "Goal (G)", "Assist",
   "Defense", "Tackle (T)", "Interception (I)",
