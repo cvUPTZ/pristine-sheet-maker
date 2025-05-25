@@ -39,6 +39,8 @@ import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualiz
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
 import PianoInput from '@/components/match/PianoInput';
 import MatchTimer from '@/components/MatchTimer';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { supabase } from '@/integrations/supabase/client'; // Import supabase
 
 // Define a default statistics object to prevent undefined errors
 const defaultStatistics: Statistics = {
@@ -113,6 +115,12 @@ const MatchAnalysis: React.FC = () => {
   const [potentialPasser, setPotentialPasser] = useState(matchState.potentialPasser);
   const [ballPathHistory, setBallPathHistory] = useState(matchState.ballPathHistory || []);
 
+  // State for assigned event types
+  const { user } = useAuth(); // Get user from AuthContext
+  const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
+  const [isLoadingAssignedEventTypes, setIsLoadingAssignedEventTypes] = useState(false);
+  const [assignedEventTypesError, setAssignedEventTypesError] = useState<string | null>(null);
+
 
   useEffect(() => {
     // Load match data from localStorage based on matchId
@@ -165,6 +173,42 @@ const MatchAnalysis: React.FC = () => {
 
     loadMatchData();
   }, [matchId, matchState]);
+
+
+  // Fetch assigned event types for the current user
+  useEffect(() => {
+    const fetchAssignedEventTypes = async () => {
+      if (user) {
+        setIsLoadingAssignedEventTypes(true);
+        setAssignedEventTypesError(null);
+        try {
+          const { data, error } = await supabase
+            .from('user_event_assignments')
+            .select('event_type')
+            .eq('user_id', user.id);
+
+          if (error) {
+            throw error;
+          }
+          setAssignedEventTypes(data.map(item => item.event_type) || []);
+        } catch (err: any) {
+          console.error('Error fetching assigned event types:', err);
+          setAssignedEventTypesError(err.message || 'Failed to load assigned event types.');
+          toast({
+            title: 'Error Fetching Event Assignments',
+            description: err.message || 'Could not load your event assignments.',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsLoadingAssignedEventTypes(false);
+        }
+      } else {
+        setAssignedEventTypes([]); // Clear if no user
+      }
+    };
+
+    fetchAssignedEventTypes();
+  }, [user, toast]);
 
   // Simple toggle function for the timer
   const toggleTimer = () => {
@@ -674,7 +718,9 @@ const MatchAnalysis: React.FC = () => {
                           teamPositions={teamPositions}
                           selectedTeam={selectedTeam}
                           setSelectedTeam={setSelectedTeam}
-                          ballPathHistory={ballPathHistory} 
+                          ballPathHistory={ballPathHistory}
+                          assignedEventTypes={assignedEventTypes} // Pass down assigned event types
+                          isLoadingAssignedEventTypes={isLoadingAssignedEventTypes} // Pass loading state
                         />
                       </div>
                     ) : (
