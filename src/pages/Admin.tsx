@@ -32,24 +32,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig'; // Ensure this path is correct
 import { useAuth } from '@/context/AuthContext'; // Ensure this path is correct
 import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
-// Removed UserX as Trash2 is more common for delete
-// supabase client is used for some direct table operations (assuming RLS is set up)
+// supabase client is used for some direct table operations AND NOW FOR FUNCTION INVOCATION
 import { supabase } from '@/integrations/supabase/client'; // Ensure this path is correct
 
 interface User {
   id: string;
   email: string;
   created_at: string;
-  fullName?: string; // Added fullName
+  fullName?: string;
 }
 
-interface UserRole { // This is for the user_roles table schema, if ever fetched directly
-  id: string; // PK of the user_roles table row
-  user_id: string;
-  role: 'admin' | 'tracker' | 'viewer';
-}
-
-export interface UserWithRole extends User { // Exporting for potential use elsewhere
+export interface UserWithRole extends User {
   role: 'admin' | 'tracker' | 'viewer' | null;
   assigned_event_types: string[];
 }
@@ -65,7 +58,7 @@ export const EVENT_TYPES = [
 const Admin = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // For dialog submissions
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'tracker' | 'viewer'>('viewer');
@@ -86,35 +79,43 @@ const Admin = () => {
 
   const [selectedTab, setSelectedTab] = useState<string>('users');
   const { toast } = useToast();
-  const { session, user: currentUser } = useAuth(); // Assuming useAuth provides the current user object
+  const { session, user: currentUser } = useAuth();
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (!session?.access_token) {
+      if (!session?.access_token) { // Still good to check for session existence client-side
         throw new Error("Authentication token not found. Please log in.");
       }
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/get-all-users`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY, // Supabase Edge Functions require apikey
-        },
+      // Using supabase.functions.invoke as requested
+      const { data, error: functionError } = await supabase.functions.invoke('get-all-users', {
+        // method: 'GET', // GET is default, but can be explicit. Body not needed for this function.
+        // Supabase client automatically includes Authorization header if user is logged in.
       });
 
-      const result = await response.json();
+      // --- MODIFICATION START ---
+      console.log('RAW DATA from get-all-users:', JSON.stringify(data, null, 2));
+      console.log('FUNCTION ERROR from get-all-users:', JSON.stringify(functionError, null, 2));
+      // --- MODIFICATION END ---
 
-      if (!response.ok) {
-        throw new Error(result.error || `Failed to fetch users: ${response.statusText}`);
+      if (functionError) {
+        // This error is typically for invocation issues (network, function crash, non-2xx status code)
+        throw new Error(functionError.message || 'Failed to invoke get-all-users function.');
+      }
+
+      // `data` is the direct response body from the function.
+      // Check if the function itself returned an error in its JSON response
+      // (e.g., if it handled an error and returned a 200 OK with an error payload)
+      if (data && data.error) {
+        throw new Error(data.error || `The get-all-users function returned an error.`);
       }
       
-      if (result.usersWithRolesAndAssignments) {
-        setUsers(result.usersWithRolesAndAssignments);
+      if (data && data.usersWithRolesAndAssignments) {
+        setUsers(data.usersWithRolesAndAssignments);
       } else {
-        console.error('Fetched data structure mismatch:', result);
-        throw new Error('Invalid data structure received from the server.');
+        console.error('Fetched data structure mismatch from function:', data);
+        throw new Error('Invalid data structure received from the get-all-users function.');
       }
 
     } catch (error: any) {
@@ -128,7 +129,7 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]); // Added SUPABASE_URL, SUPABASE_ANON_KEY if they can change, but typically they don't
+  }, [session, toast]); // supabase client instance is stable, so not needed in deps array
 
   useEffect(() => {
     fetchUsers();
@@ -161,7 +162,6 @@ const Admin = () => {
 
   const openAssignEventsDialog = (user: UserWithRole) => {
     setEditingUserForEvents(user);
-    // Use the already fetched assignments if available, otherwise fetch fresh (though fetchUsers should provide them)
     setSelectedEventTypesForUser(new Set(user.assigned_event_types || []));
     setIsAssignEventsDialogOpen(true);
   };
@@ -179,8 +179,6 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
-      // This uses direct Supabase REST API with user's token.
-      // Assumes RLS on `user_roles` table allows admins to perform this.
       const { error } = await supabase
         .from('user_roles')
         .upsert({ user_id: selectedUser.id, role: selectedRole }, { onConflict: 'user_id' });
@@ -215,37 +213,29 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
-      if (!session?.access_token) {
-        throw new Error("Authentication token not found.");
-      }
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
+      const { data, error: functionError } = await supabase.functions.invoke('create-user', {
+        body: JSON.stringify({ // Ensure body is stringified if function expects raw JSON string
           email: newUserEmail,
           password: newUserPassword,
           fullName: newUserFullName, 
           role: selectedRole 
         }),
       });
+      // Log for create-user as well, for consistency if debugging
+      // console.log('RAW DATA from create-user:', JSON.stringify(data, null, 2));
+      // console.log('FUNCTION ERROR from create-user:', JSON.stringify(functionError, null, 2));
 
-      const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || `Failed to create user: ${response.statusText}`);
-      }
+      if (functionError) throw new Error(functionError.message || 'Failed to invoke create-user function.');
+      if (data && data.error) throw new Error(data.error || 'Create-user function returned an error.');
+
 
       toast({
         title: 'User Created',
-        description: `${newUserEmail} created as ${selectedRole}. User ID: ${result.userId}`,
+        description: `${newUserEmail} created as ${selectedRole}. User ID: ${data.userId}`,
       });
 
-      fetchUsers(); // Refresh user list
+      fetchUsers(); 
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserFullName('');
@@ -271,21 +261,12 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
-      if (!session?.access_token) {
-        throw new Error("Authentication token not found.");
-      }
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/update-user-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
+      const { data, error: functionError } = await supabase.functions.invoke('update-user-password', {
         body: JSON.stringify({ userId: selectedUser.id, newPassword }),
       });
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to update password.');
+      if (functionError) throw new Error(functionError.message || 'Failed to invoke update-user-password.');
+      if (data && data.error) throw new Error(data.error || 'Update-user-password function returned an error.');
       
       toast({
         title: 'Password Updated',
@@ -308,7 +289,6 @@ const Admin = () => {
 
   const deleteUser = async () => {
     if (!selectedUser) return;
-    // Redundant check as openDeleteDialog already handles this, but good for safety.
     if (selectedUser.id === currentUser?.id) {
       toast({ title: 'Action Denied', description: 'Cannot delete your own account.', variant: 'warning' });
       setIsDeleteDialogOpen(false);
@@ -316,21 +296,12 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
-      if (!session?.access_token) {
-        throw new Error("Authentication token not found.");
-      }
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
-        method: 'POST', // Or DELETE, ensure Edge Function handles it
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
+      const { data, error: functionError } = await supabase.functions.invoke('delete-user', {
         body: JSON.stringify({ userId: selectedUser.id }),
       });
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to delete user.');
+      if (functionError) throw new Error(functionError.message || 'Failed to invoke delete-user.');
+      if (data && data.error) throw new Error(data.error || 'Delete-user function returned an error.');
       
       toast({
         title: 'User Deleted',
@@ -364,8 +335,6 @@ const Admin = () => {
     if (!editingUserForEvents) return;
     setIsSubmitting(true);
     try {
-      // This uses the supabase client (anon key) and assumes RLS allows admin to modify user_event_assignments.
-      // 1. Get current assignments from DB for comparison (or rely on local state if consistently updated)
       const { data: currentAssignmentsData, error: fetchError } = await supabase
         .from('user_event_assignments')
         .select('event_type')
@@ -398,7 +367,6 @@ const Admin = () => {
         description: `Event assignments updated for ${editingUserForEvents.email}.`,
       });
       
-      // Update local state accurately
       setUsers(prevUsers => prevUsers.map(user => 
         user.id === editingUserForEvents.id 
           ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) } 
@@ -418,6 +386,8 @@ const Admin = () => {
     }
   };
 
+  // --- JSX REMAINS THE SAME AS PREVIOUSLY PROVIDED ---
+  // (I'm omitting it here for brevity as it's unchanged from the prior full response)
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
@@ -544,7 +514,6 @@ const Admin = () => {
       </Tabs>
       
       {/* Dialogs */}
-      {/* Edit Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -556,7 +525,7 @@ const Admin = () => {
             <Select 
               value={selectedRole} 
               onValueChange={(value: 'admin' | 'tracker' | 'viewer') => setSelectedRole(value)}
-              disabled={selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin'} // Prevent admin demoting self
+              disabled={selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin'} 
             >
               <SelectTrigger id="role-select">
                 <SelectValue placeholder="Select role" />
@@ -585,7 +554,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* New User Dialog */}
       <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -626,7 +594,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -645,7 +612,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Set Password Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -665,7 +631,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assign Event Types Dialog */}
       <Dialog open={isAssignEventsDialogOpen} onOpenChange={(isOpen) => { setIsAssignEventsDialogOpen(isOpen); if (!isOpen) setEditingUserForEvents(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -676,7 +641,7 @@ const Admin = () => {
             {EVENT_TYPES.map((eventType) => (
               <div key={eventType} className="flex items-center space-x-2 p-1 hover:bg-muted rounded">
                 <Checkbox
-                  id={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`} // Ensure unique ID
+                  id={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`}
                   checked={selectedEventTypesForUser.has(eventType)}
                   onCheckedChange={() => handleEventTypeToggle(eventType)}
                 />
