@@ -29,11 +29,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig'; // Ensure this path is correct
-import { useAuth } from '@/context/AuthContext'; // Ensure this path is correct
+// Ensure these paths are correct for your project structure
+// import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig'; // Not strictly needed if using supabase client for functions
+import { useAuth } from '@/context/AuthContext'; 
 import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
-// supabase client is used for some direct table operations AND NOW FOR FUNCTION INVOCATION
-import { supabase } from '@/integrations/supabase/client'; // Ensure this path is correct
+import { supabase } from '@/integrations/supabase/client'; 
 
 interface User {
   id: string;
@@ -84,38 +84,30 @@ const Admin = () => {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (!session?.access_token) { // Still good to check for session existence client-side
+      if (!session?.access_token) {
         throw new Error("Authentication token not found. Please log in.");
       }
 
-      // Using supabase.functions.invoke as requested
-      const { data, error: functionError } = await supabase.functions.invoke('get-all-users', {
-        // method: 'GET', // GET is default, but can be explicit. Body not needed for this function.
-        // Supabase client automatically includes Authorization header if user is logged in.
-      });
+      const { data, error: functionError } = await supabase.functions.invoke('get-all-users');
 
-      // --- MODIFICATION START ---
+      // For debugging the raw response from the function
       console.log('RAW DATA from get-all-users:', JSON.stringify(data, null, 2));
       console.log('FUNCTION ERROR from get-all-users:', JSON.stringify(functionError, null, 2));
-      // --- MODIFICATION END ---
 
       if (functionError) {
-        // This error is typically for invocation issues (network, function crash, non-2xx status code)
         throw new Error(functionError.message || 'Failed to invoke get-all-users function.');
       }
 
-      // `data` is the direct response body from the function.
-      // Check if the function itself returned an error in its JSON response
-      // (e.g., if it handled an error and returned a 200 OK with an error payload)
-      if (data && data.error) {
-        throw new Error(data.error || `The get-all-users function returned an error.`);
-      }
-      
+      // Assuming the Edge Function correctly returns: { usersWithRolesAndAssignments: [...] }
       if (data && data.usersWithRolesAndAssignments) {
         setUsers(data.usersWithRolesAndAssignments);
-      } else {
-        console.error('Fetched data structure mismatch from function:', data);
-        throw new Error('Invalid data structure received from the get-all-users function.');
+      } else if (data && data.error) { // Handle case where function returns a 200 OK but with an error payload
+        throw new Error(data.error || 'The get-all-users function returned an error payload.');
+      }
+      else {
+        // This path is taken if 'data' is not the expected object, or if it's an array directly (which was the previous issue)
+        console.error('Fetched data structure mismatch from function (expected object with usersWithRolesAndAssignments):', data);
+        throw new Error('Invalid data structure received from the get-all-users function. Expected { usersWithRolesAndAssignments: [...] }.');
       }
 
     } catch (error: any) {
@@ -129,11 +121,13 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]); // supabase client instance is stable, so not needed in deps array
+  }, [session, toast]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (session) { // Only fetch if session is available
+        fetchUsers();
+    }
+  }, [fetchUsers, session]);
 
   const openEditDialog = (user: UserWithRole) => {
     setSelectedUser(user);
@@ -179,6 +173,7 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
+      // RLS on `user_roles` must allow admin to upsert.
       const { error } = await supabase
         .from('user_roles')
         .upsert({ user_id: selectedUser.id, role: selectedRole }, { onConflict: 'user_id' });
@@ -211,28 +206,27 @@ const Admin = () => {
       toast({ title: "Missing Information", description: "Please fill in all fields.", variant: "destructive" });
       return;
     }
+    if (newUserPassword.length < 6) {
+      toast({ title: "Weak Password", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { data, error: functionError } = await supabase.functions.invoke('create-user', {
-        body: JSON.stringify({ // Ensure body is stringified if function expects raw JSON string
+        body: { // Supabase JS client v2 automatically stringifies the body for functions
           email: newUserEmail,
           password: newUserPassword,
           fullName: newUserFullName, 
           role: selectedRole 
-        }),
+        },
       });
-      // Log for create-user as well, for consistency if debugging
-      // console.log('RAW DATA from create-user:', JSON.stringify(data, null, 2));
-      // console.log('FUNCTION ERROR from create-user:', JSON.stringify(functionError, null, 2));
-
 
       if (functionError) throw new Error(functionError.message || 'Failed to invoke create-user function.');
       if (data && data.error) throw new Error(data.error || 'Create-user function returned an error.');
 
-
       toast({
         title: 'User Created',
-        description: `${newUserEmail} created as ${selectedRole}. User ID: ${data.userId}`,
+        description: `${data.message || `${newUserEmail} created as ${selectedRole}.`} User ID: ${data.userId}`,
       });
 
       fetchUsers(); 
@@ -259,10 +253,14 @@ const Admin = () => {
       toast({ title: "Missing Information", description: "Please select a user and enter a new password.", variant: "destructive"});
       return;
     }
+    if (newPassword.length < 6) {
+      toast({ title: "Weak Password", description: "New password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { data, error: functionError } = await supabase.functions.invoke('update-user-password', {
-        body: JSON.stringify({ userId: selectedUser.id, newPassword }),
+        body: { userId: selectedUser.id, newPassword },
       });
 
       if (functionError) throw new Error(functionError.message || 'Failed to invoke update-user-password.');
@@ -270,7 +268,7 @@ const Admin = () => {
       
       toast({
         title: 'Password Updated',
-        description: `Password updated for ${selectedUser.email}.`,
+        description: data.message || `Password updated for ${selectedUser.email}.`,
       });
       
       setNewPassword('');
@@ -297,7 +295,7 @@ const Admin = () => {
     setIsSubmitting(true);
     try {
       const { data, error: functionError } = await supabase.functions.invoke('delete-user', {
-        body: JSON.stringify({ userId: selectedUser.id }),
+        body: { userId: selectedUser.id },
       });
 
       if (functionError) throw new Error(functionError.message || 'Failed to invoke delete-user.');
@@ -305,7 +303,7 @@ const Admin = () => {
       
       toast({
         title: 'User Deleted',
-        description: `${selectedUser.email} has been deleted.`,
+        description: data.message || `${selectedUser.email} has been deleted.`,
       });
       
       setUsers(users.filter(u => u.id !== selectedUser.id));
@@ -335,6 +333,7 @@ const Admin = () => {
     if (!editingUserForEvents) return;
     setIsSubmitting(true);
     try {
+      // RLS on `user_event_assignments` must allow admin to perform these actions.
       const { data: currentAssignmentsData, error: fetchError } = await supabase
         .from('user_event_assignments')
         .select('event_type')
@@ -346,6 +345,7 @@ const Admin = () => {
       const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentDbAssignedTypes.has(type));
       const typesToRemove = Array.from(currentDbAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
 
+      // Perform deletions first
       if (typesToRemove.length > 0) {
         const { error: deleteError } = await supabase
           .from('user_event_assignments')
@@ -355,6 +355,7 @@ const Admin = () => {
         if (deleteError) throw deleteError;
       }
 
+      // Perform insertions next
       if (typesToAdd.length > 0) {
         const { error: insertError } = await supabase
           .from('user_event_assignments')
@@ -376,6 +377,7 @@ const Admin = () => {
       setEditingUserForEvents(null);
 
     } catch (error: any) {
+      console.error('Error saving event assignments:', error);
       toast({
         title: 'Error Saving Assignments',
         description: error.message || 'Could not save event assignments.',
@@ -386,8 +388,6 @@ const Admin = () => {
     }
   };
 
-  // --- JSX REMAINS THE SAME AS PREVIOUSLY PROVIDED ---
-  // (I'm omitting it here for brevity as it's unchanged from the prior full response)
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
@@ -441,7 +441,7 @@ const Admin = () => {
                   {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                        No users found.
+                        No users found or an error occurred.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -482,7 +482,7 @@ const Admin = () => {
                               size="sm" 
                               onClick={() => openDeleteDialog(user)} 
                               title={`Delete ${user.email}`}
-                              disabled={user.id === currentUser?.id} // Disable deleting self
+                              disabled={user.id === currentUser?.id}
                             >
                               <Trash2 size={14} className="mr-1" /> Delete
                             </Button>
@@ -513,7 +513,7 @@ const Admin = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Dialogs */}
+      {/* Edit Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -547,13 +547,17 @@ const Admin = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={updateUserRole} disabled={isSubmitting || (selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && selectedRole !== 'admin')}>
+            <Button 
+              onClick={updateUserRole} 
+              disabled={isSubmitting || (selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && selectedRole !== 'admin')}
+            >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* New User Dialog */}
       <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -563,15 +567,15 @@ const Admin = () => {
           <div className="grid gap-4 py-4">
             <div className="space-y-1">
               <Label htmlFor="fullName-new">Full Name</Label>
-              <Input id="fullName-new" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} placeholder="e.g., Jane Doe"/>
+              <Input id="fullName-new" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} placeholder="e.g., Jane Doe" autoComplete="name" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="email-new">Email</Label>
-              <Input id="email-new" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="user@example.com"/>
+              <Input id="email-new" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="user@example.com" autoComplete="email"/>
             </div>
             <div className="space-y-1">
               <Label htmlFor="password-new">Password</Label>
-              <Input id="password-new" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters"/>
+              <Input id="password-new" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters" autoComplete="new-password"/>
             </div>
             <div className="space-y-1">
               <Label htmlFor="role-new">Role</Label>
@@ -594,6 +598,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -612,6 +617,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Set Password Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -620,7 +626,7 @@ const Admin = () => {
           </DialogHeader>
           <div className="py-4 space-y-1">
             <Label htmlFor="new-password-set">New Password</Label>
-            <Input id="new-password-set" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 6 characters"/>
+            <Input id="new-password-set" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 6 characters" autoComplete="new-password"/>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
@@ -631,6 +637,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Assign Event Types Dialog */}
       <Dialog open={isAssignEventsDialogOpen} onOpenChange={(isOpen) => { setIsAssignEventsDialogOpen(isOpen); if (!isOpen) setEditingUserForEvents(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -641,11 +648,11 @@ const Admin = () => {
             {EVENT_TYPES.map((eventType) => (
               <div key={eventType} className="flex items-center space-x-2 p-1 hover:bg-muted rounded">
                 <Checkbox
-                  id={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`}
+                  id={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`} // Make ID more robust
                   checked={selectedEventTypesForUser.has(eventType)}
                   onCheckedChange={() => handleEventTypeToggle(eventType)}
                 />
-                <Label htmlFor={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer flex-grow">
+                <Label htmlFor={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`} className="font-normal cursor-pointer flex-grow">
                   {eventType}
                 </Label>
               </div>
