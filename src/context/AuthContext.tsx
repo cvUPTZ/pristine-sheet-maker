@@ -1,21 +1,23 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client'; // Ensure this client is correctly initialized
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-// SUPABASE_URL and SUPABASE_ANON_KEY are not needed here if supabase client is pre-configured
 
 type UserRoleType = 'admin' | 'tracker' | 'viewer' | null;
+
+// Explicit Admin Email for initial/override check
+const EXPLICIT_ADMIN_EMAIL = 'adminzack@efoot.com'; // <--- YOUR ADMIN EMAIL HERE
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>; // Consider removing role assignment from here
+  signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   userRole: UserRoleType;
   assignedEventTypes: string[] | null;
-  refreshUserSession: () => Promise<void>; // New function to refresh session
+  refreshUserSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,51 +35,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentUser = currentSession?.user ?? null;
     setUser(currentUser);
 
-    if (currentUser && currentUser.app_metadata) {
-      // Directly get role from app_metadata
-      const roleFromAppMetadata = currentUser.app_metadata.role as UserRoleType;
-      console.log(`Role from app_metadata for ${currentUser.email}:`, roleFromAppMetadata);
-      setUserRole(roleFromAppMetadata || null); // Ensure it's null if not a valid role or missing
-      
-      // Log app_metadata for debugging
-      console.log('Full app_metadata:', JSON.stringify(currentUser.app_metadata, null, 2));
+    let determinedRole: UserRoleType = null;
 
-    } else if (currentUser) {
-      console.warn(`User ${currentUser.email} has no app_metadata or role in app_metadata.`);
-      setUserRole(null);
-    } else {
-      setUserRole(null);
+    if (currentUser) {
+      console.log(`Processing session for ${currentUser.email}`);
+      // 1. Explicit Admin Check (use with caution, primarily for bootstrapping/dev)
+      if (currentUser.email === EXPLICIT_ADMIN_EMAIL) {
+        console.log(`User ${currentUser.email} matches EXPLICIT_ADMIN_EMAIL. Setting role to 'admin'.`);
+        determinedRole = 'admin';
+      }
+      
+      // 2. Check app_metadata (this should be the primary source of truth)
+      // If app_metadata has a role, it can override the explicit check if it's different and not admin
+      // Or, you might decide the explicit check always wins if it's an admin.
+      // Current logic: app_metadata role is preferred unless explicit admin is set.
+      if (currentUser.app_metadata && currentUser.app_metadata.role) {
+        const roleFromAppMeta = currentUser.app_metadata.role as UserRoleType;
+        console.log(`Role from app_metadata for ${currentUser.email}: ${roleFromAppMeta}`);
+        
+        // If explicit admin was set, keep it. Otherwise, use app_metadata.
+        // This means app_metadata can define 'tracker' or 'viewer' even for the explicit admin email,
+        // but if the explicit email is matched, it defaults to 'admin' if app_metadata is missing role.
+        if (determinedRole === 'admin') {
+            // If explicit admin is already set, and app_metadata also says admin, that's fine.
+            // If app_metadata says something else, you might want to log a warning or decide which takes precedence.
+            // For now, if EXPLICIT_ADMIN_EMAIL matches, 'admin' role takes high precedence.
+            if (roleFromAppMeta !== 'admin') {
+                 console.warn(`User ${EXPLICIT_ADMIN_EMAIL} is an explicit admin, but app_metadata.role is '${roleFromAppMeta}'. Prioritizing explicit admin for now.`);
+            }
+        } else {
+            determinedRole = roleFromAppMeta;
+        }
+      } else if (determinedRole !== 'admin') { // If not explicit admin and no app_metadata role
+        console.warn(`User ${currentUser.email} has no role in app_metadata.`);
+      }
+      
+      console.log('Full app_metadata:', JSON.stringify(currentUser.app_metadata, null, 2));
     }
+    
+    setUserRole(determinedRole);
   };
+
+  // ... (rest of the useEffect for auth state, signIn, signUp, signOut, fetchUserEventAssignments, refreshUserSession remains the same as my previous corrected version)
 
   useEffect(() => {
     setLoading(true);
-    // 1. Get initial session
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       processSession(initialSession);
       setLoading(false);
     });
 
-    // 2. Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
         console.log('Auth state changed. Event:', _event, 'New Session User:', newSession?.user?.email);
         processSession(newSession);
-        // If event is TOKEN_REFRESHED or USER_UPDATED, it might have new app_metadata
         if (_event === 'TOKEN_REFRESHED' || _event === 'USER_UPDATED') {
             console.log('Token refreshed or user updated, re-evaluating role from new session.');
         }
       }
     );
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
 
   const fetchUserEventAssignments = async (userId: string) => {
-    // No change needed here if it works, but ensure RLS on 'user_event_assignments' allows access
     try {
       const { data, error } = await supabase
         .from('user_event_assignments')
@@ -102,9 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setAssignedEventTypes(null);
     }
-  }, [user]); // Only re-fetch if user object changes
+  }, [user]);
 
-  // Function to manually refresh the session, which should update app_metadata
   const refreshUserSession = async () => {
     setLoading(true);
     try {
@@ -114,10 +134,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast({ title: "Session Refresh Error", description: error.message, variant: "destructive" });
       } else if (data.session) {
         console.log("Session refreshed, new app_metadata should be available.");
-        processSession(data.session); // Re-process the new session
+        processSession(data.session);
         toast({ title: "Session Refreshed", description: "Your session data has been updated." });
       } else {
-        // This case might mean the refresh token was invalid or expired, leading to signed out state
         processSession(null);
       }
     } catch (e: any) {
@@ -133,54 +152,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
       if (error) {
         toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
         throw error;
       }
-      // onAuthStateChange will handle setting user and session
-      // processSession will be called by onAuthStateChange
       toast({ title: "Signed in", description: "Welcome back!" });
     } catch (error: any) {
       console.error('Error signing in:', error.message);
-      // processSession(null) might be redundant if onAuthStateChange handles error state
     } finally {
       setLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    // IMPORTANT: Client-side signUp CANNOT set app_metadata.role.
-    // Role assignment must happen via a backend mechanism (e.g., Edge Function on user creation hook,
-    // or admin creating user via admin panel which calls a 'create-user' Edge Function).
-    // Default role (e.g., 'viewer') should be assigned by such a backend process.
     setLoading(true);
     try {
-      const { data: { user: newUser, session: newSession }, error } = await supabase.auth.signUp({
+      const { data: { user: newUser }, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          // This sets user_metadata, not app_metadata. Useful for display name.
-          data: { 
-            full_name: fullName,
-            // DO NOT attempt to set 'role' here, it won't go into app_metadata securely.
-          }
-        }
+        options: { data: { full_name: fullName } }
       });
 
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
         throw error;
       }
-
       if (newUser) {
-        // The new user will likely NOT have app_metadata.role set yet.
-        // It will be set by a backend process.
-        // The onAuthStateChange listener will pick up this new user.
         console.log("User signed up. Role will be assigned by backend/hook if configured.");
         toast({ title: "Account created", description: "Please check your email for a confirmation link. Your role will be assigned shortly." });
       }
-      
     } catch (error: any) {
       console.error('Error signing up:', error.message);
     } finally {
@@ -192,15 +192,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await supabase.auth.signOut();
-      // onAuthStateChange will set user, session, and userRole to null.
       toast({ title: "Signed out", description: "You have been signed out successfully." });
-    } catch (error: any) {
+    } catch (error: any)
+    {
       console.error('Error signing out:', error.message);
       toast({ title: "Sign out failed", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <AuthContext.Provider value={{
