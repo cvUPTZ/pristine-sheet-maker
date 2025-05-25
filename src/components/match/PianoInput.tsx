@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Player, EventType } from '@/types';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { EVENT_TYPES } from '@/pages/Admin'; // Import EVENT_TYPES from Admin.tsx (temporary)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -140,6 +142,24 @@ const PianoInput: React.FC<PianoInputProps> = ({
   matchEvents = [] 
 }) => {
   const { toast } = useToast(); 
+  const { assignedEventTypes } = useAuth(); // Get assigned event types
+
+  useEffect(() => {
+    console.log("PianoInput: Assigned Event Types from AuthContext:", assignedEventTypes);
+    console.log("PianoInput: All EVENT_TYPES (from Admin.tsx):", EVENT_TYPES);
+  }, [assignedEventTypes]);
+
+  // Normalize event names from EVENT_TYPES (e.g., "Pass (P)" -> "pass")
+  const normalizeEventType = (eventTypeWithShortcut: string): EventType => {
+    const match = eventTypeWithShortcut.match(/^([a-zA-Z\s-]+)/);
+    return match ? match[1].trim().toLowerCase().replace(/\s+/g, '-') as EventType : eventTypeWithShortcut.toLowerCase() as EventType;
+  };
+
+  const normalizedAssignedEventTypes = React.useMemo(() => {
+    if (!assignedEventTypes) return new Set<EventType>();
+    return new Set(assignedEventTypes.map(normalizeEventType));
+  }, [assignedEventTypes]);
+
 
   const EVENT_SHORTCUTS: Record<string, EventType> = {
     'p': 'pass',
@@ -269,7 +289,9 @@ const PianoInput: React.FC<PianoInputProps> = ({
       const receiverTeamIdStr = teamId;
       const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
       const receiverCoords = coordinates;
-
+      
+      // Log before calling onRecordPass
+      console.log("[PianoInput] About to record pass:", { passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords });
       onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
       toast({
         title: "Pass Recorded (Piano)",
@@ -277,6 +299,8 @@ const PianoInput: React.FC<PianoInputProps> = ({
       });
     } else if (selectedEventType !== 'pass' || !onRecordPass) { 
       // Handle non-pass events or if onRecordPass is not available (fallback)
+      // Log before calling onRecordEvent
+      console.log("[PianoInput] About to record event:", { eventType: selectedEventType, playerId: player.id, teamId, coordinates });
       onRecordEvent(selectedEventType, player.id, teamId, coordinates);
     }
     
@@ -346,12 +370,16 @@ const PianoInput: React.FC<PianoInputProps> = ({
         const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
         const receiverCoords = coordinates;
 
+        // Log before calling onRecordPass from circular menu
+        console.log("[PianoInput] About to record pass (circular menu):", { passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords });
         onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
         toast({
             title: "Pass Recorded (Piano Menu)",
             description: `Pass from ${passer.name} to ${receiver.name}`,
         });
     } else { 
+        // Log before calling onRecordEvent from circular menu
+        console.log("[PianoInput] About to record event (circular menu):", { eventType, playerId: player.id, teamId: activeTab as 'home' | 'away', coordinates });
         onRecordEvent(eventType, player.id, activeTab as 'home' | 'away', coordinates);
     }
     
@@ -397,15 +425,38 @@ const PianoInput: React.FC<PianoInputProps> = ({
                       <AccordionTrigger className="text-sm py-2">{categoryName}</AccordionTrigger>
                       <AccordionContent>
                         <div className="grid grid-cols-2 gap-1 p-1">
-                          {(eventTypeList as EventType[]).map((eventType: EventType) => {
+                          {(eventTypeList as EventType[]).map((eventType: EventType) => { // eventType here is like 'pass', 'shot'
                             const info = eventTypes[eventType];
                             if (!info) return null;
+                            
+                            const isAssigned = normalizedAssignedEventTypes.has(eventType);
+                            let buttonStyle = `text-xs h-auto py-1.5 whitespace-normal`;
+                            
+                            // TEST_NOTE: Human verification needed: Assigned event buttons should be visually distinct (e.g., blue background/border).
+                            // All buttons should remain clickable.
+                            if (selectedEventType === eventType) {
+                              buttonStyle += ` ${info.color}`; // Keep existing selected color
+                            }
+                            if (isAssigned) {
+                              // Example: light blue background and a darker blue border if assigned
+                              buttonStyle += ` bg-blue-100 border-2 border-blue-300 hover:bg-blue-200`;
+                              if (selectedEventType === eventType) {
+                                // If selected AND assigned, make border more prominent or adjust as needed
+                                buttonStyle += ` ring-2 ring-blue-500 ring-offset-1`; 
+                              }
+                            } else {
+                              // Default style for non-assigned, if not selected
+                              if (selectedEventType !== eventType) {
+                                // buttonStyle += ` bg-gray-50 hover:bg-gray-100`; // Or keep it as variant="outline" handles it
+                              }
+                            }
+
                             return (
                               <Button
                                 key={eventType}
                                 size="sm"
                                 variant={selectedEventType === eventType ? "default" : "outline"}
-                                className={`text-xs h-auto py-1.5 whitespace-normal ${selectedEventType === eventType ? info.color : ""}`}
+                                className={buttonStyle}
                                 onClick={() => handleEventTypeSelect(eventType)}
                               >
                                 {SHORTCUT_KEYS_DISPLAY[eventType] ? `${info.description} (${SHORTCUT_KEYS_DISPLAY[eventType]})` : info.description}

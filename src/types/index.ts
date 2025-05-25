@@ -32,6 +32,9 @@ export interface MatchEvent {
   status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
   clientId?: string;
   optimisticCreationTime?: number;
+  user_id?: string; // Added user_id field
+  relatedPlayerId?: number; // Added from findings in previous subtask, if it was missing
+  meta?: any; // Added from findings in previous subtask, if it was missing
 }
 
 export type EventType =

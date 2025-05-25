@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 import { Match, Team, Player, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType, PlayerStatistics } from '@/types';
 
 interface MatchState {
@@ -142,6 +143,7 @@ type CollaborativeRecordEventFn = (
 ) => void;
 
 export const useMatchState = (): MatchState & MatchActions => {
+  const { user: authUser } = useAuth(); // Get the authenticated user
   const [state, setState] = useState<MatchState>(initialMatchState);
   const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
 
@@ -506,12 +508,14 @@ export const useMatchState = (): MatchState & MatchActions => {
           timestamp: currentElapsedTime,
           coordinates,
           relatedPlayerId,
+          user_id: authUser?.id, // TEST_NOTE: Manual DB check recommended: Verify 'user_id' is correctly populated in the 'match_events' table after events are logged.
           status: 'pending_confirmation',
           clientId: clientId,
           optimisticCreationTime: Date.now(),
         };
 
         console.log('[useMatchState] Optimistically applying event (collab):', optimisticEvent);
+        console.log('Event Recorded with user_id:', JSON.stringify(optimisticEvent, null, 2));
         setState(prev => applyEventToState(prev, optimisticEvent));
 
         collaborativeRecordEventFn(
@@ -535,10 +539,12 @@ export const useMatchState = (): MatchState & MatchActions => {
           timestamp: currentElapsedTime,
           coordinates,
           relatedPlayerId,
+          user_id: authUser?.id, // TEST_NOTE: Manual DB check recommended: Verify 'user_id' is correctly populated in the 'match_events' table after events are logged.
           status: 'confirmed', 
         };
         
         console.log('[useMatchState] Applying event (local):', confirmedEvent);
+        console.log('Event Recorded with user_id:', JSON.stringify(confirmedEvent, null, 2));
         setState(prev => applyEventToState(prev, confirmedEvent));
       }
     },
