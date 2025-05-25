@@ -15,8 +15,109 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Header from "./components/Header";
+import { useEffect } from 'react'; // Import useEffect
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { ToastAction } from "@/components/ui/toast";
 
 const queryClient = new QueryClient();
+
+// Define a simple type for the match payload for clarity
+interface MatchPayload {
+  id: string;
+  name?: string | null;
+  home_team_name?: string | null;
+  away_team_name?: string | null;
+  status?: string | null;
+  [key: string]: any; // Allow other fields
+}
+
+const AppContent = () => {
+  const { session, user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (session && user && user.app_metadata?.role === 'tracker') {
+      const channel = supabase
+        .channel('match-live-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'matches',
+            // No specific filter on new status here, we check old vs new in the callback
+          },
+          (payload) => {
+            const oldMatch = payload.old as MatchPayload | null;
+            const newMatch = payload.new as MatchPayload;
+
+            if (newMatch?.status === 'live' && oldMatch?.status !== 'live') {
+              const matchId = newMatch.id;
+              const matchName = newMatch.name || `${newMatch.home_team_name || 'Home'} vs ${newMatch.away_team_name || 'Away'}`;
+
+              // Avoid notification if already on the match page
+              if (location.pathname === `/match/${matchId}`) {
+                return;
+              }
+
+              toast({
+                title: 'Match Live!',
+                description: `Match "${matchName}" has started.`,
+                action: (
+                  <ToastAction altText="Go to Match" onClick={() => navigate(`/match/${matchId}`)}>
+                    Go to Match
+                  </ToastAction>
+                ),
+                duration: 10000, // Keep toast longer for visibility
+              });
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Subscribed to match live notifications for tracker.');
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('Match live notification channel error:', status, err);
+             // Optionally, inform the user about the subscription issue if it's persistent
+            // toast({
+            //   title: "Sync Issue",
+            //   description: "Problem with real-time match notifications.",
+            //   variant: "destructive"
+            // });
+          }
+        });
+
+      return () => {
+        supabase.removeChannel(channel).then(status => {
+          console.log('Unsubscribed from match live notifications. Status:', status);
+        });
+      };
+    }
+  }, [session, user, toast, navigate, location]);
+
+  return (
+    <>
+      <Header />
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
+        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysis /></RequireAuth>} />
+        <Route path="/matches" element={<RequireAuth><Matches /></RequireAuth>} />
+        <Route path="/statistics" element={<RequireAuth><Statistics /></RequireAuth>} />
+        <Route path="/admin" element={<RequireAuth requiredRoles={['admin']]}><Admin /></RequireAuth>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  );
+};
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -25,49 +126,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Header />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            
-            <Route path="/" element={
-              <RequireAuth>
-                <Dashboard />
-              </RequireAuth>
-            } />
-            
-            <Route path="/match" element={
-              <RequireAuth requiredRoles={['admin', 'tracker']}>
-                <Index />
-              </RequireAuth>
-            } />
-            
-            <Route path="/match/:matchId" element={
-              <RequireAuth requiredRoles={['admin', 'tracker']}>
-                <MatchAnalysis />
-              </RequireAuth>
-            } />
-            
-            <Route path="/matches" element={
-              <RequireAuth>
-                <Matches />
-              </RequireAuth>
-            } />
-            
-            <Route path="/statistics" element={
-              <RequireAuth>
-                <Statistics />
-              </RequireAuth>
-            } />
-
-            <Route path="/admin" element={
-              <RequireAuth requiredRoles={['admin']}>
-                <Admin />
-              </RequireAuth>
-            } />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppContent /> {/* Routes and Header are now inside AppContent */}
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
