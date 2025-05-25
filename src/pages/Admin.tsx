@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'; // For the "Back to Home" button
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,11 +30,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// Ensure these paths are correct for your project structure
-// import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig'; // Not strictly needed if using supabase client for functions
-import { useAuth } from '@/context/AuthContext'; 
-import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client'; 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge"; // For displaying users in assignments tab
+import { useAuth } from '@/context/AuthContext';
+import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase, ArrowLeft, ListChecks, History } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -55,6 +62,11 @@ export const EVENT_TYPES = [
   "Substitution"
 ];
 
+interface EventTypeAssignmentSummary {
+  eventType: string;
+  assignedUsers: Array<{ id: string; email: string; fullName?: string }>;
+}
+
 const Admin = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +74,7 @@ const Admin = () => {
 
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'tracker' | 'viewer'>('viewer');
-  
+
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,13 +85,14 @@ const Admin = () => {
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  
+
   const [editingUserForEvents, setEditingUserForEvents] = useState<UserWithRole | null>(null);
   const [selectedEventTypesForUser, setSelectedEventTypesForUser] = useState<Set<string>>(new Set());
 
   const [selectedTab, setSelectedTab] = useState<string>('users');
   const { toast } = useToast();
   const { session, user: currentUser } = useAuth();
+  const navigate = useNavigate(); // For "Back to Home"
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -87,29 +100,21 @@ const Admin = () => {
       if (!session?.access_token) {
         throw new Error("Authentication token not found. Please log in.");
       }
-
       const { data, error: functionError } = await supabase.functions.invoke('get-all-users');
-
-      // For debugging the raw response from the function
       console.log('RAW DATA from get-all-users:', JSON.stringify(data, null, 2));
       console.log('FUNCTION ERROR from get-all-users:', JSON.stringify(functionError, null, 2));
 
       if (functionError) {
         throw new Error(functionError.message || 'Failed to invoke get-all-users function.');
       }
-
-      // Assuming the Edge Function correctly returns: { usersWithRolesAndAssignments: [...] }
       if (data && data.usersWithRolesAndAssignments) {
         setUsers(data.usersWithRolesAndAssignments);
-      } else if (data && data.error) { // Handle case where function returns a 200 OK but with an error payload
+      } else if (data && data.error) {
         throw new Error(data.error || 'The get-all-users function returned an error payload.');
+      } else {
+        console.error('Fetched data structure mismatch from function:', data);
+        throw new Error('Invalid data structure received from the get-all-users function.');
       }
-      else {
-        // This path is taken if 'data' is not the expected object, or if it's an array directly (which was the previous issue)
-        console.error('Fetched data structure mismatch from function (expected object with usersWithRolesAndAssignments):', data);
-        throw new Error('Invalid data structure received from the get-all-users function. Expected { usersWithRolesAndAssignments: [...] }.');
-      }
-
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast({
@@ -124,10 +129,26 @@ const Admin = () => {
   }, [session, toast]);
 
   useEffect(() => {
-    if (session) { // Only fetch if session is available
-        fetchUsers();
+    if (session) {
+      fetchUsers();
     }
   }, [fetchUsers, session]);
+
+  // Memoized calculation for the "Assignments Info" tab
+  const eventAssignmentsSummary = useMemo<EventTypeAssignmentSummary[]>(() => {
+    if (!users || users.length === 0) return [];
+
+    return EVENT_TYPES.map(eventType => {
+      const assignedUsersToEvent = users
+        .filter(user => user.role === 'tracker' && user.assigned_event_types.includes(eventType))
+        .map(user => ({ id: user.id, email: user.email, fullName: user.fullName }));
+      return {
+        eventType,
+        assignedUsers: assignedUsersToEvent,
+      };
+    });
+  }, [users]);
+
 
   const openEditDialog = (user: UserWithRole) => {
     setSelectedUser(user);
@@ -155,6 +176,16 @@ const Admin = () => {
   };
 
   const openAssignEventsDialog = (user: UserWithRole) => {
+    if (user.role !== 'tracker') {
+        toast({
+            title: "Assignments Info",
+            description: "Event types can only be assigned to users with the 'Tracker' role.",
+            variant: "default"
+        });
+        // Optionally, you could disable the button if role is not tracker
+        // For now, just show a toast and don't open the dialog
+        return;
+    }
     setEditingUserForEvents(user);
     setSelectedEventTypesForUser(new Set(user.assigned_event_types || []));
     setIsAssignEventsDialogOpen(true);
@@ -162,7 +193,6 @@ const Admin = () => {
 
   const updateUserRole = async () => {
     if (!selectedUser) return;
-
     if (selectedUser.id === currentUser?.id && selectedRole !== 'admin') {
       toast({
         title: 'Action Denied',
@@ -173,20 +203,21 @@ const Admin = () => {
     }
     setIsSubmitting(true);
     try {
-      // RLS on `user_roles` must allow admin to upsert.
-      const { error } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: selectedUser.id, role: selectedRole }, { onConflict: 'user_id' });
+      const { data: functionResponse, error: functionError } = await supabase.functions.invoke('update-user-role', {
+        body: {
+          userIdToUpdate: selectedUser.id,
+          newRole: selectedRole
+        },
+      });
+      if (functionError) throw new Error(functionError.message || 'Failed to invoke update-user-role function.');
+      if (functionResponse && functionResponse.error) throw new Error(functionResponse.details || functionResponse.error);
 
-      if (error) throw error;
-      
       toast({
         title: 'Success',
-        description: `Role updated for ${selectedUser.email}.`,
+        description: functionResponse.message || `Role updated for ${selectedUser.email}.`,
       });
-      
-      setUsers(users.map(u => 
-        u.id === selectedUser.id ? { ...u, role: selectedRole } : u
+      setUsers(users.map(u =>
+        u.id === selectedUser.id ? { ...u, role: selectedRole, assigned_event_types: newRole !== 'tracker' ? [] : u.assigned_event_types } : u // Reset assignments if not tracker
       ));
       setIsRoleDialogOpen(false);
     } catch (error: any) {
@@ -213,29 +244,23 @@ const Admin = () => {
     setIsSubmitting(true);
     try {
       const { data, error: functionError } = await supabase.functions.invoke('create-user', {
-        body: { // Supabase JS client v2 automatically stringifies the body for functions
+        body: {
           email: newUserEmail,
           password: newUserPassword,
-          fullName: newUserFullName, 
-          role: selectedRole 
+          fullName: newUserFullName,
+          role: selectedRole
         },
       });
-
       if (functionError) throw new Error(functionError.message || 'Failed to invoke create-user function.');
       if (data && data.error) throw new Error(data.error || 'Create-user function returned an error.');
-
       toast({
         title: 'User Created',
         description: `${data.message || `${newUserEmail} created as ${selectedRole}.`} User ID: ${data.userId}`,
       });
-
-      fetchUsers(); 
-      setNewUserEmail('');
-      setNewUserPassword('');
-      setNewUserFullName('');
-      setSelectedRole('viewer'); 
+      fetchUsers();
+      setNewUserEmail(''); setNewUserPassword(''); setNewUserFullName('');
+      setSelectedRole('viewer');
       setIsNewUserDialogOpen(false);
-
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast({
@@ -262,15 +287,12 @@ const Admin = () => {
       const { data, error: functionError } = await supabase.functions.invoke('update-user-password', {
         body: { userId: selectedUser.id, newPassword },
       });
-
       if (functionError) throw new Error(functionError.message || 'Failed to invoke update-user-password.');
       if (data && data.error) throw new Error(data.error || 'Update-user-password function returned an error.');
-      
       toast({
         title: 'Password Updated',
         description: data.message || `Password updated for ${selectedUser.email}.`,
       });
-      
       setNewPassword('');
       setIsPasswordDialogOpen(false);
     } catch (error: any) {
@@ -297,15 +319,12 @@ const Admin = () => {
       const { data, error: functionError } = await supabase.functions.invoke('delete-user', {
         body: { userId: selectedUser.id },
       });
-
       if (functionError) throw new Error(functionError.message || 'Failed to invoke delete-user.');
       if (data && data.error) throw new Error(data.error || 'Delete-user function returned an error.');
-      
       toast({
         title: 'User Deleted',
         description: data.message || `${selectedUser.email} has been deleted.`,
       });
-      
       setUsers(users.filter(u => u.id !== selectedUser.id));
       setIsDeleteDialogOpen(false);
     } catch (error: any) {
@@ -319,7 +338,7 @@ const Admin = () => {
       setIsSubmitting(false);
     }
   };
-  
+
   const handleEventTypeToggle = (eventType: string) => {
     setSelectedEventTypesForUser(prev => {
       const newSet = new Set(prev);
@@ -333,19 +352,15 @@ const Admin = () => {
     if (!editingUserForEvents) return;
     setIsSubmitting(true);
     try {
-      // RLS on `user_event_assignments` must allow admin to perform these actions.
       const { data: currentAssignmentsData, error: fetchError } = await supabase
         .from('user_event_assignments')
         .select('event_type')
         .eq('user_id', editingUserForEvents.id);
-
       if (fetchError) throw fetchError;
       const currentDbAssignedTypes = new Set(currentAssignmentsData.map(item => item.event_type));
-
       const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentDbAssignedTypes.has(type));
       const typesToRemove = Array.from(currentDbAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
 
-      // Perform deletions first
       if (typesToRemove.length > 0) {
         const { error: deleteError } = await supabase
           .from('user_event_assignments')
@@ -354,28 +369,23 @@ const Admin = () => {
           .in('event_type', typesToRemove);
         if (deleteError) throw deleteError;
       }
-
-      // Perform insertions next
       if (typesToAdd.length > 0) {
         const { error: insertError } = await supabase
           .from('user_event_assignments')
           .insert(typesToAdd.map(eventType => ({ user_id: editingUserForEvents.id, event_type: eventType })));
         if (insertError) throw insertError;
       }
-      
       toast({
         title: 'Success',
         description: `Event assignments updated for ${editingUserForEvents.email}.`,
       });
-      
-      setUsers(prevUsers => prevUsers.map(user => 
-        user.id === editingUserForEvents.id 
-          ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) } 
+      setUsers(prevUsers => prevUsers.map(user =>
+        user.id === editingUserForEvents.id
+          ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) }
           : user
       ));
       setIsAssignEventsDialogOpen(false);
       setEditingUserForEvents(null);
-
     } catch (error: any) {
       console.error('Error saving event assignments:', error);
       toast({
@@ -388,26 +398,33 @@ const Admin = () => {
     }
   };
 
+
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-3">
+           <Button variant="outline" size="icon" onClick={() => navigate('/')} title="Back to Home">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
               <ShieldCheck className="h-7 w-7 sm:h-8 sm:w-8"/>
               Admin Panel
             </h1>
-            <p className="text-sm text-muted-foreground">Manage users, roles, and event assignments.</p>
+            <p className="text-sm text-muted-foreground">Manage users, roles, event assignments, and system logs.</p>
           </div>
-          <TabsList>
-            <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments Info</TabsTrigger>
-          </TabsList>
         </div>
+        <TabsList>
+          <TabsTrigger value="users"><UserPlus size={16} className="mr-2"/>User Management</TabsTrigger>
+          <TabsTrigger value="assignments"><ListChecks size={16} className="mr-2"/>Assignments Overview</TabsTrigger>
+          <TabsTrigger value="audit"><History size={16} className="mr-2"/>Audit Logs</TabsTrigger>
+        </TabsList>
+      </div>
 
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsContent value="users" className="space-y-4">
           <div className="flex justify-end">
-            <Button 
+            <Button
               onClick={() => {
                 setNewUserEmail(''); setNewUserPassword(''); setNewUserFullName('');
                 setSelectedRole('viewer'); setIsNewUserDialogOpen(true);
@@ -417,22 +434,22 @@ const Admin = () => {
               <UserPlus size={18} /> Add New User
             </Button>
           </div>
-          
+
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
               <p className="ml-4 text-muted-foreground">Loading users...</p>
             </div>
           ) : (
-            <div className="bg-card rounded-lg border shadow-md overflow-x-auto">
+            <div className="bg-card rounded-lg border shadow-sm overflow-x-auto">
               <Table>
-                <TableCaption>A list of all users in the system.</TableCaption>
+                <TableCaption>A list of all users in the system. Event assignments are only applicable to 'Tracker' roles.</TableCaption>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Full Name</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Event Types</TableHead> 
+                    <TableHead>Event Types Assigned</TableHead>
                     <TableHead>Created At</TableHead>
                     <TableHead className="text-right min-w-[320px]">Actions</TableHead>
                   </TableRow>
@@ -441,7 +458,7 @@ const Admin = () => {
                   {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                        No users found or an error occurred.
+                        No users found.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -450,10 +467,10 @@ const Admin = () => {
                         <TableCell className="font-medium">{user.email}</TableCell>
                         <TableCell>{user.fullName || 'N/A'}</TableCell>
                         <TableCell>
-                          <span 
+                          <span
                             className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              user.role === 'admin' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' 
-                              : user.role === 'tracker' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' 
+                              user.role === 'admin' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
+                              : user.role === 'tracker' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
                               : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100'
                             }`}
                           >
@@ -461,9 +478,11 @@ const Admin = () => {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {user.assigned_event_types?.length > 0 
-                            ? `${user.assigned_event_types.length} assigned`
-                            : "None"}
+                          {user.role === 'tracker'
+                            ? user.assigned_event_types?.length > 0
+                              ? `${user.assigned_event_types.length} assigned`
+                              : "None"
+                            : <span className="text-xs text-muted-foreground italic">N/A for role</span>}
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
@@ -471,16 +490,22 @@ const Admin = () => {
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} title={`Edit ${user.email}'s role`}>
                               <Edit size={14} className="mr-1" /> Role
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => openAssignEventsDialog(user)} title={`Manage event assignments for ${user.email}`}>
-                              <Briefcase size={14} className="mr-1" /> Events
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openAssignEventsDialog(user)}
+                                title={`Manage event assignments for ${user.email}`}
+                                disabled={user.role !== 'tracker'} // Disable if not a tracker
+                            >
+                                <Briefcase size={14} className="mr-1" /> Events
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)} title={`Set new password for ${user.email}`}>
                               <Key size={14} className="mr-1" /> Password
                             </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
-                              onClick={() => openDeleteDialog(user)} 
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => openDeleteDialog(user)}
                               title={`Delete ${user.email}`}
                               disabled={user.id === currentUser?.id}
                             >
@@ -498,34 +523,81 @@ const Admin = () => {
         </TabsContent>
 
         <TabsContent value="assignments">
-          <div className="bg-card rounded-lg border shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Event Assignments Information</h2>
-            <p className="text-muted-foreground">
-              Event type assignments determine which specific events a user (typically a 'Tracker')
-              is permitted to record. You can manage these assignments for each user individually
-              from the "User Management" tab using the "Events" button in the actions column.
-            </p>
-            <p className="text-muted-foreground mt-2">
-              This tab serves as an informational placeholder. Future enhancements could include
-              an overview of assignments by event type or by tracker.
-            </p>
-          </div>
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ListChecks />Event Type Assignments Overview</CardTitle>
+              <CardDescription>
+                This view shows which 'Tracker' users are assigned to each event type.
+                Manage individual assignments via the 'Events' button in the User Management tab.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                 <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-3 text-muted-foreground">Loading assignment data...</p>
+                 </div>
+              ) : eventAssignmentsSummary.length > 0 ? (
+                <div className="space-y-6">
+                  {eventAssignmentsSummary.map(({ eventType, assignedUsers }) => (
+                    <div key={eventType} className="p-4 border rounded-md bg-muted/30">
+                      <h3 className="text-lg font-semibold mb-2">{eventType}</h3>
+                      {assignedUsers.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {assignedUsers.map(user => (
+                            <Badge key={user.id} variant="secondary" className="text-sm">
+                              {user.fullName || user.email}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No trackers currently assigned to this event type.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-6">No assignment data to display. Ensure users have the 'Tracker' role and are assigned event types.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit">
+           <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><History />Audit Logs</CardTitle>
+              <CardDescription>
+                Track significant actions performed within the admin panel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center py-10">
+                <History size={48} className="mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                    The Audit Log feature is planned for future implementation.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                    This section will display a record of actions such as user creation,
+                    role changes, password resets, and other critical administrative tasks.
+                </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Edit Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User Role: {selectedUser?.email}</DialogTitle>
-            <DialogDescription>Select the new role for this user.</DialogDescription>
+            <DialogDescription>Select the new role. If changing from 'Tracker' to another role, existing event assignments will be cleared for data integrity (though they remain in the database, they won't be active).</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
             <Label htmlFor="role-select">Role</Label>
-            <Select 
-              value={selectedRole} 
+            <Select
+              value={selectedRole}
               onValueChange={(value: 'admin' | 'tracker' | 'viewer') => setSelectedRole(value)}
-              disabled={selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin'} 
+              disabled={selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin'}
             >
               <SelectTrigger id="role-select">
                 <SelectValue placeholder="Select role" />
@@ -547,8 +619,8 @@ const Admin = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button 
-              onClick={updateUserRole} 
+            <Button
+              onClick={updateUserRole}
               disabled={isSubmitting || (selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && selectedRole !== 'admin')}
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
@@ -557,7 +629,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* New User Dialog */}
+      {/* New User Dialog (no changes needed from previous version) */}
       <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -598,13 +670,13 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Dialog */}
+      {/* Delete User Dialog (no changes needed) */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete user <strong>{selectedUser?.email}</strong>? 
+              Are you sure you want to delete user <strong>{selectedUser?.email}</strong>?
               This will permanently remove the user and their associated data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -617,7 +689,7 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Set Password Dialog */}
+      {/* Set Password Dialog (no changes needed) */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -637,18 +709,18 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assign Event Types Dialog */}
+      {/* Assign Event Types Dialog (no changes needed) */}
       <Dialog open={isAssignEventsDialogOpen} onOpenChange={(isOpen) => { setIsAssignEventsDialogOpen(isOpen); if (!isOpen) setEditingUserForEvents(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Manage Event Types for {editingUserForEvents?.email}</DialogTitle>
-            <DialogDescription>Select the event types this user can track.</DialogDescription>
+            <DialogDescription>Select the event types this user can track. This is only applicable for users with the 'Tracker' role.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
             {EVENT_TYPES.map((eventType) => (
               <div key={eventType} className="flex items-center space-x-2 p-1 hover:bg-muted rounded">
                 <Checkbox
-                  id={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`} // Make ID more robust
+                  id={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`}
                   checked={selectedEventTypesForUser.has(eventType)}
                   onCheckedChange={() => handleEventTypeToggle(eventType)}
                 />
