@@ -13,7 +13,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   userRole: 'admin' | 'tracker' | 'viewer' | null;
-  assignedEventCategories: string[] | null;
+  assignedEventTypes: string[] | null; // Renamed
 };
 
 // Define interfaces for custom tables not in the auto-generated types
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'admin' | 'tracker' | 'viewer' | null>(null);
-  const [assignedEventCategories, setAssignedEventCategories] = useState<string[] | null>(null);
+  const [assignedEventTypes, setAssignedEventTypes] = useState<string[] | null>(null); // Renamed
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,15 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRoleFromDB(initialSession).then(role => {
-          if (initialSession.user && role === 'tracker') {
-            fetchTrackerAssignments(initialSession.user.id);
-          } else {
-            setAssignedEventCategories(null);
-          }
+        fetchUserRoleFromDB(initialSession).then(() => { // Role fetching will trigger event assignment fetching
+          // No explicit call to fetchUserEventAssignments here, handled by useEffect [user, userRole]
         });
       } else {
-        setAssignedEventCategories(null);
+        setAssignedEventTypes(null);
       }
       
       setLoading(false);
@@ -76,43 +72,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
 
-  const fetchTrackerAssignments = async (userId: string) => {
+  const fetchUserEventAssignments = async (userId: string) => { // Renamed and updated
     try {
       const { data, error } = await supabase
-        .from('tracker_assignments')
-        .select('event_category')
-        .eq('tracker_id', userId);
+        .from('user_event_assignments') // Updated table name
+        .select('event_type') // Updated column name
+        .eq('user_id', userId);
 
       if (error) {
-        console.error('Error fetching tracker assignments:', error);
+        console.error('Error fetching user event assignments:', error);
         toast({
           title: "Error",
-          description: "Could not fetch tracker event assignments.",
+          description: "Could not fetch user event assignments.",
           variant: "destructive",
         });
-        setAssignedEventCategories([]); // Default to empty or handle appropriately
+        setAssignedEventTypes([]); // Default to empty or handle appropriately
         return;
       }
-      setAssignedEventCategories(data ? data.map(item => item.event_category) : []);
+      setAssignedEventTypes(data ? data.map(item => item.event_type) : []);
     } catch (e) {
-      console.error('Exception fetching tracker assignments:', e);
-      setAssignedEventCategories([]);
+      console.error('Exception fetching user event assignments:', e);
+      setAssignedEventTypes([]);
        toast({
           title: "Error",
-          description: "An exception occurred while fetching tracker assignments.",
+          description: "An exception occurred while fetching user event assignments.",
           variant: "destructive",
         });
     }
   };
   
-  // Effect to fetch assignments when user or role changes (specifically when role becomes 'tracker')
+  // Effect to fetch assignments when user or role changes (for any role, not just tracker)
   useEffect(() => {
-    if (user && userRole === 'tracker') {
-      fetchTrackerAssignments(user.id);
+    if (user) { // Fetch assignments if there's a user, regardless of role for now
+      fetchUserEventAssignments(user.id);
     } else {
-      setAssignedEventCategories(null); // Clear assignments if not a tracker or no user
+      setAssignedEventTypes(null); // Clear assignments if no user
     }
-  }, [user, userRole]); // supabase client is stable, not needed as dependency here
+  }, [user, userRole]); // Re-fetch if user or role changes. Role change might be redundant if user ID is the key.
 
   // First method: Use Supabase client with session token
   const fetchUserRoleWithSupabase = async (currentSession: Session) => {
@@ -308,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp,
       signOut,
       userRole,
-      assignedEventCategories,
+      assignedEventTypes, // Renamed
     }}>
       {children}
     </AuthContext.Provider>

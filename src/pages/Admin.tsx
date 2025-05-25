@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -48,9 +49,19 @@ interface UserRole {
 
 interface UserWithRole extends User {
   role: 'admin' | 'tracker' | 'viewer' | null;
+  assigned_event_types: string[]; // Properly define as string array
 }
 
-interface EventCategory {
+// Define the list of event types
+const EVENT_TYPES = [
+  "Attack", "Pass (P)", "Shot (S)", "Goal (G)", "Assist",
+  "Defense", "Tackle (T)", "Interception (I)",
+  "Corner (C)", "Free Kick", "Goal Kick", "Throw-in", "Penalty",
+  "Foul (F)", "Offside", "Yellow Card", "Red Card",
+  "Substitution"
+];
+
+interface EventCategory { // This existing interface might be for something else, will leave as is
   id: string;
   name: string;
 }
@@ -64,22 +75,130 @@ const Admin = () => {
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [isEventAssignDialogOpen, setIsEventAssignDialogOpen] = useState(false);
+  // const [isEventAssignDialogOpen, setIsEventAssignDialogOpen] = useState(false); // Commented out - replaced by Manage Event Types
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [eventCategories, setEventCategories] = useState<EventCategory[]>([
-    { id: 'pass', name: 'Pass' },
-    { id: 'shot', name: 'Shot' },
-    { id: 'tackle', name: 'Tackle' },
-    { id: 'foul', name: 'Foul' },
-    { id: 'goal', name: 'Goal' }
-  ]);
-  const [selectedEventCategory, setSelectedEventCategory] = useState<string>('');
+  // const [eventCategories, setEventCategories] = useState<EventCategory[]>([ // Commented out - related to old assign dialog
+  //   { id: 'pass', name: 'Pass' },
+  //   { id: 'shot', name: 'Shot' },
+  //   { id: 'tackle', name: 'Tackle' },
+  //   { id: 'foul', name: 'Foul' },
+  //   { id: 'goal', name: 'Goal' }
+  // ]);
+  // const [selectedEventCategory, setSelectedEventCategory] = useState<string>(''); // Commented out - related to old assign dialog
   const [selectedTab, setSelectedTab] = useState<string>('users');
   const { toast } = useToast();
   const { session } = useAuth();
+
+  // State for the new "Assign Event Types" dialog
+  const [isAssignEventsDialogOpen, setIsAssignEventsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  const [selectedEventTypesForUser, setSelectedEventTypesForUser] = useState<Set<string>>(new Set());
+
+  const saveAssignEvents = async () => {
+    if (!editingUser) return;
+
+    try {
+      // 1. Get current assignments from Supabase for the editing user
+      const { data: currentAssignmentsData, error: fetchError } = await supabase
+        .from('user_event_assignments')
+        .select('event_type')
+        .eq('user_id', editingUser.id);
+
+      if (fetchError) throw fetchError;
+
+      const currentAssignedTypes = new Set(currentAssignmentsData.map(item => item.event_type));
+
+      // 2. Determine types to add and remove
+      const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentAssignedTypes.has(type));
+      const typesToRemove = Array.from(currentAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
+
+      // 3. Perform Supabase insert/delete operations
+      const promises = [];
+
+      if (typesToAdd.length > 0) {
+        promises.push(
+          supabase.from('user_event_assignments').insert(
+            typesToAdd.map(eventType => ({ user_id: editingUser.id, event_type: eventType }))
+          )
+        );
+      }
+
+      if (typesToRemove.length > 0) {
+        promises.push(
+          supabase.from('user_event_assignments').delete()
+            .eq('user_id', editingUser.id)
+            .in('event_type', typesToRemove)
+        );
+      }
+
+      const results = await Promise.all(promises.map(p => p.then(res => {
+        if (res.error) throw res.error;
+        return res;
+      })));
+
+      // 4. Close dialog, refresh user list (or update local state), and show toast
+      toast({
+        title: 'Success',
+        description: `Event assignments updated for ${editingUser.email}.`,
+      });
+      setIsAssignEventsDialogOpen(false);
+      
+      // Update local state for the user's assigned_event_types
+      const updatedUsers = users.map(user => 
+        user.id === editingUser.id 
+          ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) } 
+          : user
+      );
+      setUsers(updatedUsers);
+      console.log('Admin UI: User assignments updated locally for user:', editingUser?.id, 'New assignments:', updatedUsers.find(u => u.id === editingUser?.id)?.assigned_event_types);
+      setEditingUser(null); // Clear editing user
+
+    } catch (error: any) {
+      toast({
+        title: 'Error Saving Assignments',
+        description: error.message || 'Could not save event assignments.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEventTypeToggle = (eventType: string) => {
+    setSelectedEventTypesForUser(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventType)) {
+        newSet.delete(eventType);
+      } else {
+        newSet.add(eventType);
+      }
+      return newSet;
+    });
+  };
+
+  const openAssignEventsDialog = async (user: UserWithRole) => { // Corrected UserWithRoled to UserWithRole
+    setEditingUser(user);
+    try {
+      const { data, error } = await supabase
+        .from('user_event_assignments')
+        .select('event_type')
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setSelectedEventTypesForUser(new Set(data.map(item => item.event_type)));
+      setIsAssignEventsDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: 'Error Fetching Assignments',
+        description: error.message || 'Could not load event assignments for this user.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -108,7 +227,28 @@ const Admin = () => {
       }
       
       if (result.usersWithRoles) {
-        setUsers(result.usersWithRoles);
+        const usersFromFunction = result.usersWithRoles;
+
+        // Fetch all event assignments
+        const { data: allAssignments, error: assignmentsError } = await supabase
+          .from('user_event_assignments')
+          .select('user_id, event_type');
+
+        if (assignmentsError) {
+          console.error('Error fetching all event assignments:', assignmentsError);
+          // Continue with users but assignments will be empty
+        }
+
+        const usersWithAssignments = usersFromFunction.map((user: any) => {
+          const userAssignments = allAssignments
+            ? allAssignments.filter(assignment => assignment.user_id === user.id).map(a => a.event_type)
+            : [];
+          return {
+            ...user,
+            assigned_event_types: userAssignments,
+          };
+        });
+        setUsers(usersWithAssignments);
       } else {
         // Handle cases where the expected data structure is not returned
         console.error('Fetched data does not contain usersWithRoles:', result);
@@ -145,20 +285,20 @@ const Admin = () => {
     setIsPasswordDialogOpen(true);
   };
 
-  const openEventAssignDialog = (user: UserWithRole) => {
-    if (user.role !== 'tracker') {
-      toast({
-        title: 'Cannot Assign Events',
-        description: 'Only trackers can be assigned to event categories.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  // const openEventAssignDialog = (user: UserWithRole) => { // Commented out - replaced by Manage Event Types
+  //   if (user.role !== 'tracker') {
+  //     toast({
+  //       title: 'Cannot Assign Events',
+  //       description: 'Only trackers can be assigned to event categories.',
+  //       variant: 'destructive',
+  //     });
+  //     return;
+  //   }
 
-    setSelectedUser(user);
-    setSelectedEventCategory('');
-    setIsEventAssignDialogOpen(true);
-  };
+  //   setSelectedUser(user);
+  //   setSelectedEventCategory('');
+  //   setIsEventAssignDialogOpen(true);
+  // };
 
   const updateUserRole = async () => {
     if (!selectedUser) return;
@@ -323,40 +463,40 @@ const Admin = () => {
     }
   };
 
-  const assignEventCategory = async () => {
-    if (!selectedUser || !selectedEventCategory) return;
+  // const assignEventCategory = async () => { // Commented out - replaced by Manage Event Types
+  //   if (!selectedUser || !selectedEventCategory) return;
 
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/tracker_assignments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ 
-          tracker_id: selectedUser.id,
-          event_category: selectedEventCategory,
-          created_by: session?.user?.id
-        })
-      });
+  //   try {
+  //     await fetch(`${SUPABASE_URL}/rest/v1/tracker_assignments`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'apikey': SUPABASE_ANON_KEY,
+  //         'Authorization': `Bearer ${session?.access_token}`,
+  //         'Prefer': 'return=minimal'
+  //       },
+  //       body: JSON.stringify({ 
+  //         tracker_id: selectedUser.id,
+  //         event_category: selectedEventCategory,
+  //         created_by: session?.user?.id
+  //       })
+  //     });
       
-      toast({
-        title: 'Event Assigned',
-        description: `${selectedEventCategory} event has been assigned to ${selectedUser.email}.`,
-      });
+  //     toast({
+  //       title: 'Event Assigned',
+  //       description: `${selectedEventCategory} event has been assigned to ${selectedUser.email}.`,
+  //     });
       
-      setIsEventAssignDialogOpen(false);
-    } catch (error: any) {
-      console.error('Error assigning event:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to assign event category.',
-        variant: 'destructive',
-      });
-    }
-  };
+  //     setIsEventAssignDialogOpen(false);
+  //   } catch (error: any) {
+  //     console.error('Error assigning event:', error);
+  //     toast({
+  //       title: 'Error',
+  //       description: error.message || 'Failed to assign event category.',
+  //       variant: 'destructive',
+  //     });
+  //   }
+  // };
 
   return (
     <div className="container mx-auto py-8">
@@ -399,19 +539,20 @@ const Admin = () => {
           ) : (
             <div className="bg-card rounded-lg border shadow">
               <Table>
-                <TableCaption>Manage users and their permissions</TableCaption>
+                <TableCaption>Manage users, their roles, and event type assignments</TableCaption>
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Created At</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Assigned Event Types</TableHead> 
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">No users found</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8">No users found</TableCell>
                     </TableRow>
                   ) : (
                     users.map((user) => (
@@ -431,6 +572,12 @@ const Admin = () => {
                             {user.role || 'No Role'}
                           </span>
                         </TableCell>
+                        <TableCell>
+                          {user.assigned_event_types && user.assigned_event_types.length > 0 
+                            ? `${user.assigned_event_types.length} event(s)` // Show count
+                            // Or: user.assigned_event_types.join(', ').substring(0, 30) + (user.assigned_event_types.join(', ').length > 30 ? '...' : '') // Show list preview
+                            : "None"}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
@@ -439,11 +586,26 @@ const Admin = () => {
                             <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)}>
                               <Key size={16} className="mr-1" /> Password
                             </Button>
-                            {user.role === 'tracker' && (
+                            {/* {user.role === 'tracker' && ( // Old Assign button, commented out
                               <Button variant="outline" size="sm" onClick={() => openEventAssignDialog(user)}>
                                 <ShieldCheck size={16} className="mr-1" /> Assign
                               </Button>
-                            )}
+                            )} */}
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                // console.log(`Manage Event Types for user: ${user.id}`);
+                                // console.log("Available Event Types:", EVENT_TYPES);
+                                // toast({
+                                //   title: "Manage Event Types (Placeholder)",
+                                //   description: `User ID: ${user.id}. Check console for event types.`,
+                                // });
+                                openAssignEventsDialog(user);
+                              }}
+                            >
+                              Manage Event Types
+                            </Button>
                             <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(user)}>
                               <Trash2 size={16} />
                             </Button>
@@ -458,12 +620,13 @@ const Admin = () => {
           )}
         </TabsContent>
 
+        {/* The "assignments" tab content might be refactored or removed if all assignment logic moves to the user table */}
         <TabsContent value="assignments">
           <div className="bg-card rounded-lg border shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Event Category Assignments</h2>
+            <h2 className="text-xl font-semibold mb-4">Event Category Assignments Overview (Placeholder)</h2>
             <p className="text-muted-foreground mb-6">
               View and manage which trackers are assigned to which event categories. 
-              Assignments allow trackers to record specific types of events during matches.
+              Assignments allow trackers to record specific types of events during matches. This tab may be removed or updated based on new UI.
             </p>
             
             {/* This would be implementation for viewing assignments - simplified for now */}
@@ -653,11 +816,12 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assign Event Dialog */}
-      <Dialog open={isEventAssignDialogOpen} onOpenChange={setIsEventAssignDialogOpen}>
+      {/* Assign Event Dialog - This dialog is now commented out as its functionality is being replaced */}
+      {/* 
+      <Dialog open={isEventAssignDialogOpen} onOpenChange={setIsEventAssignDialogOpen}> // This was the old dialog
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Event Category</DialogTitle>
+            <DialogTitle>Assign Event Category (Old)</DialogTitle>
             <DialogDescription>
               Assign {selectedUser?.email} to track specific event types
             </DialogDescription>
@@ -672,7 +836,7 @@ const Admin = () => {
                 <SelectValue placeholder="Select event category" />
               </SelectTrigger>
               <SelectContent>
-                {eventCategories.map((category) => (
+                {eventCategories.map((category) => ( // This would need to use EVENT_TYPES if kept
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>
@@ -687,6 +851,41 @@ const Admin = () => {
             </Button>
             <Button onClick={assignEventCategory}>
               Assign Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog> 
+      */}
+
+      {/* New Assign Event Types Dialog */}
+      <Dialog open={isAssignEventsDialogOpen} onOpenChange={setIsAssignEventsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Event Types for {editingUser?.email}</DialogTitle>
+            <DialogDescription>
+              Select the event types this user is allowed to track.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+            {EVENT_TYPES.map((eventType) => (
+              <div key={eventType} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`checkbox-${eventType}`}
+                  checked={selectedEventTypesForUser.has(eventType)}
+                  onCheckedChange={() => handleEventTypeToggle(eventType)}
+                />
+                <Label htmlFor={`checkbox-${eventType}`} className="font-normal">
+                  {eventType}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignEventsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveAssignEvents}>
+              Save Assignments
             </Button>
           </DialogFooter>
         </DialogContent>

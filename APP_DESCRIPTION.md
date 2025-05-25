@@ -15,6 +15,13 @@ This web application is a comprehensive platform for football (soccer) match ana
 *   **User Authentication & Roles:** The system includes user authentication to secure access. It may also support different user roles (e.g., admin, analyst) with varying permissions.
 *   **Collaboration (Potential):** Hooks like `useMatchCollaboration.ts` suggest that the application might support real-time collaboration, allowing multiple users to work together on analyzing a single match.
 
+### Collaborative Event Tracking & Assignments
+
+*   **Real-time Collaboration:** The platform now supports multiple users ("trackers") working simultaneously on the same match analysis.
+*   **Admin-Managed Event Assignments:** Administrators can assign specific event types (e.g., "Passes", "Shots", "Defensive Actions") to individual users. This allows for distributing the workload and focusing expertise.
+*   **Guided Event Logging:** In the match analysis interface, users receive visual cues for the event types specifically assigned to them. This helps guide their attention and streamline data entry, while still allowing them to record any event type if necessary.
+*   **User-Specific Event Tracking:** Each event logged in the system is associated with the user who recorded it, enhancing accountability and traceability in collaborative sessions. (This assumes the backend `user_id` storage is in place).
+
 ## Technology Stack
 
 The application is built using a modern web technology stack:
