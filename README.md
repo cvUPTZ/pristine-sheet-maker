@@ -4,6 +4,12 @@
 
 **URL**: https://lovable.dev/projects/ccd210db-42e4-41db-8e65-3ae1c8d22f4c
 
+## What is this App?
+
+This project is a comprehensive platform for football (soccer) match analysis. It allows users to record, analyze, and visualize match data, providing valuable insights for coaches, analysts, and enthusiasts.
+
+For a more detailed description of the application's features and purpose, please see [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
+
 ## How can I edit this code?
 
 There are several ways of editing your application.
