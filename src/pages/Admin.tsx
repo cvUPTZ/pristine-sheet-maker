@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'; // For the "Back to Home" button
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,11 +37,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge"; // For displaying users in assignments tab
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from '@/context/AuthContext';
 import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase, ArrowLeft, ListChecks, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Interfaces
 interface User {
   id: string;
   email: string;
@@ -54,6 +55,12 @@ export interface UserWithRole extends User {
   assigned_event_types: string[];
 }
 
+interface EventTypeAssignmentSummary {
+  eventType: string;
+  assignedUsers: Array<{ id: string; email: string; fullName?: string }>;
+}
+
+// Constants
 export const EVENT_TYPES = [
   "Attack", "Pass (P)", "Shot (S)", "Goal (G)", "Assist",
   "Defense", "Tackle (T)", "Interception (I)",
@@ -62,12 +69,8 @@ export const EVENT_TYPES = [
   "Substitution"
 ];
 
-interface EventTypeAssignmentSummary {
-  eventType: string;
-  assignedUsers: Array<{ id: string; email: string; fullName?: string }>;
-}
-
 const Admin = () => {
+  // State Variables
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,10 +93,13 @@ const Admin = () => {
   const [selectedEventTypesForUser, setSelectedEventTypesForUser] = useState<Set<string>>(new Set());
 
   const [selectedTab, setSelectedTab] = useState<string>('users');
+
+  // Hooks
   const { toast } = useToast();
   const { session, user: currentUser } = useAuth();
-  const navigate = useNavigate(); // For "Back to Home"
+  const navigate = useNavigate();
 
+  // Data Fetching
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -101,19 +107,20 @@ const Admin = () => {
         throw new Error("Authentication token not found. Please log in.");
       }
       const { data, error: functionError } = await supabase.functions.invoke('get-all-users');
-      console.log('RAW DATA from get-all-users:', JSON.stringify(data, null, 2));
-      console.log('FUNCTION ERROR from get-all-users:', JSON.stringify(functionError, null, 2));
 
       if (functionError) {
+        console.error('Function invocation error (get-all-users):', functionError);
         throw new Error(functionError.message || 'Failed to invoke get-all-users function.');
       }
+
       if (data && data.usersWithRolesAndAssignments) {
         setUsers(data.usersWithRolesAndAssignments);
       } else if (data && data.error) {
+        console.error('Error payload from get-all-users function:', data.error);
         throw new Error(data.error || 'The get-all-users function returned an error payload.');
       } else {
-        console.error('Fetched data structure mismatch from function:', data);
-        throw new Error('Invalid data structure received from the get-all-users function.');
+        console.error('Fetched data structure mismatch from get-all-users function:', data);
+        throw new Error('Invalid data structure received from the get-all-users function. Expected { usersWithRolesAndAssignments: [...] }.');
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -122,7 +129,7 @@ const Admin = () => {
         description: error.message || 'Could not load users. Please try again.',
         variant: 'destructive',
       });
-      setUsers([]);
+      setUsers([]); // Reset users on error to avoid displaying stale/incorrect data
     } finally {
       setIsLoading(false);
     }
@@ -134,9 +141,9 @@ const Admin = () => {
     }
   }, [fetchUsers, session]);
 
-  // Memoized calculation for the "Assignments Info" tab
+  // Memoized Data for Assignments Overview
   const eventAssignmentsSummary = useMemo<EventTypeAssignmentSummary[]>(() => {
-    if (!users || users.length === 0) return [];
+    if (isLoading || !users || users.length === 0) return []; // Don't compute if loading or no users
 
     return EVENT_TYPES.map(eventType => {
       const assignedUsersToEvent = users
@@ -147,9 +154,9 @@ const Admin = () => {
         assignedUsers: assignedUsersToEvent,
       };
     });
-  }, [users]);
+  }, [users, isLoading]); // Add isLoading to dependencies
 
-
+  // Dialog Management Functions
   const openEditDialog = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole(user.role || 'viewer');
@@ -182,8 +189,6 @@ const Admin = () => {
             description: "Event types can only be assigned to users with the 'Tracker' role.",
             variant: "default"
         });
-        // Optionally, you could disable the button if role is not tracker
-        // For now, just show a toast and don't open the dialog
         return;
     }
     setEditingUserForEvents(user);
@@ -191,6 +196,7 @@ const Admin = () => {
     setIsAssignEventsDialogOpen(true);
   };
 
+  // Core Logic Functions (CRUD Operations)
   const updateUserRole = async () => {
     if (!selectedUser) return;
     if (selectedUser.id === currentUser?.id && selectedRole !== 'admin') {
@@ -210,14 +216,16 @@ const Admin = () => {
         },
       });
       if (functionError) throw new Error(functionError.message || 'Failed to invoke update-user-role function.');
-      if (functionResponse && functionResponse.error) throw new Error(functionResponse.details || functionResponse.error);
+      if (functionResponse && functionResponse.error) throw new Error(functionResponse.details || functionResponse.error || 'Update-user-role function returned an error.');
 
       toast({
         title: 'Success',
         description: functionResponse.message || `Role updated for ${selectedUser.email}.`,
       });
+      // If role changed from tracker, clear local assigned_event_types for that user
+      const updatedAssignedEventTypes = selectedRole === 'tracker' ? selectedUser.assigned_event_types : [];
       setUsers(users.map(u =>
-        u.id === selectedUser.id ? { ...u, role: selectedRole, assigned_event_types: newRole !== 'tracker' ? [] : u.assigned_event_types } : u // Reset assignments if not tracker
+        u.id === selectedUser.id ? { ...u, role: selectedRole, assigned_event_types: updatedAssignedEventTypes } : u
       ));
       setIsRoleDialogOpen(false);
     } catch (error: any) {
@@ -257,7 +265,7 @@ const Admin = () => {
         title: 'User Created',
         description: `${data.message || `${newUserEmail} created as ${selectedRole}.`} User ID: ${data.userId}`,
       });
-      fetchUsers();
+      fetchUsers(); // Re-fetch users to include the new one
       setNewUserEmail(''); setNewUserPassword(''); setNewUserFullName('');
       setSelectedRole('viewer');
       setIsNewUserDialogOpen(false);
@@ -310,6 +318,7 @@ const Admin = () => {
   const deleteUser = async () => {
     if (!selectedUser) return;
     if (selectedUser.id === currentUser?.id) {
+      // This check is already in openDeleteDialog, but good for belt-and-suspenders
       toast({ title: 'Action Denied', description: 'Cannot delete your own account.', variant: 'warning' });
       setIsDeleteDialogOpen(false);
       return;
@@ -325,7 +334,7 @@ const Admin = () => {
         title: 'User Deleted',
         description: data.message || `${selectedUser.email} has been deleted.`,
       });
-      setUsers(users.filter(u => u.id !== selectedUser.id));
+      setUsers(users.filter(u => u.id !== selectedUser.id)); // Update local state
       setIsDeleteDialogOpen(false);
     } catch (error: any) {
       console.error('Error deleting user:', error);
@@ -352,15 +361,18 @@ const Admin = () => {
     if (!editingUserForEvents) return;
     setIsSubmitting(true);
     try {
+      // Fetch current assignments from DB to calculate diff
       const { data: currentAssignmentsData, error: fetchError } = await supabase
         .from('user_event_assignments')
         .select('event_type')
         .eq('user_id', editingUserForEvents.id);
       if (fetchError) throw fetchError;
+
       const currentDbAssignedTypes = new Set(currentAssignmentsData.map(item => item.event_type));
       const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentDbAssignedTypes.has(type));
       const typesToRemove = Array.from(currentDbAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
 
+      // Perform deletions
       if (typesToRemove.length > 0) {
         const { error: deleteError } = await supabase
           .from('user_event_assignments')
@@ -369,16 +381,19 @@ const Admin = () => {
           .in('event_type', typesToRemove);
         if (deleteError) throw deleteError;
       }
+      // Perform insertions
       if (typesToAdd.length > 0) {
         const { error: insertError } = await supabase
           .from('user_event_assignments')
           .insert(typesToAdd.map(eventType => ({ user_id: editingUserForEvents.id, event_type: eventType })));
         if (insertError) throw insertError;
       }
+      
       toast({
         title: 'Success',
         description: `Event assignments updated for ${editingUserForEvents.email}.`,
       });
+      // Update local state for the user
       setUsers(prevUsers => prevUsers.map(user =>
         user.id === editingUserForEvents.id
           ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) }
@@ -398,10 +413,11 @@ const Admin = () => {
     }
   };
 
-
+  // JSX Rendering
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div className="flex items-center gap-3">
            <Button variant="outline" size="icon" onClick={() => navigate('/')} title="Back to Home">
             <ArrowLeft className="h-5 w-5" />
@@ -414,14 +430,19 @@ const Admin = () => {
             <p className="text-sm text-muted-foreground">Manage users, roles, event assignments, and system logs.</p>
           </div>
         </div>
-        <TabsList>
-          <TabsTrigger value="users"><UserPlus size={16} className="mr-2"/>User Management</TabsTrigger>
-          <TabsTrigger value="assignments"><ListChecks size={16} className="mr-2"/>Assignments Overview</TabsTrigger>
-          <TabsTrigger value="audit"><History size={16} className="mr-2"/>Audit Logs</TabsTrigger>
-        </TabsList>
       </div>
 
+      {/* Tabs Navigation and Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+        <div className="mb-6"> {/* Wrapper for TabsList for potential styling */}
+            <TabsList>
+              <TabsTrigger value="users"><UserPlus size={16} className="mr-2"/>User Management</TabsTrigger>
+              <TabsTrigger value="assignments"><ListChecks size={16} className="mr-2"/>Assignments Overview</TabsTrigger>
+              <TabsTrigger value="audit"><History size={16} className="mr-2"/>Audit Logs</TabsTrigger>
+            </TabsList>
+        </div>
+
+        {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
           <div className="flex justify-end">
             <Button
@@ -430,6 +451,7 @@ const Admin = () => {
                 setSelectedRole('viewer'); setIsNewUserDialogOpen(true);
               }}
               className="flex items-center gap-2"
+              disabled={isSubmitting}
             >
               <UserPlus size={18} /> Add New User
             </Button>
@@ -443,13 +465,13 @@ const Admin = () => {
           ) : (
             <div className="bg-card rounded-lg border shadow-sm overflow-x-auto">
               <Table>
-                <TableCaption>A list of all users in the system. Event assignments are only applicable to 'Tracker' roles.</TableCaption>
+                <TableCaption>A list of all users. Event assignments are only applicable to 'Tracker' roles.</TableCaption>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Full Name</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Event Types Assigned</TableHead>
+                    <TableHead>Events Assigned</TableHead>
                     <TableHead>Created At</TableHead>
                     <TableHead className="text-right min-w-[320px]">Actions</TableHead>
                   </TableRow>
@@ -467,15 +489,16 @@ const Admin = () => {
                         <TableCell className="font-medium">{user.email}</TableCell>
                         <TableCell>{user.fullName || 'N/A'}</TableCell>
                         <TableCell>
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              user.role === 'admin' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
-                              : user.role === 'tracker' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100'
+                          <Badge
+                            variant={user.role === 'admin' ? 'destructive' : user.role === 'tracker' ? 'default' : 'outline'}
+                            className={`px-2 py-1 text-xs font-semibold ${
+                                user.role === 'admin' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
+                                : user.role === 'tracker' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100'
                             }`}
                           >
                             {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'No Role'}
-                          </span>
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {user.role === 'tracker'
@@ -487,7 +510,7 @@ const Admin = () => {
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2 flex-wrap">
-                            <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} title={`Edit ${user.email}'s role`}>
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} title={`Edit ${user.email}'s role`} disabled={isSubmitting}>
                               <Edit size={14} className="mr-1" /> Role
                             </Button>
                             <Button
@@ -495,11 +518,11 @@ const Admin = () => {
                                 size="sm"
                                 onClick={() => openAssignEventsDialog(user)}
                                 title={`Manage event assignments for ${user.email}`}
-                                disabled={user.role !== 'tracker'} // Disable if not a tracker
+                                disabled={user.role !== 'tracker' || isSubmitting}
                             >
                                 <Briefcase size={14} className="mr-1" /> Events
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)} title={`Set new password for ${user.email}`}>
+                            <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)} title={`Set new password for ${user.email}`} disabled={isSubmitting}>
                               <Key size={14} className="mr-1" /> Password
                             </Button>
                             <Button
@@ -507,7 +530,7 @@ const Admin = () => {
                               size="sm"
                               onClick={() => openDeleteDialog(user)}
                               title={`Delete ${user.email}`}
-                              disabled={user.id === currentUser?.id}
+                              disabled={user.id === currentUser?.id || isSubmitting}
                             >
                               <Trash2 size={14} className="mr-1" /> Delete
                             </Button>
@@ -522,6 +545,7 @@ const Admin = () => {
           )}
         </TabsContent>
 
+        {/* Assignments Overview Tab */}
         <TabsContent value="assignments">
           <Card className="shadow-md">
             <CardHeader>
@@ -532,7 +556,7 @@ const Admin = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {isLoading ? ( // Show loading spinner while users (and thus summary) are loading
                  <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <p className="ml-3 text-muted-foreground">Loading assignment data...</p>
@@ -540,12 +564,12 @@ const Admin = () => {
               ) : eventAssignmentsSummary.length > 0 ? (
                 <div className="space-y-6">
                   {eventAssignmentsSummary.map(({ eventType, assignedUsers }) => (
-                    <div key={eventType} className="p-4 border rounded-md bg-muted/30">
-                      <h3 className="text-lg font-semibold mb-2">{eventType}</h3>
+                    <div key={eventType} className="p-4 border rounded-md bg-card hover:bg-muted/50 transition-colors">
+                      <h3 className="text-lg font-semibold mb-3">{eventType}</h3>
                       {assignedUsers.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {assignedUsers.map(user => (
-                            <Badge key={user.id} variant="secondary" className="text-sm">
+                            <Badge key={user.id} variant="secondary" className="text-sm px-2 py-1">
                               {user.fullName || user.email}
                             </Badge>
                           ))}
@@ -557,18 +581,19 @@ const Admin = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-6">No assignment data to display. Ensure users have the 'Tracker' role and are assigned event types.</p>
+                 <p className="text-center text-muted-foreground py-6">No assignment data to display. Ensure users have the 'Tracker' role and are assigned event types.</p>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Audit Logs Tab (Placeholder) */}
         <TabsContent value="audit">
            <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><History />Audit Logs</CardTitle>
               <CardDescription>
-                Track significant actions performed within the admin panel.
+                Track significant actions performed within the admin panel and system.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center py-10">
@@ -585,12 +610,13 @@ const Admin = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Dialogs */}
       {/* Edit Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User Role: {selectedUser?.email}</DialogTitle>
-            <DialogDescription>Select the new role. If changing from 'Tracker' to another role, existing event assignments will be cleared for data integrity (though they remain in the database, they won't be active).</DialogDescription>
+            <DialogDescription>Select the new role. If changing from 'Tracker', existing event assignments become inactive.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
             <Label htmlFor="role-select">Role</Label>
@@ -623,13 +649,13 @@ const Admin = () => {
               onClick={updateUserRole}
               disabled={isSubmitting || (selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && selectedRole !== 'admin')}
             >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* New User Dialog (no changes needed from previous version) */}
+      {/* New User Dialog */}
       <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -664,13 +690,13 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsNewUserDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={createNewUser} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create User
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Create User
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Dialog (no changes needed) */}
+      {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -683,13 +709,13 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button variant="destructive" onClick={deleteUser} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete User
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete User
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Set Password Dialog (no changes needed) */}
+      {/* Set Password Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -703,26 +729,27 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={updateUserPassword} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update Password
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Update Password
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Assign Event Types Dialog (no changes needed) */}
+      {/* Assign Event Types Dialog */}
       <Dialog open={isAssignEventsDialogOpen} onOpenChange={(isOpen) => { setIsAssignEventsDialogOpen(isOpen); if (!isOpen) setEditingUserForEvents(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Manage Event Types for {editingUserForEvents?.email}</DialogTitle>
-            <DialogDescription>Select the event types this user can track. This is only applicable for users with the 'Tracker' role.</DialogDescription>
+            <DialogDescription>Select the event types this user can track. (Only for 'Tracker' role)</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto"> {/* Added max-h and overflow */}
             {EVENT_TYPES.map((eventType) => (
               <div key={eventType} className="flex items-center space-x-2 p-1 hover:bg-muted rounded">
                 <Checkbox
                   id={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`}
                   checked={selectedEventTypesForUser.has(eventType)}
                   onCheckedChange={() => handleEventTypeToggle(eventType)}
+                  disabled={isSubmitting}
                 />
                 <Label htmlFor={`checkbox-assign-${eventType.replace(/[\s()]/g, '-')}`} className="font-normal cursor-pointer flex-grow">
                   {eventType}
@@ -733,7 +760,7 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignEventsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={saveAssignEvents} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Assignments
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Save Assignments
             </Button>
           </DialogFooter>
         </DialogContent>
