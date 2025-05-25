@@ -53,7 +53,7 @@ interface UserWithRole extends User {
 }
 
 // Define the list of event types
-const EVENT_TYPES = [
+export const EVENT_TYPES = [
   "Attack", "Pass (P)", "Shot (S)", "Goal (G)", "Assist",
   "Defense", "Tackle (T)", "Interception (I)",
   "Corner (C)", "Free Kick", "Goal Kick", "Throw-in", "Penalty",
