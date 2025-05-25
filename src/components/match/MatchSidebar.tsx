@@ -4,18 +4,25 @@ import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
-import { Statistics, Player, TimeSegmentStatistics } from '@/types';
+import { Statistics, Player, TimeSegmentStatistics, Match } from '@/types'; // Added Match
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface MatchSidebarProps {
-  isRunning: boolean;
-  toggleTimer: () => void;
-  resetTimer: () => void;
-  elapsedTime: number;
-  setElapsedTime: (time: number) => void;
+  // Props for DB-driven timer
+  dbTimerValue?: number | null;
+  timerStatus?: string | null;
+  timerLastStartedAt?: string | null;
+
+  // Old timer props - can be gradually removed if no longer used by sidebar itself
+  isRunning: boolean; // May still be used for UI cues in sidebar, or can be derived from timerStatus
+  // toggleTimer: () => void; // Control now in MatchAnalysis for admin
+  // resetTimer: () => void;   // Control now in MatchAnalysis for admin
+  // elapsedTime: number; // Superseded by dbTimerValue for display
+  // setElapsedTime: (time: number) => void; // Superseded
+
   mode: 'piano' | 'tracking';
   selectedPlayer: Player | null;
   handleActionSelect: (action: string) => void;
@@ -43,11 +50,14 @@ interface MatchSidebarProps {
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
-  isRunning,
-  toggleTimer,
-  resetTimer,
-  elapsedTime,
-  setElapsedTime,
+  dbTimerValue,
+  timerStatus,
+  timerLastStartedAt,
+  isRunning, // Kept for now, can be removed if sidebar UI doesn't need it
+  // toggleTimer, // Removed as controls are admin-only in MatchAnalysis
+  // resetTimer,  // Removed
+  // elapsedTime, // Superseded
+  // setElapsedTime, // Superseded
   mode,
   selectedPlayer,
   handleActionSelect,
@@ -101,11 +111,9 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
     <div className="space-y-4">
       <Card className="p-4 bg-white shadow-md">
         <MatchTimer 
-          isRunning={isRunning} 
-          onToggle={toggleTimer} 
-          onReset={resetTimer} 
-          elapsedTime={elapsedTime} 
-          setElapsedTime={setElapsedTime} 
+          dbTimerValue={dbTimerValue}
+          timerStatus={timerStatus}
+          timerLastStartedAt={timerLastStartedAt}
         />
       </Card>
 
