@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,32 +27,33 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig';
-import { useAuth } from '@/context/AuthContext';
-import { Loader2, UserPlus, UserX, Edit, Key, Trash2, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig'; // Ensure this path is correct
+import { useAuth } from '@/context/AuthContext'; // Ensure this path is correct
+import { Loader2, UserPlus, Edit, Key, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
+// Removed UserX as Trash2 is more common for delete
+// supabase client is used for some direct table operations (assuming RLS is set up)
+import { supabase } from '@/integrations/supabase/client'; // Ensure this path is correct
 
 interface User {
   id: string;
   email: string;
   created_at: string;
+  fullName?: string; // Added fullName
 }
 
-interface UserRole {
-  id: string;
+interface UserRole { // This is for the user_roles table schema, if ever fetched directly
+  id: string; // PK of the user_roles table row
   user_id: string;
   role: 'admin' | 'tracker' | 'viewer';
 }
 
-interface UserWithRole extends User {
+export interface UserWithRole extends User { // Exporting for potential use elsewhere
   role: 'admin' | 'tracker' | 'viewer' | null;
-  assigned_event_types: string[]; // Properly define as string array
+  assigned_event_types: string[];
 }
 
-// Define the list of event types
-// MODIFIED: Added 'export' keyword
 export const EVENT_TYPES = [
   "Attack", "Pass (P)", "Shot (S)", "Goal (G)", "Assist",
   "Defense", "Tackle (T)", "Interception (I)",
@@ -61,154 +62,37 @@ export const EVENT_TYPES = [
   "Substitution"
 ];
 
-interface EventCategory { // This existing interface might be for something else, will leave as is
-  id: string;
-  name: string;
-}
-
 const Admin = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For dialog submissions
+
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'tracker' | 'viewer'>('viewer');
+  
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  // const [isEventAssignDialogOpen, setIsEventAssignDialogOpen] = useState(false); // Commented out - replaced by Manage Event Types
+  const [isAssignEventsDialogOpen, setIsAssignEventsDialogOpen] = useState(false);
+
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  // const [eventCategories, setEventCategories] = useState<EventCategory[]>([ // Commented out - related to old assign dialog
-  //   { id: 'pass', name: 'Pass' },
-  //   { id: 'shot', name: 'Shot' },
-  //   { id: 'tackle', name: 'Tackle' },
-  //   { id: 'foul', name: 'Foul' },
-  //   { id: 'goal', name: 'Goal' }
-  // ]);
-  // const [selectedEventCategory, setSelectedEventCategory] = useState<string>(''); // Commented out - related to old assign dialog
-  const [selectedTab, setSelectedTab] = useState<string>('users');
-  const { toast } = useToast();
-  const { session } = useAuth();
-
-  // State for the new "Assign Event Types" dialog
-  const [isAssignEventsDialogOpen, setIsAssignEventsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  
+  const [editingUserForEvents, setEditingUserForEvents] = useState<UserWithRole | null>(null);
   const [selectedEventTypesForUser, setSelectedEventTypesForUser] = useState<Set<string>>(new Set());
 
-  const saveAssignEvents = async () => {
-    if (!editingUser) return;
+  const [selectedTab, setSelectedTab] = useState<string>('users');
+  const { toast } = useToast();
+  const { session, user: currentUser } = useAuth(); // Assuming useAuth provides the current user object
 
-    try {
-      // 1. Get current assignments from Supabase for the editing user
-      const { data: currentAssignmentsData, error: fetchError } = await supabase
-        .from('user_event_assignments')
-        .select('event_type')
-        .eq('user_id', editingUser.id);
-
-      if (fetchError) throw fetchError;
-
-      const currentAssignedTypes = new Set(currentAssignmentsData.map(item => item.event_type));
-
-      // 2. Determine types to add and remove
-      const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentAssignedTypes.has(type));
-      const typesToRemove = Array.from(currentAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
-
-      // 3. Perform Supabase insert/delete operations
-      const promises = [];
-
-      if (typesToAdd.length > 0) {
-        promises.push(
-          supabase.from('user_event_assignments').insert(
-            typesToAdd.map(eventType => ({ user_id: editingUser.id, event_type: eventType }))
-          )
-        );
-      }
-
-      if (typesToRemove.length > 0) {
-        promises.push(
-          supabase.from('user_event_assignments').delete()
-            .eq('user_id', editingUser.id)
-            .in('event_type', typesToRemove)
-        );
-      }
-
-      const results = await Promise.all(promises.map(p => p.then(res => {
-        if (res.error) throw res.error;
-        return res;
-      })));
-
-      // 4. Close dialog, refresh user list (or update local state), and show toast
-      toast({
-        title: 'Success',
-        description: `Event assignments updated for ${editingUser.email}.`,
-      });
-      setIsAssignEventsDialogOpen(false);
-      
-      // Update local state for the user's assigned_event_types
-      const updatedUsers = users.map(user => 
-        user.id === editingUser.id 
-          ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) } 
-          : user
-      );
-      setUsers(updatedUsers);
-      console.log('Admin UI: User assignments updated locally for user:', editingUser?.id, 'New assignments:', updatedUsers.find(u => u.id === editingUser?.id)?.assigned_event_types);
-      setEditingUser(null); // Clear editing user
-
-    } catch (error: any) {
-      toast({
-        title: 'Error Saving Assignments',
-        description: error.message || 'Could not save event assignments.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEventTypeToggle = (eventType: string) => {
-    setSelectedEventTypesForUser(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(eventType)) {
-        newSet.delete(eventType);
-      } else {
-        newSet.add(eventType);
-      }
-      return newSet;
-    });
-  };
-
-  const openAssignEventsDialog = async (user: UserWithRole) => { // Corrected UserWithRoled to UserWithRole
-    setEditingUser(user);
-    try {
-      const { data, error } = await supabase
-        .from('user_event_assignments')
-        .select('event_type')
-        .eq('user_id', user.id);
-
-      if (error) {
-        throw error;
-      }
-
-      setSelectedEventTypesForUser(new Set(data.map(item => item.event_type)));
-      setIsAssignEventsDialogOpen(true);
-    } catch (error: any) {
-      toast({
-        title: 'Error Fetching Assignments',
-        description: error.message || 'Could not load event assignments for this user.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       if (!session?.access_token) {
-        throw new Error("User session not found. Cannot fetch users.");
+        throw new Error("Authentication token not found. Please log in.");
       }
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/get-all-users`, {
@@ -216,7 +100,7 @@ const Admin = () => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
+          'apikey': SUPABASE_ANON_KEY, // Supabase Edge Functions require apikey
         },
       });
 
@@ -226,47 +110,29 @@ const Admin = () => {
         throw new Error(result.error || `Failed to fetch users: ${response.statusText}`);
       }
       
-      if (result.usersWithRoles) {
-        const usersFromFunction = result.usersWithRoles;
-
-        // Fetch all event assignments
-        const { data: allAssignments, error: assignmentsError } = await supabase
-          .from('user_event_assignments')
-          .select('user_id, event_type');
-
-        if (assignmentsError) {
-          console.error('Error fetching all event assignments:', assignmentsError);
-          // Continue with users but assignments will be empty
-        }
-
-        const usersWithAssignments = usersFromFunction.map((user: any) => {
-          const userAssignments = allAssignments
-            ? allAssignments.filter(assignment => assignment.user_id === user.id).map(a => a.event_type)
-            : [];
-          return {
-            ...user,
-            assigned_event_types: userAssignments,
-          };
-        });
-        setUsers(usersWithAssignments);
+      if (result.usersWithRolesAndAssignments) {
+        setUsers(result.usersWithRolesAndAssignments);
       } else {
-        // Handle cases where the expected data structure is not returned
-        console.error('Fetched data does not contain usersWithRoles:', result);
-        throw new Error('Invalid data structure received from server.');
+        console.error('Fetched data structure mismatch:', result);
+        throw new Error('Invalid data structure received from the server.');
       }
 
     } catch (error: any) {
-      console.error('Error fetching users via Edge Function:', error);
+      console.error('Error fetching users:', error);
       toast({
         title: 'Error Fetching Users',
-        description: error.message || 'Failed to load users. Please try again later.',
+        description: error.message || 'Could not load users. Please try again.',
         variant: 'destructive',
       });
-      setUsers([]); // Clear users on error or set to a default
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session, toast]); // Added SUPABASE_URL, SUPABASE_ANON_KEY if they can change, but typically they don't
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const openEditDialog = (user: UserWithRole) => {
     setSelectedUser(user);
@@ -275,6 +141,14 @@ const Admin = () => {
   };
 
   const openDeleteDialog = (user: UserWithRole) => {
+    if (user.id === currentUser?.id) {
+      toast({
+        title: 'Action Denied',
+        description: 'You cannot delete your own account from the admin panel.',
+        variant: 'warning',
+      });
+      return;
+    }
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
@@ -285,79 +159,64 @@ const Admin = () => {
     setIsPasswordDialogOpen(true);
   };
 
-  // const openEventAssignDialog = (user: UserWithRole) => { // Commented out - replaced by Manage Event Types
-  //   if (user.role !== 'tracker') {
-  //     toast({
-  //       title: 'Cannot Assign Events',
-  //       description: 'Only trackers can be assigned to event categories.',
-  //       variant: 'destructive',
-  //     });
-  //     return;
-  //   }
-
-  //   setSelectedUser(user);
-  //   setSelectedEventCategory('');
-  //   setIsEventAssignDialogOpen(true);
-  // };
+  const openAssignEventsDialog = (user: UserWithRole) => {
+    setEditingUserForEvents(user);
+    // Use the already fetched assignments if available, otherwise fetch fresh (though fetchUsers should provide them)
+    setSelectedEventTypesForUser(new Set(user.assigned_event_types || []));
+    setIsAssignEventsDialogOpen(true);
+  };
 
   const updateUserRole = async () => {
     if (!selectedUser) return;
-    
+
+    if (selectedUser.id === currentUser?.id && selectedRole !== 'admin') {
+      toast({
+        title: 'Action Denied',
+        description: 'You cannot change your own role to a non-admin status.',
+        variant: 'warning',
+      });
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      if (selectedUser.role) {
-        // Update existing role
-        await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${selectedUser.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({ role: selectedRole })
-        });
-      } else {
-        // Insert new role
-        await fetch(`${SUPABASE_URL}/rest/v1/user_roles`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({ 
-            user_id: selectedUser.id,
-            role: selectedRole
-          })
-        });
-      }
+      // This uses direct Supabase REST API with user's token.
+      // Assumes RLS on `user_roles` table allows admins to perform this.
+      const { error } = await supabase
+        .from('user_roles')
+        .upsert({ user_id: selectedUser.id, role: selectedRole }, { onConflict: 'user_id' });
+
+      if (error) throw error;
       
       toast({
         title: 'Success',
-        description: `Role updated for ${selectedUser.email}`,
+        description: `Role updated for ${selectedUser.email}.`,
       });
       
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === selectedUser.id ? { ...user, role: selectedRole } : user
+      setUsers(users.map(u => 
+        u.id === selectedUser.id ? { ...u, role: selectedRole } : u
       ));
-      
       setIsRoleDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update user role. Please try again.',
+        title: 'Error Updating Role',
+        description: error.message || 'Failed to update user role.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const createNewUser = async () => {
+    if (!newUserEmail || !newUserPassword || !newUserFullName) {
+      toast({ title: "Missing Information", description: "Please fill in all fields.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
     try {
       if (!session?.access_token) {
-        throw new Error("User session not found. Cannot create user.");
+        throw new Error("Authentication token not found.");
       }
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
@@ -365,7 +224,7 @@ const Admin = () => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY 
+          'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           email: newUserEmail,
@@ -381,46 +240,56 @@ const Admin = () => {
         throw new Error(result.error || `Failed to create user: ${response.statusText}`);
       }
 
-      // User created successfully by the Edge Function
       toast({
         title: 'User Created',
-        description: `${newUserEmail} has been successfully created with ${selectedRole} role. User ID: ${result.userId}`,
+        description: `${newUserEmail} created as ${selectedRole}. User ID: ${result.userId}`,
       });
 
-      await fetchUsers(); // Refresh user list
-
+      fetchUsers(); // Refresh user list
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserFullName('');
-      setSelectedRole('viewer'); // Reset role selection for next creation
+      setSelectedRole('viewer'); 
       setIsNewUserDialogOpen(false);
 
     } catch (error: any) {
-      console.error('Error creating user via Edge Function:', error);
+      console.error('Error creating user:', error);
       toast({
         title: 'Error Creating User',
         description: error.message || 'Failed to create user.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const updateUserPassword = async () => {
-    if (!selectedUser) return;
-    
+    if (!selectedUser || !newPassword) {
+      toast({ title: "Missing Information", description: "Please select a user and enter a new password.", variant: "destructive"});
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.admin.updateUserById(
-        selectedUser.id,
-        { password: newPassword }
-      );
-
-      if (error) {
-        throw error;
+      if (!session?.access_token) {
+        throw new Error("Authentication token not found.");
       }
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/update-user-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ userId: selectedUser.id, newPassword }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update password.');
       
       toast({
         title: 'Password Updated',
-        description: `Password has been updated for ${selectedUser.email}.`,
+        description: `Password updated for ${selectedUser.email}.`,
       });
       
       setNewPassword('');
@@ -428,90 +297,141 @@ const Admin = () => {
     } catch (error: any) {
       console.error('Error updating password:', error);
       toast({
-        title: 'Error',
+        title: 'Error Updating Password',
         description: error.message || 'Failed to update password.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const deleteUser = async () => {
     if (!selectedUser) return;
-    
+    // Redundant check as openDeleteDialog already handles this, but good for safety.
+    if (selectedUser.id === currentUser?.id) {
+      toast({ title: 'Action Denied', description: 'Cannot delete your own account.', variant: 'warning' });
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.admin.deleteUser(selectedUser.id);
-      
-      if (error) {
-        throw error;
+      if (!session?.access_token) {
+        throw new Error("Authentication token not found.");
       }
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST', // Or DELETE, ensure Edge Function handles it
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ userId: selectedUser.id }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete user.');
       
       toast({
         title: 'User Deleted',
-        description: `${selectedUser.email} has been successfully deleted.`,
+        description: `${selectedUser.email} has been deleted.`,
       });
       
-      // Update local state
-      setUsers(users.filter(user => user.id !== selectedUser.id));
+      setUsers(users.filter(u => u.id !== selectedUser.id));
       setIsDeleteDialogOpen(false);
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast({
-        title: 'Error',
+        title: 'Error Deleting User',
         description: error.message || 'Failed to delete user.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  const handleEventTypeToggle = (eventType: string) => {
+    setSelectedEventTypesForUser(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventType)) newSet.delete(eventType);
+      else newSet.add(eventType);
+      return newSet;
+    });
+  };
+
+  const saveAssignEvents = async () => {
+    if (!editingUserForEvents) return;
+    setIsSubmitting(true);
+    try {
+      // This uses the supabase client (anon key) and assumes RLS allows admin to modify user_event_assignments.
+      // 1. Get current assignments from DB for comparison (or rely on local state if consistently updated)
+      const { data: currentAssignmentsData, error: fetchError } = await supabase
+        .from('user_event_assignments')
+        .select('event_type')
+        .eq('user_id', editingUserForEvents.id);
+
+      if (fetchError) throw fetchError;
+      const currentDbAssignedTypes = new Set(currentAssignmentsData.map(item => item.event_type));
+
+      const typesToAdd = Array.from(selectedEventTypesForUser).filter(type => !currentDbAssignedTypes.has(type));
+      const typesToRemove = Array.from(currentDbAssignedTypes).filter(type => !selectedEventTypesForUser.has(type));
+
+      if (typesToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('user_event_assignments')
+          .delete()
+          .eq('user_id', editingUserForEvents.id)
+          .in('event_type', typesToRemove);
+        if (deleteError) throw deleteError;
+      }
+
+      if (typesToAdd.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_event_assignments')
+          .insert(typesToAdd.map(eventType => ({ user_id: editingUserForEvents.id, event_type: eventType })));
+        if (insertError) throw insertError;
+      }
+      
+      toast({
+        title: 'Success',
+        description: `Event assignments updated for ${editingUserForEvents.email}.`,
+      });
+      
+      // Update local state accurately
+      setUsers(prevUsers => prevUsers.map(user => 
+        user.id === editingUserForEvents.id 
+          ? { ...user, assigned_event_types: Array.from(selectedEventTypesForUser) } 
+          : user
+      ));
+      setIsAssignEventsDialogOpen(false);
+      setEditingUserForEvents(null);
+
+    } catch (error: any) {
+      toast({
+        title: 'Error Saving Assignments',
+        description: error.message || 'Could not save event assignments.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // const assignEventCategory = async () => { // Commented out - replaced by Manage Event Types
-  //   if (!selectedUser || !selectedEventCategory) return;
-
-  //   try {
-  //     await fetch(`${SUPABASE_URL}/rest/v1/tracker_assignments`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         'apikey': SUPABASE_ANON_KEY,
-  //         'Authorization': `Bearer ${session?.access_token}`,
-  //         'Prefer': 'return=minimal'
-  //       },
-  //       body: JSON.stringify({ 
-  //         tracker_id: selectedUser.id,
-  //         event_category: selectedEventCategory,
-  //         created_by: session?.user?.id
-  //       })
-  //     });
-      
-  //     toast({
-  //       title: 'Event Assigned',
-  //       description: `${selectedEventCategory} event has been assigned to ${selectedUser.email}.`,
-  //     });
-      
-  //     setIsEventAssignDialogOpen(false);
-  //   } catch (error: any) {
-  //     console.error('Error assigning event:', error);
-  //     toast({
-  //       title: 'Error',
-  //       description: error.message || 'Failed to assign event category.',
-  //       variant: 'destructive',
-  //     });
-  //   }
-  // };
-
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <ShieldCheck />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <ShieldCheck className="h-7 w-7 sm:h-8 sm:w-8"/>
               Admin Panel
             </h1>
-            <p className="text-muted-foreground">Manage users and their permissions</p>
+            <p className="text-sm text-muted-foreground">Manage users, roles, and event assignments.</p>
           </div>
           <TabsList>
             <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="assignments">Event Assignments</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments Info</TabsTrigger>
           </TabsList>
         </div>
 
@@ -519,95 +439,82 @@ const Admin = () => {
           <div className="flex justify-end">
             <Button 
               onClick={() => {
-                setNewUserEmail('');
-                setNewUserPassword('');
-                setNewUserFullName('');
-                setSelectedRole('viewer');
-                setIsNewUserDialogOpen(true);
+                setNewUserEmail(''); setNewUserPassword(''); setNewUserFullName('');
+                setSelectedRole('viewer'); setIsNewUserDialogOpen(true);
               }}
               className="flex items-center gap-2"
             >
-              <UserPlus size={18} />
-              Add New User
+              <UserPlus size={18} /> Add New User
             </Button>
           </div>
           
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="ml-4 text-muted-foreground">Loading users...</p>
             </div>
           ) : (
-            <div className="bg-card rounded-lg border shadow">
+            <div className="bg-card rounded-lg border shadow-md overflow-x-auto">
               <Table>
-                <TableCaption>Manage users, their roles, and event type assignments</TableCaption>
+                <TableCaption>A list of all users in the system.</TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Created At</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Full Name</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Assigned Event Types</TableHead> 
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Event Types</TableHead> 
+                    <TableHead>Created At</TableHead>
+                    <TableHead className="text-right min-w-[320px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">No users found</TableCell>
+                      <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                        No users found.
+                      </TableCell>
                     </TableRow>
                   ) : (
                     users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.email}</TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{user.fullName || 'N/A'}</TableCell>
                         <TableCell>
                           <span 
-                            className={`px-2 py-1 text-sm rounded-full ${
-                              user.role === 'admin' 
-                                ? 'bg-red-100 text-red-800' 
-                                : user.role === 'tracker' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-gray-100 text-gray-800'
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.role === 'admin' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' 
+                              : user.role === 'tracker' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' 
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100'
                             }`}
                           >
-                            {user.role || 'No Role'}
+                            {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'No Role'}
                           </span>
                         </TableCell>
                         <TableCell>
-                          {user.assigned_event_types && user.assigned_event_types.length > 0 
-                            ? `${user.assigned_event_types.length} event(s)` // Show count
-                            // Or: user.assigned_event_types.join(', ').substring(0, 30) + (user.assigned_event_types.join(', ').length > 30 ? '...' : '') // Show list preview
+                          {user.assigned_event_types?.length > 0 
+                            ? `${user.assigned_event_types.length} assigned`
                             : "None"}
                         </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
-                              <Edit size={16} className="mr-1" /> Role
+                          <div className="flex justify-end gap-2 flex-wrap">
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} title={`Edit ${user.email}'s role`}>
+                              <Edit size={14} className="mr-1" /> Role
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)}>
-                              <Key size={16} className="mr-1" /> Password
+                            <Button variant="outline" size="sm" onClick={() => openAssignEventsDialog(user)} title={`Manage event assignments for ${user.email}`}>
+                              <Briefcase size={14} className="mr-1" /> Events
                             </Button>
-                            {/* {user.role === 'tracker' && ( // Old Assign button, commented out
-                              <Button variant="outline" size="sm" onClick={() => openEventAssignDialog(user)}>
-                                <ShieldCheck size={16} className="mr-1" /> Assign
-                              </Button>
-                            )} */}
+                            <Button variant="outline" size="sm" onClick={() => openPasswordDialog(user)} title={`Set new password for ${user.email}`}>
+                              <Key size={14} className="mr-1" /> Password
+                            </Button>
                             <Button 
-                              variant="outline" 
+                              variant="destructive" 
                               size="sm" 
-                              onClick={() => {
-                                // console.log(`Manage Event Types for user: ${user.id}`);
-                                // console.log("Available Event Types:", EVENT_TYPES);
-                                // toast({
-                                //   title: "Manage Event Types (Placeholder)",
-                                //   description: `User ID: ${user.id}. Check console for event types.`,
-                                // });
-                                openAssignEventsDialog(user);
-                              }}
+                              onClick={() => openDeleteDialog(user)} 
+                              title={`Delete ${user.email}`}
+                              disabled={user.id === currentUser?.id} // Disable deleting self
                             >
-                              Manage Event Types
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(user)}>
-                              <Trash2 size={16} />
+                              <Trash2 size={14} className="mr-1" /> Delete
                             </Button>
                           </div>
                         </TableCell>
@@ -620,41 +527,38 @@ const Admin = () => {
           )}
         </TabsContent>
 
-        {/* The "assignments" tab content might be refactored or removed if all assignment logic moves to the user table */}
         <TabsContent value="assignments">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Event Category Assignments Overview (Placeholder)</h2>
-            <p className="text-muted-foreground mb-6">
-              View and manage which trackers are assigned to which event categories. 
-              Assignments allow trackers to record specific types of events during matches. This tab may be removed or updated based on new UI.
+          <div className="bg-card rounded-lg border shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Event Assignments Information</h2>
+            <p className="text-muted-foreground">
+              Event type assignments determine which specific events a user (typically a 'Tracker')
+              is permitted to record. You can manage these assignments for each user individually
+              from the "User Management" tab using the "Events" button in the actions column.
             </p>
-            
-            {/* This would be implementation for viewing assignments - simplified for now */}
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">
-                Assign event categories to trackers from the User Management tab
-              </p>
-            </div>
+            <p className="text-muted-foreground mt-2">
+              This tab serves as an informational placeholder. Future enhancements could include
+              an overview of assignments by event type or by tracker.
+            </p>
           </div>
         </TabsContent>
       </Tabs>
       
+      {/* Dialogs */}
       {/* Edit Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User Role</DialogTitle>
-            <DialogDescription>
-              Update permissions for {selectedUser?.email}
-            </DialogDescription>
+            <DialogTitle>Edit User Role: {selectedUser?.email}</DialogTitle>
+            <DialogDescription>Select the new role for this user.</DialogDescription>
           </DialogHeader>
-          
-          <div className="py-4">
-            <label className="block text-sm font-medium mb-2">
-              Select Role:
-            </label>
-            <Select value={selectedRole} onValueChange={(value: any) => setSelectedRole(value)}>
-              <SelectTrigger>
+          <div className="py-4 space-y-3">
+            <Label htmlFor="role-select">Role</Label>
+            <Select 
+              value={selectedRole} 
+              onValueChange={(value: 'admin' | 'tracker' | 'viewer') => setSelectedRole(value)}
+              disabled={selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin'} // Prevent admin demoting self
+            >
+              <SelectTrigger id="role-select">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
@@ -663,26 +567,19 @@ const Admin = () => {
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">
-                <strong>Admin:</strong> Full access to all features
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <strong>Tracker:</strong> Can record match data
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <strong>Viewer:</strong> Can only view match data
-              </p>
+             {selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && (
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">You cannot change your own role from Admin.</p>
+            )}
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <p><strong>Admin:</strong> Full access, including user management.</p>
+              <p><strong>Tracker:</strong> Can record match data for assigned event types.</p>
+              <p><strong>Viewer:</strong> Can only view match data.</p>
             </div>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={updateUserRole}>
-              Save Changes
+            <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={updateUserRole} disabled={isSubmitting || (selectedUser?.id === currentUser?.id && selectedUser?.role === 'admin' && selectedRole !== 'admin')}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -693,58 +590,25 @@ const Admin = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account with specified permissions
-            </DialogDescription>
+            <DialogDescription>Create a new account and assign a role.</DialogDescription>
           </DialogHeader>
-          
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="fullName" className="text-right">
-                Full Name
-              </Label>
-              <Input
-                id="fullName"
-                value={newUserFullName}
-                onChange={(e) => setNewUserFullName(e.target.value)}
-                className="col-span-3"
-              />
+            <div className="space-y-1">
+              <Label htmlFor="fullName-new">Full Name</Label>
+              <Input id="fullName-new" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} placeholder="e.g., Jane Doe"/>
             </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-                className="col-span-3"
-              />
+            <div className="space-y-1">
+              <Label htmlFor="email-new">Email</Label>
+              <Input id="email-new" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="user@example.com"/>
             </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password" className="text-right">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-                className="col-span-3"
-              />
+            <div className="space-y-1">
+              <Label htmlFor="password-new">Password</Label>
+              <Input id="password-new" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters"/>
             </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
-                Role
-              </Label>
+            <div className="space-y-1">
+              <Label htmlFor="role-new">Role</Label>
               <Select value={selectedRole} onValueChange={(value: any) => setSelectedRole(value)}>
-                <SelectTrigger id="role" className="col-span-3">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
+                <SelectTrigger id="role-new"><SelectValue placeholder="Select role" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="tracker">Tracker</SelectItem>
@@ -753,12 +617,11 @@ const Admin = () => {
               </Select>
             </div>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewUserDialogOpen(false)}>
-              Cancel
+            <Button variant="outline" onClick={() => setIsNewUserDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={createNewUser} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create User
             </Button>
-            <Button onClick={createNewUser}>Create User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -767,18 +630,16 @@ const Admin = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Delete</DialogTitle>
+            <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {selectedUser?.email}? This action cannot be undone.
+              Are you sure you want to delete user <strong>{selectedUser?.email}</strong>? 
+              This will permanently remove the user and their associated data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={deleteUser}>
-              Delete User
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button variant="destructive" onClick={deleteUser} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete User
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -788,104 +649,47 @@ const Admin = () => {
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set New Password</DialogTitle>
-            <DialogDescription>
-              Set a new password for {selectedUser?.email}
-            </DialogDescription>
+            <DialogTitle>Set New Password for {selectedUser?.email}</DialogTitle>
+            <DialogDescription>Enter a new password for this user account.</DialogDescription>
           </DialogHeader>
-          
-          <div className="py-4">
-            <label className="block text-sm font-medium mb-2">
-              New Password:
-            </label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+          <div className="py-4 space-y-1">
+            <Label htmlFor="new-password-set">New Password</Label>
+            <Input id="new-password-set" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 6 characters"/>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={updateUserPassword}>
-              Update Password
+            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={updateUserPassword} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update Password
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Assign Event Dialog - This dialog is now commented out as its functionality is being replaced */}
-      {/* 
-      <Dialog open={isEventAssignDialogOpen} onOpenChange={setIsEventAssignDialogOpen}> // This was the old dialog
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Event Category (Old)</DialogTitle>
-            <DialogDescription>
-              Assign {selectedUser?.email} to track specific event types
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <label className="block text-sm font-medium mb-2">
-              Event Category:
-            </label>
-            <Select value={selectedEventCategory} onValueChange={setSelectedEventCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select event category" />
-              </SelectTrigger>
-              <SelectContent>
-                {eventCategories.map((category) => ( // This would need to use EVENT_TYPES if kept
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEventAssignDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={assignEventCategory}>
-              Assign Category
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> 
-      */}
-
-      {/* New Assign Event Types Dialog */}
-      <Dialog open={isAssignEventsDialogOpen} onOpenChange={setIsAssignEventsDialogOpen}>
+      {/* Assign Event Types Dialog */}
+      <Dialog open={isAssignEventsDialogOpen} onOpenChange={(isOpen) => { setIsAssignEventsDialogOpen(isOpen); if (!isOpen) setEditingUserForEvents(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Event Types for {editingUser?.email}</DialogTitle>
-            <DialogDescription>
-              Select the event types this user is allowed to track.
-            </DialogDescription>
+            <DialogTitle>Manage Event Types for {editingUserForEvents?.email}</DialogTitle>
+            <DialogDescription>Select the event types this user can track.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
             {EVENT_TYPES.map((eventType) => (
-              <div key={eventType} className="flex items-center space-x-2">
+              <div key={eventType} className="flex items-center space-x-2 p-1 hover:bg-muted rounded">
                 <Checkbox
-                  id={`checkbox-${eventType}`}
+                  id={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`} // Ensure unique ID
                   checked={selectedEventTypesForUser.has(eventType)}
                   onCheckedChange={() => handleEventTypeToggle(eventType)}
                 />
-                <Label htmlFor={`checkbox-${eventType}`} className="font-normal">
+                <Label htmlFor={`checkbox-assign-${eventType.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer flex-grow">
                   {eventType}
                 </Label>
               </div>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignEventsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveAssignEvents}>
-              Save Assignments
+            <Button variant="outline" onClick={() => setIsAssignEventsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={saveAssignEvents} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Assignments
             </Button>
           </DialogFooter>
         </DialogContent>
