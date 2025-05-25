@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Player, EventType } from '@/types';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+// import { useAuth } from '@/context/AuthContext'; // No longer directly used for assignedEventTypes
 import { EVENT_TYPES } from '@/pages/Admin'; // Import EVENT_TYPES from Admin.tsx (temporary)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,9 @@ interface PianoInputProps {
   compact?: boolean; 
   ballPathHistory?: BallPath[]; 
   onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
-  matchEvents?: MatchEvent[]; 
+  matchEvents?: MatchEvent[];
+  assignedEventTypes?: string[]; // Prop for assigned event types
+  isLoadingAssignedEventTypes?: boolean; // Prop for loading state
 }
 
 
@@ -139,15 +141,17 @@ const PianoInput: React.FC<PianoInputProps> = ({
   compact = false,
   ballPathHistory = [], 
   onRecordPass,
-  matchEvents = [] 
+  matchEvents = [],
+  assignedEventTypes = [], // Default to empty array if not provided
+  isLoadingAssignedEventTypes = false // Default to false
 }) => {
   const { toast } = useToast(); 
-  const { assignedEventTypes } = useAuth(); // Get assigned event types
+  // const { assignedEventTypes: authAssignedEventTypes } = useAuth(); // Removed direct use
 
-  useEffect(() => {
-    console.log("PianoInput: Assigned Event Types from AuthContext:", assignedEventTypes);
-    console.log("PianoInput: All EVENT_TYPES (from Admin.tsx):", EVENT_TYPES);
-  }, [assignedEventTypes]);
+  // useEffect(() => {
+  //   console.log("PianoInput: Assigned Event Types from AuthContext:", authAssignedEventTypes);
+  //   console.log("PianoInput: All EVENT_TYPES (from Admin.tsx):", EVENT_TYPES);
+  // }, [authAssignedEventTypes]);
 
   // Normalize event names from EVENT_TYPES (e.g., "Pass (P)" -> "pass")
   const normalizeEventType = (eventTypeWithShortcut: string): EventType => {
@@ -429,26 +433,17 @@ const PianoInput: React.FC<PianoInputProps> = ({
                             const info = eventTypes[eventType];
                             if (!info) return null;
                             
-                            const isAssigned = normalizedAssignedEventTypes.has(eventType);
-                            let buttonStyle = `text-xs h-auto py-1.5 whitespace-normal`;
-                            
-                            // TEST_NOTE: Human verification needed: Assigned event buttons should be visually distinct (e.g., blue background/border).
-                            // All buttons should remain clickable.
+                            // Use the passed prop `assignedEventTypes` (which is already normalized in this component)
+                            const isAssigned = normalizedAssignedEventTypes.has(eventType); 
+                            let buttonStyle = `text-xs h-auto py-1.5 whitespace-normal relative`; // Added relative for potential badge
+
                             if (selectedEventType === eventType) {
-                              buttonStyle += ` ${info.color}`; // Keep existing selected color
-                            }
-                            if (isAssigned) {
-                              // Example: light blue background and a darker blue border if assigned
-                              buttonStyle += ` bg-blue-100 border-2 border-blue-300 hover:bg-blue-200`;
-                              if (selectedEventType === eventType) {
-                                // If selected AND assigned, make border more prominent or adjust as needed
-                                buttonStyle += ` ring-2 ring-blue-500 ring-offset-1`; 
-                              }
+                               buttonStyle += ` ${info.color} text-white`; // Keep existing selected color and ensure text is visible
+                            } else if (isAssigned) {
+                              // Visually distinct style for assigned but not selected event types
+                              buttonStyle += ` bg-blue-100 border border-blue-300 text-blue-700 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-200 dark:border-blue-600`;
                             } else {
-                              // Default style for non-assigned, if not selected
-                              if (selectedEventType !== eventType) {
-                                // buttonStyle += ` bg-gray-50 hover:bg-gray-100`; // Or keep it as variant="outline" handles it
-                              }
+                              // Default style for non-assigned & non-selected (variant="outline" handles this)
                             }
 
                             return (
@@ -459,6 +454,9 @@ const PianoInput: React.FC<PianoInputProps> = ({
                                 className={buttonStyle}
                                 onClick={() => handleEventTypeSelect(eventType)}
                               >
+                                {isAssigned && (
+                                  <span className="absolute top-0 right-0 -mt-1 -mr-1 h-3 w-3 rounded-full bg-yellow-400 border-2 border-white dark:border-gray-800" title="Assigned to you"></span>
+                                )}
                                 {SHORTCUT_KEYS_DISPLAY[eventType] ? `${info.description} (${SHORTCUT_KEYS_DISPLAY[eventType]})` : info.description}
                               </Button>
                             );
@@ -468,6 +466,9 @@ const PianoInput: React.FC<PianoInputProps> = ({
                     </AccordionItem>
                   ))}
                 </Accordion>
+                {isLoadingAssignedEventTypes && (
+                  <div className="text-xs text-muted-foreground p-2 text-center">Loading your event assignments...</div>
+                )}
               </div>
 
               {/* Recent events log (only show in non-compact mode) */}
