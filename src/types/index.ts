@@ -28,7 +28,7 @@ export interface Player {
   name: string;
   number: number;
   position: string;
-  teamId?: string; // Added teamId property
+  teamId?: string;
 }
 
 export interface MatchEvent {
@@ -154,4 +154,12 @@ export interface SavedMatch {
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
   playerStats: PlayerStatistics[];
+}
+
+export interface BallPath {
+  id?: string;
+  clientId?: string;
+  startCoordinates: { x: number; y: number };
+  endCoordinates: { x: number; y: number };
+  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
 }

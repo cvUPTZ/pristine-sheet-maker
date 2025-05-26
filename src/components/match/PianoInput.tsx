@@ -1,7 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Player, EventType } from '@/types';
-// import { useAuth } from '@/context/AuthContext'; // No longer directly used for assignedEventTypes
-import { EVENT_TYPES } from '@/pages/Admin'; // Import EVENT_TYPES from Admin.tsx (temporary)
+import { Player, EventType, MatchEvent, BallPath } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +8,6 @@ import FootballPitch from '../FootballPitch';
 import PlayerMarker from '../PlayerMarker';
 import { getPlayerPositions } from '@/utils/formationUtils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BallPath, MatchEvent } from '@/hooks/useMatchState'; // Or from '@/types' if moved there. Ensure MatchEvent is imported.
 import { useToast } from '@/components/ui/use-toast'; 
 
 interface PianoInputProps {
@@ -37,10 +35,9 @@ interface PianoInputProps {
   ballPathHistory?: BallPath[]; 
   onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
   matchEvents?: MatchEvent[];
-  assignedEventTypes?: string[]; // Prop for assigned event types
-  isLoadingAssignedEventTypes?: boolean; // Prop for loading state
+  assignedEventTypes?: string[];
+  isLoadingAssignedEventTypes?: boolean;
 }
-
 
 interface PlayerEventPair {
   player: Player;
@@ -48,79 +45,27 @@ interface PlayerEventPair {
   eventType: EventType;
 }
 
-
 const eventTypes: Record<EventType, {
   color: string;
   description: string;
 }> = {
-  pass: {
-    color: "bg-blue-500",
-    description: "Pass"
-  },
-  shot: {
-    color: "bg-red-500",
-    description: "Shot"
-  },
-  tackle: {
-    color: "bg-green-500",
-    description: "Tackle"
-  },
-  foul: {
-    color: "bg-yellow-500",
-    description: "Foul"
-  },
-  corner: {
-    color: "bg-indigo-500",
-    description: "Corner"
-  },
-  offside: {
-    color: "bg-orange-500",
-    description: "Offside"
-  },
-  goal: {
-    color: "bg-emerald-500",
-    description: "Goal"
-  },
-  assist: {
-    color: "bg-purple-500",
-    description: "Assist"
-  },
-  yellowCard: {
-    color: "bg-yellow-400",
-    description: "Yellow Card"
-  },
-  redCard: {
-    color: "bg-red-600",
-    description: "Red Card"
-  },
-  substitution: {
-    color: "bg-green-400",
-    description: "Substitution"
-  },
-  card: {
-    color: "bg-yellow-300",
-    description: "Card"
-  },
-  penalty: {
-    color: "bg-red-400",
-    description: "Penalty"
-  },
-  "free-kick": {
-    color: "bg-cyan-500",
-    description: "Free Kick"
-  },
-  "goal-kick": {
-    color: "bg-teal-500",
-    description: "Goal Kick"
-  },
-  "throw-in": {
-    color: "bg-sky-500",
-    description: "Throw-in"
-  },
-  interception: {
-    color: "bg-amber-500",
-    description: "Interception"
-  }
+  pass: { color: "bg-blue-500", description: "Pass" },
+  shot: { color: "bg-red-500", description: "Shot" },
+  tackle: { color: "bg-green-500", description: "Tackle" },
+  foul: { color: "bg-yellow-500", description: "Foul" },
+  corner: { color: "bg-indigo-500", description: "Corner" },
+  offside: { color: "bg-orange-500", description: "Offside" },
+  goal: { color: "bg-emerald-500", description: "Goal" },
+  assist: { color: "bg-purple-500", description: "Assist" },
+  yellowCard: { color: "bg-yellow-400", description: "Yellow Card" },
+  redCard: { color: "bg-red-600", description: "Red Card" },
+  substitution: { color: "bg-green-400", description: "Substitution" },
+  card: { color: "bg-yellow-300", description: "Card" },
+  penalty: { color: "bg-red-400", description: "Penalty" },
+  "free-kick": { color: "bg-cyan-500", description: "Free Kick" },
+  "goal-kick": { color: "bg-teal-500", description: "Goal Kick" },
+  "throw-in": { color: "bg-sky-500", description: "Throw-in" },
+  interception: { color: "bg-amber-500", description: "Interception" }
 };
 
 const ACTION_CATEGORIES = {
@@ -142,18 +87,11 @@ const PianoInput: React.FC<PianoInputProps> = ({
   ballPathHistory = [], 
   onRecordPass,
   matchEvents = [],
-  assignedEventTypes = [], // Default to empty array if not provided
-  isLoadingAssignedEventTypes = false // Default to false
+  assignedEventTypes = [],
+  isLoadingAssignedEventTypes = false
 }) => {
-  const { toast } = useToast(); 
-  // const { assignedEventTypes: authAssignedEventTypes } = useAuth(); // Removed direct use
+  const { toast } = useToast();
 
-  // useEffect(() => {
-  //   console.log("PianoInput: Assigned Event Types from AuthContext:", authAssignedEventTypes);
-  //   console.log("PianoInput: All EVENT_TYPES (from Admin.tsx):", EVENT_TYPES);
-  // }, [authAssignedEventTypes]);
-
-  // Normalize event names from EVENT_TYPES (e.g., "Pass (P)" -> "pass")
   const normalizeEventType = (eventTypeWithShortcut: string): EventType => {
     const match = eventTypeWithShortcut.match(/^([a-zA-Z\s-]+)/);
     return match ? match[1].trim().toLowerCase().replace(/\s+/g, '-') as EventType : eventTypeWithShortcut.toLowerCase() as EventType;
@@ -163,7 +101,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
     if (!assignedEventTypes) return new Set<EventType>();
     return new Set(assignedEventTypes.map(normalizeEventType));
   }, [assignedEventTypes]);
-
 
   const EVENT_SHORTCUTS: Record<string, EventType> = {
     'p': 'pass',
@@ -224,7 +161,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
     setSelectedEventType(eventType);
   }, []);
 
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.altKey || event.metaKey || 
@@ -253,7 +189,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
     const team = value as 'home' | 'away';
     setActiveTab(team);
     setSelectedTeam(team);
-    setSelectedPlayer(null); // Reset selected player when team changes
+    setSelectedPlayer(null);
   };
 
   const handlePlayerSelect = (player: Player, teamId: 'home' | 'away', coordinates: {
@@ -281,11 +217,9 @@ const PianoInput: React.FC<PianoInputProps> = ({
         point: interceptPosition,
         timestamp: Date.now()
       }]);
-      // Record the interception/tackle event
       onRecordEvent(selectedEventType, player.id, teamId, coordinates);
     }
 
-    // Handle pass event
     if (selectedEventType === 'pass' && onRecordPass && currentBallHolder) {
       const passer = currentBallHolder.player;
       const receiver = player;
@@ -294,7 +228,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
       const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
       const receiverCoords = coordinates;
       
-      // Log before calling onRecordPass
       console.log("[PianoInput] About to record pass:", { passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords });
       onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
       toast({
@@ -302,25 +235,20 @@ const PianoInput: React.FC<PianoInputProps> = ({
         description: `Pass from ${passer.name} to ${receiver.name}`,
       });
     } else if (selectedEventType !== 'pass' || !onRecordPass) { 
-      // Handle non-pass events or if onRecordPass is not available (fallback)
-      // Log before calling onRecordEvent
       console.log("[PianoInput] About to record event:", { eventType: selectedEventType, playerId: player.id, teamId, coordinates });
       onRecordEvent(selectedEventType, player.id, teamId, coordinates);
     }
     
-    // Update event sequence for UI display
     setEventSequence(prev => [...prev, {
       player,
       teamId,
       eventType: selectedEventType
     }]);
 
-    // Update ball position and animation
     setBallPosition(coordinates);
     setAnimateBall(true);
     setTimeout(() => setAnimateBall(false), 500);
 
-    // Update current ball holder
     setCurrentBallHolder({
       player,
       teamId,
@@ -341,7 +269,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
     x: number;
     y: number;
   }) => {
-    // Placeholder for future mobile-specific pitch interactions
     console.log("Pitch clicked at:", coordinates);
   };
   
@@ -353,7 +280,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
     }
     setLastRecordTime(now);
     
-    // setSelectedEventType(eventType); // Optionally sync main panel's event type
     setSelectedPlayer(player);
 
     setEventSequence(prev => [...prev, {
@@ -374,7 +300,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
         const passerCoords = combinedPositions[passer.id] || { x: 0.5, y: 0.5 };
         const receiverCoords = coordinates;
 
-        // Log before calling onRecordPass from circular menu
         console.log("[PianoInput] About to record pass (circular menu):", { passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords });
         onRecordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
         toast({
@@ -382,7 +307,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
             description: `Pass from ${passer.name} to ${receiver.name}`,
         });
     } else { 
-        // Log before calling onRecordEvent from circular menu
         console.log("[PianoInput] About to record event (circular menu):", { eventType, playerId: player.id, teamId: activeTab as 'home' | 'away', coordinates });
         onRecordEvent(eventType, player.id, activeTab as 'home' | 'away', coordinates);
     }
@@ -406,9 +330,7 @@ const PianoInput: React.FC<PianoInputProps> = ({
         </CardHeader>
         <CardContent className="pb-0 pt-0">
           <div className={`flex ${compact ? "flex-col" : "space-x-4"}`}>
-            {/* Left column */}
             <div className={`${compact ? "w-full" : "w-1/3"} space-y-4`}>
-              {/* Team selection */}
               <Tabs value={activeTab} onValueChange={handleTeamTabChange} className="w-full">
                 <TabsList className="w-full grid grid-cols-2">
                   <TabsTrigger value="home" className="text-football-home">
@@ -420,30 +342,25 @@ const PianoInput: React.FC<PianoInputProps> = ({
                 </TabsList>
               </Tabs>
 
-              {/* Event type selection */}
               <div className="border rounded-md p-2 overflow-y-auto">
                 <h3 className="font-medium mb-1 text-sm">Event Type</h3>
-                <Accordion type="multiple" collapsible className="w-full">
+                <Accordion type="multiple" className="w-full">
                   {Object.entries(ACTION_CATEGORIES).map(([categoryName, eventTypeList]) => (
                     <AccordionItem value={categoryName} key={categoryName}>
                       <AccordionTrigger className="text-sm py-2">{categoryName}</AccordionTrigger>
                       <AccordionContent>
                         <div className="grid grid-cols-2 gap-1 p-1">
-                          {(eventTypeList as EventType[]).map((eventType: EventType) => { // eventType here is like 'pass', 'shot'
+                          {(eventTypeList as EventType[]).map((eventType: EventType) => {
                             const info = eventTypes[eventType];
                             if (!info) return null;
                             
-                            // Use the passed prop `assignedEventTypes` (which is already normalized in this component)
                             const isAssigned = normalizedAssignedEventTypes.has(eventType); 
-                            let buttonStyle = `text-xs h-auto py-1.5 whitespace-normal relative`; // Added relative for potential badge
+                            let buttonStyle = `text-xs h-auto py-1.5 whitespace-normal relative`;
 
                             if (selectedEventType === eventType) {
-                               buttonStyle += ` ${info.color} text-white`; // Keep existing selected color and ensure text is visible
+                               buttonStyle += ` ${info.color} text-white`;
                             } else if (isAssigned) {
-                              // Visually distinct style for assigned but not selected event types
                               buttonStyle += ` bg-blue-100 border border-blue-300 text-blue-700 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-200 dark:border-blue-600`;
-                            } else {
-                              // Default style for non-assigned & non-selected (variant="outline" handles this)
                             }
 
                             return (
@@ -471,7 +388,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
                 )}
               </div>
 
-              {/* Recent events log (only show in non-compact mode) */}
               {!compact && <div className="border rounded-md p-2 h-36 overflow-y-auto">
                   <h3 className="font-medium mb-1 text-sm">Recent Events</h3>
                   {eventSequence.length === 0 ? <p className="text-xs text-muted-foreground">No events recorded yet</p> : <ul className="space-y-1">
@@ -487,12 +403,9 @@ const PianoInput: React.FC<PianoInputProps> = ({
                 </div>}
             </div>
 
-            {/* Right column - Player selection and visualization */}
             <div className={`${compact ? "w-full mt-2" : "w-2/3"}`}>
-              {/* Pitch with player positions */}
               <div className="relative">
                 <FootballPitch onClick={handlePitchClick} className={`${compact ? "h-[30vh]" : "h-[45vh]"} w-full`}>
-                  {/* Home team players */}
                   {activeTab === 'home' && homeTeam.players.map(player => <PlayerMarker 
                     key={`home-${player.id}`} 
                     player={player} 
@@ -505,7 +418,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
                     allowCircularMenu={true}
                   />)}
                   
-                  {/* Away team players */}
                   {activeTab === 'away' && awayTeam.players.map(player => <PlayerMarker 
                     key={`away-${player.id}`} 
                     player={player} 
@@ -518,69 +430,63 @@ const PianoInput: React.FC<PianoInputProps> = ({
                     allowCircularMenu={true}
                   />)}
                   
-                  {/* Ball movement history - draw lines between players using ballPathHistory prop */}
                   {ballPathHistory.slice(-5).map((pathItem, index) => {
-                  const { startCoordinates, endCoordinates, status, id, clientId } = pathItem; 
+                    const { startCoordinates, endCoordinates, status, id, clientId } = pathItem; 
+                    
+                    const wasIntercepted = interceptedPaths.some(path => 
+                      Math.abs(path.point.x - endCoordinates.x) < 0.1 && 
+                      Math.abs(path.point.y - endCoordinates.y) < 0.1
+                    );
+
+                    let strokeColor = "#ffffff";
+                    let strokeDash = index === ballPathHistory.slice(-5).length - 1 ? "none" : "5,5"; 
+                    let lineOpacity = 0.7 - 0.1 * (ballPathHistory.slice(-5).length - 1 - index);
+
+                    if (wasIntercepted) { 
+                      strokeColor = "#ff3333";
+                      strokeDash = "5,5";
+                    } else if (status === 'pending_confirmation' || status === 'optimistic') {
+                      strokeColor = "#cccccc";
+                      strokeDash = "3,3";
+                      lineOpacity = 0.5;
+                    } else if (status === 'failed') {
+                      strokeColor = "#ff9999";
+                      strokeDash = "2,2";
+                      lineOpacity = 0.4;
+                    }
+
+                    return <React.Fragment key={id || clientId || `ballpath-${index}`}>
+                          <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
+                        zIndex: 5
+                      }}>
+                            <line 
+                              x1={`${startCoordinates.x * 100}%`} y1={`${startCoordinates.y * 100}%`} 
+                              x2={`${endCoordinates.x * 100}%`} y2={`${endCoordinates.y * 100}%`} 
+                              stroke={strokeColor}
+                              strokeWidth="2" 
+                              strokeDasharray={strokeDash}
+                              opacity={lineOpacity}
+                            />
+                          </svg>
+                        </React.Fragment>;
+                  })}
                   
-                  const wasIntercepted = interceptedPaths.some(path => 
-                    Math.abs(path.point.x - endCoordinates.x) < 0.1 && 
-                    Math.abs(path.point.y - endCoordinates.y) < 0.1
-                  );
-
-                  let strokeColor = "#ffffff"; // Default for confirmed
-                  let strokeDash = index === ballPathHistory.slice(-5).length - 1 ? "none" : "5,5"; 
-                  let lineOpacity = 0.7 - 0.1 * (ballPathHistory.slice(-5).length - 1 - index);
-
-
-                  if (wasIntercepted) { 
-                    strokeColor = "#ff3333"; // Red for intercepted
-                    strokeDash = "5,5";
-                  } else if (status === 'pending_confirmation' || status === 'optimistic') { // Treat optimistic as pending
-                    strokeColor = "#cccccc"; // Lighter color for pending
-                    strokeDash = "3,3";
-                    lineOpacity = 0.5;
-                  } else if (status === 'failed') {
-                    strokeColor = "#ff9999"; // Lighter red for failed
-                    strokeDash = "2,2";
-                    lineOpacity = 0.4;
-                  }
-                  // 'confirmed' status uses the default #ffffff and existing dash/opacity logic if not intercepted.
-
-                  return <React.Fragment key={id || clientId || `ballpath-${index}`}>
-                        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
-                      zIndex: 5
-                    }}>
-                          <line 
-                            x1={`${startCoordinates.x * 100}%`} y1={`${startCoordinates.y * 100}%`} 
-                            x2={`${endCoordinates.x * 100}%`} y2={`${endCoordinates.y * 100}%`} 
-                            stroke={strokeColor}
-                            strokeWidth="2" 
-                            strokeDasharray={strokeDash}
-                            opacity={lineOpacity}
-                          />
-                        </svg>
-                      </React.Fragment>;
-                })}
-                  
-                  {/* Interception markers */}
                   {interceptedPaths.map((path, idx) => <div key={`intercept-${idx}`} className="absolute w-4 h-4 transform -translate-x-1/2 -translate-y-1/2 z-15" style={{
-                  left: `${path.point.x * 100}%`,
-                  top: `${path.point.y * 100}%`
-                }}>
-                      <svg width="16" height="16" viewBox="0 0 16 16">
-                        <path d="M2 2L14 14M2 14L14 2" stroke="#ff3333" strokeWidth="3" />
-                      </svg>
-                    </div>)}
+                    left: `${path.point.x * 100}%`,
+                    top: `${path.point.y * 100}%`
+                  }}>
+                        <svg width="16" height="16" viewBox="0 0 16 16">
+                          <path d="M2 2L14 14M2 14L14 2" stroke="#ff3333" strokeWidth="3" />
+                        </svg>
+                      </div>)}
                   
-                  {/* Current ball position */}
                   {currentBallHolder && <div className="absolute w-4 h-4 bg-white border-2 border-black rounded-full transform -translate-x-1/2 -translate-y-1/2 z-20 shadow-md ball-pulse" style={{
-                  left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
-                  top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`
-                }} />}
+                    left: `${(combinedPositions[currentBallHolder.player.id]?.x || 0.5) * 100}%`,
+                    top: `${(combinedPositions[currentBallHolder.player.id]?.y || 0.5) * 100}%`
+                  }} />}
                 </FootballPitch>
               </div>
               
-              {/* Player selection info */}
               {!compact && selectedPlayer && <div className="mt-2 p-2 bg-gray-100 rounded-md">
                   <p className="text-sm font-medium">
                     Selected: {selectedPlayer.name} (#{selectedPlayer.number})
@@ -595,7 +501,6 @@ const PianoInput: React.FC<PianoInputProps> = ({
             </div>
           </div>
 
-          {/* Player grid (only in compact mode) */}
           {compact && <div className="mt-2">
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-[20vh] overflow-y-auto pb-2">
                 {activeTab === 'home' ? homeTeam.players.map(player => <Button key={`player-btn-${player.id}`} size="sm" variant={selectedPlayer?.id === player.id ? "default" : "outline"} className={`${selectedPlayer?.id === player.id ? "bg-football-home text-white" : ""} text-xs flex flex-col h-auto py-1`} onClick={() => handlePlayerSelect(player, 'home', combinedPositions[player.id] || { x: 0.5, y: 0.9 })}>
@@ -608,23 +513,22 @@ const PianoInput: React.FC<PianoInputProps> = ({
               </div>
             </div>}
           
-          {/* Legend (only in non-compact mode) */}
           {!compact && <div className="mt-4 flex flex-wrap gap-1 text-xs items-center">
               <span className="font-medium mr-1">Legend:</span>
               <div className="flex items-center">
-                <div className="w-3 h-0.5 bg-white"></div> {/* Solid white line */}
+                <div className="w-3 h-0.5 bg-white"></div>
                 <span className="ml-1">Current path</span>
               </div>
               <div className="flex items-center ml-2">
-                <div className="w-3 h-0.5 bg-white dashed-line-legend"></div> {/* Dashed white line */}
+                <div className="w-3 h-0.5 bg-white dashed-line-legend"></div>
                 <span className="ml-1">Previous path</span>
               </div>
               <div className="flex items-center ml-2">
-                 <div className="w-3 h-0.5 bg-gray-400 dashed-line-legend"></div> {/* Dashed gray line */}
+                 <div className="w-3 h-0.5 bg-gray-400 dashed-line-legend"></div>
                  <span className="ml-1">Pending path</span>
               </div>
               <div className="flex items-center ml-2">
-                <div className="w-3 h-0.5 bg-red-500 dashed-line-legend"></div> {/* Dashed red line */}
+                <div className="w-3 h-0.5 bg-red-500 dashed-line-legend"></div>
                 <span className="ml-1">Intercepted/Failed</span>
               </div>
               <div className="flex items-center ml-2">
@@ -648,12 +552,13 @@ const PianoInput: React.FC<PianoInputProps> = ({
           }
           
           .dashed-line-legend {
-            border-top: 2px dashed currentColor; /* Use currentColor to inherit color from parent or apply directly */
-            height: 0; /* Make it a line */
-            display: inline-block; /* Allow width */
+            border-top: 2px dashed currentColor;
+            height: 0;
+            display: inline-block;
           }
         `}
       </style>
     </div>;
 };
+
 export default PianoInput;

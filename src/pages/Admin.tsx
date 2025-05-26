@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,7 +52,6 @@ const Admin: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      // Fetch from profiles table and get auth user data
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -61,12 +59,10 @@ const Admin: React.FC = () => {
 
       if (profilesError) throw profilesError;
 
-      // Get auth users to get email addresses
       const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
       
       if (authError) throw authError;
 
-      // Combine profile and auth data
       const combinedUsers = profiles?.map(profile => {
         const authUser = authData.users.find(u => u.id === profile.id);
         return {
