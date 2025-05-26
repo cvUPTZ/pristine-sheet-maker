@@ -86,6 +86,7 @@ const MatchAnalysis: React.FC = () => {
 
   useEffect(() => {
     const fetchMatch = async () => {
+      console.log('fetchMatch called with matchId:', matchId);
       if (!matchId) {
         setLoading(false);
         return;
@@ -98,7 +99,9 @@ const MatchAnalysis: React.FC = () => {
           .eq('id', matchId)
           .single();
 
+        console.log('Raw matchData from Supabase:', matchData);
         if (error) {
+          console.error('Supabase error fetching single match:', error);
           console.error(`Error fetching match with ID: ${matchId}:`, error);
           showToast({
             title: "Error",
@@ -129,6 +132,8 @@ const MatchAnalysis: React.FC = () => {
           players: awayTeamPlayers
         };
 
+        console.log('Processed homeTeamData to be passed to updateTeams:', homeTeamData);
+        console.log('Processed awayTeamData to be passed to updateTeams:', awayTeamData);
         updateTeams(homeTeamData, awayTeamData);
 
         // Initialize statistics, ball tracking, and timer values from matchData
@@ -146,18 +151,27 @@ const MatchAnalysis: React.FC = () => {
           offsides: { home: 0, away: 0 },
           freeKicks: { home: 0, away: 0 },
         };
+        console.log('Match statistics from DB:', matchData.match_statistics);
+        console.log('Initial stats for fallback:', initialStats);
         setStatistics(matchData.match_statistics || initialStats);
+        console.log('Ball tracking data from DB:', matchData.ball_tracking_data);
         setBallTrackingPoints(matchData.ball_tracking_data || []);
+        console.log('Timer current value from DB:', matchData.timer_current_value);
         setCurrentTimerValue(matchData.timer_current_value || 0);
+        console.log('Timer status from DB:', matchData.timer_status);
         setTimerStatus(matchData.timer_status || 'stopped');
+        console.log('Timer last started at from DB:', matchData.timer_last_started_at);
         setTimerLastStartedAt(matchData.timer_last_started_at || null);
 
         // If teams are set up, mark setup as complete
+        console.log('Condition for completeSetup (homeTeamData.players.length > 0 && awayTeamData.players.length > 0):', homeTeamData.players.length > 0 && awayTeamData.players.length > 0);
         if (homeTeamData.players.length > 0 && awayTeamData.players.length > 0) {
+          console.log('Calling completeSetup with:', homeTeamData, awayTeamData);
           completeSetup(homeTeamData, awayTeamData);
         }
 
-      } catch (error) {
+      } catch (error: any) {
+        console.error('Error during fetchMatch data processing:', error.message, error.stack);
         console.error(`Error loading match with ID: ${matchId}:`, error);
         showToast({
           title: "Error",
