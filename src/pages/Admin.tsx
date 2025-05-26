@@ -20,7 +20,8 @@ import {
 import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Player } from '@/types'; // Import Player type
+import { Player, EventType } from '@/types'; // Import Player & EventType type
+import CreateMatchForm from '@/components/admin/CreateMatchForm'; // Import CreateMatchForm
 
 interface User {
   id: string;
@@ -33,7 +34,8 @@ interface User {
 
 interface Match {
   id: string;
-  name?: string; // Keep as optional as per existing definition
+  name?: string; // This might be used as a title or can be the description.
+  description?: string; // Added for consistency with form
   home_team_name: string;
   away_team_name: string;
   status: string;
@@ -54,6 +56,14 @@ interface EventAssignment {
   };
 }
 
+interface UIDisplayedEventAssignment {
+  id: string; // Assignment ID
+  user_id: string;
+  userNameToDisplay: string; // To store user's full_name or email
+  event_type: string;
+  created_at: string;
+}
+
 interface UIDisplayedPlayerTrackerAssignment {
   id: string; // Assignment ID from the assignment table
   matchId: string;
@@ -67,10 +77,16 @@ interface UIDisplayedPlayerTrackerAssignment {
   created_at?: string;
 }
 
+const availableEventTypes: EventType[] = [
+  'pass', 'shot', 'tackle', 'foul', 'corner', 'offside', 'goal',
+  'assist', 'yellowCard', 'redCard', 'substitution', 'card',
+  'penalty', 'free-kick', 'goal-kick', 'throw-in', 'interception'
+];
+
 const Admin: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [eventAssignments, setEventAssignments] = useState<EventAssignment[]>([]);
+  const [eventAssignments, setEventAssignments] = useState<UIDisplayedEventAssignment[]>([]); // Updated state type
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('users');
 
@@ -88,6 +104,85 @@ const Admin: React.FC = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'user' | 'tracker'>('user');
 
+  // State for Create Match Dialog
+  const [isCreateMatchDialogOpen, setIsCreateMatchDialogOpen] = useState(false);
+  
+  // State for Edit Match Dialog
+  const [isEditMatchDialogOpen, setIsEditMatchDialogOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+
+  // State for Create User Event Type Assignment Dialog
+  const [isCreateEventAssignmentDialogOpen, setIsCreateEventAssignmentDialogOpen] = useState(false);
+  const [selectedUserIdForEventAssignment, setSelectedUserIdForEventAssignment] = useState<string | null>(null);
+  const [selectedEventTypeForAssignment, setSelectedEventTypeForAssignment] = useState<EventType | null>(null);
+
+  const resetCreateEventAssignmentForm = () => {
+    setSelectedUserIdForEventAssignment(null);
+    setSelectedEventTypeForAssignment(null);
+  };
+
+  const handleCreateEventAssignment = async () => {
+    if (!selectedUserIdForEventAssignment || !selectedEventTypeForAssignment) {
+      toast.error('Please select a user and an event type.');
+      return;
+    }
+
+    try {
+      // Check for existing assignment
+      const { data: existingAssignment, error: checkError } = await supabase
+        .from('user_event_assignments')
+        .select('id')
+        .eq('user_id', selectedUserIdForEventAssignment)
+        .eq('event_type', selectedEventTypeForAssignment)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking for existing assignment:', checkError);
+        toast.error(`Failed to check for existing assignment: ${checkError.message}`);
+        return;
+      }
+
+      if (existingAssignment) {
+        toast.error('This user is already assigned this event type.');
+        return;
+      }
+
+      // Insert new assignment
+      const { data: newAssignmentData, error: insertError } = await supabase
+        .from('user_event_assignments')
+        .insert({
+          user_id: selectedUserIdForEventAssignment,
+          event_type: selectedEventTypeForAssignment,
+        })
+        .select('id, user_id, event_type, created_at')
+        .single();
+
+      if (insertError || !newAssignmentData) {
+        console.error('Error creating event assignment:', insertError);
+        toast.error(`Failed to create assignment: ${insertError?.message || 'No data returned'}`);
+        return;
+      }
+
+      // Augment data for UI
+      const user = users.find(u => u.id === newAssignmentData.user_id);
+      const augmentedNewAssignment: UIDisplayedEventAssignment = {
+        id: newAssignmentData.id.toString(),
+        user_id: newAssignmentData.user_id,
+        userNameToDisplay: user?.full_name || user?.email || newAssignmentData.user_id,
+        event_type: newAssignmentData.event_type,
+        created_at: newAssignmentData.created_at,
+      };
+
+      setEventAssignments(prev => [augmentedNewAssignment, ...prev]);
+      resetCreateEventAssignmentForm();
+      setIsCreateEventAssignmentDialogOpen(false);
+      toast.success('Event assignment created successfully.');
+
+    } catch (e) {
+      console.error('Exception while creating event assignment:', e);
+      toast.error('An unexpected error occurred while creating the event assignment.');
+    }
+  };
 
   const handleCreatePlayerAssignment = async () => {
     if (!selectedMatchIdForAssignment || !selectedPlayerForAssignment || !selectedTrackerIdForAssignment) {
@@ -151,6 +246,64 @@ const Admin: React.FC = () => {
     } catch (e) {
       console.error('Exception while creating player assignment:', e);
       toast.error('An unexpected error occurred while creating the assignment.');
+    }
+  };
+
+  const handleRemoveEventAssignment = async (assignmentId: string) => {
+    if (confirm('Are you sure you want to remove this event assignment?')) {
+      try {
+        const { error } = await supabase
+          .from('user_event_assignments')
+          .delete()
+          .eq('id', assignmentId);
+
+        if (error) {
+          console.error('Error removing event assignment:', error);
+          toast.error(`Failed to remove assignment: ${error.message}`);
+        } else {
+          setEventAssignments(prev => prev.filter(assignment => assignment.id !== assignmentId));
+          toast.success('Event assignment removed successfully.');
+        }
+      } catch (e) {
+        console.error('Exception while removing event assignment:', e);
+        toast.error('An unexpected error occurred while removing the assignment.');
+      }
+    }
+  };
+
+  const handleUpdateMatch = async (values: any, matchId?: string) => { // values type will be z.infer<typeof formSchema> from CreateMatchForm
+    if (!matchId) {
+      toast.error("Match ID is missing. Cannot update.");
+      return;
+    }
+
+    const updatePayload = {
+      home_team_name: values.homeTeam,
+      away_team_name: values.awayTeam,
+      match_date: values.matchDate || null,
+      status: values.status,
+      description: values.description, // Form's description maps to match's description
+      // name: values.description, // Or if 'name' should also be updated from description
+    };
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update(updatePayload)
+        .eq('id', matchId);
+
+      if (error) {
+        console.error('Error updating match:', error);
+        toast.error(`Failed to update match: ${error.message}`);
+      } else {
+        toast.success('Match updated successfully!');
+        await fetchData(); // Refresh matches list
+        setIsEditMatchDialogOpen(false);
+        setEditingMatch(null);
+      }
+    } catch (e) {
+      console.error('Exception while updating match:', e);
+      toast.error('An unexpected error occurred while updating the match.');
     }
   };
 
@@ -234,15 +387,21 @@ const Admin: React.FC = () => {
         if (eventAssignmentsError) {
           console.error('Error fetching event assignments:', eventAssignmentsError);
           toast.error('Failed to fetch event assignments');
+          setEventAssignments([]); // Ensure empty array on error
+        } else if (eventAssignmentsData) {
+          const augmentedEventAssignments = eventAssignmentsData.map((assignment: any) => {
+            const user = (usersData || []).find(u => u.id === assignment.user_id); // Use usersData directly
+            return {
+              id: assignment.id.toString(),
+              user_id: assignment.user_id,
+              userNameToDisplay: user?.full_name || user?.email || assignment.user_id, // Fallback to ID if user not found
+              event_type: assignment.event_type,
+              created_at: assignment.created_at,
+            };
+          });
+          setEventAssignments(augmentedEventAssignments as UIDisplayedEventAssignment[]);
         } else {
-          // Ensure proper typing for event assignments
-          const typedEventAssignments: EventAssignment[] = (eventAssignmentsData || []).map((assignment: any) => ({
-            id: assignment.id.toString(),
-            user_id: assignment.user_id,
-            event_type: assignment.event_type,
-            created_at: assignment.created_at,
-          }));
-          setEventAssignments(typedEventAssignments);
+            setEventAssignments([]); // No error, but no assignments
         }
 
         // Fetch Player-Tracker Assignments (Part 2)
@@ -502,8 +661,9 @@ const Admin: React.FC = () => {
 
         <TabsContent value="matches" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Match Management</CardTitle>
+              <Button onClick={() => setIsCreateMatchDialogOpen(true)}>Create New Match</Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -528,8 +688,22 @@ const Admin: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date'}</TableCell>
-                      <TableCell>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteMatch(match.id)}>
+                      <TableCell className="space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => { 
+                            setEditingMatch(match); 
+                            setIsEditMatchDialogOpen(true); 
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => handleDeleteMatch(match.id)}
+                        >
                           Delete
                         </Button>
                       </TableCell>
@@ -543,15 +717,16 @@ const Admin: React.FC = () => {
 
         <TabsContent value="assignments" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>User Event Type Assignments</CardTitle> {/* Clarified Title */}
+              <Button onClick={() => { setIsCreateEventAssignmentDialogOpen(true); resetCreateEventAssignmentForm(); }}>Assign Event Type to User</Button>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableCaption>User assignments for specific event types (e.g., tracking all shots for a team).</TableCaption> {/* Clarified Caption */}
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User ID</TableHead>
+                    <TableHead>User</TableHead> {/* Updated Header */}
                     <TableHead>Event Type</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -560,11 +735,15 @@ const Admin: React.FC = () => {
                 <TableBody>
                   {eventAssignments.map((assignment) => (
                     <TableRow key={assignment.id}>
-                      <TableCell className="font-medium">{assignment.user_id.slice(0, 8)}...</TableCell>
+                      <TableCell>{assignment.userNameToDisplay}</TableCell> {/* Updated Cell */}
                       <TableCell>{assignment.event_type}</TableCell>
                       <TableCell>{new Date(assignment.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <Button variant="destructive" size="sm">
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleRemoveEventAssignment(assignment.id)}
+                        >
                           Remove
                         </Button>
                       </TableCell>
@@ -821,6 +1000,113 @@ const Admin: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateAssignmentDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreatePlayerAssignment}>Create Assignment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Match Dialog */}
+      <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
+        <DialogContent className="sm:max-w-md"> {/* Or sm:max-w-lg for wider form */}
+          <DialogHeader>
+            <DialogTitle>Create New Match</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create a new match.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateMatchForm 
+            onSuccess={() => {
+              setIsCreateMatchDialogOpen(false);
+              fetchData(); // Refreshes the matches list
+              // Optional: toast here, or rely on the one in CreateMatchForm
+              // toast.success('New match created and list updated!'); 
+            }}
+          />
+          {/* CreateMatchForm has its own submit button, so no explicit DialogFooter needed for submission */}
+          {/* A DialogClose might be desired if the form itself doesn't have a cancel, but onOpenChange handles this */}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Match Dialog */}
+      <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Match</DialogTitle>
+            <DialogDescription>
+              Update the details for this match.
+            </DialogDescription>
+          </DialogHeader>
+          {editingMatch && (
+            <CreateMatchForm
+              isEditMode={true}
+              initialData={{
+                id: editingMatch.id,
+                homeTeam: editingMatch.home_team_name,
+                awayTeam: editingMatch.away_team_name,
+                matchDate: editingMatch.match_date || '', 
+                status: editingMatch.status as any, // Cast if status enum mismatches, ensure alignment
+                description: editingMatch.description || editingMatch.name || '', // Prioritize description, fallback to name
+              }}
+              onSubmitOverride={handleUpdateMatch}
+              onSuccess={() => { // This specific onSuccess might not be strictly needed if onSubmitOverride handles all
+                setIsEditMatchDialogOpen(false);
+                setEditingMatch(null);
+                fetchData();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Event Type Assignment Dialog */}
+      <Dialog open={isCreateEventAssignmentDialogOpen} onOpenChange={setIsCreateEventAssignmentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Event Type to User</DialogTitle>
+            <DialogDescription>
+              Select a user and an event type to assign. This typically means the user will be responsible for tracking this type of event for their assigned player/team, or globally if not player-specific.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="assign-user-event">Select User</Label>
+              <Select
+                value={selectedUserIdForEventAssignment || ''}
+                onValueChange={setSelectedUserIdForEventAssignment}
+              >
+                <SelectTrigger id="assign-user-event">
+                  <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email} ({user.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="assign-event-type">Select Event Type</Label>
+              <Select
+                value={selectedEventTypeForAssignment || ''}
+                onValueChange={(value) => setSelectedEventTypeForAssignment(value as EventType)}
+              >
+                <SelectTrigger id="assign-event-type">
+                  <SelectValue placeholder="Select an event type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableEventTypes.map((eventType) => (
+                    <SelectItem key={eventType} value={eventType}>
+                      {eventType.charAt(0).toUpperCase() + eventType.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateEventAssignmentDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateEventAssignment}>Assign Event Type</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

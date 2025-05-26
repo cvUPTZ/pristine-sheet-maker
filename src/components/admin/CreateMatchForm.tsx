@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -32,15 +32,34 @@ const formSchema = z.object({
   description: z.string().optional(),
 });
 
-const CreateMatchForm: React.FC = () => {
+// Type for form values, inferred from Zod schema
+type MatchFormValues = z.infer<typeof formSchema>;
+
+interface CreateMatchFormProps {
+  onSuccess?: () => void;
+  initialData?: Partial<MatchFormValues> & { id?: string };
+  isEditMode?: boolean;
+  onSubmitOverride?: (values: MatchFormValues, matchId?: string) => Promise<void>;
+}
+
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ 
+  onSuccess, 
+  initialData, 
+  isEditMode = false, 
+  onSubmitOverride 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<MatchFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: initialData || { // Use initialData if provided, otherwise default
+      homeTeam: '',
+      awayTeam: '',
+      matchDate: '',
+      status: 'draft',
       homeTeam: '',
       awayTeam: '',
       matchDate: '',
@@ -49,14 +68,42 @@ const CreateMatchForm: React.FC = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) { // Check if initialData has keys
+      form.reset({
+        homeTeam: initialData.homeTeam || '',
+        awayTeam: initialData.awayTeam || '',
+        matchDate: initialData.matchDate || '',
+        status: initialData.status || 'draft',
+        description: initialData.description || '',
+      });
+    } else {
+      // Explicitly reset to default values for create mode or when initialData is empty/null
+      form.reset({
+        homeTeam: '',
+        awayTeam: '',
+        matchDate: '',
+        status: 'draft',
+        description: '',
+      });
+    }
+  }, [initialData, form.reset]);
+
+  const handleFormSubmit = async (values: MatchFormValues) => {
+    if (onSubmitOverride) {
+      await onSubmitOverride(values, initialData?.id);
+      // Parent component handles loading state and success/error feedback
+      return;
+    }
+
+    // Default create logic if onSubmitOverride is not provided
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
         .insert([
           {
-            description: values.description, // Use description instead of name
+            description: values.description,
             home_team_name: values.homeTeam,
             away_team_name: values.awayTeam,
             match_date: values.matchDate,
@@ -74,27 +121,35 @@ const CreateMatchForm: React.FC = () => {
           description: error.message,
         });
       } else {
-        toast({
-          title: 'Success',
-          description: 'Match created successfully!',
-        });
-        navigate('/matches');
+        if (!onSuccess) { // Only show internal toast if not handled by parent
+          toast({
+            title: 'Success',
+            description: 'Match created successfully!',
+          });
+        }
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          navigate('/matches');
+        }
       }
     } catch (error: any) {
-      console.error('Error creating match:', error);
+      console.error('Error creating match (catch block):', error);
       toast({
         variant: 'destructive',
         title: 'Error creating match',
         description: error.message,
       });
     } finally {
-      setIsLoading(false);
+      if (!onSubmitOverride) { // Only manage internal loading state if not overridden
+        setIsLoading(false);
+      }
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
         <FormField
           control={form.control}
           name="homeTeam"
@@ -184,8 +239,10 @@ const CreateMatchForm: React.FC = () => {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Creating...' : 'Create Match'}
+        <Button type="submit" disabled={isLoading && !onSubmitOverride}> {/* Disable only if internal loading applies */}
+          {isLoading && !onSubmitOverride 
+            ? (isEditMode ? 'Updating...' : 'Creating...') 
+            : (isEditMode ? 'Update Match' : 'Create Match')}
         </Button>
       </form>
     </Form>
