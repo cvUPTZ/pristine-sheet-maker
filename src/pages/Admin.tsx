@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,7 +95,6 @@ const Admin: React.FC = () => {
 
     setIsCreatingUser(true);
     try {
-      // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: newUser.email,
         password: newUser.password,
@@ -105,7 +105,6 @@ const Admin: React.FC = () => {
 
       if (authError) throw authError;
 
-      // Update profile with role and full name
       if (authData.user) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -142,7 +141,6 @@ const Admin: React.FC = () => {
 
     setIsUpdatingUser(true);
     try {
-      // Update user role in profiles table
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
@@ -153,7 +151,6 @@ const Admin: React.FC = () => {
 
       if (profileError) throw profileError;
 
-      // Update app_metadata in auth.users
       const { error: metadataError } = await supabase.auth.admin.updateUserById(
         editingUser.id,
         { app_metadata: { role: editingUser.role } }
@@ -165,7 +162,6 @@ const Admin: React.FC = () => {
       setEditingUser(null);
       fetchUsers();
       
-      // If the current user was updated, refresh their session
       if (user?.id === editingUser.id) {
         await refreshUserSession();
       }
@@ -194,7 +190,6 @@ const Admin: React.FC = () => {
 
   const assignEventType = async (userId: string, eventType: string) => {
     try {
-      // Check if assignment already exists
       const { data: existingAssignment, error: checkError } = await supabase
         .from('user_event_assignments')
         .select('*')
@@ -211,7 +206,6 @@ const Admin: React.FC = () => {
         return;
       }
 
-      // Create new assignment
       const { error } = await supabase
         .from('user_event_assignments')
         .insert({ user_id: userId, event_type: eventType });

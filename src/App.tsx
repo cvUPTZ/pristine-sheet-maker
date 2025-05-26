@@ -15,7 +15,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Header from "./components/Header";
-import { useEffect } from 'react'; // Import useEffect
+import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -24,14 +24,13 @@ import { ToastAction } from "@/components/ui/toast";
 
 const queryClient = new QueryClient();
 
-// Define a simple type for the match payload for clarity
 interface MatchPayload {
   id: string;
   name?: string | null;
   home_team_name?: string | null;
   away_team_name?: string | null;
   status?: string | null;
-  [key: string]: any; // Allow other fields
+  [key: string]: any;
 }
 
 const AppContent = () => {
@@ -50,7 +49,6 @@ const AppContent = () => {
             event: 'UPDATE',
             schema: 'public',
             table: 'matches',
-            // No specific filter on new status here, we check old vs new in the callback
           },
           (payload) => {
             const oldMatch = payload.old as MatchPayload | null;
@@ -60,7 +58,6 @@ const AppContent = () => {
               const matchId = newMatch.id;
               const matchName = newMatch.name || `${newMatch.home_team_name || 'Home'} vs ${newMatch.away_team_name || 'Away'}`;
 
-              // Avoid notification if already on the match page
               if (location.pathname === `/match/${matchId}`) {
                 return;
               }
@@ -73,7 +70,7 @@ const AppContent = () => {
                     Go to Match
                   </ToastAction>
                 ),
-                duration: 10000, // Keep toast longer for visibility
+                duration: 10000,
               });
             }
           }
@@ -84,12 +81,6 @@ const AppContent = () => {
           }
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.error('Match live notification channel error:', status, err);
-             // Optionally, inform the user about the subscription issue if it's persistent
-            // toast({
-            //   title: "Sync Issue",
-            //   description: "Problem with real-time match notifications.",
-            //   variant: "destructive"
-            // });
           }
         });
 
@@ -111,13 +102,12 @@ const AppContent = () => {
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysis /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth><Matches /></RequireAuth>} />
         <Route path="/statistics" element={<RequireAuth><Statistics /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth requiredRoles={['admin']]}><Admin /></RequireAuth>} />
+        <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );
 };
-
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -126,7 +116,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AppContent /> {/* Routes and Header are now inside AppContent */}
+          <AppContent />
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
