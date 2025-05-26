@@ -1,6 +1,5 @@
-
-import { useState, useEffect } from 'react';
-import { MatchEvent, Statistics, TimeSegmentStatistics, PlayerStatistics, Player, Team } from '@/types';
+import { useState, useCallback, useEffect } from 'react';
+import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
 
 export interface BallPath {
   id: string;
@@ -18,7 +17,7 @@ interface MatchState {
   statistics: Statistics;
   timeSegments: TimeSegmentStatistics[];
   playerStats: PlayerStatistics[];
-  ballTrackingPoints: { x: number; y: number; timestamp: number }[];
+  ballTrackingPoints: BallTrackingPoint[];
 }
 
 const initialMatchState: MatchState = {
@@ -47,7 +46,7 @@ export const useMatchState = () => {
   const [statistics, setStatistics] = useState<Statistics>(initialMatchState.statistics);
   const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(initialMatchState.timeSegments);
   const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>(initialMatchState.playerStats);
-  const [ballTrackingPoints, setBallTrackingPoints] = useState<{ x: number; y: number; timestamp: number }[]>(initialMatchState.ballTrackingPoints);
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(initialMatchState.ballTrackingPoints);
   const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '4-4-2' });
   
@@ -149,32 +148,48 @@ export const useMatchState = () => {
     return matchId;
   };
 
-  const recordEvent = (eventType: string, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+  const recordEvent = useCallback((
+    eventType: EventType,
+    playerId: number,
+    teamId: 'home' | 'away',
+    coordinates: { x: number; y: number },
+    collaborativeRecordEventFn?: any,
+    matchId?: string,
+    relatedPlayerId?: number
+  ) => {
     const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
-      matchId: 'current-match',
-      teamId: teamId,
-      playerId: playerId,
-      type: eventType as any,
+      matchId: matchId || 'current-match',
+      teamId,
+      playerId,
+      type: eventType,
       timestamp: Date.now(),
-      coordinates: coordinates,
-      status: 'confirmed'
+      coordinates,
+      status: 'confirmed',
+      relatedPlayerId
     };
-    addEvent(newEvent);
-  };
 
-  const recordPass = (
+    if (collaborativeRecordEventFn && matchId) {
+      collaborativeRecordEventFn(eventType, playerId, teamId, coordinates);
+    } else {
+      addEvent(newEvent);
+    }
+  }, [addEvent]);
+
+  const recordPass = useCallback((
     passer: Player,
     receiver: Player,
-    passerTeamId: 'home' | 'away',
-    receiverTeamId: 'home' | 'away',
+    passerTeamIdStr: 'home' | 'away',
+    receiverTeamIdStr: 'home' | 'away',
     passerCoords: { x: number; y: number },
-    receiverCoords: { x: number; y: number }
+    receiverCoords: { x: number; y: number },
+    collaborativeRecordEventFn?: any,
+    matchId?: string
   ) => {
     const passEvent: MatchEvent = {
-      id: `pass-${Date.now()}`,
-      matchId: 'current-match',
-      teamId: passerTeamId,
+      id: `event-${Date.now()}`,
+      matchId: matchId || 'current-match',
+      teamId: passerTeamIdStr,
       playerId: passer.id,
       type: 'pass',
       timestamp: Date.now(),
@@ -182,8 +197,13 @@ export const useMatchState = () => {
       status: 'confirmed',
       relatedPlayerId: receiver.id
     };
-    addEvent(passEvent);
-  };
+
+    if (collaborativeRecordEventFn && matchId) {
+      collaborativeRecordEventFn('pass', passer.id, passerTeamIdStr, passerCoords, receiver.id);
+    } else {
+      addEvent(passEvent);
+    }
+  }, [addEvent]);
 
   const processEventsForLocalState = (events: MatchEvent[]) => {
     setEvents(events);

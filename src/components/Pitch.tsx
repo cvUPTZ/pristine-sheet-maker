@@ -161,14 +161,13 @@ const Pitch: React.FC<PitchProps> = ({
     if (eventType) {
       console.log("Event selected:", eventType, "by player:", player.name, "at", coordinates);
       
-      // Record the event in the collaboration system
+      // Record the event in the collaboration system - Fix: only pass 4 arguments
       if (matchId) {
         recordEvent(
           eventType, 
           player.id, 
           selectedTeam === 'home' ? homeTeam.id : awayTeam.id,
-          coordinates,
-          now
+          coordinates
         );
       }
       

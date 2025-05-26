@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
@@ -16,12 +15,10 @@ interface MatchSidebarProps {
   timerStatus?: string | null;
   timerLastStartedAt?: string | null;
 
-  // Old timer props - can be gradually removed if no longer used by sidebar itself
-  isRunning: boolean; // May still be used for UI cues in sidebar, or can be derived from timerStatus
-  // toggleTimer: () => void; // Control now in MatchAnalysis for admin
-  // resetTimer: () => void;   // Control now in MatchAnalysis for admin
-  // elapsedTime: number; // Superseded by dbTimerValue for display
-  // setElapsedTime: (time: number) => void; // Superseded
+  // Legacy timer props - keeping for backward compatibility
+  isRunning: boolean;
+  elapsedTime?: number;
+  setElapsedTime?: (time: number) => void;
 
   mode: 'piano' | 'tracking';
   selectedPlayer: Player | null;
@@ -54,6 +51,8 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   timerStatus,
   timerLastStartedAt,
   isRunning,
+  elapsedTime,
+  setElapsedTime,
   mode,
   selectedPlayer,
   handleActionSelect,

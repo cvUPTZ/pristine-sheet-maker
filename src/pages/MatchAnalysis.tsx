@@ -85,13 +85,14 @@ const MatchAnalysis: React.FC = () => {
   const { toast } = useToast();
 
   // Initialize useMatchCollaboration
-  // Note: The recordEvent from useMatchCollaboration is the one to be passed to useMatchState's actions
   const { 
     events: collaborativeEvents, 
-    lastReceivedEvent, // Maintained for potential future use or if switching strategies, but not used by the chosen optimistic logic directly
+    lastReceivedEvent, 
     recordEvent: collaborativeRecordEventFn 
   } = useMatchCollaboration({ 
-    matchId: matchId || undefined // Pass undefined if matchId is null/undefined
+    matchId: matchId || 'default',
+    userId: user?.id || 'anonymous',
+    teamId: 'default'
   });
 
   const [match, setMatch] = useState(matchState.match);
@@ -101,7 +102,6 @@ const MatchAnalysis: React.FC = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(matchState.selectedPlayer);
   const [selectedTeam, setSelectedTeam] = useState(matchState.selectedTeam);
   const [matchEvents, setMatchEvents] = useState(matchState.matchEvents);
-  // Initialize with defaultStatistics to avoid undefined errors
   const [statistics, setStatistics] = useState<Statistics>(matchState.statistics || defaultStatistics);
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(matchState.ballTrackingPoints || []);
   const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(matchState.timeSegments || []);
@@ -115,24 +115,17 @@ const MatchAnalysis: React.FC = () => {
   const [potentialPasser, setPotentialPasser] = useState(matchState.potentialPasser);
   const [ballPathHistory, setBallPathHistory] = useState(matchState.ballPathHistory || []);
 
-  // State for assigned event types
   const { user } = useAuth(); // Get user from AuthContext
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
   const [isLoadingAssignedEventTypes, setIsLoadingAssignedEventTypes] = useState(false);
   const [assignedEventTypesError, setAssignedEventTypesError] = useState<string | null>(null);
 
-
   useEffect(() => {
-    // Load match data from localStorage based on matchId
     const loadMatchData = () => {
       if (matchId) {
         try {
           const matchData = JSON.parse(localStorage.getItem(`efootpad_match_${matchId}`) || '{}');
-          
-          // Ensure statistics has a default value if not available in matchData
           const safeStatistics = matchData.statistics || defaultStatistics;
-          
-          // Update match state with loaded data, using defaults where needed
           matchState.setMatch(matchData);
           matchState.setHomeTeam(matchData.homeTeam || defaultHomeTeam);
           matchState.setAwayTeam(matchData.awayTeam || defaultAwayTeam);
@@ -163,7 +156,6 @@ const MatchAnalysis: React.FC = () => {
           console.log("Loaded Match Data:", matchData);
         } catch (error) {
           console.error('Error loading match data:', error);
-          // Set default values in case of error
           setStatistics(defaultStatistics);
           setHomeTeam(defaultHomeTeam);
           setAwayTeam(defaultAwayTeam);
@@ -174,8 +166,6 @@ const MatchAnalysis: React.FC = () => {
     loadMatchData();
   }, [matchId, matchState]);
 
-
-  // Fetch assigned event types for the current user
   useEffect(() => {
     const fetchAssignedEventTypes = async () => {
       if (user) {
@@ -210,20 +200,17 @@ const MatchAnalysis: React.FC = () => {
     fetchAssignedEventTypes();
   }, [user, toast]);
 
-  // Simple toggle function for the timer
   const toggleTimer = () => {
     setIsRunning(prev => !prev);
     matchState.toggleTimer();
   };
 
-  // Function to reset timer
   const resetTimer = () => {
     setElapsedTime(0);
     setIsRunning(false);
     matchState.resetTimer();
   };
 
-  // Function to update elapsed time
   const updateElapsedTime = (time: number | ((prevTime: number) => number)) => {
     if (typeof time === 'function') {
       setElapsedTime(prev => {
@@ -238,7 +225,6 @@ const MatchAnalysis: React.FC = () => {
   };
 
   useEffect(() => {
-    // Update local state when matchState changes
     setMatch(matchState.match);
     setHomeTeam(matchState.homeTeam || defaultHomeTeam);
     setAwayTeam(matchState.awayTeam || defaultAwayTeam);
@@ -246,7 +232,6 @@ const MatchAnalysis: React.FC = () => {
     setSelectedPlayer(matchState.selectedPlayer);
     setSelectedTeam(matchState.selectedTeam);
     setMatchEvents(matchState.matchEvents);
-    // Ensure statistics always has a valid value
     setStatistics(matchState.statistics || defaultStatistics);
     setBallTrackingPoints(matchState.ballTrackingPoints || []);
     setTimeSegments(matchState.timeSegments || []);
@@ -259,50 +244,40 @@ const MatchAnalysis: React.FC = () => {
     setBallPathHistory(matchState.ballPathHistory || []);
   }, [matchState]);
 
-  // Effect to process collaborative events and update local state
   useEffect(() => {
-    if (matchId && collaborativeEvents) { // Process even if collaborativeEvents is empty to handle timeouts
+    if (matchId && collaborativeEvents) {
       console.log("Received collaborative events:", collaborativeEvents);
       const currentLocalEvents = matchState.matchEvents;
-      // These IDs might be used by processEventsForLocalState or were intended for future use.
-      // For the current reconciliation logic, they are not directly used in this block.
       const homeTeamId = matchState.homeTeam?.id; 
       const awayTeamId = matchState.awayTeam?.id;
 
-      const TIMESTAMP_DELTA = 5000; // 5 seconds, for matching optimistic events to server events
-      const MAX_OPTIMISTIC_EVENT_AGE = 20000; // 20 seconds, timeout for optimistic events
+      const TIMESTAMP_DELTA = 5000; // 5 seconds
+      const MAX_OPTIMISTIC_EVENT_AGE = 20000; // 20 seconds
 
       const reconciledEventsMap = new Map<string, MatchEvent>();
-      const collaborativeEventIdsUsed = new Set<string>(); // To track server events already matched
+      const collaborativeEventIdsUsed = new Set<string>(); 
 
-      // 1. Process current local events (optimistic or already confirmed/failed)
       currentLocalEvents.forEach(localEvent => {
         if (localEvent.status === 'pending_confirmation' && localEvent.clientId) {
-          // Try to find a matching server event for this optimistic local event
           const match = collaborativeEvents.find(serverEvent =>
-            !collaborativeEventIdsUsed.has(serverEvent.id) && // Server event not already used
+            !collaborativeEventIdsUsed.has(serverEvent.id) && 
             localEvent.type === serverEvent.type &&
             localEvent.playerId === serverEvent.playerId &&
-            localEvent.teamId === serverEvent.teamId && // Match actual team ID
+            localEvent.teamId === serverEvent.teamId && 
             Math.abs(localEvent.timestamp - serverEvent.timestamp) <= TIMESTAMP_DELTA
           );
 
           if (match) {
-            // Found a match: use the server event, mark as confirmed
             reconciledEventsMap.set(match.id, { ...match, status: 'confirmed' });
-            collaborativeEventIdsUsed.add(match.id); // Mark server event as used
+            collaborativeEventIdsUsed.add(match.id); 
           } else {
-            // No match found: check if optimistic event has timed out
             if (localEvent.optimisticCreationTime && (Date.now() - localEvent.optimisticCreationTime > MAX_OPTIMISTIC_EVENT_AGE)) {
               reconciledEventsMap.set(localEvent.clientId, { ...localEvent, status: 'failed' });
             } else {
-              // Not timed out, keep as pending
               reconciledEventsMap.set(localEvent.clientId, localEvent);
             }
           }
         } else {
-          // Local event is already confirmed, failed, or doesn't have clientId (older/non-optimistic)
-          // Use its own ID (or clientId if that's the primary key for such events)
           const eventId = localEvent.id || localEvent.clientId;
           if (eventId) {
              reconciledEventsMap.set(eventId, localEvent);
@@ -310,10 +285,8 @@ const MatchAnalysis: React.FC = () => {
         }
       });
 
-      // 2. Add new server events not already processed (i.e., not used to confirm an optimistic event)
       collaborativeEvents.forEach(serverEvent => {
         if (!collaborativeEventIdsUsed.has(serverEvent.id) && !reconciledEventsMap.has(serverEvent.id)) {
-          // This server event is new and didn't match any local optimistic event
           reconciledEventsMap.set(serverEvent.id, { ...serverEvent, status: 'confirmed' });
         }
       });
@@ -322,22 +295,18 @@ const MatchAnalysis: React.FC = () => {
       console.log("Final reconciled events:", finalReconciledEvents);
       matchState.processEventsForLocalState(finalReconciledEvents);
     }
-    // If matchId is not present or collaborativeEvents is null/undefined, this effect does nothing.
-  }, [collaborativeEvents, matchId, matchState]); // matchState is included because we access its properties like matchEvents, homeTeam, awayTeam and its methods
+  }, [collaborativeEvents, matchId, matchState]);
 
-
-  // Wrapped event handlers
   const wrappedRecordEvent = (
     eventType: EventType, 
     playerId: number, 
     teamIdStr: 'home' | 'away', 
-    coordinates: { x: number; y: number },
-    relatedPlayerId?: number
+    coordinates: { x: number; y: number }
   ) => {
     if (matchId && collaborativeRecordEventFn) {
-      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, collaborativeRecordEventFn, matchId, relatedPlayerId);
+      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, collaborativeRecordEventFn, matchId);
     } else {
-      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, undefined, undefined, relatedPlayerId);
+      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates);
     }
   };
 
@@ -365,16 +334,13 @@ const MatchAnalysis: React.FC = () => {
       return;
     }
 
-    // Use wrappedRecordEvent
     wrappedRecordEvent(
       action,
       selectedPlayer.id,
-      selectedTeam, // 'home' or 'away'
+      selectedTeam,
       teamPositions[selectedPlayer.id] || { x: 0.5, y: 0.5 }
     );
     
-    // Toast remains here for immediate UI feedback, even in collaborative mode.
-    // The actual state update will come via subscription if collaborative.
     toast({
       title: "Event Recorded",
       description: `${action} recorded for ${selectedPlayer.name}`,
@@ -382,11 +348,8 @@ const MatchAnalysis: React.FC = () => {
   };
 
   const handlePianoEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
-    // Use wrappedRecordEvent for events from PianoInput that are not passes
-    // Passes from PianoInput are handled by its onRecordPass prop, which calls wrappedRecordPass
     wrappedRecordEvent(eventType, playerId, teamId, coordinates);
 
-    // Toast logic remains for immediate feedback
     let playerName = "Unknown Player";
     const teamToSearch = teamId === 'home' ? homeTeam : awayTeam;
     const player = teamToSearch?.players.find(p => p.id === playerId);
@@ -394,7 +357,6 @@ const MatchAnalysis: React.FC = () => {
       playerName = player.name;
     }
     
-    // Capitalize eventType for display
     const displayEventType = eventType.charAt(0).toUpperCase() + eventType.slice(1);
 
     toast({
@@ -403,9 +365,7 @@ const MatchAnalysis: React.FC = () => {
     });
   };
 
-  // Add a handler to calculate time segments
   useEffect(() => {
-    // Calculate time segments if we have enough data and haven't done so yet
     if (ballTrackingPoints.length > 30 && timeSegments.length === 0 && matchState.calculateTimeSegments) {
       const segments = matchState.calculateTimeSegments();
       matchState.setTimeSegments(segments);
@@ -464,22 +424,8 @@ const MatchAnalysis: React.FC = () => {
                         isPassTrackingModeActive={isPassTrackingModeActive}
                         potentialPasser={potentialPasser}
                         setPotentialPasser={matchState.setPotentialPasser}
-                        onRecordPass={wrappedRecordPass} // Pass the wrapped action
-                        ballTrackingPoints={ballTrackingPoints} // Pass the ball tracking points
-                        handleEventSelect={ (eventType, playerFromMarker, coords) => {
-                            let teamIdStr: 'home' | 'away';
-                            if (homeTeam && homeTeam.players.some(p => p.id === playerFromMarker.id)) {
-                              teamIdStr = 'home';
-                            } else if (awayTeam && awayTeam.players.some(p => p.id === playerFromMarker.id)) {
-                              teamIdStr = 'away';
-                            } else {
-                              console.error("Could not determine team for player from Pitch event:", playerFromMarker);
-                              // Attempt to use selectedTeam as a fallback, though less accurate if player isn't on selectedTeam
-                              teamIdStr = selectedTeam; 
-                              // return; // Or handle error appropriately
-                            }
-                            wrappedRecordEvent(eventType, playerFromMarker.id, teamIdStr, coords, undefined);
-                          }}
+                        onRecordPass={wrappedRecordPass}
+                        ballTrackingPoints={ballTrackingPoints}
                       />
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -644,7 +590,6 @@ const MatchAnalysis: React.FC = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Add the new visualizations section with proper null checks */}
                   {homeTeam && awayTeam && (
                     <MatchStatsVisualizer
                       homeTeam={homeTeam}
@@ -677,11 +622,8 @@ const MatchAnalysis: React.FC = () => {
                       <div className="mt-4">
                         <Label className="mb-2 block">Match Timer</Label>
                         <MatchTimer
-                          isRunning={isRunning}
-                          onToggle={toggleTimer}
-                          onReset={resetTimer}
-                          elapsedTime={elapsedTime}
-                          setElapsedTime={updateElapsedTime}
+                          dbTimerValue={elapsedTime}
+                          timerStatus={isRunning ? 'running' : 'stopped'}
                         />
                       </div>
                       <div>
@@ -713,14 +655,14 @@ const MatchAnalysis: React.FC = () => {
                         <PianoInput
                           homeTeam={homeTeam}
                           awayTeam={awayTeam}
-                          onRecordEvent={handlePianoEvent} // For non-pass events from Piano
-                          onRecordPass={wrappedRecordPass} // For pass events from Piano
+                          onRecordEvent={handlePianoEvent}
+                          onRecordPass={wrappedRecordPass}
                           teamPositions={teamPositions}
                           selectedTeam={selectedTeam}
                           setSelectedTeam={setSelectedTeam}
                           ballPathHistory={ballPathHistory}
-                          assignedEventTypes={assignedEventTypes} // Pass down assigned event types
-                          isLoadingAssignedEventTypes={isLoadingAssignedEventTypes} // Pass loading state
+                          assignedEventTypes={assignedEventTypes}
+                          isLoadingAssignedEventTypes={isLoadingAssignedEventTypes}
                         />
                       </div>
                     ) : (
@@ -787,8 +729,6 @@ const MatchAnalysis: React.FC = () => {
           <div className="lg:col-span-1">
             <MatchSidebar 
               isRunning={isRunning}
-              toggleTimer={toggleTimer}
-              resetTimer={resetTimer}
               elapsedTime={elapsedTime}
               setElapsedTime={updateElapsedTime}
               mode={mode}
