@@ -66,23 +66,35 @@ const Admin: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
+      // Fetch users (from feat/admin-fixes-user-crud, assuming 'get-users' is the intended function name)
+      // Use the edge function to fetch users
+      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
-        toast.error('Failed to fetch users');
-      } else if (usersData) {
+        toast.error(`Failed to fetch users: ${usersError.message || 'Unknown error'}`);
+        setUsers([]); // Ensure users is an empty array on error
+      } else if (Array.isArray(usersData)) {
+        // Ensure proper typing for users
         const typedUsers: User[] = usersData.map((user: any) => ({
           id: user.id,
-          email: user.email || user.full_name || 'No email',
+          // The get-users function seems to put full_name in the email field, this is likely a bug in the function itself.
+          // For now, reflect what the function likely returns or use a placeholder if email is truly missing.
+          email: user.email || user.full_name || 'No email provided',
           full_name: user.full_name || '',
           role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
           created_at: user.created_at,
           updated_at: user.updated_at,
         }));
         setUsers(typedUsers);
+      } else {
+        // Handle cases where usersData is not an array (e.g., null, or an error object from the function not caught by usersError)
+        console.error('Received unexpected data structure for users:', usersData);
+        toast.error('Failed to process user data: unexpected format.');
+        setUsers([]);
       }
 
+      // Fetch matches (combining logic, using typing from main)
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select('id, name, home_team_name, away_team_name, status, match_date, created_at')
@@ -91,14 +103,18 @@ const Admin: React.FC = () => {
       if (matchesError) {
         console.error('Error fetching matches:', matchesError);
         toast.error('Failed to fetch matches');
+        setMatches([]); // Ensure empty array on error
       } else if (matchesData) {
         const typedMatches: Match[] = matchesData.map(match => ({
           ...match,
           status: match.status as 'draft' | 'published' | 'live' | 'completed' | 'archived'
         }));
         setMatches(typedMatches);
+      } else {
+        setMatches([]); // Handle null/undefined matchesData
       }
 
+      // Fetch event assignments (combining logic, using typing from feat/admin-fixes-user-crud)
       const { data: assignmentsData, error: assignmentsError } = await supabase
         .from('user_event_assignments')
         .select('id, user_id, event_type, created_at');
@@ -106,16 +122,26 @@ const Admin: React.FC = () => {
       if (assignmentsError) {
         console.error('Error fetching event assignments:', assignmentsError);
         toast.error('Failed to fetch event assignments');
+        setEventAssignments([]); // Ensure empty array on error
       } else if (assignmentsData) {
-        const typedAssignments: EventAssignment[] = assignmentsData.map(assignment => ({
-          ...assignment,
-          id: assignment.id.toString()
+        // Ensure proper typing for event assignments
+        const typedAssignments: EventAssignment[] = (assignmentsData || []).map((assignment: any) => ({
+          id: assignment.id.toString(),
+          user_id: assignment.user_id,
+          event_type: assignment.event_type,
+          created_at: assignment.created_at,
         }));
         setEventAssignments(typedAssignments);
+      } else {
+        setEventAssignments([]); // Handle null/undefined assignmentsData
       }
     } catch (error: any) {
       console.error('Error in fetchData:', error);
       toast.error('Failed to fetch data');
+      // Fallback: ensure all data states are empty if a general error occurs
+      setUsers([]);
+      setMatches([]);
+      setEventAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -265,6 +291,7 @@ const Admin: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[100px]">ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -275,8 +302,9 @@ const Admin: React.FC = () => {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.id.slice(0, 8)}...</TableCell>
                       <TableCell>{user.full_name || 'No name'}</TableCell>
+                      <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Select onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
+                        <Select defaultValue={user.role} onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={user.role} />
                           </SelectTrigger>
