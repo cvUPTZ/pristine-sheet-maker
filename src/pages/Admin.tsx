@@ -70,7 +70,7 @@ const Admin: React.FC = () => {
       setLoading(true);
       try {
         // Use the edge function to fetch users
-        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
 
         if (usersError) {
           console.error('Error fetching users:', usersError);
