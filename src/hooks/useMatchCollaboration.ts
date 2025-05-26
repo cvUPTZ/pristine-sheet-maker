@@ -30,9 +30,9 @@ export const useMatchCollaboration = ({
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
   const [serverConfirmedEvents, setServerConfirmedEvents] = useState<MatchEvent[]>([]);
   const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
-  const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false);
-  const [potentialPasser, setPotentialPasser] = useState<Player | null>(null);
-  const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]);
+  // const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false); // Removed
+  // const [potentialPasser, setPotentialPasser] = useState<Player | null>(null); // Removed
+  // const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]); // Removed
   const pendingEventsRef = useRef(pendingEvents);
 
   const {
@@ -46,7 +46,7 @@ export const useMatchCollaboration = ({
     onEventReceived: (event) => {
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
-        console.log('Event confirmed by server:', confirmedEvent);
+        // console.log('Event confirmed by server:', confirmedEvent); // Removed
         setServerConfirmedEvents((prev) => [...prev, confirmedEvent]);
         setLastReceivedEvent(confirmedEvent);
       }
@@ -64,7 +64,7 @@ export const useMatchCollaboration = ({
 
   const createOptimisticEvent = (eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'>) => {
     if (!isOnline && optimisticUpdates) {
-      console.warn('Offline: Event will not be synced until online.');
+      // console.warn('Offline: Event will not be synced until online.'); // Removed
     }
 
     const optimisticId = uuidv4();
@@ -90,7 +90,7 @@ export const useMatchCollaboration = ({
       setPendingEvents((prev) => [...prev, newEvent]);
       pushEvent({ type: 'add_event', payload: newEvent });
     } else {
-      console.log('Not online, not sending event');
+      // console.log('Not online, not sending event'); // Removed
     }
   };
 
@@ -113,21 +113,21 @@ export const useMatchCollaboration = ({
     sendEvent(eventData);
   };
 
-  const togglePassTrackingMode = () => {
-    setIsPassTrackingModeActive(!isPassTrackingModeActive);
-  };
+  // const togglePassTrackingMode = () => { // Removed
+  //   setIsPassTrackingModeActive(!isPassTrackingModeActive); // Removed
+  // }; // Removed
 
   useEffect(() => {
     if (channel) {
       channel.on('broadcast', { event: 'add_event' }, (payload) => {
         const serverEvent = payload.payload as MatchEvent;
-        console.log('Received event from server:', serverEvent);
+        // console.log('Received event from server:', serverEvent); // Removed
         setLastReceivedEvent(serverEvent);
       });
 
       channel.on('broadcast', { event: 'event_confirmed' }, (payload) => {
         const confirmedEvent = payload.payload as MatchEvent;
-        console.log('Event confirmed by server:', confirmedEvent);
+        // console.log('Event confirmed by server:', confirmedEvent); // Removed
         setLastReceivedEvent(confirmedEvent);
       });
     }
@@ -142,7 +142,7 @@ export const useMatchCollaboration = ({
   useEffect(() => {
     const processPendingEvents = async () => {
       if (isOnline && pendingEvents.length > 0) {
-        console.log('Attempting to send pending events:', pendingEvents);
+        // console.log('Attempting to send pending events:', pendingEvents); // Removed
 
         for (const event of pendingEvents) {
           try {
@@ -170,9 +170,9 @@ export const useMatchCollaboration = ({
     events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
     users: onlineUsers,
-    isPassTrackingModeActive,
-    potentialPasser,
-    ballPathHistory,
-    togglePassTrackingMode,
+    // isPassTrackingModeActive, // Removed
+    // potentialPasser, // Removed
+    // ballPathHistory, // Removed
+    // togglePassTrackingMode, // Removed
   };
 };
