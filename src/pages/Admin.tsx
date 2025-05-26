@@ -74,18 +74,26 @@ const Admin: React.FC = () => {
 
         if (usersError) {
           console.error('Error fetching users:', usersError);
-          toast.error('Failed to fetch users');
-        } else if (usersData) {
+          toast.error(`Failed to fetch users: ${usersError.message || 'Unknown error'}`);
+          setUsers([]); // Ensure users is an empty array on error
+        } else if (Array.isArray(usersData)) {
           // Ensure proper typing for users
           const typedUsers: User[] = usersData.map((user: any) => ({
             id: user.id,
-            email: user.email || user.full_name || 'No email',
+            // The get-users function seems to put full_name in the email field, this is likely a bug in the function itself.
+            // For now, reflect what the function likely returns or use a placeholder if email is truly missing.
+            email: user.email || user.full_name || 'No email provided',
             full_name: user.full_name || '',
             role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
             created_at: user.created_at,
             updated_at: user.updated_at,
           }));
           setUsers(typedUsers);
+        } else {
+          // Handle cases where usersData is not an array (e.g., null, or an error object from the function not caught by usersError)
+          console.error('Received unexpected data structure for users:', usersData);
+          toast.error('Failed to process user data: unexpected format.');
+          setUsers([]);
         }
 
         // Fetch matches
