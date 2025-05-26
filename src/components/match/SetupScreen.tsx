@@ -14,15 +14,13 @@ interface SetupScreenProps {
   awayTeam: Team | null;
   updateTeams: (teams: { home: Team; away: Team }) => void;
   completeSetup: () => void;
-  matchId?: string; // Optional matchId for when loading existing match
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({
   homeTeam,
   awayTeam,
   updateTeams,
-  completeSetup,
-  matchId
+  completeSetup
 }) => {
   // Create default empty teams to prevent null issues
   const safeHomeTeam = homeTeam || {
@@ -67,14 +65,12 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <Button variant="outline" asChild className="text-xs md:text-sm">
-            <Link to={matchId ? "/matches" : "/"} className="flex items-center gap-1 md:gap-2">
+            <Link to="/" className="flex items-center gap-1 md:gap-2">
               <ArrowLeft className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Back to</span> {matchId ? "Matches" : "Dashboard"}
+              <span className="hidden sm:inline">Back to</span> Dashboard
             </Link>
           </Button>
-          <h1 className="text-xl md:text-2xl font-bold text-center">
-            {matchId ? "Match Setup" : "New Match Setup"}
-          </h1>
+          <h1 className="text-xl md:text-2xl font-bold text-center">New Match Setup</h1>
           <div className="w-[40px] md:w-[100px]"></div>
         </div>
         

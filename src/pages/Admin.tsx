@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +19,7 @@ import {
 import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import CreateMatchForm from '@/components/CreateMatchForm';
 
 interface User {
   id: string;
@@ -35,7 +35,7 @@ interface Match {
   name: string;
   home_team_name: string;
   away_team_name: string;
-  status: string;
+  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
   match_date: string;
   created_at: string;
 }
@@ -45,10 +45,6 @@ interface EventAssignment {
   user_id: string;
   event_type: string;
   created_at: string;
-  user?: {
-    full_name: string;
-    email: string;
-  };
 }
 
 const Admin: React.FC = () => {
@@ -57,195 +53,190 @@ const Admin: React.FC = () => {
   const [eventAssignments, setEventAssignments] = useState<EventAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('users');
-
-  // State for Create User Dialog
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'user' | 'tracker'>('user');
 
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
-    setLoading(true); // Set loading to true when fetching starts
+    setLoading(true);
     try {
+      // Fetch users (from feat/admin-fixes-user-crud, assuming 'get-users' is the intended function name)
       // Use the edge function to fetch users
-        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
 
-        if (usersError) {
-          console.error('Error fetching users:', usersError);
-          toast.error(`Failed to fetch users: ${usersError.message || 'Unknown error'}`);
-          setUsers([]); // Ensure users is an empty array on error
-        } else if (Array.isArray(usersData)) {
-          // Ensure proper typing for users
-          const typedUsers: User[] = usersData.map((user: any) => ({
-            id: user.id,
-            // The get-users function seems to put full_name in the email field, this is likely a bug in the function itself.
-            // For now, reflect what the function likely returns or use a placeholder if email is truly missing.
-            email: user.email || user.full_name || 'No email provided',
-            full_name: user.full_name || '',
-            role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-          }));
-          setUsers(typedUsers);
-        } else {
-          // Handle cases where usersData is not an array (e.g., null, or an error object from the function not caught by usersError)
-          console.error('Received unexpected data structure for users:', usersData);
-          toast.error('Failed to process user data: unexpected format.');
-          setUsers([]);
-        }
-
-        // Fetch matches
-        const { data: matchesData, error: matchesError } = await supabase
-          .from('matches')
-          .select('id, name, home_team_name, away_team_name, status, match_date, created_at')
-          .order('created_at', { ascending: false });
-
-        if (matchesError) {
-          console.error('Error fetching matches:', matchesError);
-          toast.error('Failed to fetch matches');
-        } else {
-          setMatches(matchesData || []);
-        }
-
-        // Fetch event assignments
-        const { data: assignmentsData, error: assignmentsError } = await supabase
-          .from('user_event_assignments')
-          .select(`
-            id,
-            user_id,
-            event_type,
-            created_at
-          `);
-
-        if (assignmentsError) {
-          console.error('Error fetching event assignments:', assignmentsError);
-          toast.error('Failed to fetch event assignments');
-        } else {
-          // Ensure proper typing for event assignments
-          const typedAssignments: EventAssignment[] = (assignmentsData || []).map((assignment: any) => ({
-            id: assignment.id.toString(),
-            user_id: assignment.user_id,
-            event_type: assignment.event_type,
-            created_at: assignment.created_at,
-          }));
-          setEventAssignments(typedAssignments);
-        }
-
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to fetch admin data');
-      } finally {
-        setLoading(false);
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        toast.error(`Failed to fetch users: ${usersError.message || 'Unknown error'}`);
+        setUsers([]); // Ensure users is an empty array on error
+      } else if (Array.isArray(usersData)) {
+        // Ensure proper typing for users
+        const typedUsers: User[] = usersData.map((user: any) => ({
+          id: user.id,
+          // The get-users function seems to put full_name in the email field, this is likely a bug in the function itself.
+          // For now, reflect what the function likely returns or use a placeholder if email is truly missing.
+          email: user.email || user.full_name || 'No email provided',
+          full_name: user.full_name || '',
+          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        }));
+        setUsers(typedUsers);
+      } else {
+        // Handle cases where usersData is not an array (e.g., null, or an error object from the function not caught by usersError)
+        console.error('Received unexpected data structure for users:', usersData);
+        toast.error('Failed to process user data: unexpected format.');
+        setUsers([]);
       }
-    };
 
-    fetchData();
-  }, []); // Empty dependency array means this runs once on mount
+      // Fetch matches (combining logic, using typing from main)
+      const { data: matchesData, error: matchesError } = await supabase
+        .from('matches')
+        .select('id, name, home_team_name, away_team_name, status, match_date, created_at')
+        .order('created_at', { ascending: false });
+
+      if (matchesError) {
+        console.error('Error fetching matches:', matchesError);
+        toast.error('Failed to fetch matches');
+        setMatches([]); // Ensure empty array on error
+      } else if (matchesData) {
+        const typedMatches: Match[] = matchesData.map(match => ({
+          ...match,
+          status: match.status as 'draft' | 'published' | 'live' | 'completed' | 'archived'
+        }));
+        setMatches(typedMatches);
+      } else {
+        setMatches([]); // Handle null/undefined matchesData
+      }
+
+      // Fetch event assignments (combining logic, using typing from feat/admin-fixes-user-crud)
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('user_event_assignments')
+        .select('id, user_id, event_type, created_at');
+
+      if (assignmentsError) {
+        console.error('Error fetching event assignments:', assignmentsError);
+        toast.error('Failed to fetch event assignments');
+        setEventAssignments([]); // Ensure empty array on error
+      } else if (assignmentsData) {
+        // Ensure proper typing for event assignments
+        const typedAssignments: EventAssignment[] = (assignmentsData || []).map((assignment: any) => ({
+          id: assignment.id.toString(),
+          user_id: assignment.user_id,
+          event_type: assignment.event_type,
+          created_at: assignment.created_at,
+        }));
+        setEventAssignments(typedAssignments);
+      } else {
+        setEventAssignments([]); // Handle null/undefined assignmentsData
+      }
+    } catch (error: any) {
+      console.error('Error in fetchData:', error);
+      toast.error('Failed to fetch data');
+      // Fallback: ensure all data states are empty if a general error occurs
+      setUsers([]);
+      setMatches([]);
+      setEventAssignments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateUser = async () => {
     if (!newUserName || !newUserEmail || !newUserPassword) {
-      toast.error('Please fill in all required fields: Full Name, Email, and Password.');
+      toast.error('Please fill in all fields');
       return;
     }
 
     try {
       const { data, error } = await supabase.functions.invoke('create-user', {
-        method: 'POST',
-        body: JSON.stringify({
-          fullName: newUserName,
+        body: {
           email: newUserEmail,
           password: newUserPassword,
-          role: newUserRole,
-        }),
+          full_name: newUserName,
+          role: newUserRole
+        }
       });
 
-      if (error) {
-        console.error('Error creating user:', error);
-        toast.error(`Failed to create user: ${error.message}`);
-      } else if (data.error) {
-        console.error('Error creating user (from function data):', data.error);
-        toast.error(`Failed to create user: ${data.error}`);
-      }
-      
-      else {
-        toast.success('User created successfully!');
-        await fetchData(); // Re-fetch users list
-        setNewUserName('');
-        setNewUserEmail('');
-        setNewUserPassword('');
-        setNewUserRole('user');
-        setIsCreateUserDialogOpen(false);
-      }
-    } catch (invokeError) {
-      console.error('Error invoking create-user function:', invokeError);
-      toast.error('An unexpected error occurred while creating the user.');
+      if (error) throw error;
+
+      toast.success('User created successfully');
+      setIsCreateUserDialogOpen(false);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('user');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error(`Failed to create user: ${error.message}`);
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
       const { error } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: userId, role: newRole });
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-      if (error) {
-        console.error('Failed to update role:', error);
-        toast.error('Failed to update user role');
-      } else {
-        setUsers(users.map(user =>
-          user.id === userId ? { ...user, role: newRole } : user
-        ));
-        toast.success('User role updated successfully');
-      }
-    } catch (error) {
-      console.error('Error updating role:', error);
-      toast.error('Failed to update user role');
+      if (error) throw error;
+
+      toast.success('User role updated successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error updating user role:', error);
+      toast.error(`Failed to update user role: ${error.message}`);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      try {
-        const { error } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', userId);
+    if (!confirm('Are you sure you want to delete this user?')) return;
 
-        if (error) {
-          console.error('Failed to delete user:', error);
-          toast.error('Failed to delete user');
-        } else {
-          setUsers(users.filter(user => user.id !== userId));
-          toast.success('User deleted successfully');
-        }
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        toast.error('Failed to delete user');
-      }
+    try {
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+      if (error) throw error;
+
+      toast.success('User deleted successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(`Failed to delete user: ${error.message}`);
     }
   };
 
   const handleDeleteMatch = async (matchId: string) => {
-    if (confirm('Are you sure you want to delete this match?')) {
-      try {
-        const { error } = await supabase
-          .from('matches')
-          .delete()
-          .eq('id', matchId);
+    if (!confirm('Are you sure you want to delete this match?')) return;
 
-        if (error) {
-          console.error('Failed to delete match:', error);
-          toast.error('Failed to delete match');
-        } else {
-          setMatches(matches.filter(match => match.id !== matchId));
-          toast.success('Match deleted successfully');
-        }
-      } catch (error) {
-        console.error('Error deleting match:', error);
-        toast.error('Failed to delete match');
-      }
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId);
+
+      if (error) throw error;
+
+      toast.success('Match deleted successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting match:', error);
+      toast.error(`Failed to delete match: ${error.message}`);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'live':
+        return 'default';
+      case 'completed':
+        return 'secondary';
+      default:
+        return 'secondary';
     }
   };
 
@@ -300,6 +291,7 @@ const Admin: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[100px]">ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -310,8 +302,9 @@ const Admin: React.FC = () => {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.id.slice(0, 8)}...</TableCell>
                       <TableCell>{user.full_name || 'No name'}</TableCell>
+                      <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Select onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
+                        <Select defaultValue={user.role} onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={user.role} />
                           </SelectTrigger>
@@ -339,8 +332,9 @@ const Admin: React.FC = () => {
 
         <TabsContent value="matches" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Match Management</CardTitle>
+              <CreateMatchForm onMatchCreated={() => fetchData()} />
             </CardHeader>
             <CardContent>
               <Table>
@@ -360,7 +354,7 @@ const Admin: React.FC = () => {
                       <TableCell className="font-medium">{match.name || 'Unnamed Match'}</TableCell>
                       <TableCell>{match.home_team_name} vs {match.away_team_name}</TableCell>
                       <TableCell>
-                        <Badge variant={match.status === 'live' ? 'default' : 'secondary'}>
+                        <Badge variant={getStatusBadgeVariant(match.status)}>
                           {match.status}
                         </Badge>
                       </TableCell>
@@ -377,6 +371,8 @@ const Admin: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        
 
         <TabsContent value="assignments" className="mt-6">
           <Card>

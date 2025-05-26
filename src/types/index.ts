@@ -1,18 +1,17 @@
+
 export interface Match {
   id: string;
-  name?: string | null;
-  description?: string | null;
+  team1: string;
+  team2: string;
+  score1: number;
+  score2: number;
+  date: string;
+  name?: string;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation?: string | null;
-  away_team_formation?: string | null;
-  home_team_players?: any;
-  away_team_players?: any;
-  match_date?: string | null;
-  status: 'published' | 'draft' | 'live' | 'completed' | 'archived';
-  created_at?: string | null;
-  updated_at?: string | null;
-  created_by?: string | null;
+  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
+  match_date?: string;
+  created_at?: string;
 }
 
 export interface Team {
@@ -153,12 +152,4 @@ export interface SavedMatch {
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
   playerStats: PlayerStatistics[];
-}
-
-export interface BallPath {
-  id?: string;
-  clientId?: string;
-  startCoordinates: { x: number; y: number };
-  endCoordinates: { x: number; y: number };
-  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
 }
