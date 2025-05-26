@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user, signOut, userRole } = useAuth();
+  const { session, user, signOut, userRole } = useAuth();
 
   return (
     <header className="bg-white border-b sticky top-0 z-40 w-full">
@@ -31,7 +32,7 @@ const Header: React.FC = () => {
           </SheetTrigger>
           <SheetContent side="left" className="w-60">
             <div className="grid gap-4 py-4">
-              {isAuthenticated && (
+              {session && (
                 <>
                   <Button
                     variant={location.pathname === '/' ? 'secondary' : 'ghost'}
@@ -106,7 +107,7 @@ const Header: React.FC = () => {
 
         {/* Navigation Items */}
         <div className="hidden md:flex items-center space-x-1">
-          {isAuthenticated && (
+          {session && (
             <>
               <Button
                 variant={location.pathname === '/' ? 'secondary' : 'ghost'}
@@ -179,7 +180,7 @@ const Header: React.FC = () => {
 
         {/* Authentication Menu */}
         <div className="flex items-center">
-          {isAuthenticated ? (
+          {session ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">

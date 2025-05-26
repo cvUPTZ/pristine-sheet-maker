@@ -1,3 +1,4 @@
+
 export interface Match {
   id: string;
   name?: string | null;
@@ -13,6 +14,11 @@ export interface Match {
   created_at?: string | null;
   updated_at?: string | null;
   created_by?: string | null;
+  match_statistics?: any;
+  ball_tracking_data?: any;
+  timer_current_value?: number;
+  timer_status?: 'stopped' | 'running' | 'paused';
+  timer_last_started_at?: string | null;
 }
 
 export interface Team {

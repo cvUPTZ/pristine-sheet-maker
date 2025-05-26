@@ -13,7 +13,7 @@ import { useMatchState } from '@/hooks/useMatchState';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, Player } from '@/types';
+import { Team, Player, Match } from '@/types';
 import { toast } from 'sonner';
 
 const MatchAnalysis: React.FC = () => {
@@ -21,7 +21,7 @@ const MatchAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const { toast: showToast } = useToast();
   const { user } = useAuth();
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTimerValue, setCurrentTimerValue] = useState(0);
   const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>('stopped');
@@ -51,13 +51,9 @@ const MatchAnalysis: React.FC = () => {
     completeSetup,
     toggleBallTrackingMode,
     addBallTrackingPoint,
-    // saveMatch, // Renamed to generateMatchId
-    // generatePlayerStatistics, // Removed, use playerStats directly
-    // generateTimeSegmentStatistics, // Removed, use timeSegments directly
-    generateMatchId, // Renamed from saveMatch
+    generateMatchId,
     setTeamPositions,
-    setBallTrackingPoints, // Added for loading data
-    // Pass tracking UI states to be sourced from useMatchState
+    setBallTrackingPoints,
     isPassTrackingModeActive,
     potentialPasser,
     ballPathHistory,
@@ -66,13 +62,7 @@ const MatchAnalysis: React.FC = () => {
 
   // Initialize collaboration
   const {
-    isConnected,
-    participants,
     recordEvent: collaborativeRecordEvent,
-    // isPassTrackingModeActive, // Removed, will use from useMatchState
-    // potentialPasser, // Removed, will use from useMatchState
-    // ballPathHistory, // Removed, will use from useMatchState
-    // togglePassTrackingMode, // Removed, will use from useMatchState
   } = useMatchCollaboration({
     matchId: matchId || '',
     userId: user?.id || '',
@@ -106,9 +96,13 @@ const MatchAnalysis: React.FC = () => {
 
         setMatch(matchData);
 
-        // Convert match data to Team objects with proper type checking
-        const homeTeamPlayers = Array.isArray(matchData.home_team_players) ? matchData.home_team_players as Player[] : [];
-        const awayTeamPlayers = Array.isArray(matchData.away_team_players) ? matchData.away_team_players as Player[] : [];
+        // Safely convert match data to Team objects with proper type checking
+        const homeTeamPlayers = Array.isArray(matchData.home_team_players) 
+          ? (matchData.home_team_players as unknown as Player[]) 
+          : [];
+        const awayTeamPlayers = Array.isArray(matchData.away_team_players) 
+          ? (matchData.away_team_players as unknown as Player[]) 
+          : [];
 
         const homeTeamData: Team = {
           id: 'home',
@@ -183,7 +177,7 @@ const MatchAnalysis: React.FC = () => {
           filter: `id=eq.${matchId}`,
         },
         (payload) => {
-          const newMatchData = payload.new as any; // Cast to your Match type or any
+          const newMatchData = payload.new as any;
           
           // Compare and update timer state to prevent unnecessary re-renders or loops
           if (newMatchData.timer_status !== undefined && newMatchData.timer_status !== timerStatus) {
@@ -269,7 +263,7 @@ const MatchAnalysis: React.FC = () => {
 
   const handleSave = async () => {
     if (!matchId) {
-      const newMatchId = generateMatchId(); // Updated from saveMatch
+      const newMatchId = generateMatchId();
       navigate(`/match/${newMatchId}`);
       return;
     }
@@ -278,12 +272,12 @@ const MatchAnalysis: React.FC = () => {
       const { error } = await supabase
         .from('matches')
         .update({
-          home_team_players: JSON.parse(JSON.stringify(homeTeam.players)),
-          away_team_players: JSON.parse(JSON.stringify(awayTeam.players)),
+          home_team_players: JSON.parse(JSON.stringify(homeTeam.players)) as any,
+          away_team_players: JSON.parse(JSON.stringify(awayTeam.players)) as any,
           home_team_formation: homeTeam.formation,
           away_team_formation: awayTeam.formation,
-          match_statistics: statistics,
-          ball_tracking_data: ballTrackingPoints,
+          match_statistics: statistics as any,
+          ball_tracking_data: ballTrackingPoints as any,
           timer_current_value: currentTimerValue,
           timer_status: timerStatus,
           timer_last_started_at: timerLastStartedAt,
@@ -330,9 +324,9 @@ const MatchAnalysis: React.FC = () => {
     }
   };
 
-  const handleCompleteSetup = (homeTeamData: Team, awayTeamData: Team) => {
-    updateTeams(homeTeamData, awayTeamData);
-    completeSetup(homeTeamData, awayTeamData);
+  const handleCompleteSetup = ({ home, away }: { home: Team; away: Team }) => {
+    updateTeams(home, away);
+    completeSetup(home, away);
   };
 
   if (loading) {
@@ -397,7 +391,6 @@ const MatchAnalysis: React.FC = () => {
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
-            handlePlayerSelect={handlePlayerSelect}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
             toggleBallTrackingMode={toggleBallTrackingMode}
             ballTrackingPoints={ballTrackingPoints}
@@ -432,10 +425,10 @@ const MatchAnalysis: React.FC = () => {
               addBallTrackingPoint={addBallTrackingPoint}
               statistics={statistics}
               setStatistics={setStatistics}
-              playerStats={playerStats} // Use memoized playerStats
+              playerStats={playerStats}
               handleUndo={undoLastEvent}
               handleSave={handleSave}
-              timeSegments={timeSegments} // Use memoized timeSegments
+              timeSegments={timeSegments}
               recordEvent={handleRecordEvent}
             />
           </div>
