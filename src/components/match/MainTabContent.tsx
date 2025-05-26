@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Pia
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
-import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics } from '@/types';
+import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics, Team } from '@/types';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import PianoInput from './PianoInput';
@@ -38,8 +39,8 @@ const defaultStatistics: Statistics = {
 interface MainTabContentProps {
   activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
   setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video') => void;
-  homeTeam: any;
-  awayTeam: any;
+  homeTeam: Team;
+  awayTeam: Team;
   teamPositions: Record<number, {
     x: number;
     y: number;

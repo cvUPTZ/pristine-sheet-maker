@@ -2,13 +2,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRealtime } from './useRealtime';
-import { MatchEvent } from '@/types';
+import { MatchEvent, Player } from '@/types';
 
 interface CollaborationOptions {
   matchId?: string;
   userId?: string;
   teamId?: string;
   optimisticUpdates?: boolean;
+}
+
+interface BallPath {
+  id?: string;
+  clientId?: string;
+  startCoordinates: { x: number; y: number };
+  endCoordinates: { x: number; y: number };
+  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
 }
 
 export const useMatchCollaboration = ({
@@ -22,6 +30,9 @@ export const useMatchCollaboration = ({
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
   const [serverConfirmedEvents, setServerConfirmedEvents] = useState<MatchEvent[]>([]);
   const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
+  const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false);
+  const [potentialPasser, setPotentialPasser] = useState<Player | null>(null);
+  const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]);
   const pendingEventsRef = useRef(pendingEvents);
 
   const {
@@ -87,7 +98,8 @@ export const useMatchCollaboration = ({
     eventType: string,
     playerId: number,
     teamId: string,
-    coordinates: { x: number; y: number }
+    coordinates: { x: number; y: number },
+    relatedPlayerId?: number
   ) => {
     const eventData = {
       matchId: matchId || 'default',
@@ -96,8 +108,13 @@ export const useMatchCollaboration = ({
       type: eventType as any,
       timestamp: Date.now(),
       coordinates,
+      relatedPlayerId,
     };
     sendEvent(eventData);
+  };
+
+  const togglePassTrackingMode = () => {
+    setIsPassTrackingModeActive(!isPassTrackingModeActive);
   };
 
   useEffect(() => {
@@ -148,8 +165,14 @@ export const useMatchCollaboration = ({
     presence,
     onlineUsers,
     isOnline,
+    isConnected: isOnline,
+    participants: onlineUsers,
     events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
     users: onlineUsers,
+    isPassTrackingModeActive,
+    potentialPasser,
+    ballPathHistory,
+    togglePassTrackingMode,
   };
 };

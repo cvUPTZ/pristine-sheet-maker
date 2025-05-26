@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
 
@@ -97,7 +98,7 @@ export const useMatchState = () => {
     }));
   };
 
-  const addBallTrackingPoint = (point: { x: number; y: number; timestamp: number }) => {
+  const addBallTrackingPoint = (point: BallTrackingPoint) => {
     setBallTrackingPoints((prevPoints) => [...prevPoints, point]);
   };
 
@@ -152,28 +153,20 @@ export const useMatchState = () => {
     eventType: EventType,
     playerId: number,
     teamId: 'home' | 'away',
-    coordinates: { x: number; y: number },
-    collaborativeRecordEventFn?: any,
-    matchId?: string,
-    relatedPlayerId?: number
+    coordinates: { x: number; y: number }
   ) => {
     const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
-      matchId: matchId || 'current-match',
+      matchId: 'current-match',
       teamId,
       playerId,
       type: eventType,
       timestamp: Date.now(),
       coordinates,
-      status: 'confirmed',
-      relatedPlayerId
+      status: 'confirmed'
     };
 
-    if (collaborativeRecordEventFn && matchId) {
-      collaborativeRecordEventFn(eventType, playerId, teamId, coordinates);
-    } else {
-      addEvent(newEvent);
-    }
+    addEvent(newEvent);
   }, [addEvent]);
 
   const recordPass = useCallback((
@@ -182,13 +175,11 @@ export const useMatchState = () => {
     passerTeamIdStr: 'home' | 'away',
     receiverTeamIdStr: 'home' | 'away',
     passerCoords: { x: number; y: number },
-    receiverCoords: { x: number; y: number },
-    collaborativeRecordEventFn?: any,
-    matchId?: string
+    receiverCoords: { x: number; y: number }
   ) => {
     const passEvent: MatchEvent = {
       id: `event-${Date.now()}`,
-      matchId: matchId || 'current-match',
+      matchId: 'current-match',
       teamId: passerTeamIdStr,
       playerId: passer.id,
       type: 'pass',
@@ -198,11 +189,7 @@ export const useMatchState = () => {
       relatedPlayerId: receiver.id
     };
 
-    if (collaborativeRecordEventFn && matchId) {
-      collaborativeRecordEventFn('pass', passer.id, passerTeamIdStr, passerCoords, receiver.id);
-    } else {
-      addEvent(passEvent);
-    }
+    addEvent(passEvent);
   }, [addEvent]);
 
   const processEventsForLocalState = (events: MatchEvent[]) => {

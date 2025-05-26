@@ -60,40 +60,23 @@ const Admin: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch users from profiles table instead of the problematic API endpoint
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, created_at, updated_at');
+        // Use the edge function to fetch users
+        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users');
 
-        if (profilesError) {
-          console.error('Error fetching profiles:', profilesError);
-          toast.error('Failed to fetch user profiles');
-        }
-
-        // Fetch user roles
-        const { data: rolesData, error: rolesError } = await supabase
-          .from('user_roles')
-          .select('user_id, role');
-
-        if (rolesError) {
-          console.error('Error fetching roles:', rolesError);
-          toast.error('Failed to fetch user roles');
-        }
-
-        // Combine profiles and roles
-        if (profilesData && rolesData) {
-          const usersWithRoles = profilesData.map((profile: any) => {
-            const userRole = rolesData.find((r: any) => r.user_id === profile.id);
-            return {
-              id: profile.id,
-              email: profile.full_name || 'No name', // Using full_name as email placeholder
-              full_name: profile.full_name || '',
-              role: userRole ? userRole.role : 'user',
-              created_at: profile.created_at,
-              updated_at: profile.updated_at,
-            };
-          });
-          setUsers(usersWithRoles);
+        if (usersError) {
+          console.error('Error fetching users:', usersError);
+          toast.error('Failed to fetch users');
+        } else if (usersData) {
+          // Ensure proper typing for users
+          const typedUsers: User[] = usersData.map((user: any) => ({
+            id: user.id,
+            email: user.email || user.full_name || 'No email',
+            full_name: user.full_name || '',
+            role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+          }));
+          setUsers(typedUsers);
         }
 
         // Fetch matches
@@ -123,7 +106,14 @@ const Admin: React.FC = () => {
           console.error('Error fetching event assignments:', assignmentsError);
           toast.error('Failed to fetch event assignments');
         } else {
-          setEventAssignments(assignmentsData || []);
+          // Ensure proper typing for event assignments
+          const typedAssignments: EventAssignment[] = (assignmentsData || []).map((assignment: any) => ({
+            id: assignment.id.toString(),
+            user_id: assignment.user_id,
+            event_type: assignment.event_type,
+            created_at: assignment.created_at,
+          }));
+          setEventAssignments(typedAssignments);
         }
 
       } catch (error) {

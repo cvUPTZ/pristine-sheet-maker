@@ -13,17 +13,16 @@ import { useMatchState } from '@/hooks/useMatchState';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Team } from '@/types';
+import { Team, Player } from '@/types';
 import { toast } from 'sonner';
 
 const MatchAnalysis: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const { toast: showToast } = useToast();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [timerRunning, setTimerRunning] = useState(false);
   const [currentTimerValue, setCurrentTimerValue] = useState(0);
   const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>('stopped');
   const [timerLastStartedAt, setTimerLastStartedAt] = useState<string | null>(null);
@@ -100,27 +99,30 @@ const MatchAnalysis: React.FC = () => {
 
         setMatch(matchData);
 
-        // Convert match data to Team objects
+        // Convert match data to Team objects with proper type checking
+        const homeTeamPlayers = Array.isArray(matchData.home_team_players) ? matchData.home_team_players as Player[] : [];
+        const awayTeamPlayers = Array.isArray(matchData.away_team_players) ? matchData.away_team_players as Player[] : [];
+
         const homeTeamData: Team = {
           id: 'home',
           name: matchData.home_team_name || 'Home Team',
           formation: matchData.home_team_formation || '4-4-2',
-          players: matchData.home_team_players || []
+          players: homeTeamPlayers
         };
 
         const awayTeamData: Team = {
           id: 'away',
           name: matchData.away_team_name || 'Away Team',
           formation: matchData.away_team_formation || '4-3-3',
-          players: matchData.away_team_players || []
+          players: awayTeamPlayers
         };
 
         updateTeams(homeTeamData, awayTeamData);
 
-        // Initialize timer values
-        setCurrentTimerValue(matchData.current_timer_value || 0);
-        setTimerStatus(matchData.timer_status || 'stopped');
-        setTimerLastStartedAt(matchData.timer_last_started_at);
+        // Initialize timer values (these would need to be added to the matches table)
+        setCurrentTimerValue(0);
+        setTimerStatus('stopped');
+        setTimerLastStartedAt(null);
 
         // If teams are set up, mark setup as complete
         if (homeTeamData.players.length > 0 && awayTeamData.players.length > 0) {
@@ -151,39 +153,19 @@ const MatchAnalysis: React.FC = () => {
       const newStatus = timerStatus === 'running' ? 'paused' : 'running';
       const now = new Date().toISOString();
       
-      let updateData: any = {
-        timer_status: newStatus,
-      };
+      let newTimerValue = currentTimerValue;
 
-      if (newStatus === 'running') {
-        updateData.timer_last_started_at = now;
-      } else {
+      if (newStatus === 'paused' && timerLastStartedAt) {
         // Calculate current timer value when pausing
-        if (timerLastStartedAt) {
-          const elapsedSinceLastStart = (Date.now() - new Date(timerLastStartedAt).getTime()) / 1000;
-          updateData.current_timer_value = currentTimerValue + elapsedSinceLastStart;
-        }
-      }
-
-      const { error } = await supabase
-        .from('matches')
-        .update(updateData)
-        .eq('id', matchId);
-
-      if (error) {
-        console.error('Error updating timer:', error);
-        toast.error('Failed to update timer');
-        return;
+        const elapsedSinceLastStart = (Date.now() - new Date(timerLastStartedAt).getTime()) / 1000;
+        newTimerValue = currentTimerValue + elapsedSinceLastStart;
       }
 
       setTimerStatus(newStatus);
       if (newStatus === 'running') {
         setTimerLastStartedAt(now);
       } else {
-        if (timerLastStartedAt) {
-          const elapsedSinceLastStart = (Date.now() - new Date(timerLastStartedAt).getTime()) / 1000;
-          setCurrentTimerValue(prev => prev + elapsedSinceLastStart);
-        }
+        setCurrentTimerValue(newTimerValue);
         setTimerLastStartedAt(null);
       }
 
@@ -198,21 +180,6 @@ const MatchAnalysis: React.FC = () => {
     if (!matchId) return;
 
     try {
-      const { error } = await supabase
-        .from('matches')
-        .update({
-          timer_status: 'stopped',
-          current_timer_value: 0,
-          timer_last_started_at: null,
-        })
-        .eq('id', matchId);
-
-      if (error) {
-        console.error('Error resetting timer:', error);
-        toast.error('Failed to reset timer');
-        return;
-      }
-
       setTimerStatus('stopped');
       setCurrentTimerValue(0);
       setTimerLastStartedAt(null);
@@ -223,9 +190,9 @@ const MatchAnalysis: React.FC = () => {
     }
   };
 
-  const handleRecordEvent = (eventType: any, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }, relatedPlayerId?: number) => {
+  const handleRecordEvent = (eventType: any, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
     if (matchId && user?.id) {
-      collaborativeRecordEvent(eventType, playerId, teamId, coordinates, relatedPlayerId);
+      collaborativeRecordEvent(eventType, playerId, teamId, coordinates);
     } else {
       recordEvent(eventType, playerId, teamId, coordinates);
     }
@@ -242,8 +209,8 @@ const MatchAnalysis: React.FC = () => {
       const { error } = await supabase
         .from('matches')
         .update({
-          home_team_players: homeTeam.players,
-          away_team_players: awayTeam.players,
+          home_team_players: JSON.parse(JSON.stringify(homeTeam.players)),
+          away_team_players: JSON.parse(JSON.stringify(awayTeam.players)),
           home_team_formation: homeTeam.formation,
           away_team_formation: awayTeam.formation,
           updated_at: new Date().toISOString(),
@@ -319,7 +286,14 @@ const MatchAnalysis: React.FC = () => {
       <div className="flex h-screen">
         {/* Left Sidebar */}
         <div className="w-80 bg-white shadow-lg border-r border-gray-200 flex flex-col">
-          <MatchHeader homeTeam={homeTeam} awayTeam={awayTeam} />
+          <MatchHeader 
+            homeTeam={homeTeam} 
+            awayTeam={awayTeam}
+            mode={ballTrackingMode ? 'tracking' : 'piano'}
+            setMode={toggleBallTrackingMode}
+            handleToggleTracking={toggleBallTrackingMode}
+            handleSave={handleSave}
+          />
           
           <div className="p-4 border-b">
             <MatchTimer 
@@ -349,8 +323,6 @@ const MatchAnalysis: React.FC = () => {
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeam}
-            setSelectedTeam={setSelectedTeam}
             handlePlayerSelect={handlePlayerSelect}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
             toggleBallTrackingMode={toggleBallTrackingMode}
