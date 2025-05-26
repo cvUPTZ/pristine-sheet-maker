@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -17,13 +16,13 @@ import VideoAnalyzer from '@/components/VideoAnalyzer';
 // Define default statistics to prevent undefined errors
 const defaultStatistics: Statistics = {
   possession: { home: 50, away: 50 },
-  shots: { 
-    home: { onTarget: 0, offTarget: 0, total: 0 }, 
-    away: { onTarget: 0, offTarget: 0, total: 0 } 
+  shots: {
+    home: { onTarget: 0, offTarget: 0, total: 0 },
+    away: { onTarget: 0, offTarget: 0, total: 0 }
   },
-  passes: { 
-    home: { successful: 0, attempted: 0, total: 0 }, 
-    away: { successful: 0, attempted: 0, total: 0 } 
+  passes: {
+    home: { successful: 0, attempted: 0, total: 0 },
+    away: { successful: 0, attempted: 0, total: 0 }
   },
   ballsPlayed: { home: 0, away: 0 },
   ballsLost: { home: 0, away: 0 },
@@ -93,7 +92,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline' | 'coach'>('summary');
   const [tableView, setTableView] = useState<'individual' | 'team'>('individual');
   const [timelineView, setTimelineView] = useState<'ballsPlayed' | 'possession' | 'recoveryTime'>('ballsPlayed');
-  
+
   const handleVideoAnalysisComplete = (videoStats: Statistics) => {
     if (setStatistics) {
       setStatistics(videoStats);
@@ -102,15 +101,15 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
 
   // Helper function to determine if circular menu should be shown
   const shouldShowCircularMenu = activeTab === 'pitch' || activeTab === 'piano';
-  
+
   // Add the missing handleEventSelect function with proper BallTrackingPoint type
   const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
     // First select the player
     handlePlayerSelect(player);
-    
+
     // Then record the event using the provided recordEvent function
     recordEvent(eventType, player.id, selectedTeam, coordinates);
-    
+
     // If it's a ball-related event, we'll track the ball movement too
     if (['pass', 'shot', 'goal'].includes(eventType)) {
       // Create a proper BallTrackingPoint object with all required properties
@@ -133,40 +132,40 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
       <div className="mb-6">
         <div className="bg-white rounded-lg shadow-md p-2 mb-4">
           <div className="grid grid-cols-5 gap-2">
-            <Button 
-              variant={activeTab === 'pitch' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'pitch' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('pitch')}
             >
               <Flag className="h-4 w-4" />
               <span>Pitch</span>
             </Button>
-            <Button 
-              variant={activeTab === 'stats' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'stats' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('stats')}
             >
               <BarChart3 className="h-4 w-4" />
               <span>Stats</span>
             </Button>
-            <Button 
-              variant={activeTab === 'details' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'details' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('details')}
             >
               <TableIcon className="h-4 w-4" />
               <span>Details</span>
             </Button>
-            <Button 
-              variant={activeTab === 'piano' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'piano' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('piano')}
             >
               <Piano className="h-4 w-4" />
               <span>Piano</span>
             </Button>
-            <Button 
-              variant={activeTab === 'timeline' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'timeline' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('timeline')}
             >
@@ -175,8 +174,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             </Button>
           </div>
           <div className="mt-2">
-            <Button 
-              variant={activeTab === 'video' ? 'default' : 'outline'} 
+            <Button
+              variant={activeTab === 'video' ? 'default' : 'outline'}
               className="w-full flex items-center justify-center gap-2"
               onClick={() => setActiveTab('video')}
             >
@@ -192,35 +191,35 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         {activeTab === 'pitch' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
-              <PitchView 
-                homeTeam={homeTeam} 
-                awayTeam={awayTeam} 
-                teamPositions={teamPositions} 
-                selectedPlayer={selectedPlayer} 
-                selectedTeam={selectedTeam} 
-                setSelectedTeam={setSelectedTeam} 
-                handlePlayerSelect={handlePlayerSelect} 
+              <PitchView
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                teamPositions={teamPositions}
+                selectedPlayer={selectedPlayer}
+                selectedTeam={selectedTeam}
+                setSelectedTeam={setSelectedTeam}
+                handlePlayerSelect={handlePlayerSelect}
                 handleEventSelect={shouldShowCircularMenu ? handleEventSelect : undefined}
-                ballTrackingPoints={ballTrackingPoints} 
-                mode={mode} 
-                handlePitchClick={handlePitchClick} 
-                addBallTrackingPoint={addBallTrackingPoint} 
+                ballTrackingPoints={ballTrackingPoints}
+                mode={mode}
+                handlePitchClick={handlePitchClick}
+                addBallTrackingPoint={addBallTrackingPoint}
               />
             </div>
             <div>
-              <PianoInput 
-                homeTeam={homeTeam} 
-                awayTeam={awayTeam} 
-                onRecordEvent={recordEvent} 
-                teamPositions={teamPositions} 
-                selectedTeam={selectedTeam} 
-                setSelectedTeam={setSelectedTeam} 
-                compact={true} 
+              <PianoInput
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                onRecordEvent={recordEvent}
+                teamPositions={teamPositions}
+                selectedTeam={selectedTeam}
+                setSelectedTeam={setSelectedTeam}
+                compact={true}
               />
             </div>
           </div>
         )}
-        
+
         {activeTab === 'stats' && (
           <div className="mb-4">
             <Tabs value={statsView} onValueChange={(value: any) => setStatsView(value)}>
@@ -240,17 +239,18 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   Coach Analysis
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="summary">
                 <Card className="p-4 bg-white shadow-md">
-                  <StatisticsDisplay statistics={safeStats} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
+                  {/* CORRECTED LINE (around 216 originally): Pass full Team objects */}
+                  <StatisticsDisplay statistics={safeStats} homeTeamName={homeTeam} awayTeamName={awayTeam} />
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="radar">
                 <MatchRadarChart statistics={safeStats} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
               </TabsContent>
-              
+
               <TabsContent value="heatmap">
                 <PlayerHeatmap homeTeam={homeTeam} awayTeam={awayTeam} teamPositions={teamPositions} selectedTeam={selectedTeam} onSelectTeam={setSelectedTeam} />
               </TabsContent>
@@ -264,43 +264,43 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                       {safeStats.possession.home > 60 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong Possession</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam?.name || 'Home'} is dominating possession ({Math.round(safeStats.possession.home)}%). 
+                            {homeTeam?.name || 'Home'} is dominating possession ({Math.round(safeStats.possession.home)}%).
                             Capitalize on this control with more forward passes.
                           </p>
                         </div>}
                       {safeStats.possession.away > 60 && <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
                           <p className="font-medium">Possession Challenge</p>
                           <p className="text-sm text-gray-600">
-                            {awayTeam?.name || 'Away'} is controlling possession ({Math.round(safeStats.possession.away)}%). 
+                            {awayTeam?.name || 'Away'} is controlling possession ({Math.round(safeStats.possession.away)}%).
                             Consider adjusting press intensity and defensive shape.
                           </p>
                         </div>}
                       {safeStats.shots.home.onTarget + safeStats.shots.home.offTarget > (safeStats.shots.away.onTarget + safeStats.shots.away.offTarget) * 2 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Shot Dominance</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam?.name || 'Home'} is creating significantly more shooting opportunities. 
+                            {homeTeam?.name || 'Home'} is creating significantly more shooting opportunities.
                             Continue with the current attacking approach.
                           </p>
                         </div>}
                       {safeStats.passes.home.attempted > 0 && safeStats.passes.home.successful / safeStats.passes.home.attempted < 0.7 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Passing Accuracy Concern</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam?.name || 'Home'} has a low pass completion rate 
-                            ({Math.round(safeStats.passes.home.successful / safeStats.passes.home.attempted * 100)}%). 
+                            {homeTeam?.name || 'Home'} has a low pass completion rate
+                            ({Math.round(safeStats.passes.home.successful / safeStats.passes.home.attempted * 100)}%).
                             Focus on safer passing options or adjust positioning.
                           </p>
                         </div>}
                       {safeStats.ballsLost.home > safeStats.ballsLost.away * 1.5 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Ball Retention Issue</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam?.name || 'Home'} is losing possession frequently. 
+                            {homeTeam?.name || 'Home'} is losing possession frequently.
                             Consider adjusting buildup play and player positioning.
                           </p>
                         </div>}
                       {safeStats.duels.home.won > safeStats.duels.home.lost * 1.5 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong in Duels</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam?.name || 'Home'} is winning most duels. 
+                            {homeTeam?.name || 'Home'} is winning most duels.
                             Continue with physical play and direct challenges.
                           </p>
                         </div>}
@@ -354,7 +354,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             </Tabs>
           </div>
         )}
-        
+
         {activeTab === 'details' && (
           <Card className="p-4 bg-white shadow-md">
             <div className="flex justify-start mb-4 gap-2">
@@ -365,27 +365,27 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 Team Stats
               </Button>
             </div>
-            
+
             <div className="overflow-x-auto">
               <DetailedStatsTable playerStats={playerStats} type={tableView} teamId={tableView === 'team' ? selectedTeam : undefined} />
             </div>
           </Card>
         )}
-        
+
         {activeTab === 'piano' && (
           <Card className="p-4 bg-white shadow-md">
-            <PianoInput 
-              homeTeam={homeTeam} 
-              awayTeam={awayTeam} 
-              onRecordEvent={recordEvent} 
-              teamPositions={teamPositions} 
-              selectedTeam={selectedTeam} 
-              setSelectedTeam={setSelectedTeam} 
-              compact={false} 
+            <PianoInput
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              onRecordEvent={recordEvent}
+              teamPositions={teamPositions}
+              selectedTeam={selectedTeam}
+              setSelectedTeam={setSelectedTeam}
+              compact={false}
             />
           </Card>
         )}
-        
+
         {activeTab === 'timeline' && (
           <Card className="p-4 bg-white shadow-md">
             <div className="flex justify-start mb-4 gap-2 overflow-x-auto">
@@ -399,15 +399,15 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 Recovery Time
               </Button>
             </div>
-            
+
             {timeSegments && timeSegments.length > 0 ? (
-              <TimeSegmentChart 
-                timeSegments={timeSegments} 
-                homeTeamName={homeTeam?.name || 'Home'} 
-                awayTeamName={awayTeam?.name || 'Away'} 
-                dataKey={timelineView} 
-                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} 
-                description="Analysis of match progression in 5-minute intervals" 
+              <TimeSegmentChart
+                timeSegments={timeSegments}
+                homeTeamName={homeTeam?.name || 'Home'}
+                awayTeamName={awayTeam?.name || 'Away'}
+                dataKey={timelineView}
+                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`}
+                description="Analysis of match progression in 5-minute intervals"
               />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -416,20 +416,21 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             )}
           </Card>
         )}
-        
+
         {activeTab === 'video' && (
           <div className="grid grid-cols-1 gap-4">
             <VideoAnalyzer onAnalysisComplete={handleVideoAnalysisComplete} />
             {statistics && (
               <Card className="p-4">
                 <h3 className="text-lg font-semibold mb-4">Video Analysis Results</h3>
-                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
+                {/* CORRECTED LINE (around 382 originally): Pass full Team objects */}
+                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam} awayTeamName={awayTeam} />
               </Card>
             )}
           </div>
         )}
       </div>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
         <Button variant="outline" onClick={handleUndo}>
           Undo Last Action
