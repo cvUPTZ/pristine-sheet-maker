@@ -77,7 +77,7 @@ const AppContent = () => {
         )
         .subscribe((status, err) => {
           if (status === 'SUBSCRIBED') {
-            console.log('Subscribed to match live notifications for tracker.');
+            // console.log('Subscribed to match live notifications for tracker.'); // Removed
           }
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.error('Match live notification channel error:', status, err);
@@ -86,7 +86,7 @@ const AppContent = () => {
 
       return () => {
         supabase.removeChannel(channel).then(status => {
-          console.log('Unsubscribed from match live notifications. Status:', status);
+          // console.log('Unsubscribed from match live notifications. Status:', status); // Removed
         });
       };
     }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -57,11 +58,19 @@ const Admin: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('users');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Use the edge function to fetch users
-        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users');
+  // State for Create User Dialog
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'user' | 'tracker'>('user');
+
+
+  const fetchData = async () => {
+    setLoading(true); // Set loading to true when fetching starts
+    try {
+      // Use the edge function to fetch users
+        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
 
         if (usersError) {
           console.error('Error fetching users:', usersError);
@@ -125,7 +134,47 @@ const Admin: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
+
+  const handleCreateUser = async () => {
+    if (!newUserName || !newUserEmail || !newUserPassword) {
+      toast.error('Please fill in all required fields: Full Name, Email, and Password.');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        method: 'POST',
+        body: JSON.stringify({
+          fullName: newUserName,
+          email: newUserEmail,
+          password: newUserPassword,
+          role: newUserRole,
+        }),
+      });
+
+      if (error) {
+        console.error('Error creating user:', error);
+        toast.error(`Failed to create user: ${error.message}`);
+      } else if (data.error) {
+        console.error('Error creating user (from function data):', data.error);
+        toast.error(`Failed to create user: ${data.error}`);
+      }
+      
+      else {
+        toast.success('User created successfully!');
+        await fetchData(); // Re-fetch users list
+        setNewUserName('');
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserRole('user');
+        setIsCreateUserDialogOpen(false);
+      }
+    } catch (invokeError) {
+      console.error('Error invoking create-user function:', invokeError);
+      toast.error('An unexpected error occurred while creating the user.');
+    }
+  };
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
@@ -232,8 +281,9 @@ const Admin: React.FC = () => {
 
         <TabsContent value="users" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>User Management</CardTitle>
+              <Button onClick={() => setIsCreateUserDialogOpen(true)}>Create New User</Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -398,6 +448,60 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create a new user account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Full Name
+              </Label>
+              <Input id="name" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <Input id="email" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="password" className="text-right">
+                Password
+              </Label>
+              <Input id="password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right">
+                Role
+              </Label>
+              <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as 'admin' | 'teacher' | 'user' | 'tracker')}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="tracker">Tracker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleCreateUser}>Create User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

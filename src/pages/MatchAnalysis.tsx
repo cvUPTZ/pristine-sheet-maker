@@ -51,10 +51,17 @@ const MatchAnalysis: React.FC = () => {
     completeSetup,
     toggleBallTrackingMode,
     addBallTrackingPoint,
-    saveMatch,
-    generatePlayerStatistics,
-    generateTimeSegmentStatistics,
+    // saveMatch, // Renamed to generateMatchId
+    // generatePlayerStatistics, // Removed, use playerStats directly
+    // generateTimeSegmentStatistics, // Removed, use timeSegments directly
+    generateMatchId, // Renamed from saveMatch
     setTeamPositions,
+    setBallTrackingPoints, // Added for loading data
+    // Pass tracking UI states to be sourced from useMatchState
+    isPassTrackingModeActive,
+    potentialPasser,
+    ballPathHistory,
+    togglePassTrackingMode,
   } = useMatchState();
 
   // Initialize collaboration
@@ -62,10 +69,10 @@ const MatchAnalysis: React.FC = () => {
     isConnected,
     participants,
     recordEvent: collaborativeRecordEvent,
-    isPassTrackingModeActive,
-    potentialPasser,
-    ballPathHistory,
-    togglePassTrackingMode,
+    // isPassTrackingModeActive, // Removed, will use from useMatchState
+    // potentialPasser, // Removed, will use from useMatchState
+    // ballPathHistory, // Removed, will use from useMatchState
+    // togglePassTrackingMode, // Removed, will use from useMatchState
   } = useMatchCollaboration({
     matchId: matchId || '',
     userId: user?.id || '',
@@ -87,10 +94,10 @@ const MatchAnalysis: React.FC = () => {
           .single();
 
         if (error) {
-          console.error('Error fetching match:', error);
+          console.error(`Error fetching match with ID: ${matchId}:`, error);
           showToast({
             title: "Error",
-            description: "Failed to load match data",
+            description: `Failed to load match data for ID: ${matchId}`,
             variant: "destructive",
           });
           navigate('/matches');
@@ -119,10 +126,26 @@ const MatchAnalysis: React.FC = () => {
 
         updateTeams(homeTeamData, awayTeamData);
 
-        // Initialize timer values (these would need to be added to the matches table)
-        setCurrentTimerValue(0);
-        setTimerStatus('stopped');
-        setTimerLastStartedAt(null);
+        // Initialize statistics, ball tracking, and timer values from matchData
+        const initialStats = { // Default statistics structure
+          possession: { home: 50, away: 50 },
+          shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
+          passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+          ballsPlayed: { home: 0, away: 0 },
+          ballsLost: { home: 0, away: 0 },
+          duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
+          cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
+          crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
+          dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+          corners: { home: 0, away: 0 },
+          offsides: { home: 0, away: 0 },
+          freeKicks: { home: 0, away: 0 },
+        };
+        setStatistics(matchData.match_statistics || initialStats);
+        setBallTrackingPoints(matchData.ball_tracking_data || []);
+        setCurrentTimerValue(matchData.timer_current_value || 0);
+        setTimerStatus(matchData.timer_status || 'stopped');
+        setTimerLastStartedAt(matchData.timer_last_started_at || null);
 
         // If teams are set up, mark setup as complete
         if (homeTeamData.players.length > 0 && awayTeamData.players.length > 0) {
@@ -130,10 +153,10 @@ const MatchAnalysis: React.FC = () => {
         }
 
       } catch (error) {
-        console.error('Error loading match:', error);
+        console.error(`Error loading match with ID: ${matchId}:`, error);
         showToast({
           title: "Error",
-          description: "Failed to load match",
+          description: `Failed to load match with ID: ${matchId}`,
           variant: "destructive",
         });
         navigate('/matches');
@@ -144,6 +167,52 @@ const MatchAnalysis: React.FC = () => {
 
     fetchMatch();
   }, [matchId, navigate, showToast, updateTeams, completeSetup]);
+
+  // Real-time subscription for timer updates
+  useEffect(() => {
+    if (!matchId) return;
+
+    const channel = supabase
+      .channel(`match-timer-updates-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `id=eq.${matchId}`,
+        },
+        (payload) => {
+          const newMatchData = payload.new as any; // Cast to your Match type or any
+          
+          // Compare and update timer state to prevent unnecessary re-renders or loops
+          if (newMatchData.timer_status !== undefined && newMatchData.timer_status !== timerStatus) {
+            setTimerStatus(newMatchData.timer_status);
+          }
+          if (newMatchData.timer_current_value !== undefined && newMatchData.timer_current_value !== currentTimerValue) {
+            setCurrentTimerValue(newMatchData.timer_current_value);
+          }
+          // Ensure null values are handled correctly for timer_last_started_at
+          if (newMatchData.timer_last_started_at !== timerLastStartedAt) {
+            setTimerLastStartedAt(newMatchData.timer_last_started_at);
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          // console.log(`Subscribed to match timer updates for ${matchId}`); // Debug log removed
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error(`Subscription error for match ${matchId}: ${status}`, err);
+          // Optionally, display a toast or attempt to resubscribe
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [matchId, timerStatus, currentTimerValue, timerLastStartedAt, setTimerStatus, setCurrentTimerValue, setTimerLastStartedAt]);
+
 
   // Handle timer updates
   const handleTimerToggle = async () => {
@@ -200,7 +269,7 @@ const MatchAnalysis: React.FC = () => {
 
   const handleSave = async () => {
     if (!matchId) {
-      const newMatchId = saveMatch();
+      const newMatchId = generateMatchId(); // Updated from saveMatch
       navigate(`/match/${newMatchId}`);
       return;
     }
@@ -213,6 +282,11 @@ const MatchAnalysis: React.FC = () => {
           away_team_players: JSON.parse(JSON.stringify(awayTeam.players)),
           home_team_formation: homeTeam.formation,
           away_team_formation: awayTeam.formation,
+          match_statistics: statistics,
+          ball_tracking_data: ballTrackingPoints,
+          timer_current_value: currentTimerValue,
+          timer_status: timerStatus,
+          timer_last_started_at: timerLastStartedAt,
           updated_at: new Date().toISOString(),
         })
         .eq('id', matchId);
@@ -358,10 +432,10 @@ const MatchAnalysis: React.FC = () => {
               addBallTrackingPoint={addBallTrackingPoint}
               statistics={statistics}
               setStatistics={setStatistics}
-              playerStats={generatePlayerStatistics()}
+              playerStats={playerStats} // Use memoized playerStats
               handleUndo={undoLastEvent}
               handleSave={handleSave}
-              timeSegments={generateTimeSegmentStatistics()}
+              timeSegments={timeSegments} // Use memoized timeSegments
               recordEvent={handleRecordEvent}
             />
           </div>
