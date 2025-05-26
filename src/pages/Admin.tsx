@@ -65,11 +65,11 @@ const Admin: React.FC = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'user' | 'tracker'>('user');
 
-
-  const fetchData = async () => {
-    setLoading(true); // Set loading to true when fetching starts
-    try {
-      // Use the edge function to fetch users
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Use the edge function to fetch users
         const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
 
         if (usersError) {
@@ -134,7 +134,7 @@ const Admin: React.FC = () => {
     };
 
     fetchData();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   const handleCreateUser = async () => {
     if (!newUserName || !newUserEmail || !newUserPassword) {
@@ -159,11 +159,21 @@ const Admin: React.FC = () => {
       } else if (data.error) {
         console.error('Error creating user (from function data):', data.error);
         toast.error(`Failed to create user: ${data.error}`);
-      }
-      
-      else {
+      } else {
         toast.success('User created successfully!');
-        await fetchData(); // Re-fetch users list
+        // Re-fetch users list
+        const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+        if (usersData && !usersError) {
+          const typedUsers: User[] = usersData.map((user: any) => ({
+            id: user.id,
+            email: user.email || user.full_name || 'No email',
+            full_name: user.full_name || '',
+            role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+          }));
+          setUsers(typedUsers);
+        }
         setNewUserName('');
         setNewUserEmail('');
         setNewUserPassword('');
