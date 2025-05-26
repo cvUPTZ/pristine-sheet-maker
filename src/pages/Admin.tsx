@@ -615,7 +615,7 @@ const Admin = () => {
 
       {/* Tabs Navigation and Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <div className="mb-6"> {/* Wrapper for TabsList for potential styling */}
+        <div className="mb-6">
             <TabsList>
               <TabsTrigger value="users"><UserPlus size={16} className="mr-2"/>User Management</TabsTrigger>
               <TabsTrigger value="matches"><Briefcase size={16} className="mr-2"/>Match Management</TabsTrigger>
@@ -948,7 +948,7 @@ const Admin = () => {
             </div>
             <div className="space-y-1">
               <Label htmlFor="role-new">Role</Label>
-              <Select value={selectedRole} onValueChange={(value: any) => setSelectedRole(value)}>
+              <Select value={selectedRole} onValueChange={(value: 'admin' | 'tracker' | 'viewer') => setSelectedRole(value)}>
                 <SelectTrigger id="role-new"><SelectValue placeholder="Select role" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -1108,7 +1108,7 @@ const Admin = () => {
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem value="" disabled>No transitions available</SelectItem>
+                  <SelectItem value="no-transitions" disabled>No transitions available</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -1120,7 +1120,7 @@ const Admin = () => {
             <Button variant="outline" onClick={() => setIsStatusUpdateDialogOpen(false)} disabled={isSubmittingStatusUpdate}>Cancel</Button>
             <Button 
               onClick={handleUpdateMatchStatus}
-              disabled={isSubmittingStatusUpdate || !targetStatus || targetStatus === selectedMatchForStatusUpdate?.status}
+              disabled={isSubmittingStatusUpdate || !targetStatus || targetStatus === selectedMatchForStatusUpdate?.status || targetStatus === "no-transitions"}
             >
               {isSubmittingStatusUpdate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Update Status
             </Button>
