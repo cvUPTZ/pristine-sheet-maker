@@ -111,6 +111,99 @@ const Admin: React.FC = () => {
   const [selectedUserIdForEventAssignment, setSelectedUserIdForEventAssignment] = useState<string | null>(null);
   const [selectedEventTypeForAssignment, setSelectedEventTypeForAssignment] = useState<EventType | null>(null);
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    let fetchedUsers: User[] = [];
+    let fetchedMatches: Match[] = [];
+
+    try {
+      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+      if (usersError) throw usersError;
+      if (Array.isArray(usersData)) {
+        fetchedUsers = usersData.map((user: any) => ({
+          id: user.id,
+          email: user.email || user.full_name || 'No email provided',
+          full_name: user.full_name || '',
+          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        }));
+        setUsers(fetchedUsers);
+      } else {
+        console.error('Received unexpected data structure for users:', usersData);
+        toast.error('Failed to process user data: unexpected format.');
+        setUsers([]);
+      }
+
+      const { data: matchesData, error: matchesError } = await supabase
+        .from('matches')
+        .select('id, name, description, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
+        .order('created_at', { ascending: false });
+      if (matchesError) throw matchesError;
+      fetchedMatches = matchesData || [];
+      setMatches(fetchedMatches);
+      
+      const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
+        .from('user_event_assignments')
+        .select(`id, user_id, event_type, created_at`);
+      if (eventAssignmentsError) throw eventAssignmentsError;
+      if (eventAssignmentsData) {
+        const augmentedEventAssignments = eventAssignmentsData.map((assignment: any) => {
+          const user = fetchedUsers.find(u => u.id === assignment.user_id);
+          return {
+            id: assignment.id.toString(),
+            user_id: assignment.user_id,
+            userNameToDisplay: user?.full_name || user?.email || assignment.user_id,
+            event_type: assignment.event_type,
+            created_at: assignment.created_at,
+          };
+        });
+        setEventAssignments(augmentedEventAssignments as UIDisplayedEventAssignment[]);
+      } else {
+        setEventAssignments([]);
+      }
+
+      const { data: rawAssignments, error: playerTrackerAssignmentsError } = await supabase
+        .from('match_tracker_assignments')
+        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at');
+      if (playerTrackerAssignmentsError) throw playerTrackerAssignmentsError;
+      if (rawAssignments) {
+        const processedAssignments = rawAssignments.map(assignment => {
+          const match = fetchedMatches.find(m => m.id === assignment.match_id);
+          const tracker = fetchedUsers.find(u => u.id === assignment.tracker_user_id);
+          let playerName = 'Unknown Player';
+          let playerTeamName = 'Unknown Team';
+          if (match) {
+            const playerList = assignment.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
+            const player = Array.isArray(playerList) ? playerList.find(p => p.id === assignment.player_id) : null;
+            if (player) playerName = player.name;
+            playerTeamName = assignment.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
+          }
+          return {
+            id: assignment.id.toString(),
+            matchId: assignment.match_id,
+            matchName: match?.description || match?.name || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
+            playerId: assignment.player_id,
+            playerName: playerName,
+            playerTeamId: assignment.player_team_id as 'home' | 'away',
+            playerTeamName: playerTeamName,
+            trackerUser_id: assignment.tracker_user_id,
+            trackerName: tracker?.full_name || tracker?.email || 'Unknown Tracker',
+            created_at: assignment.created_at,
+          };
+        }).filter(Boolean); 
+        setPlayerTrackerAssignments(processedAssignments as UIDisplayedPlayerTrackerAssignment[]);
+      } else {
+        setPlayerTrackerAssignments([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching data:', error);
+      toast.error(`Failed to fetch admin data: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []); 
+
   const resetCreateEventAssignmentForm = () => {
     setSelectedUserIdForEventAssignment(null);
     setSelectedEventTypeForAssignment(null);
@@ -221,10 +314,13 @@ const Admin: React.FC = () => {
     }
   };
 
+  // MODIFIED: handleUpdateMatch focuses on the update and error handling for the update itself.
+  // It will re-throw the error so CreateMatchForm knows if it failed.
   const handleUpdateMatch = async (values: any, matchId?: string) => {
     if (!matchId) {
-      toast.error("Match ID is missing. Cannot update.");
-      return;
+      const errorMsg = "Match ID is missing. Cannot update.";
+      toast.error(errorMsg);
+      throw new Error(errorMsg); // Throw error to prevent onSuccess in form
     }
     const updatePayload = {
       home_team_name: values.homeTeam,
@@ -235,14 +331,15 @@ const Admin: React.FC = () => {
     };
     try {
       const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
-      if (error) throw error;
+      if (error) throw error; // This error will be caught by the catch block below
       toast.success('Match updated successfully!');
-      await fetchData();
-      setIsEditMatchDialogOpen(false);
-      setEditingMatch(null);
+      // DO NOT call fetchData() or setIsEditMatchDialogOpen(false) or setEditingMatch(null) here.
+      // This will be handled by handleEditMatchSuccess, called by CreateMatchForm's onSuccess.
     } catch (e: any) {
       console.error('Error updating match:', e);
       toast.error(`Failed to update match: ${e.message}`);
+      throw e; // IMPORTANT: Re-throw the error so CreateMatchForm knows the submission failed
+               // and can avoid calling its own onSuccess prop.
     }
   };
 
@@ -259,99 +356,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    let fetchedUsers: User[] = [];
-    let fetchedMatches: Match[] = [];
-
-    try {
-      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
-      if (usersError) throw usersError;
-      if (Array.isArray(usersData)) {
-        fetchedUsers = usersData.map((user: any) => ({
-          id: user.id,
-          email: user.email || user.full_name || 'No email provided',
-          full_name: user.full_name || '',
-          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        }));
-        setUsers(fetchedUsers);
-      } else {
-        console.error('Received unexpected data structure for users:', usersData);
-        toast.error('Failed to process user data: unexpected format.');
-        setUsers([]);
-      }
-
-      const { data: matchesData, error: matchesError } = await supabase
-        .from('matches')
-        .select('id, name, description, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
-        .order('created_at', { ascending: false });
-      if (matchesError) throw matchesError;
-      fetchedMatches = matchesData || [];
-      setMatches(fetchedMatches);
-      
-      const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
-        .from('user_event_assignments')
-        .select(`id, user_id, event_type, created_at`);
-      if (eventAssignmentsError) throw eventAssignmentsError;
-      if (eventAssignmentsData) {
-        const augmentedEventAssignments = eventAssignmentsData.map((assignment: any) => {
-          const user = fetchedUsers.find(u => u.id === assignment.user_id);
-          return {
-            id: assignment.id.toString(),
-            user_id: assignment.user_id,
-            userNameToDisplay: user?.full_name || user?.email || assignment.user_id,
-            event_type: assignment.event_type,
-            created_at: assignment.created_at,
-          };
-        });
-        setEventAssignments(augmentedEventAssignments as UIDisplayedEventAssignment[]);
-      } else {
-        setEventAssignments([]);
-      }
-
-      const { data: rawAssignments, error: playerTrackerAssignmentsError } = await supabase
-        .from('match_tracker_assignments')
-        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at');
-      if (playerTrackerAssignmentsError) throw playerTrackerAssignmentsError;
-      if (rawAssignments) {
-        const processedAssignments = rawAssignments.map(assignment => {
-          const match = fetchedMatches.find(m => m.id === assignment.match_id);
-          const tracker = fetchedUsers.find(u => u.id === assignment.tracker_user_id);
-          let playerName = 'Unknown Player';
-          let playerTeamName = 'Unknown Team';
-          if (match) {
-            const playerList = assignment.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
-            const player = Array.isArray(playerList) ? playerList.find(p => p.id === assignment.player_id) : null;
-            if (player) playerName = player.name;
-            playerTeamName = assignment.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
-          }
-          return {
-            id: assignment.id.toString(),
-            matchId: assignment.match_id,
-            matchName: match?.description || match?.name || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
-            playerId: assignment.player_id,
-            playerName: playerName,
-            playerTeamId: assignment.player_team_id as 'home' | 'away',
-            playerTeamName: playerTeamName,
-            trackerUser_id: assignment.tracker_user_id,
-            trackerName: tracker?.full_name || tracker?.email || 'Unknown Tracker',
-            created_at: assignment.created_at,
-          };
-        }).filter(Boolean); 
-        setPlayerTrackerAssignments(processedAssignments as UIDisplayedPlayerTrackerAssignment[]);
-      } else {
-        setPlayerTrackerAssignments([]);
-      }
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
-      toast.error(`Failed to fetch admin data: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []); 
-
   const handleCreateMatchSuccess = useCallback(() => {
     setIsCreateMatchDialogOpen(false);
     // Attempt to call fetchData and log success or failure of the call itself
@@ -362,8 +366,9 @@ const Admin: React.FC = () => {
     } catch (e) {
       console.error('Error calling fetchData within handleCreateMatchSuccess:', e);
     }
-  }, [fetchData, setIsCreateMatchDialogOpen]); // Ensure all dependencies are listed
+  }, [fetchData, setIsCreateMatchDialogOpen]);
 
+  // NO CHANGE NEEDED HERE (from the problem description): handleEditMatchSuccess already does what's needed after a successful update.
   const handleEditMatchSuccess = useCallback(() => {
     setIsEditMatchDialogOpen(false);
     setEditingMatch(null);
@@ -403,19 +408,15 @@ const Admin: React.FC = () => {
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
-      // This assumes 'role' is a column in your 'profiles' table or a table linked to user_id.
-      // Adjust table_name and column_name if your schema is different.
-      // Example: updating a 'role' column in 'user_profiles' table.
       const { error } = await supabase
-        .from('profiles') // Or your user metadata table like 'user_roles'
+        .from('profiles') 
         .update({ role: newRole })
-        .eq('id', userId); // Ensure this 'id' matches the user's ID column in 'profiles'
+        .eq('id', userId); 
   
       if (error) {
-         // Attempt to update 'user_roles' table if 'profiles' update failed or isn't the right place
         const { error: roleTableError } = await supabase
           .from('user_roles')
-          .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' }); // Assumes user_id is PK or unique
+          .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' }); 
 
         if (roleTableError) {
             console.error('Failed to update role in both profiles and user_roles:', error, roleTableError);
@@ -424,10 +425,8 @@ const Admin: React.FC = () => {
         }
       }
       
-      // Optimistically update UI or re-fetch
       setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
       toast.success('User role updated successfully. Refresh if change not visible.');
-      // await fetchData(); // Or re-fetch to guarantee consistency if role is complexly stored
     } catch (e: any) {
       console.error('Error updating role:', e);
       toast.error('Failed to update user role: ' + e.message);
@@ -437,8 +436,6 @@ const Admin: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user? This might be irreversible.')) return;
     try {
-      // Ideal: Call a Supabase Edge Function `delete-user` that handles auth user deletion and related data.
-      // Simple profiles table deletion:
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
       if (error) throw error;
       setUsers(users.filter(user => user.id !== userId));
@@ -462,7 +459,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Memoize filtered lists to avoid re-computation on every render unless source arrays change
   const validMatchesForSelection = React.useMemo(() => filterValidItems(matches, 'match'), [matches]);
   const validUsersForSelection = React.useMemo(() => filterValidItems(users, 'user'), [users]);
   const validTrackersForSelection = React.useMemo(() => filterValidItems(users.filter(u => u.role === 'tracker'), 'tracker'), [users]);
@@ -499,7 +495,7 @@ const Admin: React.FC = () => {
                     <TableHead className="w-[100px]">ID</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead>Created</TableHead><TableHead>Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {users.map((user) => ( // users array itself is not filtered for display, only for SelectItem values if ID is used.
+                  {users.map((user) => ( 
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.id ? user.id.slice(0, 8) : 'N/A'}...</TableCell>
                       <TableCell>{user.full_name || 'No name'}</TableCell>
@@ -693,7 +689,7 @@ const Admin: React.FC = () => {
                               matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
                             }} 
                             onSubmitOverride={handleUpdateMatch} 
-                            onSuccess={handleEditMatchSuccess} // Use the new callback
+                            onSuccess={handleEditMatchSuccess} // This will now handle data refresh and dialog close
                           />}
         </DialogContent>
       </Dialog>
