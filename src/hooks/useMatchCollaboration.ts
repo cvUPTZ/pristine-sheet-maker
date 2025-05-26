@@ -6,7 +6,6 @@ import { MatchEvent, Player, EventType } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabaseConfig';
 
-// Define TypeScript interface for our database tables
 interface MatchEventDB {
   id: string;
   match_id: string;
@@ -33,19 +32,17 @@ interface UseMatchCollaborationProps {
 
 export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) => {
   const [users, setUsers] = useState<CollaborativeUser[]>([]);
-  const [events, setEvents] = useState<MatchEvent[]>([]); // For initial load and full history
-  const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null); // For incremental updates
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Load initial match events
   useEffect(() => {
     if (!matchId || !user) return;
 
     const loadEvents = async () => {
       try {
-        // Use the Fetch API instead of direct Supabase client to work around type issues
         const response = await fetch(`${SUPABASE_URL}/rest/v1/match_events?match_id=eq.${matchId}&order=timestamp.asc`, {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -60,7 +57,6 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
         
         const data = await response.json();
         
-        // Convert DB events to app format
         if (data && Array.isArray(data)) {
           const formattedEvents: MatchEvent[] = data.map((event: MatchEventDB) => ({
             id: event.id,
@@ -86,13 +82,10 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     loadEvents();
   }, [matchId, user]);
 
-  // Subscribe to realtime events and presence
   useEffect(() => {
     if (!matchId || !user) return;
 
-    // Set up realtime subscription for match events
     const channel = supabase.channel(`match:${matchId}`)
-      // Listen for new match events
       .on(
         'postgres_changes',
         {
@@ -115,9 +108,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
               y: newEvent.coordinates.y || 0 
             } : { x: 0, y: 0 }
           };
-          // Update the list of all events (for initial load or full history needs)
           setEvents(prev => [...prev, formattedEvent]);
-          // Set the single last received event for incremental processing
           setLastReceivedEvent(formattedEvent); 
           
           toast({
@@ -127,7 +118,6 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
           });
         }
       )
-      // Track user presence
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const presentUsers = Object.keys(state).map(key => {
@@ -169,7 +159,6 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Get user profile using fetch API
           try {
             const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, {
               headers: {
@@ -182,7 +171,6 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
             const profileData = await profileResponse.json();
             const fullName = profileData?.[0]?.full_name || user.email;
             
-            // Get user role using fetch API
             const roleResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -194,7 +182,6 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
             const roleData = await roleResponse.json();
             const role = roleData?.[0]?.role || 'viewer';
               
-            // Track user presence
             await channel.track({
               id: user.id,
               name: fullName,
@@ -212,20 +199,18 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
     };
   }, [matchId, user]);
 
-  // Record an event and broadcast to all users
   const recordEvent = async (
     eventType: EventType,
     playerId: number,
     teamId: string,
     coordinates: { x: number; y: number },
     timestamp: number,
-    eventId?: string, // Add eventId, make it optional for now if other calls don't provide it
-    relatedPlayerId?: number // Add relatedPlayerId, make it optional
+    eventId?: string,
+    relatedPlayerId?: number
   ) => {
     if (!matchId || !user) return;
 
     try {
-      // Use fetch API to post the event
       const response = await fetch(`${SUPABASE_URL}/rest/v1/match_events`, {
         method: 'POST',
         headers: {
@@ -235,8 +220,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
           'Prefer': 'return=representation'
         },
         body: JSON.stringify({
-          match_id: matchId,
-          id: eventId, // Use the provided eventId
+          id: eventId,
           match_id: matchId,
           event_type: eventType,
           player_id: playerId,
@@ -244,7 +228,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
           coordinates: coordinates,
           timestamp: timestamp,
           created_by: user.id,
-          related_player_id: relatedPlayerId // Add related_player_id to the body
+          related_player_id: relatedPlayerId
         })
       });
 
@@ -267,7 +251,7 @@ export const useMatchCollaboration = ({ matchId }: UseMatchCollaborationProps) =
   return {
     users,
     events,
-    lastReceivedEvent, // Expose the new state
+    lastReceivedEvent,
     isLoading,
     recordEvent
   };

@@ -3,18 +3,19 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { RequireAuth } from "./components/RequireAuth";
+import RequireAuth from "./components/RequireAuth";
+import Header from "./components/Header";
 import Dashboard from "./pages/Dashboard";
+import MatchRecording from "./pages/Index";
+import Auth from "./pages/Auth";
+import Statistics from "./pages/Statistics";
 import MatchAnalysis from "./pages/MatchAnalysis";
 import Matches from "./pages/Matches";
-import Statistics from "./pages/Statistics";
-import Auth from "./pages/Auth";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
-import Header from "./components/Header";
+import TrackerInterface from "./pages/TrackerInterface";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -25,49 +26,48 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Header />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            
-            <Route path="/" element={
-              <RequireAuth>
-                <Dashboard />
-              </RequireAuth>
-            } />
-            
-            <Route path="/match" element={
-              <RequireAuth requiredRoles={['admin', 'tracker']}>
-                <Index />
-              </RequireAuth>
-            } />
-            
-            <Route path="/match/:matchId" element={
-              <RequireAuth requiredRoles={['admin', 'tracker']}>
-                <MatchAnalysis />
-              </RequireAuth>
-            } />
-            
-            <Route path="/matches" element={
-              <RequireAuth>
-                <Matches />
-              </RequireAuth>
-            } />
-            
-            <Route path="/statistics" element={
-              <RequireAuth>
-                <Statistics />
-              </RequireAuth>
-            } />
-
-            <Route path="/admin" element={
-              <RequireAuth requiredRoles={['admin']}>
-                <Admin />
-              </RequireAuth>
-            } />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="min-h-screen bg-background font-sans antialiased">
+            <Header />
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              } />
+              <Route path="/new-match" element={
+                <RequireAuth>
+                  <MatchRecording />
+                </RequireAuth>
+              } />
+              <Route path="/matches" element={
+                <RequireAuth>
+                  <Matches />
+                </RequireAuth>
+              } />
+              <Route path="/match/:matchId" element={
+                <RequireAuth>
+                  <MatchAnalysis />
+                </RequireAuth>
+              } />
+              <Route path="/tracker/:matchId" element={
+                <RequireAuth>
+                  <TrackerInterface />
+                </RequireAuth>
+              } />
+              <Route path="/statistics" element={
+                <RequireAuth>
+                  <Statistics />
+                </RequireAuth>
+              } />
+              <Route path="/admin" element={
+                <RequireAuth>
+                  <Admin />
+                </RequireAuth>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
