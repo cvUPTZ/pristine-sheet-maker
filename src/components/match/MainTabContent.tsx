@@ -3,16 +3,20 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Piano } from 'lucide-react';
+import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Piano, Zap } from 'lucide-react'; // Added Zap for Fast Track
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
-import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics } from '@/types';
+import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics, Team }_ from '@/types'; // Player conflicts, use PlayerType
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import PianoInput from './PianoInput';
 import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
+import DedicatedTrackerUI, { AssignedPlayerForMatch } from './DedicatedTrackerUI'; // Import DedicatedTrackerUI
+
+// Rename Player from types to avoid conflict with React.Player
+type PlayerType = Player;
 
 // Define default statistics to prevent undefined errors
 const defaultStatistics: Statistics = {
@@ -37,10 +41,10 @@ const defaultStatistics: Statistics = {
 };
 
 interface MainTabContentProps {
-  activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video';
-  setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video') => void;
-  homeTeam: any;
-  awayTeam: any;
+  activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track';
+  setActiveTab: (tab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track') => void;
+  homeTeam: Team;
+  awayTeam: Team;
   teamPositions: Record<number, {
     x: number;
     y: number;
@@ -62,10 +66,12 @@ interface MainTabContentProps {
   handleUndo: () => void;
   handleSave: () => void;
   timeSegments?: TimeSegmentStatistics[];
-  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: {
-    x: number;
-    y: number;
-  }) => void;
+  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates?: { x: number; y: number } | undefined) => void; // Updated to allow optional coordinates
+  // Props for DedicatedTrackerUI
+  assignedPlayerForMatch: AssignedPlayerForMatch | null;
+  assignedEventTypes: string[] | null;
+  userRole: string | null;
+  matchId: string;
 }
 
 const MainTabContent: React.FC<MainTabContentProps> = ({
@@ -88,7 +94,11 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   handleUndo,
   handleSave,
   timeSegments = [],
-  recordEvent
+  recordEvent,
+  assignedPlayerForMatch,
+  assignedEventTypes,
+  userRole,
+  matchId
 }) => {
   const [statsView, setStatsView] = useState<'summary' | 'radar' | 'heatmap' | 'timeline' | 'coach'>('summary');
   const [tableView, setTableView] = useState<'individual' | 'team'>('individual');
@@ -104,7 +114,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   const shouldShowCircularMenu = activeTab === 'pitch' || activeTab === 'piano';
   
   // Add the missing handleEventSelect function with proper BallTrackingPoint type
-  const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
+  const handleEventSelect = (eventType: EventType, player: PlayerType, coordinates: { x: number; y: number }) => {
     // First select the player
     handlePlayerSelect(player);
     
@@ -132,7 +142,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
       {/* Large, prominent tab navigation */}
       <div className="mb-6">
         <div className="bg-white rounded-lg shadow-md p-2 mb-4">
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 gap-2"> {/* Adjusted to grid-cols-3 for two rows */}
             <Button 
               variant={activeTab === 'pitch' ? 'default' : 'outline'} 
               className="w-full flex items-center justify-center gap-2"
@@ -183,6 +193,16 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <Video className="h-4 w-4" />
               <span>Video Analysis</span>
             </Button>
+            {userRole === 'tracker' && assignedPlayerForMatch && (
+              <Button
+                variant={activeTab === 'fast-track' ? 'default' : 'outline'}
+                className="w-full flex items-center justify-center gap-2"
+                onClick={() => setActiveTab('fast-track')}
+              >
+                <Zap className="h-4 w-4" />
+                <span>Fast Track</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -264,28 +284,28 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                       {safeStats.possession.home > 60 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong Possession</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is dominating possession ({Math.round(safeStats.possession.home)}%). 
+                            {homeTeam?.name || 'Home'} is dominating possession ({Math.round(safeStats.possession.home)}%). 
                             Capitalize on this control with more forward passes.
                           </p>
                         </div>}
                       {safeStats.possession.away > 60 && <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
                           <p className="font-medium">Possession Challenge</p>
                           <p className="text-sm text-gray-600">
-                            {awayTeam.name} is controlling possession ({Math.round(safeStats.possession.away)}%). 
+                            {awayTeam?.name || 'Away'} is controlling possession ({Math.round(safeStats.possession.away)}%). 
                             Consider adjusting press intensity and defensive shape.
                           </p>
                         </div>}
                       {safeStats.shots.home.onTarget + safeStats.shots.home.offTarget > (safeStats.shots.away.onTarget + safeStats.shots.away.offTarget) * 2 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Shot Dominance</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is creating significantly more shooting opportunities. 
+                            {homeTeam?.name || 'Home'} is creating significantly more shooting opportunities. 
                             Continue with the current attacking approach.
                           </p>
                         </div>}
                       {safeStats.passes.home.attempted > 0 && safeStats.passes.home.successful / safeStats.passes.home.attempted < 0.7 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Passing Accuracy Concern</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} has a low pass completion rate 
+                            {homeTeam?.name || 'Home'} has a low pass completion rate 
                             ({Math.round(safeStats.passes.home.successful / safeStats.passes.home.attempted * 100)}%). 
                             Focus on safer passing options or adjust positioning.
                           </p>
@@ -293,14 +313,14 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                       {safeStats.ballsLost.home > safeStats.ballsLost.away * 1.5 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Ball Retention Issue</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is losing possession frequently. 
+                            {homeTeam?.name || 'Home'} is losing possession frequently. 
                             Consider adjusting buildup play and player positioning.
                           </p>
                         </div>}
                       {safeStats.duels.home.won > safeStats.duels.home.lost * 1.5 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong in Duels</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is winning most duels. 
+                            {homeTeam?.name || 'Home'} is winning most duels. 
                             Continue with physical play and direct challenges.
                           </p>
                         </div>}
@@ -311,11 +331,11 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                     <h3 className="text-lg font-semibold mb-2">Player Recommendations</h3>
                     <div className="space-y-3">
                       {/* Top performers based on different metrics */}
-                      {playerStats.filter(p => p.team === 'home').length > 0 && <>
+                      {playerStats.filter(p => p.teamId === homeTeam?.id).length > 0 && <>
                           <div>
                             <h4 className="font-medium text-sm">Top Passers</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.passes || 0) - (a.passes || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                              {playerStats.filter(p => p.teamId === homeTeam?.id).sort((a, b) => (b.passes || 0) - (a.passes || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
                                     <span>#{player.player?.number || 0} {player.playerName}</span>
                                     <span>{player.passes || 0} passes</span>
                                   </li>)}
@@ -324,7 +344,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                           <div>
                             <h4 className="font-medium text-sm">Goal Threats</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.shots || 0) - (a.shots || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                              {playerStats.filter(p => p.teamId === homeTeam?.id).sort((a, b) => (b.shots || 0) - (a.shots || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
                                     <span>#{player.player?.number || 0} {player.playerName}</span>
                                     <span>{player.shots || 0} shots</span>
                                   </li>)}
@@ -400,10 +420,30 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </Button>
             </div>
             
-            {timeSegments && timeSegments.length > 0 ? <TimeSegmentChart timeSegments={timeSegments} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} dataKey={timelineView} title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} description="Analysis of match progression in 5-minute intervals" /> : <div className="text-center py-8 text-muted-foreground">
+            {timeSegments && timeSegments.length > 0 ? (
+              <TimeSegmentChart 
+                timeSegments={timeSegments} 
+                homeTeamName={homeTeam?.name || 'Home'} 
+                awayTeamName={awayTeam?.name || 'Away'} 
+                dataKey={timelineView} 
+                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} 
+                description="Analysis of match progression in 5-minute intervals" 
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
                 No timeline data available
-              </div>}
+              </div>
+            )}
           </Card>
+        )}
+
+        {activeTab === 'fast-track' && userRole === 'tracker' && assignedPlayerForMatch && (
+          <DedicatedTrackerUI
+            assignedPlayerForMatch={assignedPlayerForMatch}
+            assignedEventTypes={assignedEventTypes}
+            recordEvent={recordEvent}
+            matchId={matchId}
+          />
         )}
         
         {activeTab === 'video' && (
@@ -412,7 +452,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             {statistics && (
               <Card className="p-4">
                 <h3 className="text-lg font-semibold mb-4">Video Analysis Results</h3>
-                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />
+                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
               </Card>
             )}
           </div>

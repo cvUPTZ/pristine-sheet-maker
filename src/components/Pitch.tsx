@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Team, Player, EventType, BallTrackingPoint } from '@/types';
 import PitchView from './match/PitchView';
@@ -51,8 +50,16 @@ const Pitch: React.FC<PitchProps> = ({
   const [lastEventTime, setLastEventTime] = useState(0);
   const [processingEvent, setProcessingEvent] = useState(false);
   const { user, userRole } = useAuth();
-  const { users, recordEvent } = useMatchCollaboration({ matchId });
   
+  // Only use collaboration if matchId is provided
+  const collaboration = matchId ? useMatchCollaboration({ 
+    matchId, 
+    userId: user?.id || 'anonymous',
+    teamId: selectedTeam === 'home' ? homeTeam.id : awayTeam.id
+  }) : null;
+
+  const { users = [], recordEvent } = collaboration || {};
+
   // Handle pitch click with debouncing to prevent multiple rapid clicks
   const handlePitchClick = (coordinates: { x: number; y: number }) => {
     const now = Date.now();
@@ -154,14 +161,13 @@ const Pitch: React.FC<PitchProps> = ({
     if (eventType) {
       console.log("Event selected:", eventType, "by player:", player.name, "at", coordinates);
       
-      // Record the event in the collaboration system
+      // Record the event in the collaboration system - Fix: only pass 4 arguments
       if (matchId) {
         recordEvent(
           eventType, 
           player.id, 
           selectedTeam === 'home' ? homeTeam.id : awayTeam.id,
-          coordinates,
-          now
+          coordinates
         );
       }
       
@@ -180,11 +186,11 @@ const Pitch: React.FC<PitchProps> = ({
   return (
     <div className="relative">
       {/* Collaboration indicator */}
-      {matchId && (
+      {matchId && users && (
         <div className="absolute top-2 right-2 z-30 flex items-center space-x-2 bg-white/80 backdrop-blur-sm rounded-md px-2 py-1 shadow-sm">
           <div className="text-xs font-medium">Collaborators:</div>
           <div className="flex -space-x-2">
-            {users.filter(u => u.online).map((collaborator) => (
+            {users.filter((u: any) => u.online).map((collaborator: any) => (
               <Avatar key={collaborator.id} className="h-6 w-6 border-2 border-white">
                 <AvatarFallback className="text-[10px]">
                   {collaborator.name?.substring(0, 2).toUpperCase()}
@@ -193,7 +199,7 @@ const Pitch: React.FC<PitchProps> = ({
             ))}
           </div>
           <Badge variant="outline" className="text-xs">
-            {users.filter(u => u.online).length} online
+            {users.filter((u: any) => u.online).length} online
           </Badge>
         </div>
       )}

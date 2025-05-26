@@ -34,7 +34,7 @@ serve(async (req) => {
     }
     
     // Validate role (optional, but good practice)
-    const allowedRoles = ['admin', 'tracker', 'viewer']; // Example roles
+    const allowedRoles = ['admin', 'teacher', 'user', 'tracker']; // Updated roles
     if (!allowedRoles.includes(role)) {
       return new Response(JSON.stringify({ error: 'Invalid role specified.' }), {
         status: 400,
