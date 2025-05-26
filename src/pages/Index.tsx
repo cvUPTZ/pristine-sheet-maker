@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatchState } from '@/hooks/useMatchState';
@@ -44,13 +43,16 @@ const MatchRecording = () => {
     trackBallMovement,
     saveMatch,
     recordEvent,
-    setStatistics
+    setStatistics,
+    teamPositions,
+    isPassTrackingModeActive,
+    togglePassTrackingMode
   } = useMatchState();
   
   // Get player positions based on formations but handle null teams
   const homeTeamPositions = homeTeam ? getPlayerPositions(homeTeam, true) : {};
   const awayTeamPositions = awayTeam ? getPlayerPositions(awayTeam, false) : {};
-  const teamPositions = { ...homeTeamPositions, ...awayTeamPositions };
+  const allTeamPositions = { ...homeTeamPositions, ...awayTeamPositions };
 
   const handlePitchClick = (coordinates: { x: number; y: number }) => {
     if (mode === 'tracking') {
@@ -60,8 +62,18 @@ const MatchRecording = () => {
 
   const handleActionSelect = (action: string) => {
     if (selectedPlayer) {
-      const playerPos = teamPositions[selectedPlayer.id];
-      addEvent(action as any, playerPos);
+      const playerPos = allTeamPositions[selectedPlayer.id];
+      const newEvent = {
+        id: `event-${Date.now()}`,
+        matchId: 'current-match',
+        teamId: selectedTeam,
+        playerId: selectedPlayer.id,
+        type: action as any,
+        timestamp: Date.now(),
+        coordinates: playerPos || { x: 0.5, y: 0.5 },
+        status: 'confirmed' as const
+      };
+      addEvent(newEvent);
       toast({
         title: `Event Recorded`,
         description: `${action} by ${selectedPlayer.name} (${selectedTeam === 'home' ? homeTeam?.name : awayTeam?.name})`,
@@ -169,7 +181,7 @@ const MatchRecording = () => {
               setActiveTab={setActiveTab}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
-              teamPositions={teamPositions}
+              teamPositions={allTeamPositions}
               selectedPlayer={selectedPlayer}
               selectedTeam={selectedTeam}
               setSelectedTeam={setSelectedTeam}
@@ -191,8 +203,6 @@ const MatchRecording = () => {
           <div className="hidden lg:block">
             <MatchSidebar 
               isRunning={isRunning}
-              toggleTimer={toggleTimer}
-              resetTimer={resetTimer}
               elapsedTime={elapsedTime}
               setElapsedTime={setElapsedTime}
               mode={mode}
@@ -211,6 +221,8 @@ const MatchRecording = () => {
                 formation: awayTeam.formation || '4-4-2'
               }}
               statistics={statistics}
+              isPassTrackingModeActive={isPassTrackingModeActive}
+              togglePassTrackingMode={togglePassTrackingMode}
             />
           </div>
           
@@ -218,8 +230,6 @@ const MatchRecording = () => {
           <div className="lg:hidden mt-4">
             <MatchSidebar 
               isRunning={isRunning}
-              toggleTimer={toggleTimer}
-              resetTimer={resetTimer}
               elapsedTime={elapsedTime}
               setElapsedTime={setElapsedTime}
               mode={mode}
@@ -238,6 +248,8 @@ const MatchRecording = () => {
                 formation: awayTeam.formation || '4-4-2'
               }}
               statistics={statistics}
+              isPassTrackingModeActive={isPassTrackingModeActive}
+              togglePassTrackingMode={togglePassTrackingMode}
             />
           </div>
         </div>

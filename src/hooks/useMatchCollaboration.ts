@@ -3,28 +3,26 @@ import { useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRealtime } from './useRealtime';
 import { MatchEvent } from '@/types';
-import { useMatchState } from './useMatchState';
 
 interface CollaborationOptions {
-  matchId: string;
-  userId: string;
-  teamId: string;
+  matchId?: string;
+  userId?: string;
+  teamId?: string;
   optimisticUpdates?: boolean;
 }
 
 export const useMatchCollaboration = ({
   matchId,
-  userId,
-  teamId,
+  userId = 'default-user',
+  teamId = 'default-team',
   optimisticUpdates = true,
 }: CollaborationOptions) => {
   const [isOnline, setIsOnline] = useState(false);
   const [pendingEvents, setPendingEvents] = useState<MatchEvent[]>([]);
-  const { addEvent, confirmEvent, updateEvent, events } = useMatchState();
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
   const [serverConfirmedEvents, setServerConfirmedEvents] = useState<MatchEvent[]>([]);
-  const pendingEventsRef = useRef(pendingEvents);
   const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
+  const pendingEventsRef = useRef(pendingEvents);
 
   const {
     channel,
@@ -33,13 +31,13 @@ export const useMatchCollaboration = ({
     isOnline: realtimeIsOnline,
     pushEvent,
   } = useRealtime({
-    channelName: `match:${matchId}`,
+    channelName: `match:${matchId || 'default'}`,
     onEventReceived: (event) => {
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
         console.log('Event confirmed by server:', confirmedEvent);
-        confirmEvent(confirmedEvent.clientId || '');
         setServerConfirmedEvents((prev) => [...prev, confirmedEvent]);
+        setLastReceivedEvent(confirmedEvent);
       }
     },
     userId: userId,
@@ -70,9 +68,7 @@ export const useMatchCollaboration = ({
       user_id: userId,
     };
 
-    addEvent(newEvent);
     setOptimisticEvents((prev) => [...prev, newEvent]);
-
     return newEvent;
   };
 
@@ -91,15 +87,14 @@ export const useMatchCollaboration = ({
     eventType: string,
     playerId: number,
     teamId: string,
-    coordinates: { x: number; y: number },
-    timestamp: number
+    coordinates: { x: number; y: number }
   ) => {
     const eventData = {
-      matchId,
+      matchId: matchId || 'default',
       teamId,
       playerId,
       type: eventType as any,
-      timestamp,
+      timestamp: Date.now(),
       coordinates,
     };
     sendEvent(eventData);
@@ -110,37 +105,13 @@ export const useMatchCollaboration = ({
       channel.on('broadcast', { event: 'add_event' }, (payload) => {
         const serverEvent = payload.payload as MatchEvent;
         console.log('Received event from server:', serverEvent);
-
-        const optimisticEvent = optimisticEvents.find((e) => e.optimisticCreationTime === serverEvent.optimisticCreationTime);
-
-        if (optimisticEvent) {
-          confirmEvent(optimisticEvent.clientId || '');
-
-          updateEvent({
-            id: serverEvent.id,
-            clientId: optimisticEvent.clientId || '',
-            status: 'confirmed'
-          });
-        } else {
-          console.warn('Optimistic event not found for server event:', serverEvent);
-        }
+        setLastReceivedEvent(serverEvent);
       });
 
       channel.on('broadcast', { event: 'event_confirmed' }, (payload) => {
         const confirmedEvent = payload.payload as MatchEvent;
         console.log('Event confirmed by server:', confirmedEvent);
-
-        const optimisticEvent = optimisticEvents.find((e) => e.clientId === confirmedEvent.clientId);
-
-        if (optimisticEvent) {
-          updateEvent({
-            id: confirmedEvent.id,
-            clientId: confirmedEvent.clientId || '',
-            status: 'confirmed'
-          });
-        } else {
-          console.warn('Optimistic event not found for confirmed event:', confirmedEvent);
-        }
+        setLastReceivedEvent(confirmedEvent);
       });
     }
 
@@ -149,7 +120,7 @@ export const useMatchCollaboration = ({
         channel.unsubscribe();
       }
     };
-  }, [channel, addEvent, confirmEvent, optimisticEvents, updateEvent]);
+  }, [channel, optimisticEvents]);
 
   useEffect(() => {
     const processPendingEvents = async () => {
@@ -171,22 +142,14 @@ export const useMatchCollaboration = ({
     processPendingEvents();
   }, [isOnline, pushEvent, pendingEvents, userId]);
 
-  const updateEventStatus = (confirmedEvent: MatchEvent) => {
-    updateEvent({
-      id: confirmedEvent.id,
-      clientId: confirmedEvent.clientId || '',
-      status: 'confirmed'
-    });
-  };
-
   return {
     sendEvent,
+    recordEvent,
     presence,
     onlineUsers,
     isOnline,
-    events,
+    events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
-    recordEvent,
     users: onlineUsers,
   };
 };

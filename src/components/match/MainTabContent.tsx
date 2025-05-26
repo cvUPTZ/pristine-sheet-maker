@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -311,11 +310,11 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                     <h3 className="text-lg font-semibold mb-2">Player Recommendations</h3>
                     <div className="space-y-3">
                       {/* Top performers based on different metrics */}
-                      {playerStats.filter(p => p.team === 'home').length > 0 && <>
+                      {playerStats.filter(p => p.teamId === homeTeam?.id).length > 0 && <>
                           <div>
                             <h4 className="font-medium text-sm">Top Passers</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.passes || 0) - (a.passes || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                              {playerStats.filter(p => p.teamId === homeTeam?.id).sort((a, b) => (b.passes || 0) - (a.passes || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
                                     <span>#{player.player?.number || 0} {player.playerName}</span>
                                     <span>{player.passes || 0} passes</span>
                                   </li>)}
@@ -324,7 +323,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                           <div>
                             <h4 className="font-medium text-sm">Goal Threats</h4>
                             <ul className="text-sm">
-                              {playerStats.filter(p => p.team === 'home').sort((a, b) => (b.shots || 0) - (a.shots || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
+                              {playerStats.filter(p => p.teamId === homeTeam?.id).sort((a, b) => (b.shots || 0) - (a.shots || 0)).slice(0, 3).map((player, i) => <li key={i} className="flex justify-between py-1 border-b border-dashed">
                                     <span>#{player.player?.number || 0} {player.playerName}</span>
                                     <span>{player.shots || 0} shots</span>
                                   </li>)}

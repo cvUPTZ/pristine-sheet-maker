@@ -2,6 +2,17 @@
 import { useState, useEffect } from 'react';
 import { MatchEvent, Statistics, TimeSegmentStatistics, PlayerStatistics, Player, Team } from '@/types';
 
+export interface BallPath {
+  id: string;
+  startPoint: { x: number; y: number };
+  endPoint: { x: number; y: number };
+  playerId: number;
+  teamId: string;
+  timestamp: number;
+  eventType: string;
+  status: 'active' | 'completed' | 'cancelled';
+}
+
 interface MatchState {
   events: MatchEvent[];
   statistics: Statistics;
@@ -48,9 +59,16 @@ export const useMatchState = () => {
   const [setupComplete, setSetupComplete] = useState(false);
   const [ballTrackingMode, setBallTrackingMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
+  const [teamPositions, setTeamPositions] = useState<Record<number, { x: number; y: number }>>({});
+  const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([]);
+  const [match, setMatch] = useState<any>(null);
+  const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false);
+  const [potentialPasser, setPotentialPasser] = useState<Player | null>(null);
+  const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]);
 
   const addEvent = (event: MatchEvent) => {
     setEvents((prevEvents) => [...prevEvents, event]);
+    setMatchEvents((prevEvents) => [...prevEvents, event]);
   };
 
   const confirmEvent = (clientId: string) => {
@@ -100,6 +118,7 @@ export const useMatchState = () => {
 
   const undoLastEvent = () => {
     setEvents(prev => prev.slice(0, -1));
+    setMatchEvents(prev => prev.slice(0, -1));
   };
 
   const updateTeams = (home: Team, away: Team) => {
@@ -127,7 +146,6 @@ export const useMatchState = () => {
 
   const saveMatch = () => {
     const matchId = `match-${Date.now()}`;
-    // Save logic here
     return matchId;
   };
 
@@ -143,6 +161,37 @@ export const useMatchState = () => {
       status: 'confirmed'
     };
     addEvent(newEvent);
+  };
+
+  const recordPass = (
+    passer: Player,
+    receiver: Player,
+    passerTeamId: 'home' | 'away',
+    receiverTeamId: 'home' | 'away',
+    passerCoords: { x: number; y: number },
+    receiverCoords: { x: number; y: number }
+  ) => {
+    const passEvent: MatchEvent = {
+      id: `pass-${Date.now()}`,
+      matchId: 'current-match',
+      teamId: passerTeamId,
+      playerId: passer.id,
+      type: 'pass',
+      timestamp: Date.now(),
+      coordinates: passerCoords,
+      status: 'confirmed',
+      relatedPlayerId: receiver.id
+    };
+    addEvent(passEvent);
+  };
+
+  const processEventsForLocalState = (events: MatchEvent[]) => {
+    setEvents(events);
+    setMatchEvents(events);
+  };
+
+  const togglePassTrackingMode = () => {
+    setIsPassTrackingModeActive(!isPassTrackingModeActive);
   };
 
   const calculatePossession = () => {
@@ -246,6 +295,10 @@ export const useMatchState = () => {
     }));
   };
 
+  const calculateTimeSegments = () => {
+    return generateTimeSegmentStatistics();
+  };
+
   const generatePlayerStatistics = (): PlayerStatistics[] => {
     const playerStats: PlayerStatistics[] = [];
     
@@ -271,7 +324,7 @@ export const useMatchState = () => {
         playerId: player.id,
         playerName: player.name,
         teamId: player.teamId || (homeTeam.players.includes(player) ? homeTeam.id : awayTeam.id),
-        team: homeTeam.name,
+        team: homeTeam.players.includes(player) ? homeTeam.name : awayTeam.name,
         player: player,
         ballsPlayed: ballsPlayed,
         ballsLost: ballsLost,
@@ -307,6 +360,12 @@ export const useMatchState = () => {
     setupComplete,
     ballTrackingMode,
     activeTab,
+    teamPositions,
+    matchEvents,
+    match,
+    isPassTrackingModeActive,
+    potentialPasser,
+    ballPathHistory,
     setActiveTab,
     setSelectedTeam,
     setSelectedPlayer,
@@ -322,6 +381,7 @@ export const useMatchState = () => {
     trackBallMovement,
     saveMatch,
     recordEvent,
+    recordPass,
     setStatistics,
     updateStatistics,
     setTeams,
@@ -329,5 +389,17 @@ export const useMatchState = () => {
     updateEvent,
     generateTimeSegmentStatistics,
     generatePlayerStatistics,
+    calculateTimeSegments,
+    setTimeSegments,
+    setBallTrackingPoints,
+    setMatchEvents,
+    setMatch,
+    setHomeTeam,
+    setAwayTeam,
+    processEventsForLocalState,
+    togglePassTrackingMode,
+    setPotentialPasser,
+    setBallPathHistory,
+    setTeamPositions,
   };
 };

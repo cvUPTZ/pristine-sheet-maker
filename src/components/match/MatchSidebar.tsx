@@ -4,7 +4,7 @@ import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
-import { Statistics, Player, TimeSegmentStatistics, Match } from '@/types'; // Added Match
+import { Statistics, Player, TimeSegmentStatistics } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowRight } from 'lucide-react';
@@ -53,11 +53,7 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   dbTimerValue,
   timerStatus,
   timerLastStartedAt,
-  isRunning, // Kept for now, can be removed if sidebar UI doesn't need it
-  // toggleTimer, // Removed as controls are admin-only in MatchAnalysis
-  // resetTimer,  // Removed
-  // elapsedTime, // Superseded
-  // setElapsedTime, // Superseded
+  isRunning,
   mode,
   selectedPlayer,
   handleActionSelect,
