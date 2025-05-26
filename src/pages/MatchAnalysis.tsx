@@ -94,10 +94,10 @@ const MatchAnalysis: React.FC = () => {
           .single();
 
         if (error) {
-          console.error('Error fetching match:', error);
+          console.error(`Error fetching match with ID: ${matchId}:`, error);
           showToast({
             title: "Error",
-            description: "Failed to load match data",
+            description: `Failed to load match data for ID: ${matchId}`,
             variant: "destructive",
           });
           navigate('/matches');
@@ -153,10 +153,10 @@ const MatchAnalysis: React.FC = () => {
         }
 
       } catch (error) {
-        console.error('Error loading match:', error);
+        console.error(`Error loading match with ID: ${matchId}:`, error);
         showToast({
           title: "Error",
-          description: "Failed to load match",
+          description: `Failed to load match with ID: ${matchId}`,
           variant: "destructive",
         });
         navigate('/matches');
