@@ -3,11 +3,14 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-// Define the component
-const RequireAuth: React.FC<{ 
+// Define the props interface
+interface RequireAuthProps {
   children: React.ReactNode;
   requiredRoles?: Array<'admin' | 'tracker' | 'viewer'>;
-}> = ({ 
+}
+
+// Define and export the component
+const RequireAuth: React.FC<RequireAuthProps> = ({ 
   children, 
   requiredRoles 
 }) => {
@@ -46,5 +49,4 @@ const RequireAuth: React.FC<{
   return <>{children}</>;
 };
 
-// Export the component as default
 export default RequireAuth;
