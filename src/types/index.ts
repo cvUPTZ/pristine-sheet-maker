@@ -1,24 +1,10 @@
-
 export interface Match {
   id: string;
-  name?: string | null;
-  description?: string | null;
-  home_team_name: string;
-  away_team_name: string;
-  home_team_formation?: string | null;
-  away_team_formation?: string | null;
-  home_team_players?: any;
-  away_team_players?: any;
-  match_date?: string | null;
-  status: 'published' | 'draft' | 'live' | 'completed' | 'archived';
-  created_at?: string | null;
-  updated_at?: string | null;
-  created_by?: string | null;
-  match_statistics?: any;
-  ball_tracking_data?: any;
-  timer_current_value?: number;
-  timer_status?: 'stopped' | 'running' | 'paused';
-  timer_last_started_at?: string | null;
+  team1: string;
+  team2: string;
+  score1: number;
+  score2: number;
+  date: string;
 }
 
 export interface Team {
@@ -33,7 +19,6 @@ export interface Player {
   name: string;
   number: number;
   position: string;
-  teamId?: string;
 }
 
 export interface MatchEvent {
@@ -47,9 +32,9 @@ export interface MatchEvent {
   status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
   clientId?: string;
   optimisticCreationTime?: number;
-  user_id?: string;
-  relatedPlayerId?: number;
-  meta?: any;
+  user_id?: string; // Added user_id field
+  relatedPlayerId?: number; // Added from findings in previous subtask, if it was missing
+  meta?: any; // Added from findings in previous subtask, if it was missing
 }
 
 export type EventType =
@@ -64,12 +49,12 @@ export type EventType =
   | 'yellowCard'
   | 'redCard'
   | 'substitution'
-  | 'card'
-  | 'penalty'
-  | 'free-kick'
-  | 'goal-kick'
-  | 'throw-in'
-  | 'interception';
+  | 'card'         // Added
+  | 'penalty'      // Added
+  | 'free-kick'    // Added
+  | 'goal-kick'    // Added
+  | 'throw-in'     // Added
+  | 'interception'; // Added
 
 export interface Statistics {
   possession: { home: number; away: number };
@@ -100,33 +85,37 @@ export interface BallTrackingPoint {
   teamId?: string;
 }
 
+// Update TimeSegmentStatistics to include additional metrics
 export interface TimeSegmentStatistics {
   id: string;
-  timeSegment: string;
+  timeSegment: string; // e.g. "0-5"
   possession: { home: number; away: number };
   ballsPlayed: { home: number; away: number };
-  ballsGiven: { home: number; away: number };
+  ballsGiven: { home: number; away: number };  // Balls lost
   ballsRecovered: { home: number; away: number };
   recoveryTime: { home: number; away: number };
   contacts: { home: number; away: number };
+  // Added cumulative statistics
   cumulativePossession: { home: number; away: number };
   cumulativeBallsPlayed: { home: number; away: number };
   cumulativeBallsGiven: { home: number; away: number };
   cumulativeBallsRecovered: { home: number; away: number };
   cumulativeRecoveryTime: { home: number; away: number };
   cumulativeContacts: { home: number; away: number };
+  // Added difference statistics
   possessionDifference: { home: number; away: number };
   ballsPlayedDifference: { home: number; away: number };
   ballsGivenDifference: { home: number; away: number };
   ballsRecoveredDifference: { home: number; away: number };
 }
 
+// Update PlayerStatistics type to include all required properties
 export interface PlayerStatistics {
   playerId: number;
   playerName: string;
   teamId: string;
-  team: string;
-  player: Player;
+  team: string; // Added
+  player: Player;  // Added
   ballsPlayed: number;
   ballsLost: number;
   ballsRecovered: number;
@@ -135,19 +124,22 @@ export interface PlayerStatistics {
   possessionTime: number;
   contacts: number;
   lossRatio: number;
-  goals: number;
-  assists: number;
-  passes: number;
-  shots: number;
-  fouls: number;
+  goals: number;    // Added
+  assists: number;  // Added
+  passes: number;   // Added
+  shots: number;    // Added
+  fouls: number;    // Added
 }
 
+// Update Formation type
 export type Formation = string;
 
+// Add FormationPositions type
 export interface FormationPositions {
   [key: string]: { [key: number]: { x: number; y: number } };
 }
 
+// Add SavedMatch interface for Statistics.tsx
 export interface SavedMatch {
   matchId: string;
   date: string;
@@ -159,12 +151,4 @@ export interface SavedMatch {
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
   playerStats: PlayerStatistics[];
-}
-
-export interface BallPath {
-  id?: string;
-  clientId?: string;
-  startCoordinates: { x: number; y: number };
-  endCoordinates: { x: number; y: number };
-  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
 }

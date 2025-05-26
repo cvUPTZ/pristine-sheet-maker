@@ -121,116 +121,24 @@ export type Database = {
         }
         Relationships: []
       }
-      match_notifications: {
-        Row: {
-          created_at: string
-          id: string
-          is_read: boolean
-          match_id: string
-          message: string
-          tracker_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          match_id: string
-          message: string
-          tracker_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          match_id?: string
-          message?: string
-          tracker_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "match_notifications_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      matches: {
-        Row: {
-          away_team_formation: string | null
-          away_team_name: string
-          away_team_players: Json | null
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          home_team_formation: string | null
-          home_team_name: string
-          home_team_players: Json | null
-          id: string
-          match_date: string | null
-          name: string | null
-          status: string
-          updated_at: string | null
-        }
-        Insert: {
-          away_team_formation?: string | null
-          away_team_name: string
-          away_team_players?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          home_team_formation?: string | null
-          home_team_name: string
-          home_team_players?: Json | null
-          id?: string
-          match_date?: string | null
-          name?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Update: {
-          away_team_formation?: string | null
-          away_team_name?: string
-          away_team_players?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          home_team_formation?: string | null
-          home_team_name?: string
-          home_team_players?: Json | null
-          id?: string
-          match_date?: string | null
-          name?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["user_role"]
-          updated_at: string | null
         }
         Insert: {
           created_at?: string
           full_name?: string | null
           id: string
           role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string | null
         }
         Update: {
           created_at?: string
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -456,27 +364,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_event_assignments: {
-        Row: {
-          created_at: string | null
-          event_type: string
-          id: number
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          event_type: string
-          id?: number
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          event_type?: string
-          id?: number
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           created_at: string
@@ -503,14 +390,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_user_role: {
-        Args: { user_id_param: string }
-        Returns: string
-      }
-      is_admin: {
-        Args: { p_user_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       user_role: "admin" | "teacher" | "user" | "tracker"
