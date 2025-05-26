@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRealtime } from './useRealtime';
@@ -106,8 +107,8 @@ export const useMatchCollaboration = ({
 
   useEffect(() => {
     if (channel) {
-      channel.on('add_event', (payload) => {
-        const serverEvent = payload as MatchEvent;
+      channel.on('broadcast', { event: 'add_event' }, (payload) => {
+        const serverEvent = payload.payload as MatchEvent;
         console.log('Received event from server:', serverEvent);
 
         const optimisticEvent = optimisticEvents.find((e) => e.optimisticCreationTime === serverEvent.optimisticCreationTime);
@@ -122,12 +123,11 @@ export const useMatchCollaboration = ({
           });
         } else {
           console.warn('Optimistic event not found for server event:', serverEvent);
-          // addEvent(serverEvent);
         }
       });
 
-      channel.on('event_confirmed', (payload) => {
-        const confirmedEvent = payload as MatchEvent;
+      channel.on('broadcast', { event: 'event_confirmed' }, (payload) => {
+        const confirmedEvent = payload.payload as MatchEvent;
         console.log('Event confirmed by server:', confirmedEvent);
 
         const optimisticEvent = optimisticEvents.find((e) => e.clientId === confirmedEvent.clientId);
@@ -145,7 +145,9 @@ export const useMatchCollaboration = ({
     }
 
     return () => {
-      channel?.removeAllListeners();
+      if (channel) {
+        channel.unsubscribe();
+      }
     };
   }, [channel, addEvent, confirmEvent, optimisticEvents, updateEvent]);
 

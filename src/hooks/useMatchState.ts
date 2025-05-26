@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { MatchEvent, Statistics, TimeSegmentStatistics, PlayerStatistics, Player, Team } from '@/types';
 
@@ -20,7 +21,7 @@ const initialMatchState: MatchState = {
     duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
     cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
     crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-    dribbles: { home: { successful: 0, attempted: 0 }, away: { total: 0, successful: 0 } },
+    dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
     freeKicks: { home: 0, away: 0 },
@@ -36,8 +37,17 @@ export const useMatchState = () => {
   const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(initialMatchState.timeSegments);
   const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>(initialMatchState.playerStats);
   const [ballTrackingPoints, setBallTrackingPoints] = useState<{ x: number; y: number; timestamp: number }[]>(initialMatchState.ballTrackingPoints);
-  const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '' });
-  const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '' });
+  const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '4-4-2' });
+  const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '4-4-2' });
+  
+  // UI State
+  const [isRunning, setIsRunning] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [ballTrackingMode, setBallTrackingMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
 
   const addEvent = (event: MatchEvent) => {
     setEvents((prevEvents) => [...prevEvents, event]);
@@ -77,6 +87,62 @@ export const useMatchState = () => {
   const setTeams = (home: Team, away: Team) => {
     setHomeTeam(home);
     setAwayTeam(away);
+  };
+
+  const toggleTimer = () => {
+    setIsRunning(!isRunning);
+  };
+
+  const resetTimer = () => {
+    setIsRunning(false);
+    setElapsedTime(0);
+  };
+
+  const undoLastEvent = () => {
+    setEvents(prev => prev.slice(0, -1));
+  };
+
+  const updateTeams = (home: Team, away: Team) => {
+    setHomeTeam(home);
+    setAwayTeam(away);
+  };
+
+  const completeSetup = (home: Team, away: Team) => {
+    setHomeTeam(home);
+    setAwayTeam(away);
+    setSetupComplete(true);
+  };
+
+  const toggleBallTrackingMode = () => {
+    setBallTrackingMode(!ballTrackingMode);
+  };
+
+  const trackBallMovement = (coordinates: { x: number; y: number }) => {
+    addBallTrackingPoint({
+      x: coordinates.x,
+      y: coordinates.y,
+      timestamp: Date.now()
+    });
+  };
+
+  const saveMatch = () => {
+    const matchId = `match-${Date.now()}`;
+    // Save logic here
+    return matchId;
+  };
+
+  const recordEvent = (eventType: string, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+    const newEvent: MatchEvent = {
+      id: `event-${Date.now()}`,
+      matchId: 'current-match',
+      teamId: teamId,
+      playerId: playerId,
+      type: eventType as any,
+      timestamp: Date.now(),
+      coordinates: coordinates,
+      status: 'confirmed'
+    };
+    addEvent(newEvent);
   };
 
   const calculatePossession = () => {
@@ -234,9 +300,30 @@ export const useMatchState = () => {
     ballTrackingPoints,
     homeTeam,
     awayTeam,
+    isRunning,
+    elapsedTime,
+    selectedTeam,
+    selectedPlayer,
+    setupComplete,
+    ballTrackingMode,
+    activeTab,
+    setActiveTab,
+    setSelectedTeam,
+    setSelectedPlayer,
+    toggleTimer,
+    resetTimer,
     addEvent,
-    updateStatistics,
+    undoLastEvent,
+    updateTeams,
+    completeSetup,
+    setElapsedTime,
+    toggleBallTrackingMode,
     addBallTrackingPoint,
+    trackBallMovement,
+    saveMatch,
+    recordEvent,
+    setStatistics,
+    updateStatistics,
     setTeams,
     confirmEvent,
     updateEvent,

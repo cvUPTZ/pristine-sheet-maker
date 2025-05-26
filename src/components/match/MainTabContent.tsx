@@ -264,28 +264,28 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                       {safeStats.possession.home > 60 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong Possession</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is dominating possession ({Math.round(safeStats.possession.home)}%). 
+                            {homeTeam?.name || 'Home'} is dominating possession ({Math.round(safeStats.possession.home)}%). 
                             Capitalize on this control with more forward passes.
                           </p>
                         </div>}
                       {safeStats.possession.away > 60 && <div className="p-2 bg-yellow-50 border-l-4 border-yellow-500 rounded">
                           <p className="font-medium">Possession Challenge</p>
                           <p className="text-sm text-gray-600">
-                            {awayTeam.name} is controlling possession ({Math.round(safeStats.possession.away)}%). 
+                            {awayTeam?.name || 'Away'} is controlling possession ({Math.round(safeStats.possession.away)}%). 
                             Consider adjusting press intensity and defensive shape.
                           </p>
                         </div>}
                       {safeStats.shots.home.onTarget + safeStats.shots.home.offTarget > (safeStats.shots.away.onTarget + safeStats.shots.away.offTarget) * 2 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Shot Dominance</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is creating significantly more shooting opportunities. 
+                            {homeTeam?.name || 'Home'} is creating significantly more shooting opportunities. 
                             Continue with the current attacking approach.
                           </p>
                         </div>}
                       {safeStats.passes.home.attempted > 0 && safeStats.passes.home.successful / safeStats.passes.home.attempted < 0.7 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Passing Accuracy Concern</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} has a low pass completion rate 
+                            {homeTeam?.name || 'Home'} has a low pass completion rate 
                             ({Math.round(safeStats.passes.home.successful / safeStats.passes.home.attempted * 100)}%). 
                             Focus on safer passing options or adjust positioning.
                           </p>
@@ -293,14 +293,14 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                       {safeStats.ballsLost.home > safeStats.ballsLost.away * 1.5 && <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded">
                           <p className="font-medium">Ball Retention Issue</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is losing possession frequently. 
+                            {homeTeam?.name || 'Home'} is losing possession frequently. 
                             Consider adjusting buildup play and player positioning.
                           </p>
                         </div>}
                       {safeStats.duels.home.won > safeStats.duels.home.lost * 1.5 && <div className="p-2 bg-green-50 border-l-4 border-green-500 rounded">
                           <p className="font-medium">Strong in Duels</p>
                           <p className="text-sm text-gray-600">
-                            {homeTeam.name} is winning most duels. 
+                            {homeTeam?.name || 'Home'} is winning most duels. 
                             Continue with physical play and direct challenges.
                           </p>
                         </div>}
@@ -400,7 +400,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </Button>
             </div>
             
-            {timeSegments && timeSegments.length > 0 ? <TimeSegmentChart timeSegments={timeSegments} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} dataKey={timelineView} title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} description="Analysis of match progression in 5-minute intervals" /> : <div className="text-center py-8 text-muted-foreground">
+            {timeSegments && timeSegments.length > 0 ? <TimeSegmentChart timeSegments={timeSegments} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} dataKey={timelineView} title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} description="Analysis of match progression in 5-minute intervals" /> : <div className="text-center py-8 text-muted-foreground">
                 No timeline data available
               </div>}
           </Card>
@@ -412,7 +412,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             {statistics && (
               <Card className="p-4">
                 <h3 className="text-lg font-semibold mb-4">Video Analysis Results</h3>
-                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />
+                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
               </Card>
             )}
           </div>
