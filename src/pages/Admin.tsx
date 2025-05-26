@@ -21,6 +21,7 @@ import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Player } from '@/types'; // Import Player type
+import CreateMatchForm from '@/components/admin/CreateMatchForm'; // Import CreateMatchForm
 
 interface User {
   id: string;
@@ -33,7 +34,8 @@ interface User {
 
 interface Match {
   id: string;
-  name?: string; // Keep as optional as per existing definition
+  name?: string; // This might be used as a title or can be the description.
+  description?: string; // Added for consistency with form
   home_team_name: string;
   away_team_name: string;
   status: string;
@@ -87,6 +89,13 @@ const Admin: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'user' | 'tracker'>('user');
+
+  // State for Create Match Dialog
+  const [isCreateMatchDialogOpen, setIsCreateMatchDialogOpen] = useState(false);
+  
+  // State for Edit Match Dialog
+  const [isEditMatchDialogOpen, setIsEditMatchDialogOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
 
   const handleCreatePlayerAssignment = async () => {
@@ -151,6 +160,42 @@ const Admin: React.FC = () => {
     } catch (e) {
       console.error('Exception while creating player assignment:', e);
       toast.error('An unexpected error occurred while creating the assignment.');
+    }
+  };
+
+  const handleUpdateMatch = async (values: any, matchId?: string) => { // values type will be z.infer<typeof formSchema> from CreateMatchForm
+    if (!matchId) {
+      toast.error("Match ID is missing. Cannot update.");
+      return;
+    }
+
+    const updatePayload = {
+      home_team_name: values.homeTeam,
+      away_team_name: values.awayTeam,
+      match_date: values.matchDate || null,
+      status: values.status,
+      description: values.description, // Form's description maps to match's description
+      // name: values.description, // Or if 'name' should also be updated from description
+    };
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update(updatePayload)
+        .eq('id', matchId);
+
+      if (error) {
+        console.error('Error updating match:', error);
+        toast.error(`Failed to update match: ${error.message}`);
+      } else {
+        toast.success('Match updated successfully!');
+        await fetchData(); // Refresh matches list
+        setIsEditMatchDialogOpen(false);
+        setEditingMatch(null);
+      }
+    } catch (e) {
+      console.error('Exception while updating match:', e);
+      toast.error('An unexpected error occurred while updating the match.');
     }
   };
 
@@ -502,8 +547,9 @@ const Admin: React.FC = () => {
 
         <TabsContent value="matches" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Match Management</CardTitle>
+              <Button onClick={() => setIsCreateMatchDialogOpen(true)}>Create New Match</Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -528,8 +574,22 @@ const Admin: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date'}</TableCell>
-                      <TableCell>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteMatch(match.id)}>
+                      <TableCell className="space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => { 
+                            setEditingMatch(match); 
+                            setIsEditMatchDialogOpen(true); 
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => handleDeleteMatch(match.id)}
+                        >
                           Delete
                         </Button>
                       </TableCell>
@@ -822,6 +882,59 @@ const Admin: React.FC = () => {
             <Button variant="outline" onClick={() => setIsCreateAssignmentDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreatePlayerAssignment}>Create Assignment</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Match Dialog */}
+      <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
+        <DialogContent className="sm:max-w-md"> {/* Or sm:max-w-lg for wider form */}
+          <DialogHeader>
+            <DialogTitle>Create New Match</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create a new match.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateMatchForm 
+            onSuccess={() => {
+              setIsCreateMatchDialogOpen(false);
+              fetchData(); // Refreshes the matches list
+              // Optional: toast here, or rely on the one in CreateMatchForm
+              // toast.success('New match created and list updated!'); 
+            }}
+          />
+          {/* CreateMatchForm has its own submit button, so no explicit DialogFooter needed for submission */}
+          {/* A DialogClose might be desired if the form itself doesn't have a cancel, but onOpenChange handles this */}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Match Dialog */}
+      <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Match</DialogTitle>
+            <DialogDescription>
+              Update the details for this match.
+            </DialogDescription>
+          </DialogHeader>
+          {editingMatch && (
+            <CreateMatchForm
+              isEditMode={true}
+              initialData={{
+                id: editingMatch.id,
+                homeTeam: editingMatch.home_team_name,
+                awayTeam: editingMatch.away_team_name,
+                matchDate: editingMatch.match_date || '', 
+                status: editingMatch.status as any, // Cast if status enum mismatches, ensure alignment
+                description: editingMatch.description || editingMatch.name || '', // Prioritize description, fallback to name
+              }}
+              onSubmitOverride={handleUpdateMatch}
+              onSuccess={() => { // This specific onSuccess might not be strictly needed if onSubmitOverride handles all
+                setIsEditMatchDialogOpen(false);
+                setEditingMatch(null);
+                fetchData();
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
