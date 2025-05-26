@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -400,9 +399,20 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </Button>
             </div>
             
-            {timeSegments && timeSegments.length > 0 ? <TimeSegmentChart timeSegments={timeSegments} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} dataKey={timelineView} title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} description="Analysis of match progression in 5-minute intervals" /> : <div className="text-center py-8 text-muted-foreground">
+            {timeSegments && timeSegments.length > 0 ? (
+              <TimeSegmentChart 
+                timeSegments={timeSegments} 
+                homeTeamName={homeTeam?.name || 'Home'} 
+                awayTeamName={awayTeam?.name || 'Away'} 
+                dataKey={timelineView} 
+                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} 
+                description="Analysis of match progression in 5-minute intervals" 
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
                 No timeline data available
-              </div>}
+              </div>
+            )}
           </Card>
         )}
         

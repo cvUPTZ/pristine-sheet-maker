@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -5,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -14,6 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -24,117 +29,385 @@ interface User {
   updated_at: string;
 }
 
+interface Match {
+  id: string;
+  name: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string;
+  created_at: string;
+}
+
+interface EventAssignment {
+  id: string;
+  user_id: string;
+  event_type: string;
+  created_at: string;
+  user?: {
+    full_name: string;
+    email: string;
+  };
+}
+
 const Admin: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [eventAssignments, setEventAssignments] = useState<EventAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('users');
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/users');
-        if (response.ok) {
-          const userData = await response.json();
-          setUsers(userData.map((user: any) => ({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.full_name || '',
-            role: user.role as 'admin' | 'teacher' | 'user' | 'tracker',
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-          })));
+        // Fetch users from profiles table instead of the problematic API endpoint
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, created_at, updated_at');
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          toast.error('Failed to fetch user profiles');
         }
+
+        // Fetch user roles
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role');
+
+        if (rolesError) {
+          console.error('Error fetching roles:', rolesError);
+          toast.error('Failed to fetch user roles');
+        }
+
+        // Combine profiles and roles
+        if (profilesData && rolesData) {
+          const usersWithRoles = profilesData.map((profile: any) => {
+            const userRole = rolesData.find((r: any) => r.user_id === profile.id);
+            return {
+              id: profile.id,
+              email: profile.full_name || 'No name', // Using full_name as email placeholder
+              full_name: profile.full_name || '',
+              role: userRole ? userRole.role : 'user',
+              created_at: profile.created_at,
+              updated_at: profile.updated_at,
+            };
+          });
+          setUsers(usersWithRoles);
+        }
+
+        // Fetch matches
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
+          .select('id, name, home_team_name, away_team_name, status, match_date, created_at')
+          .order('created_at', { ascending: false });
+
+        if (matchesError) {
+          console.error('Error fetching matches:', matchesError);
+          toast.error('Failed to fetch matches');
+        } else {
+          setMatches(matchesData || []);
+        }
+
+        // Fetch event assignments
+        const { data: assignmentsData, error: assignmentsError } = await supabase
+          .from('user_event_assignments')
+          .select(`
+            id,
+            user_id,
+            event_type,
+            created_at
+          `);
+
+        if (assignmentsError) {
+          console.error('Error fetching event assignments:', assignmentsError);
+          toast.error('Failed to fetch event assignments');
+        } else {
+          setEventAssignments(assignmentsData || []);
+        }
+
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching data:', error);
+        toast.error('Failed to fetch admin data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUsers();
+    fetchData();
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
-      const response = await fetch('/api/users/update-role', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId, role: newRole }),
-      });
+      const { error } = await supabase
+        .from('user_roles')
+        .upsert({ user_id: userId, role: newRole });
 
-      if (response.ok) {
+      if (error) {
+        console.error('Failed to update role:', error);
+        toast.error('Failed to update user role');
+      } else {
         setUsers(users.map(user =>
           user.id === userId ? { ...user, role: newRole } : user
         ));
-      } else {
-        console.error('Failed to update role');
+        toast.success('User role updated successfully');
       }
     } catch (error) {
       console.error('Error updating role:', error);
+      toast.error('Failed to update user role');
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.id !== userId));
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+
+        if (error) {
+          console.error('Failed to delete user:', error);
+          toast.error('Failed to delete user');
+        } else {
+          setUsers(users.filter(user => user.id !== userId));
+          toast.success('User deleted successfully');
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        toast.error('Failed to delete user');
+      }
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (confirm('Are you sure you want to delete this match?')) {
+      try {
+        const { error } = await supabase
+          .from('matches')
+          .delete()
+          .eq('id', matchId);
+
+        if (error) {
+          console.error('Failed to delete match:', error);
+          toast.error('Failed to delete match');
+        } else {
+          setMatches(matches.filter(match => match.id !== matchId));
+          toast.success('Match deleted successfully');
+        }
+      } catch (error) {
+        console.error('Error deleting match:', error);
+        toast.error('Failed to delete match');
+      }
     }
   };
 
   if (loading) {
-    return <div>Loading users...</div>;
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading admin data...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>User Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableCaption>A list of registered users.</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">ID</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Full Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.id}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.full_name}</TableCell>
-                  <TableCell>
-                    <Select onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder={user.role} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="tracker">Tracker</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.id)}>
-                      Delete
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="matches" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Matches
+          </TabsTrigger>
+          <TabsTrigger value="assignments" className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            Assignments
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Audit
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableCaption>A list of registered users.</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.id.slice(0, 8)}...</TableCell>
+                      <TableCell>{user.full_name || 'No name'}</TableCell>
+                      <TableCell>
+                        <Select onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={user.role} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="teacher">Teacher</SelectItem>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="tracker">Tracker</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.id)}>
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="matches" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Match Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableCaption>A list of matches.</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Teams</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matches.map((match) => (
+                    <TableRow key={match.id}>
+                      <TableCell className="font-medium">{match.name || 'Unnamed Match'}</TableCell>
+                      <TableCell>{match.home_team_name} vs {match.away_team_name}</TableCell>
+                      <TableCell>
+                        <Badge variant={match.status === 'live' ? 'default' : 'secondary'}>
+                          {match.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date'}</TableCell>
+                      <TableCell>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteMatch(match.id)}>
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assignments" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Event Type Assignments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableCaption>User event type assignments.</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Event Type</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {eventAssignments.map((assignment) => (
+                    <TableRow key={assignment.id}>
+                      <TableCell className="font-medium">{assignment.user_id.slice(0, 8)}...</TableCell>
+                      <TableCell>{assignment.event_type}</TableCell>
+                      <TableCell>{new Date(assignment.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button variant="destructive" size="sm">
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audit Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                Audit functionality coming soon...
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="app-name">Application Name</Label>
+                  <Input id="app-name" defaultValue="Match Analytics" />
+                </div>
+                <div>
+                  <Label htmlFor="timezone">Default Timezone</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="utc">UTC</SelectItem>
+                      <SelectItem value="est">Eastern Time</SelectItem>
+                      <SelectItem value="pst">Pacific Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button>Save Settings</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
