@@ -160,5 +160,5 @@ export interface BallPath {
   clientId?: string;
   startCoordinates: { x: number; y: number };
   endCoordinates: { x: number; y: number };
-  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
+  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
 }

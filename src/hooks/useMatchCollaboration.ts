@@ -19,10 +19,11 @@ export const useMatchCollaboration = ({
 }: CollaborationOptions) => {
   const [isOnline, setIsOnline] = useState(false);
   const [pendingEvents, setPendingEvents] = useState<MatchEvent[]>([]);
-  const { addEvent, confirmEvent, updateEvent } = useMatchState();
+  const { addEvent, confirmEvent, updateEvent, events } = useMatchState();
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
   const [serverConfirmedEvents, setServerConfirmedEvents] = useState<MatchEvent[]>([]);
   const pendingEventsRef = useRef(pendingEvents);
+  const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
 
   const {
     channel,
@@ -36,9 +37,7 @@ export const useMatchCollaboration = ({
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
         console.log('Event confirmed by server:', confirmedEvent);
-
         confirmEvent(confirmedEvent.clientId || '');
-
         setServerConfirmedEvents((prev) => [...prev, confirmedEvent]);
       }
     },
@@ -85,6 +84,24 @@ export const useMatchCollaboration = ({
     } else {
       console.log('Not online, not sending event');
     }
+  };
+
+  const recordEvent = (
+    eventType: string,
+    playerId: number,
+    teamId: string,
+    coordinates: { x: number; y: number },
+    timestamp: number
+  ) => {
+    const eventData = {
+      matchId,
+      teamId,
+      playerId,
+      type: eventType as any,
+      timestamp,
+      coordinates,
+    };
+    sendEvent(eventData);
   };
 
   useEffect(() => {
@@ -154,10 +171,10 @@ export const useMatchCollaboration = ({
 
   const updateEventStatus = (confirmedEvent: MatchEvent) => {
     updateEvent({
-          id: confirmedEvent.id,
-          clientId: confirmedEvent.clientId || '',
-          status: 'confirmed'
-        });
+      id: confirmedEvent.id,
+      clientId: confirmedEvent.clientId || '',
+      status: 'confirmed'
+    });
   };
 
   return {
@@ -165,5 +182,9 @@ export const useMatchCollaboration = ({
     presence,
     onlineUsers,
     isOnline,
+    events,
+    lastReceivedEvent,
+    recordEvent,
+    users: onlineUsers,
   };
 };
