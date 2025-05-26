@@ -15,8 +15,8 @@ import CreateMatchForm from '@/components/admin/CreateMatchForm';
 
 interface User {
   id: string;
-  email: string;
-  role: string;
+  email?: string;
+  role: 'admin' | 'teacher' | 'user' | 'tracker';
   full_name: string | null;
 }
 
@@ -30,7 +30,7 @@ const Admin: React.FC = () => {
   const { user, userRole, refreshUserSession } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user', fullName: '' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' as 'admin' | 'teacher' | 'user' | 'tracker', fullName: '' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
@@ -53,13 +53,31 @@ const Admin: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch from profiles table and get auth user data
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Get auth users to get email addresses
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (authError) throw authError;
+
+      // Combine profile and auth data
+      const combinedUsers = profiles?.map(profile => {
+        const authUser = authData.users.find(u => u.id === profile.id);
+        return {
+          id: profile.id,
+          email: authUser?.email || 'No email',
+          role: profile.role as 'admin' | 'teacher' | 'user' | 'tracker',
+          full_name: profile.full_name
+        };
+      }) || [];
+
+      setUsers(combinedUsers);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -305,7 +323,7 @@ const Admin: React.FC = () => {
                     <Label htmlFor="role">Role</Label>
                     <Select
                       value={newUser.role}
-                      onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+                      onValueChange={(value) => setNewUser({ ...newUser, role: value as 'admin' | 'teacher' | 'user' | 'tracker' })}
                     >
                       <SelectTrigger id="role">
                         <SelectValue placeholder="Select role" />
@@ -352,7 +370,7 @@ const Admin: React.FC = () => {
                               <Label htmlFor={`edit-role-${user.id}`}>Role</Label>
                               <Select
                                 value={editingUser.role}
-                                onValueChange={(value) => setEditingUser({ ...editingUser, role: value })}
+                                onValueChange={(value) => setEditingUser({ ...editingUser, role: value as 'admin' | 'teacher' | 'user' | 'tracker' })}
                               >
                                 <SelectTrigger id={`edit-role-${user.id}`}>
                                   <SelectValue />
