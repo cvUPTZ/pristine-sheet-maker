@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -331,6 +330,9 @@ const Admin: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true); // Set loading to true when fetching starts
+    let fetchedUsers: User[] = []; // Temporary storage for users
+    let fetchedMatches: Match[] = []; // Temporary storage for matches
+
     try {
       // Use the edge function to fetch users
         const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
@@ -343,17 +345,15 @@ const Admin: React.FC = () => {
           // Ensure proper typing for users
           const typedUsers: User[] = usersData.map((user: any) => ({
             id: user.id,
-            // The get-users function seems to put full_name in the email field, this is likely a bug in the function itself.
-            // For now, reflect what the function likely returns or use a placeholder if email is truly missing.
             email: user.email || user.full_name || 'No email provided',
             full_name: user.full_name || '',
             role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
             created_at: user.created_at,
             updated_at: user.updated_at,
           }));
+          fetchedUsers = typedUsers; // Store in temporary variable
           setUsers(typedUsers);
         } else {
-          // Handle cases where usersData is not an array (e.g., null, or an error object from the function not caught by usersError)
           console.error('Received unexpected data structure for users:', usersData);
           toast.error('Failed to process user data: unexpected format.');
           setUsers([]);
@@ -362,21 +362,20 @@ const Admin: React.FC = () => {
         // Fetch matches
         const { data: matchesData, error: matchesError } = await supabase
           .from('matches')
-          .select('id, name, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players') // Updated select
+          .select('id, name, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
           .order('created_at', { ascending: false });
 
         if (matchesError) {
           console.error('Error fetching matches:', matchesError);
           toast.error('Failed to fetch matches');
-          setMatches([]); // Ensure matches is an empty array on error
+          setMatches([]);
         } else {
+          fetchedMatches = matchesData || []; // Store in temporary variable
           setMatches(matchesData || []);
         }
         
-        // Fetch conceptual user_event_assignments (this part of the code was from the problem description for EventAssignment, not PlayerTrackerAssignment)
-        // Keeping it as is, as the task is to add new logic for PlayerTrackerAssignment
         const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
-          .from('user_event_assignments') // This remains for the existing EventAssignment type
+          .from('user_event_assignments')
           .select(`
             id,
             user_id,
@@ -387,24 +386,23 @@ const Admin: React.FC = () => {
         if (eventAssignmentsError) {
           console.error('Error fetching event assignments:', eventAssignmentsError);
           toast.error('Failed to fetch event assignments');
-          setEventAssignments([]); // Ensure empty array on error
+          setEventAssignments([]);
         } else if (eventAssignmentsData) {
           const augmentedEventAssignments = eventAssignmentsData.map((assignment: any) => {
-            const user = (usersData || []).find(u => u.id === assignment.user_id); // Use usersData directly
+            const user = fetchedUsers.find(u => u.id === assignment.user_id); // Use already fetched users
             return {
               id: assignment.id.toString(),
               user_id: assignment.user_id,
-              userNameToDisplay: user?.full_name || user?.email || assignment.user_id, // Fallback to ID if user not found
+              userNameToDisplay: user?.full_name || user?.email || assignment.user_id,
               event_type: assignment.event_type,
               created_at: assignment.created_at,
             };
           });
           setEventAssignments(augmentedEventAssignments as UIDisplayedEventAssignment[]);
         } else {
-            setEventAssignments([]); // No error, but no assignments
+            setEventAssignments([]);
         }
 
-        // Fetch Player-Tracker Assignments (Part 2)
         const { data: rawAssignments, error: playerTrackerAssignmentsError } = await supabase
           .from('match_tracker_assignments')
           .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at');
@@ -414,12 +412,9 @@ const Admin: React.FC = () => {
           toast.error('Failed to fetch player-tracker assignments');
           setPlayerTrackerAssignments([]);
         } else if (rawAssignments) {
-          // Process and Augment Assignments (Part 3)
-          // Need to ensure matches and users are populated before this step.
-          // The current structure of fetchData fetches users and matches before this.
           const processedAssignments = rawAssignments.map(assignment => {
-            const match = (matchesData || []).find(m => m.id === assignment.match_id); // Use matchesData directly as setMatches is async
-            const tracker = (usersData || []).find(u => u.id === assignment.tracker_user_id); // Use usersData directly
+            const match = fetchedMatches.find(m => m.id === assignment.match_id); // Use already fetched matches
+            const tracker = fetchedUsers.find(u => u.id === assignment.tracker_user_id); // Use already fetched users
             
             let playerName = 'Unknown Player';
             let playerTeamName = 'Unknown Team';
@@ -448,7 +443,7 @@ const Admin: React.FC = () => {
           }).filter(Boolean); 
           setPlayerTrackerAssignments(processedAssignments as UIDisplayedPlayerTrackerAssignment[]);
         } else {
-          setPlayerTrackerAssignments([]); // No error, but no assignments found
+          setPlayerTrackerAssignments([]);
         }
 
       } catch (error) {
@@ -457,10 +452,14 @@ const Admin: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    };
+    // Removed fetchData from dependency array, it will run once on mount. 
+    // If you need it to re-run based on other state changes, add those dependencies.
+    // For now, specific actions (create, update, delete) call fetchData directly.
+    }, []); 
 
+  useEffect(() => {
     fetchData();
-  }, [fetchData]); // Added fetchData to dependency array
+  }, [fetchData]); // fetchData is stable due to useCallback with empty deps.
 
   const handleCreateUser = async () => {
     if (!newUserName || !newUserEmail || !newUserPassword) {
@@ -505,18 +504,30 @@ const Admin: React.FC = () => {
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
       const { error } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: userId, role: newRole });
+        .from('user_roles') // Assuming 'user_roles' table links user_id to role
+        .update({ role: newRole }) // Or .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' })
+        .eq('user_id', userId);
 
       if (error) {
-        console.error('Failed to update role:', error);
-        toast.error('Failed to update user role');
-      } else {
-        setUsers(users.map(user =>
-          user.id === userId ? { ...user, role: newRole } : user
-        ));
-        toast.success('User role updated successfully');
+        // If update fails, try insert (for cases where user_role entry might not exist)
+        // This depends on your database schema. If 'role' is in 'profiles' table, this logic is different.
+        const { error: insertError } = await supabase
+            .from('user_roles')
+            .insert({ user_id: userId, role: newRole });
+        
+        if (insertError) {
+            console.error('Failed to update or insert role:', error, insertError);
+            toast.error('Failed to update user role');
+            return;
+        }
       }
+      // Update local state - assuming role is part of the User object from `get-users`
+      setUsers(users.map(user =>
+        user.id === userId ? { ...user, role: newRole } : user
+      ));
+      toast.success('User role updated successfully. You might need to re-fetch users to see changes if role is stored separately.');
+      // Potentially call fetchData() if the role in the `users` state isn't directly from the `get-users` role field.
+      
     } catch (error) {
       console.error('Error updating role:', error);
       toast.error('Failed to update user role');
@@ -524,16 +535,19 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm('Are you sure you want to delete this user? This action might be irreversible depending on your setup.')) {
       try {
+        // This is a simplified delete. Proper user deletion might involve deleting auth user, related data, etc.
+        // The function 'delete-user' might be better suited if it handles cascading deletes.
+        // For now, assuming direct profile deletion.
         const { error } = await supabase
-          .from('profiles')
+          .from('profiles') // Or your user table name
           .delete()
           .eq('id', userId);
 
         if (error) {
           console.error('Failed to delete user:', error);
-          toast.error('Failed to delete user');
+          toast.error('Failed to delete user: ' + error.message);
         } else {
           setUsers(users.filter(user => user.id !== userId));
           toast.success('User deleted successfully');
@@ -622,6 +636,7 @@ const Admin: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[100px]">ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -632,10 +647,14 @@ const Admin: React.FC = () => {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.id.slice(0, 8)}...</TableCell>
                       <TableCell>{user.full_name || 'No name'}</TableCell>
+                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Select onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}>
+                        <Select 
+                          value={user.role} // Ensure user.role is correctly populated
+                          onValueChange={(value) => handleRoleChange(user.id, value as 'admin' | 'teacher' | 'user' | 'tracker')}
+                        >
                           <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder={user.role} />
+                            <SelectValue placeholder={user.role || "Select role"} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="admin">Admin</SelectItem>
@@ -670,7 +689,7 @@ const Admin: React.FC = () => {
                 <TableCaption>A list of matches.</TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>Name / Description</TableHead>
                     <TableHead>Teams</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
@@ -680,7 +699,7 @@ const Admin: React.FC = () => {
                 <TableBody>
                   {matches.map((match) => (
                     <TableRow key={match.id}>
-                      <TableCell className="font-medium">{match.name || 'Unnamed Match'}</TableCell>
+                      <TableCell className="font-medium">{match.description || match.name || 'Unnamed Match'}</TableCell>
                       <TableCell>{match.home_team_name} vs {match.away_team_name}</TableCell>
                       <TableCell>
                         <Badge variant={match.status === 'live' ? 'default' : 'secondary'}>
@@ -723,7 +742,7 @@ const Admin: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableCaption>User assignments for specific event types (e.g., tracking all shots for a team).</TableCaption> {/* Clarified Caption */}
+                <TableCaption>User assignments for specific event types.</TableCaption> {/* Clarified Caption */}
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead> {/* Updated Header */}
@@ -923,11 +942,11 @@ const Admin: React.FC = () => {
                   <SelectValue placeholder="Select a match" />
                 </SelectTrigger>
                 <SelectContent>
-                  {matches.map((match) => (
+                  {matches.length > 0 ? matches.map((match) => (
                     <SelectItem key={match.id} value={match.id}>
-                      {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                      {match.description || match.name || `${match.home_team_name} vs ${match.away_team_name}`}
                     </SelectItem>
-                  ))}
+                  )) : <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No matches available.</div>}
                 </SelectContent>
               </Select>
             </div>
@@ -952,28 +971,44 @@ const Admin: React.FC = () => {
                 <SelectContent>
                   {selectedMatchIdForAssignment && (() => {
                     const currentSelectedMatch = matches.find(m => m.id === selectedMatchIdForAssignment);
-                    if (!currentSelectedMatch) return null;
-                    const players: React.ReactNode[] = [];
-                    if (Array.isArray(currentSelectedMatch.home_team_players)) {
-                      currentSelectedMatch.home_team_players.forEach(player => {
-                        players.push(
+                    if (!currentSelectedMatch) {
+                      return <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Match data not available.</div>;
+                    }
+
+                    const playerItems: React.ReactNode[] = [];
+                    
+                    const homePlayers = Array.isArray(currentSelectedMatch.home_team_players) ? currentSelectedMatch.home_team_players : [];
+                    const awayPlayers = Array.isArray(currentSelectedMatch.away_team_players) ? currentSelectedMatch.away_team_players : [];
+
+                    homePlayers.forEach(player => {
+                      if (player && player.id !== undefined && player.id !== null && player.name) { // Ensure player.name is also checked
+                        playerItems.push(
                           <SelectItem key={`home-${player.id}`} value={`${player.id}:home`}>
                             {player.name} ({currentSelectedMatch.home_team_name} - Home)
                           </SelectItem>
                         );
-                      });
-                    }
-                    if (Array.isArray(currentSelectedMatch.away_team_players)) {
-                      currentSelectedMatch.away_team_players.forEach(player => {
-                        players.push(
+                      }
+                    });
+
+                    awayPlayers.forEach(player => {
+                      if (player && player.id !== undefined && player.id !== null && player.name) { // Ensure player.name is also checked
+                        playerItems.push(
                           <SelectItem key={`away-${player.id}`} value={`${player.id}:away`}>
                             {player.name} ({currentSelectedMatch.away_team_name} - Away)
                           </SelectItem>
                         );
-                      });
+                      }
+                    });
+
+                    if (playerItems.length > 0) {
+                      return playerItems;
+                    } else {
+                      return <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No players found or player data is incomplete for this match.</div>;
                     }
-                    return players.length > 0 ? players : <SelectItem value="" disabled>No players found for this match</SelectItem>;
                   })()}
+                  {!selectedMatchIdForAssignment && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Please select a match first.</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -988,11 +1023,13 @@ const Admin: React.FC = () => {
                   <SelectValue placeholder="Select a tracker" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.filter(user => user.role === 'tracker').map((tracker) => (
-                    <SelectItem key={tracker.id} value={tracker.id}>
-                      {tracker.full_name || tracker.email}
-                    </SelectItem>
-                  ))}
+                  {users.filter(user => user.role === 'tracker').length > 0 ? 
+                    users.filter(user => user.role === 'tracker').map((tracker) => (
+                      <SelectItem key={tracker.id} value={tracker.id}>
+                        {tracker.full_name || tracker.email}
+                      </SelectItem>
+                    )) : <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No trackers available.</div>
+                  }
                 </SelectContent>
               </Select>
             </div>
@@ -1016,13 +1053,9 @@ const Admin: React.FC = () => {
           <CreateMatchForm 
             onSuccess={() => {
               setIsCreateMatchDialogOpen(false);
-              fetchData(); // Refreshes the matches list
-              // Optional: toast here, or rely on the one in CreateMatchForm
-              // toast.success('New match created and list updated!'); 
+              fetchData(); 
             }}
           />
-          {/* CreateMatchForm has its own submit button, so no explicit DialogFooter needed for submission */}
-          {/* A DialogClose might be desired if the form itself doesn't have a cancel, but onOpenChange handles this */}
         </DialogContent>
       </Dialog>
 
@@ -1043,11 +1076,11 @@ const Admin: React.FC = () => {
                 homeTeam: editingMatch.home_team_name,
                 awayTeam: editingMatch.away_team_name,
                 matchDate: editingMatch.match_date || '', 
-                status: editingMatch.status as any, // Cast if status enum mismatches, ensure alignment
-                description: editingMatch.description || editingMatch.name || '', // Prioritize description, fallback to name
+                status: editingMatch.status as any, 
+                description: editingMatch.description || editingMatch.name || '', 
               }}
               onSubmitOverride={handleUpdateMatch}
-              onSuccess={() => { // This specific onSuccess might not be strictly needed if onSubmitOverride handles all
+              onSuccess={() => { 
                 setIsEditMatchDialogOpen(false);
                 setEditingMatch(null);
                 fetchData();
@@ -1063,7 +1096,7 @@ const Admin: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Assign Event Type to User</DialogTitle>
             <DialogDescription>
-              Select a user and an event type to assign. This typically means the user will be responsible for tracking this type of event for their assigned player/team, or globally if not player-specific.
+              Select a user and an event type to assign.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1077,11 +1110,11 @@ const Admin: React.FC = () => {
                   <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
+                  {users.length > 0 ? users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || user.email} ({user.role})
                     </SelectItem>
-                  ))}
+                  )) : <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No users available.</div>}
                 </SelectContent>
               </Select>
             </div>
