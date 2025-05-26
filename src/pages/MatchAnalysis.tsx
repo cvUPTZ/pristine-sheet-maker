@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,8 +29,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useMatchState, BallPath } from '@/hooks/useMatchState'; // Import BallPath
-import { useMatchCollaboration } from '@/hooks/useMatchCollaboration'; // Import useMatchCollaboration
+import { useMatchState } from '@/hooks/useMatchState';
+import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import MatchSidebar from '@/components/match/MatchSidebar';
 import Pitch from '@/components/Pitch';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, EventType } from '@/types';
@@ -39,8 +40,8 @@ import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualiz
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
 import PianoInput from '@/components/match/PianoInput';
 import MatchTimer from '@/components/MatchTimer';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
-import { supabase } from '@/integrations/supabase/client'; // Import supabase
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 // Define a default statistics object to prevent undefined errors
 const defaultStatistics: Statistics = {
@@ -80,9 +81,10 @@ const defaultAwayTeam: Team = {
 };
 
 const MatchAnalysis: React.FC = () => {
-  const { matchId } = useParams<{ matchId: string }>(); // Ensure matchId is treated as potentially undefined if it can be
+  const { matchId } = useParams<{ matchId: string }>();
   const matchState = useMatchState();
   const { toast } = useToast();
+  const { user } = useAuth(); // Declare user here
 
   // Initialize useMatchCollaboration
   const { 
@@ -101,7 +103,7 @@ const MatchAnalysis: React.FC = () => {
   const [teamPositions, setTeamPositions] = useState(matchState.teamPositions);
   const [selectedPlayer, setSelectedPlayer] = useState(matchState.selectedPlayer);
   const [selectedTeam, setSelectedTeam] = useState(matchState.selectedTeam);
-  const [matchEvents, setMatchEvents] = useState(matchState.matchEvents);
+  const [matchEvents, setMatchEvents] = useState(matchState.events);
   const [statistics, setStatistics] = useState<Statistics>(matchState.statistics || defaultStatistics);
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(matchState.ballTrackingPoints || []);
   const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(matchState.timeSegments || []);
@@ -115,7 +117,6 @@ const MatchAnalysis: React.FC = () => {
   const [potentialPasser, setPotentialPasser] = useState(matchState.potentialPasser);
   const [ballPathHistory, setBallPathHistory] = useState(matchState.ballPathHistory || []);
 
-  const { user } = useAuth(); // Get user from AuthContext
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
   const [isLoadingAssignedEventTypes, setIsLoadingAssignedEventTypes] = useState(false);
   const [assignedEventTypesError, setAssignedEventTypesError] = useState<string | null>(null);
@@ -135,8 +136,8 @@ const MatchAnalysis: React.FC = () => {
           if (matchData.ballTrackingPoints) {
             matchState.setBallTrackingPoints(matchData.ballTrackingPoints);
           }
-          if (matchData.matchEvents) {
-            matchState.setMatchEvents(matchData.matchEvents);
+          if (matchData.events) {
+            matchState.processEventsForLocalState(matchData.events);
           }
           const loadedBallPathHistory = matchData.ballPathHistory || [];
           matchState.setBallPathHistory(loadedBallPathHistory);
@@ -146,7 +147,7 @@ const MatchAnalysis: React.FC = () => {
           setAwayTeam(matchData.awayTeam || defaultAwayTeam);
           setStatistics(safeStatistics);
           setElapsedTime(matchData.elapsedTime || 0);
-          setMatchEvents(matchData.matchEvents || []);
+          setMatchEvents(matchData.events || []);
           setTimeSegments(matchData.timeSegments || []);
           if (matchData.ballTrackingPoints) {
             setBallTrackingPoints(matchData.ballTrackingPoints);
@@ -193,7 +194,7 @@ const MatchAnalysis: React.FC = () => {
           setIsLoadingAssignedEventTypes(false);
         }
       } else {
-        setAssignedEventTypes([]); // Clear if no user
+        setAssignedEventTypes([]);
       }
     };
 
@@ -231,7 +232,7 @@ const MatchAnalysis: React.FC = () => {
     setTeamPositions(matchState.teamPositions);
     setSelectedPlayer(matchState.selectedPlayer);
     setSelectedTeam(matchState.selectedTeam);
-    setMatchEvents(matchState.matchEvents);
+    setMatchEvents(matchState.events);
     setStatistics(matchState.statistics || defaultStatistics);
     setBallTrackingPoints(matchState.ballTrackingPoints || []);
     setTimeSegments(matchState.timeSegments || []);
@@ -247,7 +248,7 @@ const MatchAnalysis: React.FC = () => {
   useEffect(() => {
     if (matchId && collaborativeEvents) {
       console.log("Received collaborative events:", collaborativeEvents);
-      const currentLocalEvents = matchState.matchEvents;
+      const currentLocalEvents = matchState.events;
       const homeTeamId = matchState.homeTeam?.id; 
       const awayTeamId = matchState.awayTeam?.id;
 
@@ -304,7 +305,7 @@ const MatchAnalysis: React.FC = () => {
     coordinates: { x: number; y: number }
   ) => {
     if (matchId && collaborativeRecordEventFn) {
-      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates, collaborativeRecordEventFn, matchId);
+      matchState.recordEvent(eventType, playerId, teamIdStr, coordinates);
     } else {
       matchState.recordEvent(eventType, playerId, teamIdStr, coordinates);
     }
@@ -319,7 +320,7 @@ const MatchAnalysis: React.FC = () => {
     receiverCoords: {x: number, y: number}
   ) => {
     if (matchId && collaborativeRecordEventFn) {
-      matchState.recordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords, collaborativeRecordEventFn, matchId);
+      matchState.recordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
     } else {
       matchState.recordPass(passer, receiver, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
     }
@@ -729,8 +730,6 @@ const MatchAnalysis: React.FC = () => {
           <div className="lg:col-span-1">
             <MatchSidebar 
               isRunning={isRunning}
-              elapsedTime={elapsedTime}
-              setElapsedTime={updateElapsedTime}
               mode={mode}
               selectedPlayer={selectedPlayer}
               handleActionSelect={handleActionSelect}
