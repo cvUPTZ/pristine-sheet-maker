@@ -807,7 +807,6 @@ export const useMatchState = (): MatchState & MatchActions => {
     });
   }, []);
 
-
   const calculateTimeSegments = useCallback((): TimeSegmentStatistics[] => {
     // Basic implementation - can be expanded
     console.log("Calculating time segments (basic)...");
@@ -817,16 +816,28 @@ export const useMatchState = (): MatchState & MatchActions => {
     // This is a placeholder. A real implementation would involve more complex logic.
     const segments: TimeSegmentStatistics[] = [];
     // Example: create one segment for the whole match for now
-    const duration = state.elapsedTime; // Or derive from ballTrackingPoints timestamps
-    if (duration > 0) {
-      segments.push({
-        startTime: 0,
-        endTime: duration,
-        homePossession: state.statistics.possession.home,
-        awayPossession: state.statistics.possession.away,
-        // ... other aggregated stats for the segment
-      });
-    }
+    const currentTime = state.elapsedTime; // Or derive from ballTrackingPoints timestamps
+    const newSegment: TimeSegmentStatistics = {
+      id: `segment-${Date.now()}`,
+      timeSegment: `${Math.floor(currentTime / 60000)}:${Math.floor((currentTime % 60000) / 1000).toString().padStart(2, '0')}`,
+      possession: { home: 50, away: 50 },
+      ballsPlayed: { home: 0, away: 0 },
+      ballsGiven: { home: 0, away: 0 },
+      ballsRecovered: { home: 0, away: 0 },
+      recoveryTime: { home: 0, away: 0 },
+      contacts: { home: 0, away: 0 },
+      cumulativePossession: { home: 50, away: 50 },
+      cumulativeBallsPlayed: { home: 0, away: 0 },
+      cumulativeBallsGiven: { home: 0, away: 0 },
+      cumulativeBallsRecovered: { home: 0, away: 0 },
+      cumulativeRecoveryTime: { home: 0, away: 0 },
+      cumulativeContacts: { home: 0, away: 0 },
+      possessionDifference: { home: 0, away: 0 },
+      ballsPlayedDifference: { home: 0, away: 0 },
+      ballsGivenDifference: { home: 0, away: 0 },
+      ballsRecoveredDifference: { home: 0, away: 0 }
+    };
+    segments.push(newSegment);
     return segments;
   }, [state.ballTrackingPoints, state.homeTeam, state.awayTeam, state.elapsedTime, state.statistics.possession]);
 
@@ -846,12 +857,23 @@ export const useMatchState = (): MatchState & MatchActions => {
       
       playerStats.push({
         playerId: player.id,
-        name: player.name,
+        playerName: player.name,
         teamId: player.teamId || (state.homeTeam?.players.some(p => p.id === player.id) ? state.homeTeam.id : state.awayTeam?.id),
-        passes,
-        shots,
-        goals,
-        // ... other stats
+        team: player.team || (state.homeTeam?.players.some(p => p.id === player.id) ? state.homeTeam.name : state.awayTeam?.name),
+        player: player,
+        ballsPlayed: 0,
+        ballsLost: 0,
+        ballsRecovered: 0,
+        passesCompleted: 0,
+        passesAttempted: 0,
+        possessionTime: 0,
+        contacts: 0,
+        lossRatio: 0,
+        goals: 0,
+        assists: 0,
+        passes: 0,
+        shots: 0,
+        fouls: 0
       });
     });
     return playerStats;
