@@ -13,7 +13,7 @@ const MatchRecording = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-  
+
   const {
     homeTeam,
     awayTeam,
@@ -41,14 +41,14 @@ const MatchRecording = () => {
     toggleBallTrackingMode,
     addBallTrackingPoint,
     trackBallMovement,
-    saveMatch,
+    saveMatch, // This exists in useMatchState as used here
     recordEvent,
     setStatistics,
     teamPositions,
     isPassTrackingModeActive,
     togglePassTrackingMode
   } = useMatchState();
-  
+
   // Get player positions based on formations but handle null teams
   const homeTeamPositions = homeTeam ? getPlayerPositions(homeTeam, true) : {};
   const awayTeamPositions = awayTeam ? getPlayerPositions(awayTeam, false) : {};
@@ -94,7 +94,7 @@ const MatchRecording = () => {
   };
 
   const handleSave = () => {
-    const matchId = saveMatch();
+    const matchId = saveMatch(); // saveMatch is used here
     toast({
       title: "Match Saved",
       description: `Match data stored successfully`,
@@ -107,18 +107,18 @@ const MatchRecording = () => {
     setMode(ballTrackingMode ? 'piano' : 'tracking');
     toast({
       title: ballTrackingMode ? "Piano Mode Activated" : "Ball Tracking Mode Activated",
-      description: ballTrackingMode 
-        ? "Click on players to record actions" 
+      description: ballTrackingMode
+        ? "Click on players to record actions"
         : "Click on the pitch to track ball movement",
     });
   };
-  
+
   const handleRecordEvent = (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
     recordEvent(eventType, playerId, teamId, coordinates);
-    
+
     const team = teamId === 'home' ? homeTeam : awayTeam;
     const player = team?.players.find(p => p.id === playerId);
-    
+
     toast({
       title: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} Recorded`,
       description: `By ${player?.name || 'Unknown Player'} (${teamId === 'home' ? homeTeam?.name || 'Home Team' : awayTeam?.name || 'Away Team'})`,
@@ -137,11 +137,11 @@ const MatchRecording = () => {
 
   if (!setupComplete) {
     return (
-      <SetupScreen 
+      <SetupScreen
         homeTeam={homeTeam}
         awayTeam={awayTeam}
-        updateTeams={handleUpdateTeams}
-        completeSetup={handleCompleteSetup}
+        updateTeams={handleUpdateTeams} // This expects (teams: { home: Team; away: Team; }) => void
+        completeSetup={handleCompleteSetup} // This expects () => void
       />
     );
   }
@@ -159,7 +159,7 @@ const MatchRecording = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
       <div className="max-w-6xl mx-auto">
-        <MatchHeader 
+        <MatchHeader
           mode={mode}
           setMode={setMode}
           homeTeam={{
@@ -173,10 +173,10 @@ const MatchRecording = () => {
           handleToggleTracking={handleToggleTracking}
           handleSave={handleSave}
         />
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <MainTabContent 
+            <MainTabContent
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               homeTeam={homeTeam}
@@ -199,9 +199,9 @@ const MatchRecording = () => {
               recordEvent={handleRecordEvent}
             />
           </div>
-          
+
           <div className="hidden lg:block">
-            <MatchSidebar 
+            <MatchSidebar
               isRunning={isRunning}
               elapsedTime={elapsedTime}
               setElapsedTime={setElapsedTime}
@@ -223,12 +223,13 @@ const MatchRecording = () => {
               statistics={statistics}
               isPassTrackingModeActive={isPassTrackingModeActive}
               togglePassTrackingMode={togglePassTrackingMode}
+              // toggleBallTrackingMode is NOT a prop of MatchSidebar here, consistent with MatchAnalysis fix
             />
           </div>
-          
+
           {/* Mobile sidebar that appears at the bottom */}
           <div className="lg:hidden mt-4">
-            <MatchSidebar 
+            <MatchSidebar
               isRunning={isRunning}
               elapsedTime={elapsedTime}
               setElapsedTime={setElapsedTime}
