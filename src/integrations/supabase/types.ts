@@ -199,6 +199,7 @@ export type Database = {
           away_team_formation: string | null
           away_team_name: string
           away_team_players: Json | null
+          ball_tracking_data: Json | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -207,14 +208,19 @@ export type Database = {
           home_team_players: Json | null
           id: string
           match_date: string | null
+          match_statistics: Json | null
           name: string | null
           status: string
+          timer_current_value: number | null
+          timer_last_started_at: string | null
+          timer_status: string | null
           updated_at: string | null
         }
         Insert: {
           away_team_formation?: string | null
           away_team_name: string
           away_team_players?: Json | null
+          ball_tracking_data?: Json | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -223,14 +229,19 @@ export type Database = {
           home_team_players?: Json | null
           id?: string
           match_date?: string | null
+          match_statistics?: Json | null
           name?: string | null
           status?: string
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string | null
         }
         Update: {
           away_team_formation?: string | null
           away_team_name?: string
           away_team_players?: Json | null
+          ball_tracking_data?: Json | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -239,9 +250,46 @@ export type Database = {
           home_team_players?: Json | null
           id?: string
           match_date?: string | null
+          match_statistics?: Json | null
           name?: string | null
           status?: string
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          match_id: string | null
+          message: string
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          match_id?: string | null
+          message: string
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          match_id?: string | null
+          message?: string
+          title?: string
+          type?: string | null
+          user_id?: string
         }
         Relationships: []
       }

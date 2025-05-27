@@ -1,34 +1,36 @@
-
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import PitchView from '@/components/match/PitchView';
+import PianoInput from '@/components/match/PianoInput';
+import StatisticsDisplay from '@/components/match/StatisticsDisplay';
+import DetailedStatsTable from '@/components/match/DetailedStatsTable';
+import TimeSegmentChart from '@/components/match/TimeSegmentChart';
+import VideoAnalyzer from '@/components/match/VideoAnalyzer';
+import DedicatedTrackerUI, { AssignedPlayerForMatch } from '@/components/match/DedicatedTrackerUI';
+import MatchRadarChart from '@/components/match/MatchRadarChart';
+import PlayerHeatmap from '@/components/match/PlayerHeatmap';
+import {
+  BarChart3,
+  Flag,
+  TableIcon,
+  Piano,
+  Clock,
+  Video,
+  Zap,
+  Activity as ActivityIcon,
+  MapPin as MapPinIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Piano, Zap } from 'lucide-react'; // Added Zap for Fast Track
-import PitchView from './PitchView';
-import StatisticsDisplay from '@/components/StatisticsDisplay';
-import DetailedStatsTable from '@/components/DetailedStatsTable';
-import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics, Team } from '@/types'; // Fixed: removed trailing underscore
-import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
-import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
-import PianoInput from './PianoInput';
-import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
-import VideoAnalyzer from '@/components/VideoAnalyzer';
-import DedicatedTrackerUI, { AssignedPlayerForMatch } from './DedicatedTrackerUI'; // Import DedicatedTrackerUI
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Team, Player, BallTrackingPoint, Statistics, PlayerStatistics, TimeSegmentStatistics, EventType } from '@/types';
 
 // Rename Player from types to avoid conflict with React.Player
 type PlayerType = Player;
 
-// Define default statistics to prevent undefined errors
 const defaultStatistics: Statistics = {
   possession: { home: 50, away: 50 },
-  shots: { 
-    home: { onTarget: 0, offTarget: 0, total: 0 }, 
-    away: { onTarget: 0, offTarget: 0, total: 0 } 
-  },
-  passes: { 
-    home: { successful: 0, attempted: 0, total: 0 }, 
-    away: { successful: 0, attempted: 0, total: 0 } 
-  },
+  shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
+  passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
   ballsPlayed: { home: 0, away: 0 },
   ballsLost: { home: 0, away: 0 },
   duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
@@ -37,7 +39,7 @@ const defaultStatistics: Statistics = {
   dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
   corners: { home: 0, away: 0 },
   offsides: { home: 0, away: 0 },
-  freeKicks: { home: 0, away: 0 }
+  freeKicks: { home: 0, away: 0 },
 };
 
 interface MainTabContentProps {
@@ -351,22 +353,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                             </ul>
                           </div>
                         </>}
-
-                      {/* Tactical suggestions */}
-                      <div className="mt-4 p-3 bg-blue-50 rounded-md">
-                        <h4 className="font-medium">Tactical Adjustments</h4>
-                        <ul className="text-sm list-disc pl-5 mt-1">
-                          <li>
-                            {safeStats.possession.home > safeStats.possession.away ? "Consider more direct attacks when possession is established" : "Focus on winning second balls and transitions"}
-                          </li>
-                          <li>
-                            {safeStats.passes.home.successful > safeStats.passes.away.successful ? "Use width more effectively to stretch defense" : "Tighten passing lanes and improve ball retention"}
-                          </li>
-                          <li>
-                            {safeStats.duels.home.won > safeStats.duels.away.won ? "Encourage more 1v1 situations to exploit physical advantage" : "Focus on group defending and avoid isolated duels"}
-                          </li>
-                        </ul>
-                      </div>
                     </div>
                   </Card>
                 </div>
@@ -374,98 +360,99 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             </Tabs>
           </div>
         )}
-        
+
         {activeTab === 'details' && (
-          <Card className="p-4 bg-white shadow-md">
-            <div className="flex justify-start mb-4 gap-2">
-              <Button variant={tableView === 'individual' ? 'default' : 'outline'} size="sm" onClick={() => setTableView('individual')}>
-                Individual Stats
-              </Button>
-              <Button variant={tableView === 'team' ? 'default' : 'outline'} size="sm" onClick={() => setTableView('team')}>
-                Team Stats
-              </Button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <DetailedStatsTable playerStats={playerStats} type={tableView} teamId={tableView === 'team' ? selectedTeam : undefined} />
-            </div>
-          </Card>
+          <div className="mb-4">
+            <Tabs value={tableView} onValueChange={(value: any) => setTableView(value)}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="individual">Individual Stats</TabsTrigger>
+                <TabsTrigger value="team">Team Comparison</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="individual">
+                <DetailedStatsTable 
+                  playerStats={playerStats} 
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              </TabsContent>
+              
+              <TabsContent value="team">
+                <Card className="p-4 bg-white shadow-md">
+                  <StatisticsDisplay 
+                    statistics={safeStats} 
+                    homeTeamName={homeTeam?.name || 'Home'} 
+                    awayTeamName={awayTeam?.name || 'Away'} 
+                  />
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
-        
+
         {activeTab === 'piano' && (
-          <Card className="p-4 bg-white shadow-md">
-            <PianoInput 
-              homeTeam={homeTeam} 
-              awayTeam={awayTeam} 
-              onRecordEvent={recordEvent} 
-              teamPositions={teamPositions} 
-              selectedTeam={selectedTeam} 
-              setSelectedTeam={setSelectedTeam} 
-              compact={false} 
-            />
-          </Card>
+          <PianoInput 
+            homeTeam={homeTeam} 
+            awayTeam={awayTeam} 
+            onRecordEvent={recordEvent} 
+            teamPositions={teamPositions} 
+            selectedTeam={selectedTeam} 
+            setSelectedTeam={setSelectedTeam} 
+            compact={false} 
+          />
         )}
-        
+
         {activeTab === 'timeline' && (
-          <Card className="p-4 bg-white shadow-md">
-            <div className="flex justify-start mb-4 gap-2 overflow-x-auto">
-              <Button variant={timelineView === 'ballsPlayed' ? 'default' : 'outline'} size="sm" onClick={() => setTimelineView('ballsPlayed')}>
-                Balls Played
-              </Button>
-              <Button variant={timelineView === 'possession' ? 'default' : 'outline'} size="sm" onClick={() => setTimelineView('possession')}>
-                Possession
-              </Button>
-              <Button variant={timelineView === 'recoveryTime' ? 'default' : 'outline'} size="sm" onClick={() => setTimelineView('recoveryTime')}>
-                Recovery Time
-              </Button>
-            </div>
-            
-            {timeSegments && timeSegments.length > 0 ? (
-              <TimeSegmentChart 
-                timeSegments={timeSegments} 
-                homeTeamName={homeTeam?.name || 'Home'} 
-                awayTeamName={awayTeam?.name || 'Away'} 
-                dataKey={timelineView} 
-                title={`${timelineView.charAt(0).toUpperCase() + timelineView.slice(1).replace(/([A-Z])/g, ' $1')} by Time Segment`} 
-                description="Analysis of match progression in 5-minute intervals" 
-              />
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No timeline data available
-              </div>
-            )}
-          </Card>
+          <div className="mb-4">
+            <Tabs value={timelineView} onValueChange={(value: any) => setTimelineView(value)}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="ballsPlayed">Balls Played</TabsTrigger>
+                <TabsTrigger value="possession">Possession</TabsTrigger>
+                <TabsTrigger value="recoveryTime">Recovery Time</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="ballsPlayed">
+                <TimeSegmentChart 
+                  timeSegments={timeSegments} 
+                  homeTeam={homeTeam} 
+                  awayTeam={awayTeam} 
+                  metric="ballsPlayed" 
+                />
+              </TabsContent>
+              
+              <TabsContent value="possession">
+                <TimeSegmentChart 
+                  timeSegments={timeSegments} 
+                  homeTeam={homeTeam} 
+                  awayTeam={awayTeam} 
+                  metric="possession" 
+                />
+              </TabsContent>
+              
+              <TabsContent value="recoveryTime">
+                <TimeSegmentChart 
+                  timeSegments={timeSegments} 
+                  homeTeam={homeTeam} 
+                  awayTeam={awayTeam} 
+                  metric="recoveryTime" 
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {activeTab === 'video' && (
+          <VideoAnalyzer onAnalysisComplete={handleVideoAnalysisComplete} />
         )}
 
         {activeTab === 'fast-track' && userRole === 'tracker' && assignedPlayerForMatch && (
-          <DedicatedTrackerUI
-            assignedPlayerForMatch={assignedPlayerForMatch}
+          <DedicatedTrackerUI 
+            assignedPlayer={assignedPlayerForMatch}
             assignedEventTypes={assignedEventTypes}
-            recordEvent={recordEvent}
             matchId={matchId}
+            recordEvent={recordEvent}
           />
         )}
-        
-        {activeTab === 'video' && (
-          <div className="grid grid-cols-1 gap-4">
-            <VideoAnalyzer onAnalysisComplete={handleVideoAnalysisComplete} />
-            {statistics && (
-              <Card className="p-4">
-                <h3 className="text-lg font-semibold mb-4">Video Analysis Results</h3>
-                <StatisticsDisplay statistics={statistics} homeTeamName={homeTeam?.name || 'Home'} awayTeamName={awayTeam?.name || 'Away'} />
-              </Card>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
-        <Button variant="outline" onClick={handleUndo}>
-          Undo Last Action
-        </Button>
-        <Button variant="outline" onClick={handleSave}>
-          Save Match Data
-        </Button>
       </div>
     </div>;
 };

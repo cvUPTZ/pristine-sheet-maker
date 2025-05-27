@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -56,13 +55,9 @@ const MatchAnalysis: React.FC = () => {
     completeSetup,
     toggleBallTrackingMode,
     addBallTrackingPoint,
-    // saveMatch, // Renamed to generateMatchId
-    // generatePlayerStatistics, // Removed, use playerStats directly
-    // generateTimeSegmentStatistics, // Removed, use timeSegments directly
-    generateMatchId, // Renamed from saveMatch
+    generateMatchId,
     setTeamPositions,
-    setBallTrackingPoints, // Added for loading data
-    // Pass tracking UI states to be sourced from useMatchState
+    setBallTrackingPoints,
     isPassTrackingModeActive,
     potentialPasser,
     ballPathHistory,
@@ -74,10 +69,6 @@ const MatchAnalysis: React.FC = () => {
     isConnected,
     participants,
     recordEvent: collaborativeRecordEvent,
-    // isPassTrackingModeActive, // Removed, will use from useMatchState
-    // potentialPasser, // Removed, will use from useMatchState
-    // ballPathHistory, // Removed, will use from useMatchState
-    // togglePassTrackingMode, // Removed, will use from useMatchState
   } = useMatchCollaboration({
     matchId: matchId || '',
     userId: user?.id || '',
@@ -115,8 +106,12 @@ const MatchAnalysis: React.FC = () => {
         setMatch(matchData);
 
         // Convert match data to Team objects with proper type checking
-        const homeTeamPlayers = Array.isArray(matchData.home_team_players) ? matchData.home_team_players as Player[] : [];
-        const awayTeamPlayers = Array.isArray(matchData.away_team_players) ? matchData.away_team_players as Player[] : [];
+        const homeTeamPlayers = Array.isArray(matchData.home_team_players) 
+          ? (matchData.home_team_players as unknown as Player[]) 
+          : [];
+        const awayTeamPlayers = Array.isArray(matchData.away_team_players) 
+          ? (matchData.away_team_players as unknown as Player[]) 
+          : [];
 
         const homeTeamData: Team = {
           id: 'home',
@@ -151,17 +146,17 @@ const MatchAnalysis: React.FC = () => {
           offsides: { home: 0, away: 0 },
           freeKicks: { home: 0, away: 0 },
         };
-        console.log('Match statistics from DB:', matchData.match_statistics);
+        console.log('Match statistics from DB:', (matchData as any).match_statistics);
         console.log('Initial stats for fallback:', initialStats);
-        setStatistics(matchData.match_statistics || initialStats);
-        console.log('Ball tracking data from DB:', matchData.ball_tracking_data);
-        setBallTrackingPoints(matchData.ball_tracking_data || []);
-        console.log('Timer current value from DB:', matchData.timer_current_value);
-        setCurrentTimerValue(matchData.timer_current_value || 0);
-        console.log('Timer status from DB:', matchData.timer_status);
-        setTimerStatus(matchData.timer_status || 'stopped');
-        console.log('Timer last started at from DB:', matchData.timer_last_started_at);
-        setTimerLastStartedAt(matchData.timer_last_started_at || null);
+        setStatistics((matchData as any).match_statistics || initialStats);
+        console.log('Ball tracking data from DB:', (matchData as any).ball_tracking_data);
+        setBallTrackingPoints((matchData as any).ball_tracking_data || []);
+        console.log('Timer current value from DB:', (matchData as any).timer_current_value);
+        setCurrentTimerValue((matchData as any).timer_current_value || 0);
+        console.log('Timer status from DB:', (matchData as any).timer_status);
+        setTimerStatus((matchData as any).timer_status || 'stopped');
+        console.log('Timer last started at from DB:', (matchData as any).timer_last_started_at);
+        setTimerLastStartedAt((matchData as any).timer_last_started_at || null);
 
         // If teams are set up, mark setup as complete
         console.log('Condition for completeSetup (homeTeamData.players.length > 0 && awayTeamData.players.length > 0):', homeTeamData.players.length > 0 && awayTeamData.players.length > 0);
@@ -347,7 +342,7 @@ const MatchAnalysis: React.FC = () => {
 
   const handleSave = async () => {
     if (!matchId) {
-      const newMatchId = generateMatchId(); // Updated from saveMatch
+      const newMatchId = generateMatchId();
       navigate(`/match/${newMatchId}`);
       return;
     }
@@ -510,16 +505,15 @@ const MatchAnalysis: React.FC = () => {
               addBallTrackingPoint={addBallTrackingPoint}
               statistics={statistics}
               setStatistics={setStatistics}
-              playerStats={playerStats} // Use memoized playerStats
+              playerStats={playerStats}
               handleUndo={undoLastEvent}
               handleSave={handleSave}
-              timeSegments={timeSegments} // Use memoized timeSegments
+              timeSegments={timeSegments}
               recordEvent={handleRecordEvent}
-              // Props for DedicatedTrackerUI
               assignedPlayerForMatch={assignedPlayerForMatchProp}
-              assignedEventTypes={assignedEventTypes || null} // Pass null if undefined
-              userRole={userRole || null} // Pass null if undefined
-              matchId={matchId || ''} // Pass matchId, ensure it's a string
+              assignedEventTypes={assignedEventTypes || null}
+              userRole={userRole || null}
+              matchId={matchId || ''}
             />
           </div>
         </div>

@@ -55,7 +55,7 @@ const CreateMatchForm: React.FC = () => {
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
   const [homeTeamPlayers, setHomeTeamPlayers] = useState<any[]>([]);
   const [awayTeamPlayers, setAwayTeamPlayers] = useState<any[]>([]);
-  const { toast } = useToast();
+  const { toast: showToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -172,7 +172,7 @@ const CreateMatchForm: React.FC = () => {
 
       if (error) {
         console.error('Error creating match:', error);
-        toast({
+        showToast({
           variant: 'destructive',
           title: 'Error creating match',
           description: error.message,
@@ -181,7 +181,7 @@ const CreateMatchForm: React.FC = () => {
         // Send notifications to selected trackers
         await sendNotificationToTrackers(data.id, matchName);
         
-        toast({
+        showToast({
           title: 'Success',
           description: 'Match created successfully!',
         });
@@ -190,7 +190,7 @@ const CreateMatchForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error creating match:', error);
-      toast({
+      showToast({
         variant: 'destructive',
         title: 'Error creating match',
         description: error.message,
