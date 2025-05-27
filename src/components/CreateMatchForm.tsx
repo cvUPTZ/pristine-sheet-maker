@@ -93,40 +93,34 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-  // fetchTrackers function with the corrected Supabase select query
   const fetchTrackers = useCallback(async () => {
     try {
-      // Corrected select syntax:
-      // - 'id' and 'full_name' are from 'profiles'.
-      // - 'user_email_data:id(email)' means:
-      //   - Use the 'id' column of the 'profiles' table (which is an FK to auth.users.id).
-      //   - From the related 'auth.users' record, fetch the 'email' column.
-      //   - Make this resulting object { email: '...' } available under the alias 'user_email_data'.
+      // Corrected select syntax for PGRST201 error:
+      // Explicitly name 'auth_users' as the target table for the relationship
+      // involving 'profiles.id' to resolve ambiguity.
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, user_email_data:id(email)') // THIS IS THE CORRECTED SYNTAX
+        .select('id, full_name, user_email_data:auth_users(email)') // CORRECTED SYNTAX for PGRST201
         .eq('role', 'tracker');
 
       if (error) {
-        // The error message you provided (PGRST100 for "...user_auth_email_data:auth.users(email)...")
-        // indicates that an older version of this select string was causing the issue.
-        // This new string should resolve that specific PGRST100 error.
-        console.error('Error fetching trackers:', error);
+        console.error('Error fetching trackers:', error); // This is your line 405
         sonnerToast.error('Failed to fetch trackers: ' + error.message);
 
-        if (error.code === 'PGRST100') {
-            sonnerToast.info("Hint (PGRST100): This indicates a parsing error in the 'select' query. Ensure the syntax for fetching related data is correct, especially if foreign key relationships are involved. The current syntax `user_email_data:id(email)` should be correct if `profiles.id` correctly references `auth.users.id`.");
-        } else if (error.code === '42703') { // PostgreSQL: column does not exist
-            sonnerToast.info("Hint (42703): A column specified in the query does not exist. Double-check column names and table aliases.");
-        } else if (error.code === 'PGRST200') { // PostgREST: schema cache issue
-             sonnerToast.info("Hint (PGRST200): This could indicate a schema cache issue or a problem with PostgREST finding relationships. Try reloading the schema in Supabase (Project Settings > API > Reload Schema) or check foreign key definitions.");
+        if (error.code === 'PGRST201') { // Ambiguous relationship
+            sonnerToast.info("Hint (PGRST201): Ambiguous relationship. The query needs to specify which related table to use. This has been addressed by targeting 'auth_users'. If error persists, verify FK 'profiles_id_fkey' correctly links profiles.id to auth_users.id.");
+        } else if (error.code === 'PGRST100') { // Parse error in select
+            sonnerToast.info("Hint (PGRST100): Parsing error in 'select'. Check syntax for related data.");
+        } else if (error.code === '42703') { // Column does not exist
+            sonnerToast.info("Hint (42703): Column does not exist. Check names and aliases.");
+        } else if (error.code === 'PGRST200') { // Schema cache/relationship finding issue
+             sonnerToast.info("Hint (PGRST200): Schema cache or relationship finding issue. Try reloading schema or check FKs.");
         }
         setTrackers([]);
       } else {
         const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
           id: profile.id,
           full_name: profile.full_name,
-          // Access the email from the aliased nested object
           email: profile.user_email_data?.email || 'No email provided'
         }));
         setTrackers(fetchedTrackers);
@@ -136,7 +130,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
       setTrackers([]);
     }
-  }, []); // supabase is stable, empty dependency array is fine.
+  }, []);
 
   useEffect(() => {
     const initializeTeam = (
@@ -396,7 +390,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
             <Card>
               <CardHeader>
                 <CardTitle>Home Team</CardTitle>
-              </CardHeader>
+              </Header>
               <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
