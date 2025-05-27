@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Match, Player, Statistics } from '@/types';
+import { Match, Player, Statistics, BallTrackingPoint } from '@/types';
 import { ArrowLeft, Plus } from 'lucide-react';
 
 const Matches: React.FC = () => {
@@ -47,11 +47,11 @@ const Matches: React.FC = () => {
         away_team_players: Array.isArray(match.away_team_players) 
           ? (match.away_team_players as unknown as Player[])
           : [],
-        match_statistics: match.match_statistics && typeof match.match_statistics === 'object'
+        match_statistics: match.match_statistics && typeof match.match_statistics === 'object' && !Array.isArray(match.match_statistics)
           ? (match.match_statistics as unknown as Statistics)
           : undefined,
         ball_tracking_data: Array.isArray(match.ball_tracking_data) 
-          ? match.ball_tracking_data 
+          ? (match.ball_tracking_data as unknown as BallTrackingPoint[])
           : [],
         status: (match.status as "published" | "draft" | "live" | "completed" | "archived") || "draft"
       }));

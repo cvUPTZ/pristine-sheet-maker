@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -147,7 +148,7 @@ const MatchAnalysis: React.FC = () => {
         };
         
         // Safe type conversion for statistics
-        if (matchData.match_statistics && typeof matchData.match_statistics === 'object') {
+        if (matchData.match_statistics && typeof matchData.match_statistics === 'object' && !Array.isArray(matchData.match_statistics)) {
           setStatistics(matchData.match_statistics as Statistics);
         } else {
           setStatistics(initialStats);
@@ -155,7 +156,7 @@ const MatchAnalysis: React.FC = () => {
         
         // Safe type conversion for ball tracking data
         if (matchData.ball_tracking_data && Array.isArray(matchData.ball_tracking_data)) {
-          setBallTrackingPoints(matchData.ball_tracking_data as BallTrackingPoint[]);
+          setBallTrackingPoints(matchData.ball_tracking_data as unknown as BallTrackingPoint[]);
         } else {
           setBallTrackingPoints([]);
         }
@@ -205,7 +206,7 @@ const MatchAnalysis: React.FC = () => {
             .select('player_id, player_team_id')
             .eq('match_id', matchId)
             .eq('tracker_user_id', user.id)
-            .single();
+            .maybeSingle();
 
           if (error) {
             console.error('Error fetching player assignment:', error.message);
@@ -484,15 +485,12 @@ const MatchAnalysis: React.FC = () => {
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
+            handleActionSelect={() => {}}
             ballTrackingPoints={ballTrackingPoints}
+            trackBallMovement={handlePitchClick}
             statistics={statistics}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            teamPositions={teamPositions}
-            setTeamPositions={setTeamPositions}
+            isRunning={timerStatus === 'running'}
             isPassTrackingModeActive={isPassTrackingModeActive}
-            potentialPasser={potentialPasser}
-            ballPathHistory={ballPathHistory}
             togglePassTrackingMode={togglePassTrackingMode}
           />
         </div>

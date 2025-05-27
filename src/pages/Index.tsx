@@ -97,13 +97,12 @@ const Index: React.FC = () => {
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
+            handleActionSelect={() => {}}
             ballTrackingPoints={ballTrackingPoints}
+            trackBallMovement={handlePitchClick}
             statistics={statistics}
-            teamPositions={teamPositions}
-            setTeamPositions={setTeamPositions}
+            isRunning={false}
             isPassTrackingModeActive={isPassTrackingModeActive}
-            potentialPasser={potentialPasser}
-            ballPathHistory={ballPathHistory}
             togglePassTrackingMode={togglePassTrackingMode}
           />
         </div>

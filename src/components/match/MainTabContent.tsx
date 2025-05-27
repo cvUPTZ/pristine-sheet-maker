@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import PitchView from '@/components/match/PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
@@ -415,6 +416,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
+                  dataKey="ballsPlayed"
+                  title="Balls Played Over Time"
+                  description="Number of balls played by each team across 5-minute segments"
                 />
               </TabsContent>
               
@@ -423,6 +427,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
+                  dataKey="possession"
+                  title="Possession Over Time"
+                  description="Ball possession percentage by each team across 5-minute segments"
                 />
               </TabsContent>
               
@@ -431,6 +438,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
+                  dataKey="recoveryTime"
+                  title="Recovery Time Over Time"
+                  description="Average time to recover possession across 5-minute segments"
                 />
               </TabsContent>
             </Tabs>
