@@ -45,8 +45,6 @@ const initialMatchState: MatchState = {
 export const useMatchState = () => {
   const [events, setEvents] = useState<MatchEvent[]>(initialMatchState.events);
   const [statistics, setStatistics] = useState<Statistics>(initialMatchState.statistics);
-  // const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(initialMatchState.timeSegments); // Will be replaced by useMemo
-  // const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>(initialMatchState.playerStats); // Will be replaced by useMemo
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(initialMatchState.ballTrackingPoints);
   const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '4-4-2' });
@@ -203,7 +201,12 @@ export const useMatchState = () => {
     setIsPassTrackingModeActive(!isPassTrackingModeActive);
   };
 
-  const calculatePossession = () => {
+  const calculatePossession = useCallback(() => {
+    // Add null checks to prevent runtime errors
+    if (!homeTeam?.id || !awayTeam?.id) {
+      return;
+    }
+
     const homeEvents = events.filter((event) => event.teamId === homeTeam.id);
     const awayEvents = events.filter((event) => event.teamId === awayTeam.id);
 
@@ -218,11 +221,14 @@ export const useMatchState = () => {
         away: awayPossession,
       },
     }));
-  };
+  }, [events, homeTeam?.id, awayTeam?.id]);
 
   useEffect(() => {
-    calculatePossession();
-  }, [events, homeTeam.id, awayTeam.id]);
+    // Only calculate possession if both teams are properly initialized
+    if (homeTeam?.id && awayTeam?.id) {
+      calculatePossession();
+    }
+  }, [calculatePossession]);
 
   const timeSegments = useMemo(() => {
     const segmentLength = 5; // minutes
@@ -242,8 +248,8 @@ export const useMatchState = () => {
         away: 50, // Simplified for now, needs calculation based on events in this segment
       },
       ballsPlayed: { // Example: calculation for balls played in this segment
-        home: events.filter(e => e.teamId === homeTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
-        away: events.filter(e => e.teamId === awayTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
+        home: homeTeam?.id ? events.filter(e => e.teamId === homeTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length : 0,
+        away: awayTeam?.id ? events.filter(e => e.teamId === awayTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length : 0,
       },
       ballsGiven: {
         home: 0, // Needs calculation
@@ -273,91 +279,11 @@ export const useMatchState = () => {
       ballsGivenDifference: { home: 0, away: 0, },
       ballsRecoveredDifference: { home: 0, away: 0, },
     }));
-  }, [events, homeTeam.id, awayTeam.id]);
-
-  // const generateTimeSegmentStatistics = (): TimeSegmentStatistics[] => { // Inlined into timeSegments useMemo
-  //   const segmentLength = 5; // minutes
-  //   const matchDuration = 90; // minutes
-  //   const numberOfSegments = matchDuration / segmentLength;
-  // 
-  //   const segments = Array.from({ length: numberOfSegments }, (_, i) => ({
-  //     start: i * segmentLength,
-  //     end: (i + 1) * segmentLength,
-  //   }));
-  // 
-  //   return segments.map((segment, index) => ({
-  //     id: `segment-${index}`,
-  //     timeSegment: `${segment.start}-${segment.end}min`,
-  //     possession: {
-  //       home: 50,
-  //       away: 50,
-  //     },
-  //     ballsPlayed: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsGiven: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsRecovered: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     recoveryTime: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     contacts: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativePossession: {
-  //       home: 50,
-  //       away: 50,
-  //     },
-  //     cumulativeBallsPlayed: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeBallsGiven: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeBallsRecovered: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeRecoveryTime: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeContacts: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     possessionDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsPlayedDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsGivenDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsRecoveredDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //   }));
-  // };
+  }, [events, homeTeam?.id, awayTeam?.id]);
 
   const playerStats = useMemo(() => {
     const playerStats: PlayerStatistics[] = [];
-    const allPlayers: Player[] = [...homeTeam.players, ...awayTeam.players];
+    const allPlayers: Player[] = [...(homeTeam?.players || []), ...(awayTeam?.players || [])];
 
     allPlayers.forEach(player => {
       const playerEvents = events.filter(event => event.playerId === player.id);
@@ -377,8 +303,8 @@ export const useMatchState = () => {
       playerStats.push({
         playerId: player.id,
         playerName: player.name,
-        teamId: player.teamId || (homeTeam.players.find(p => p.id === player.id) ? homeTeam.id : awayTeam.id),
-        team: homeTeam.players.find(p => p.id === player.id) ? homeTeam.name : awayTeam.name,
+        teamId: player.teamId || (homeTeam?.players?.find(p => p.id === player.id) ? homeTeam.id : awayTeam?.id || ''),
+        team: homeTeam?.players?.find(p => p.id === player.id) ? homeTeam.name : awayTeam?.name || '',
         player: player,
         ballsPlayed: ballsPlayed,
         ballsLost: ballsLost,
@@ -396,7 +322,7 @@ export const useMatchState = () => {
       });
     });
     return playerStats;
-  }, [events, homeTeam.players, awayTeam.players]);
+  }, [events, homeTeam?.players, awayTeam?.players, homeTeam?.id, homeTeam?.name, awayTeam?.id, awayTeam?.name]);
 
   return {
     events,
@@ -440,10 +366,6 @@ export const useMatchState = () => {
     setTeams,
     confirmEvent,
     updateEvent,
-    // generateTimeSegmentStatistics, // Removed
-    // generatePlayerStatistics, // Removed (inlined into playerStats useMemo)
-    // calculateTimeSegments, // Removed (inlined into timeSegments useMemo)
-    // setTimeSegments, // Removed
     setBallTrackingPoints,
     setMatchEvents,
     setMatch,
