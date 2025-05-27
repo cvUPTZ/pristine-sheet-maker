@@ -15,13 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-// import { useToast } from '@/hooks/use-toast'; // Potentially remove if using sonner exclusively
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import FormationSelector from './FormationSelector';
-import { Formation, Player, Team } from '@/types';
-import { generatePlayersForFormation } from '@/utils/formationUtils';
+import FormationSelector from './FormationSelector'; // Ensure this path is correct
+import { Formation, Player, Team } from '@/types'; // Ensure this path is correct
+import { generatePlayersForFormation } from '@/utils/formationUtils'; // Ensure this path is correct
 import { toast as sonnerToast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Send } from 'lucide-react';
@@ -97,38 +96,48 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   // CORRECTED fetchTrackers function
   const fetchTrackers = useCallback(async () => {
     try {
-      // Fetch 'id' and 'full_name' from 'profiles'.
-      // Fetch 'email' from the 'auth.users' table referenced by 'profiles.id'.
-      // 'user_details:id(email)' instructs Supabase to follow the 'id' FK
-      // and get 'email', nesting it under 'user_details'.
+      // Select 'id' and 'full_name' from 'profiles'.
+      // For 'email', we query the 'auth.users' table.
+      // 'user_auth_email_data:auth.users(email)' tells Supabase/PostgREST:
+      //   1. Look at the 'auth.users' table.
+      //   2. Find the record related to the current 'profiles' record
+      //      (using the FK: profiles.id -> auth.users.id).
+      //   3. Fetch the 'email' column from that 'auth.users' record.
+      //   4. Nest this result under the alias 'user_auth_email_data'.
+      //      The result for this part will be like: { email: 'user@example.com' }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, user_details:id(email)') // Corrected select query
+        .select('id, full_name, user_auth_email_data:auth.users(email)')
         .eq('role', 'tracker');
 
       if (error) {
-        console.error('Error fetching trackers:', error);
+        // This is where your log `index-4R0Jr-mr.js:405 Error fetching trackers:` originates
+        console.error('Error fetching trackers:', error); // Logs the actual error object
         sonnerToast.error('Failed to fetch trackers: ' + error.message);
-        // Provide a more specific hint if it's the PGRST200 error mentioned
-        if (error.code === 'PGRST200' && error.message.includes("Could not find a relationship between 'user_roles' and 'profiles'")) {
-            sonnerToast.info("Hint: This error (PGRST200) related to 'user_roles' and 'profiles' might indicate a deeper schema issue or misconfiguration beyond just fetching emails. Please review your database schema, RLS policies, and any views or functions involving these tables if the problem persists.");
+
+        // Specific hint for "column does not exist" error
+        if (error.code === '42703' && error.message.includes('column profiles.email does not exist')) {
+            sonnerToast.info("Hint: The query is trying to get 'email' directly from 'profiles' table where it doesn't exist. The Supabase 'select' statement for joining 'auth.users' might need review or there could be an RLS issue or schema mismatch if 'profiles' is a view.");
+        } else if (error.code === 'PGRST200') { // Handle the other error you saw previously
+            sonnerToast.info("Hint: Error PGRST200 might indicate a schema issue with relationships (e.g., 'user_roles' and 'profiles'). Please review your database schema, RLS policies, and any views or functions involving these tables.");
         }
         setTrackers([]);
       } else {
-        // Map the fetched data, accessing the email from the nested user_details object
+        // Map the fetched data, accessing the email from the nested object
         const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
           id: profile.id,
           full_name: profile.full_name,
-          email: profile.user_details?.email || 'No email provided' // Correctly access nested email
+          // Access email from profile.user_auth_email_data.email
+          email: profile.user_auth_email_data?.email || 'No email provided'
         }));
         setTrackers(fetchedTrackers);
       }
     } catch (err: any) {
-      console.error('Unexpected error in fetchTrackers:', err);
+      console.error('Unexpected error in fetchTrackers catch block:', err);
       sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
       setTrackers([]);
     }
-  }, []); // supabase client is stable, so empty dependency array is fine.
+  }, []); // supabase client is stable, so empty dependency array is okay.
 
   useEffect(() => {
     const initializeTeam = (
@@ -181,9 +190,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       )
     );
     
-    fetchTrackers();
+    fetchTrackers(); // Call fetchTrackers
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers]); // form.getValues is not reactive, fetchTrackers is stable
+  }, [isEditMode, initialData, fetchTrackers, form.getValues]); // Added fetchTrackers and form.getValues as it's used indirectly
 
   useEffect(() => {
     if (isEditMode && initialData) {
@@ -233,15 +242,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
     const players = currentTeam.players || [];
     const existingIds = players.map(p => p.id);
-    let newPlayerId = teamId === 'home' ? 1 : 100;
-    while (existingIds.includes(newPlayerId)) {
+    let newPlayerId = teamId === 'home' ? 1 : 100; // Simplified starting ID
+    if (players.length > 0) {
+        newPlayerId = Math.max(...existingIds, teamId === 'home' ? 0 : 99) + 1;
+    }
+    while (existingIds.includes(newPlayerId)) { // Should be less common now
       newPlayerId++;
     }
     
     const newPlayer: Player = {
       id: newPlayerId,
-      name: `Player ${players.length + 1}`,
-      number: players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1,
+      name: `Player ${newPlayerId}`, // Use ID for uniqueness in default name
+      number: newPlayerId <= 99 ? newPlayerId : (players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1), // Attempt unique number
       position: 'Substitute'
     };
 
@@ -367,8 +379,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     );
   };
 
-  // Conditional rendering for loading could be added here if homeTeam/awayTeam initialization is async
-  // if (!homeTeam || !awayTeam) return <div>Loading team data...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
@@ -413,7 +423,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 <FormField
                   control={form.control}
                   name="homeFormation"
-                  render={({ field }) => (
+                  render={({ field }) => ( 
                     <FormItem>
                       <FormLabel>Formation</FormLabel>
                       <FormationSelector
@@ -639,7 +649,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                           <Users className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                           <span className="font-medium text-gray-800 dark:text-gray-200">{tracker.full_name || 'Unnamed Tracker'}</span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || tracker.id}</p> {/* Display tracker ID if email is not available */}
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || `ID: ${tracker.id}`}</p> {/* Display tracker ID if email is not available */}
                       </div>
                     ))}
                   </div>
