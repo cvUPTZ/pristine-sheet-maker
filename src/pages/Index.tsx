@@ -1,80 +1,45 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useMatchState } from '@/hooks/useMatchState';
+import SetupScreen from '@/components/match/SetupScreen';
 import MatchHeader from '@/components/match/MatchHeader';
 import MatchSidebar from '@/components/match/MatchSidebar';
-import MainTabContent from '@/components/match/MainTabContent';
-import SetupScreen from '@/components/match/SetupScreen';
-import { useMatchState } from '@/hooks/useMatchState';
 import { Team } from '@/types';
 
 const Index: React.FC = () => {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track'>('pitch');
-
   const {
     homeTeam,
     awayTeam,
-    teamPositions,
-    selectedPlayer,
     selectedTeam,
-    ballTrackingPoints,
-    ballTrackingMode,
-    statistics,
-    playerStats,
-    timeSegments,
-    setSelectedTeam,
-    setSelectedPlayer,
-    addBallTrackingPoint,
-    setStatistics,
-    generateMatchId,
-    setTeamPositions,
-    recordEvent,
+    selectedPlayer,
     setupComplete,
-    updateTeams,
-    completeSetup,
-    toggleBallTrackingMode,
-    undoLastEvent,
+    ballTrackingMode,
+    teamPositions,
+    ballTrackingPoints,
+    statistics,
     isPassTrackingModeActive,
-    potentialPasser,
-    ballPathHistory,
+    setSelectedTeam,
+    completeSetup,
+    updateTeams,
+    toggleBallTrackingMode,
     togglePassTrackingMode,
   } = useMatchState();
-
-  const handleSave = () => {
-    const newMatchId = generateMatchId();
-    navigate(`/match/${newMatchId}`);
-  };
 
   const handleCompleteSetup = (teams: { home: Team; away: Team }) => {
     updateTeams(teams.home, teams.away);
     completeSetup(teams.home, teams.away);
   };
 
-  const handlePlayerSelect = (player: any) => {
-    setSelectedPlayer(player);
-  };
-
-  const handlePitchClick = (coordinates: { x: number; y: number }) => {
-    if (ballTrackingMode) {
-      addBallTrackingPoint({
-        x: coordinates.x,
-        y: coordinates.y,
-        timestamp: Date.now(),
-        playerId: selectedPlayer?.id || 0,
-        teamId: selectedTeam
-      });
-    }
-  };
-
   if (!setupComplete) {
     return (
-      <SetupScreen
-        homeTeam={homeTeam}
-        awayTeam={awayTeam}
-        updateTeams={(teams) => updateTeams(teams.home, teams.away)}
-        completeSetup={() => completeSetup(homeTeam, awayTeam)}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <SetupScreen
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          updateTeams={(teams) => updateTeams(teams.home, teams.away)}
+          completeSetup={() => completeSetup(homeTeam, awayTeam)}
+        />
+      </div>
     );
   }
 
@@ -89,7 +54,7 @@ const Index: React.FC = () => {
             mode={ballTrackingMode ? 'tracking' : 'piano'}
             setMode={toggleBallTrackingMode}
             handleToggleTracking={toggleBallTrackingMode}
-            handleSave={handleSave}
+            handleSave={() => {}}
           />
           
           <MatchSidebar
@@ -99,7 +64,7 @@ const Index: React.FC = () => {
             mode={ballTrackingMode ? 'tracking' : 'piano'}
             handleActionSelect={() => {}}
             ballTrackingPoints={ballTrackingPoints}
-            trackBallMovement={handlePitchClick}
+            trackBallMovement={() => {}}
             statistics={statistics}
             isRunning={false}
             isPassTrackingModeActive={isPassTrackingModeActive}
@@ -108,35 +73,20 @@ const Index: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 p-6 overflow-auto">
-            <MainTabContent
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              teamPositions={teamPositions}
-              selectedPlayer={selectedPlayer}
-              selectedTeam={selectedTeam}
-              setSelectedTeam={setSelectedTeam}
-              handlePlayerSelect={handlePlayerSelect}
-              ballTrackingPoints={ballTrackingPoints}
-              mode={ballTrackingMode ? 'tracking' : 'piano'}
-              handlePitchClick={handlePitchClick}
-              addBallTrackingPoint={addBallTrackingPoint}
-              statistics={statistics}
-              setStatistics={setStatistics}
-              playerStats={playerStats}
-              handleUndo={undoLastEvent}
-              handleSave={handleSave}
-              timeSegments={timeSegments}
-              recordEvent={recordEvent}
-              assignedPlayerForMatch={null}
-              assignedEventTypes={null}
-              userRole={null}
-              matchId={''}
-            />
-          </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle className="text-2xl text-center">Match Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-muted-foreground">
+                Your match setup is complete! Use the sidebar to interact with players and track events.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Teams: {homeTeam?.name} vs {awayTeam?.name}
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
