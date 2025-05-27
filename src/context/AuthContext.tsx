@@ -1,24 +1,22 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
-type UserRoleType = 'admin' | 'tracker' | 'viewer' | null;
+// Define the possible user roles
+type UserRoleType = 'admin' | 'tracker' | 'viewer'; // Removed null from here, role will be UserRoleType | null
 
-// Explicit Admin Email for initial/override check
-const EXPLICIT_ADMIN_EMAIL = 'adminzack@efoot.com'; // <--- YOUR ADMIN EMAIL HERE
-
-type AuthContextType = {
+interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  userRole: UserRoleType;
+  userRole: UserRoleType | null; // Role can be one of the types or null if not authenticated/no role
   assignedEventTypes: string[] | null;
   refreshUserSession: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -26,62 +24,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<UserRoleType>(null);
+  const [userRole, setUserRole] = useState<UserRoleType | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[] | null>(null);
   const { toast } = useToast();
 
-  const processSession = (currentSession: Session | null) => {
+  const processSession = useCallback((currentSession: Session | null) => {
     setSession(currentSession);
     const currentUser = currentSession?.user ?? null;
     setUser(currentUser);
 
-    let determinedRole: UserRoleType = null;
+    let newRole: UserRoleType | null = null;
 
     if (currentUser) {
-      console.log(`Processing session for ${currentUser.email}`);
-      // 1. Explicit Admin Check (use with caution, primarily for bootstrapping/dev)
-      if (currentUser.email === EXPLICIT_ADMIN_EMAIL) {
-        console.log(`User ${currentUser.email} matches EXPLICIT_ADMIN_EMAIL. Setting role to 'admin'.`);
-        determinedRole = 'admin';
-      }
-      
-      // 2. Check app_metadata (this should be the primary source of truth)
-      // If app_metadata has a role, it can override the explicit check if it's different and not admin
-      // Or, you might decide the explicit check always wins if it's an admin.
-      // Current logic: app_metadata role is preferred unless explicit admin is set.
-      if (currentUser.app_metadata && currentUser.app_metadata.role) {
-        const roleFromAppMeta = currentUser.app_metadata.role as UserRoleType;
-        console.log(`Role from app_metadata for ${currentUser.email}: ${roleFromAppMeta}`);
+      console.log(`Processing session for user: ${currentUser.email}`);
+      // Roles should be stored in app_metadata, which is not client-modifiable
+      if (currentUser.app_metadata && typeof currentUser.app_metadata.role === 'string') {
+        const roleFromAppMeta = currentUser.app_metadata.role;
         
-        // If explicit admin was set, keep it. Otherwise, use app_metadata.
-        // This means app_metadata can define 'tracker' or 'viewer' even for the explicit admin email,
-        // but if the explicit email is matched, it defaults to 'admin' if app_metadata is missing role.
-        if (determinedRole === 'admin') {
-            // If explicit admin is already set, and app_metadata also says admin, that's fine.
-            // If app_metadata says something else, you might want to log a warning or decide which takes precedence.
-            // For now, if EXPLICIT_ADMIN_EMAIL matches, 'admin' role takes high precedence.
-            if (roleFromAppMeta !== 'admin') {
-                 console.warn(`User ${EXPLICIT_ADMIN_EMAIL} is an explicit admin, but app_metadata.role is '${roleFromAppMeta}'. Prioritizing explicit admin for now.`);
-            }
+        // Validate the role from app_metadata against our defined UserRoleType
+        if (['admin', 'tracker', 'viewer'].includes(roleFromAppMeta)) {
+          newRole = roleFromAppMeta as UserRoleType;
+          console.log(`User role from app_metadata: ${newRole}`);
         } else {
-            determinedRole = roleFromAppMeta;
+          console.warn(
+            `User ${currentUser.email} has an unrecognized role '${roleFromAppMeta}' in app_metadata. Defaulting to no specific role.`
+          );
+          // newRole remains null
         }
-      } else if (determinedRole !== 'admin') { // If not explicit admin and no app_metadata role
-        console.warn(`User ${currentUser.email} has no role in app_metadata.`);
+      } else {
+        console.warn(
+          `User ${currentUser.email} has no 'role' property in app_metadata, or it's not a string. Defaulting to no specific role.`
+        );
+        // newRole remains null
       }
-      
-      console.log('Full app_metadata:', JSON.stringify(currentUser.app_metadata, null, 2));
+      console.log('Full app_metadata for user:', JSON.stringify(currentUser.app_metadata, null, 2));
+    } else {
+      console.log("No active user session. Role will be null.");
+      // newRole is already null
     }
     
-    setUserRole(determinedRole);
-  };
-
-  // ... (rest of the useEffect for auth state, signIn, signUp, signOut, fetchUserEventAssignments, refreshUserSession remains the same as my previous corrected version)
+    setUserRole(newRole);
+  }, []); // No dependencies, as it processes the session passed to it
 
   useEffect(() => {
     setLoading(true);
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       processSession(initialSession);
+      setLoading(false);
+    }).catch(error => {
+      console.error("Error getting initial session:", error);
+      processSession(null); // Ensure state is clean on error
       setLoading(false);
     });
 
@@ -90,15 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth state changed. Event:', _event, 'New Session User:', newSession?.user?.email);
         processSession(newSession);
         if (_event === 'TOKEN_REFRESHED' || _event === 'USER_UPDATED') {
-            console.log('Token refreshed or user updated, re-evaluating role from new session.');
+            console.log('Token refreshed or user updated, re-evaluating role from new session data.');
         }
       }
     );
     return () => subscription.unsubscribe();
-  }, []);
+  }, [processSession]); // processSession is now memoized with useCallback
 
-
-  const fetchUserEventAssignments = async (userId: string) => {
+  const fetchUserEventAssignments = useCallback(async (userId: string) => {
+    if (!userId) {
+      setAssignedEventTypes(null);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('user_event_assignments')
@@ -107,36 +102,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error fetching user event assignments:', error);
-        setAssignedEventTypes([]);
+        toast({ title: "Error", description: "Could not fetch event assignments.", variant: "destructive" });
+        setAssignedEventTypes([]); // Set to empty array on error to indicate fetch attempt
         return;
       }
       setAssignedEventTypes(data ? data.map(item => item.event_type) : []);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Exception fetching user event assignments:', e);
+      toast({ title: "Error", description: "An exception occurred while fetching event assignments.", variant: "destructive" });
       setAssignedEventTypes([]);
     }
-  };
+  }, [toast]);
   
   useEffect(() => {
     if (user?.id) {
       fetchUserEventAssignments(user.id);
     } else {
-      setAssignedEventTypes(null);
+      setAssignedEventTypes(null); // Clear assignments if no user
     }
-  }, [user]);
+  }, [user, fetchUserEventAssignments]); // Added fetchUserEventAssignments to dependencies
 
-  const refreshUserSession = async () => {
+  const refreshUserSession = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error("Error refreshing session:", error);
         toast({ title: "Session Refresh Error", description: error.message, variant: "destructive" });
+        // Optionally, if refresh fails significantly (e.g. invalid refresh token), sign out user
+        // processSession(null); 
       } else if (data.session) {
-        console.log("Session refreshed, new app_metadata should be available.");
-        processSession(data.session);
+        console.log("Session refreshed successfully. New app_metadata should be available.");
+        processSession(data.session); // This will re-evaluate the role
         toast({ title: "Session Refreshed", description: "Your session data has been updated." });
       } else {
+        // This case means the refresh resulted in no session (e.g., user was logged out server-side)
+        console.log("Session refresh resulted in no active session.");
         processSession(null);
       }
     } catch (e: any) {
@@ -145,20 +146,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
-
+  }, [processSession, toast]); // Added processSession and toast
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
-        throw error;
+        throw error; // Re-throw to allow calling components to handle if needed
       }
+      // onAuthStateChange will handle setting user and session via processSession
       toast({ title: "Signed in", description: "Welcome back!" });
     } catch (error: any) {
       console.error('Error signing in:', error.message);
+      // Ensure toast is shown if not already handled by the specific error check.
+      if (!error.message.toLowerCase().includes("sign in failed")) {
+        toast({ title: "Sign in error", description: error.message || "An unknown error occurred.", variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
@@ -167,40 +172,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, fullName: string) => {
     setLoading(true);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
+      // The 'create-user' Edge Function is responsible for:
+      // 1. Creating the user in Supabase Auth.
+      // 2. Setting the initial `app_metadata.role` (e.g., to 'viewer').
+      // 3. Handling any errors during this process.
+      const { data: functionResponse, error: invokeError } = await supabase.functions.invoke('create-user', {
         body: {
           email,
           password,
           fullName,
-          role: 'viewer' // Default role for public signups
+          role: 'viewer' // Default role for new signups, managed by the Edge Function
         }
       });
 
       if (invokeError) {
-        // Handle error from the function invocation itself (e.g., network, function not found)
+        console.error('Error invoking create-user function:', invokeError);
         toast({ title: "Sign up failed", description: invokeError.message, variant: "destructive" });
         throw invokeError;
       }
 
-      if (data && data.error) {
-        // Handle error reported by the Edge Function's own logic (e.g., user already exists, validation failure)
-        toast({ title: "Sign up failed", description: data.error.message || data.error, variant: "destructive" });
-        throw new Error(data.error.message || data.error);
+      if (functionResponse && functionResponse.error) {
+        console.error('Error from create-user function logic:', functionResponse.error);
+        const errorMessage = typeof functionResponse.error === 'string' ? functionResponse.error : (functionResponse.error.message || "Sign up process failed.");
+        toast({ title: "Sign up failed", description: errorMessage, variant: "destructive" });
+        throw new Error(errorMessage);
       }
 
-      // Assuming success if no errors above
-      // The create-user function is expected to handle sending the confirmation email.
-      toast({ title: "Account created", description: "Please check your email for a confirmation link." });
-      // Note: Unlike supabase.auth.signUp, invoking the function directly won't automatically sign the user in
-      // or set the session in the client. The user will need to log in after confirming their email.
-      // The onAuthStateChange listener will eventually pick up the user session once they confirm and log in.
+      // Success: The Edge Function handled user creation and role assignment.
+      // Supabase Auth typically sends a confirmation email.
+      toast({ title: "Account created", description: "Please check your email for a confirmation link to activate your account." });
+      // The user will need to confirm their email and then sign in.
+      // `onAuthStateChange` will pick up the session once they are confirmed and logged in.
 
     } catch (error: any) {
-      console.error('Error signing up via Edge Function:', error.message);
-      // Ensure toast is shown even for caught exceptions if not already handled by specific checks above
-      // This check helps avoid double toasting if the error was already presented.
-      if (!(error.message.includes("Sign up failed") || (data && data.error && (data.error.message || data.error) === error.message) )) {
-         toast({ title: "Sign up error", description: error.message, variant: "destructive" });
+      console.error('Error during sign up process:', error.message);
+      // Avoid double-toasting if already handled
+      const knownMessages = ["Sign up failed", "Error invoking create-user function"];
+      if (!knownMessages.some(msg => error.message.includes(msg))) {
+         toast({ title: "Sign up error", description: error.message || "An unknown error occurred.", variant: "destructive" });
       }
     } finally {
       setLoading(false);
@@ -210,12 +219,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast({ title: "Sign out failed", description: error.message, variant: "destructive" });
+        throw error;
+      }
+      // onAuthStateChange will set user and session to null via processSession
       toast({ title: "Signed out", description: "You have been signed out successfully." });
-    } catch (error: any)
-    {
+    } catch (error: any) {
       console.error('Error signing out:', error.message);
-      toast({ title: "Sign out failed", description: error.message, variant: "destructive" });
+      if (!error.message.toLowerCase().includes("sign out failed")) {
+        toast({ title: "Sign out error", description: error.message || "An unknown error occurred.", variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
