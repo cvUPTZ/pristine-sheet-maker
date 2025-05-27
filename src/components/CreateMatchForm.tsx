@@ -23,7 +23,7 @@ import { Formation, Player, Team } from '@/types'; // Ensure this path is correc
 import { generatePlayersForFormation } from '@/utils/formationUtils'; // Ensure this path is correct
 import { toast as sonnerToast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Send } from 'lucide-react';
+import { Users, Send, ArrowLeft, ArrowRight, Save, PlusCircle } from 'lucide-react';
 
 const formSchema = z.object({
   homeTeam: z.string().min(2, {
@@ -42,9 +42,9 @@ const formSchema = z.object({
 type MatchFormValues = z.infer<typeof formSchema>;
 
 interface TrackerUser {
-  id: string; // user_id from profiles table (which is a FK to auth.users.id)
+  id: string;
   full_name: string | null;
-  email?: string; // Email fetched from related auth.users table
+  email?: string;
 }
 
 interface CreateMatchFormProps {
@@ -71,6 +71,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   onSubmitOverride,
   onSuccess
 }) => {
+  const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
@@ -94,173 +95,31 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
   const fetchTrackers = useCallback(async () => {
-  try {
-    const { data, error } = await supabase
-      .from('user_profiles_with_role') // Query the VIEW
-      .select('id, email, role, full_name') // Select the columns defined in the VIEW
-      .eq('role', 'tracker') // Filter by the 'role' column from the VIEW
-      .order('full_name', { ascending: true, nullsFirst: false });
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles_with_role')
+        .select('id, email, role, full_name')
+        .eq('role', 'tracker')
+        .order('full_name', { ascending: true, nullsFirst: false });
 
-    if (error) {
-      console.error('Error fetching trackers:', error);
-      sonnerToast.error('Failed to fetch trackers: ' + error.message);
+      if (error) {
+        console.error('Error fetching trackers:', error);
+        sonnerToast.error('Failed to fetch trackers: ' + error.message);
+        setTrackers([]);
+      } else {
+        const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+          id: profile.id,
+          full_name: profile.full_name || 'No name provided',
+          email: profile.email || 'No email provided'
+        }));
+        setTrackers(fetchedTrackers);
+      }
+    } catch (err: any) {
+      console.error('Unexpected error in fetchTrackers catch block:', err);
+      sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
       setTrackers([]);
-    } else {
-      // Assuming TrackerUser interface is something like:
-      // interface TrackerUser { id: string; full_name: string; email: string; /* other fields if needed */ }
-      const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-        id: profile.id, // This is the auth.users ID
-        full_name: profile.full_name || 'No name provided',
-        email: profile.email || 'No email provided' 
-        // 'role' is available as profile.role if you need it in TrackerUser
-      }));
-
-      console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
-      setTrackers(fetchedTrackers);
     }
-  } catch (err: any) {
-    console.error('Unexpected error in fetchTrackers catch block:', err);
-    sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
-    setTrackers([]);
-  }
-}, []);
-  
-  
-// const fetchTrackers = useCallback(async () => {
-//   try {
-//     // Simple query now that email is stored in profiles table
-//     const { data, error } = await supabase
-//       .from('profiles')
-//       .select('id, full_name, email, created_at, updated_at')
-//       .eq('role', 'tracker')
-//       .order('full_name', { ascending: true, nullsFirst: false });
-      
-//     if (error) {
-//       console.error('Error fetching trackers:', error);
-//       sonnerToast.error('Failed to fetch trackers: ' + error.message);
-//       setTrackers([]);
-//     } else {
-//       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-//         id: profile.id,
-//         full_name: profile.full_name || 'No name provided',
-//         email: profile.email || 'No email provided'
-//       }));
-      
-//       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
-//       setTrackers(fetchedTrackers);
-//     }
-//   } catch (err: any) {
-//     console.error('Unexpected error in fetchTrackers catch block:', err);
-//     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
-//     setTrackers([]);
-//   }
-// }, []);
-
-  
-//   const fetchTrackers = useCallback(async () => {
-//   try {
-//     // Use RPC function to get trackers with email data
-//     const { data, error } = await supabase
-//       .rpc('get_trackers_with_email');
-      
-//     if (error) {
-//       console.error('Error fetching trackers:', error);
-//       sonnerToast.error('Failed to fetch trackers: ' + error.message);
-      
-//       // Enhanced error handling for different PostgREST codes
-//       if (error.code === 'PGRST201') {
-//         sonnerToast.info("Hint (PGRST201): Using RPC function to avoid relationship ambiguity.");
-//       } else if (error.code === 'PGRST100') {
-//         sonnerToast.info("Hint (PGRST100): Parsing error in RPC call. Check function parameters.");
-//       } else if (error.code === '42883') {
-//         sonnerToast.info("Hint (42883): Function does not exist. Make sure get_trackers_with_email() is created.");
-//       } else if (error.code === 'PGRST200') {
-//         sonnerToast.info("Hint (PGRST200): Schema cache or function finding issue. Try reloading schema.");
-//       }
-      
-//       setTrackers([]);
-//     } else {
-//       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-//         id: profile.id,
-//         full_name: profile.full_name || 'No name provided',
-//         email: profile.email || 'No email provided'
-//       }));
-      
-//       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
-//       setTrackers(fetchedTrackers);
-//     }
-//   } catch (err: any) {
-//     console.error('Unexpected error in fetchTrackers catch block:', err);
-//     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
-//     setTrackers([]);
-//   }
-// }, []);
-
-  
-
-//   const fetchTrackers = useCallback(async () => {
-//   try {
-//     const { data, error } = await supabase
-//       .rpc('get_trackers_with_email');
-      
-//     if (error) {
-//       console.error('Error fetching trackers:', error);
-//       sonnerToast.error('Failed to fetch trackers: ' + error.message);
-//       setTrackers([]);
-//     } else {
-//       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-//         id: profile.id,
-//         full_name: profile.full_name,
-//         email: profile.email || 'No email provided'
-//       }));
-//       setTrackers(fetchedTrackers);
-//     }
-//   } catch (err: any) {
-//     console.error('Unexpected error in fetchTrackers catch block:', err);
-//     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
-//     setTrackers([]);
-//   }
-// }, []);
-
-  
-  // const fetchTrackers = useCallback(async () => {
-  //   try {
-  //     // Corrected select syntax for PGRST201 error:
-  //     // Explicitly name 'auth_users' as the target table for the relationship
-  //     // involving 'profiles.id' to resolve ambiguity.
-  //     const { data, error } = await supabase
-  //       .from('profiles')
-  //       .select('id, full_name, user_email_data:auth_users(email)') // CORRECTED SYNTAX for PGRST201
-  //       .eq('role', 'tracker');
-
-  //     if (error) {
-  //       console.error('Error fetching trackers:', error); // This is your line 405
-  //       sonnerToast.error('Failed to fetch trackers: ' + error.message);
-
-  //       if (error.code === 'PGRST201') { // Ambiguous relationship
-  //           sonnerToast.info("Hint (PGRST201): Ambiguous relationship. The query needs to specify which related table to use. This has been addressed by targeting 'auth_users'. If error persists, verify FK 'profiles_id_fkey' correctly links profiles.id to auth_users.id.");
-  //       } else if (error.code === 'PGRST100') { // Parse error in select
-  //           sonnerToast.info("Hint (PGRST100): Parsing error in 'select'. Check syntax for related data.");
-  //       } else if (error.code === '42703') { // Column does not exist
-  //           sonnerToast.info("Hint (42703): Column does not exist. Check names and aliases.");
-  //       } else if (error.code === 'PGRST200') { // Schema cache/relationship finding issue
-  //            sonnerToast.info("Hint (PGRST200): Schema cache or relationship finding issue. Try reloading schema or check FKs.");
-  //       }
-  //       setTrackers([]);
-  //     } else {
-  //       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-  //         id: profile.id,
-  //         full_name: profile.full_name,
-  //         email: profile.user_email_data?.email || 'No email provided'
-  //       }));
-  //       setTrackers(fetchedTrackers);
-  //     }
-  //   } catch (err: any) {
-  //     console.error('Unexpected error in fetchTrackers catch block:', err);
-  //     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
-  //     setTrackers([]);
-  //   }
-  // }, []);
+  }, []);
 
   useEffect(() => {
     const initializeTeam = (
@@ -273,19 +132,19 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       initialFormation?: string
     ) => {
       const teamName = isEditMode && initialTeamName ? initialTeamName : form.getValues(teamType === 'home' ? 'homeTeam' : 'awayTeam') || defaultName;
-      const formation = (isEditMode && initialFormation ? initialFormation : form.getValues(teamType === 'home' ? 'homeFormation' : 'awayFormation') || defaultFormation) as Formation;
+      const formationValue = (isEditMode && initialFormation ? initialFormation : form.getValues(teamType === 'home' ? 'homeFormation' : 'awayFormation') || defaultFormation) as Formation;
       
       let players: Player[];
       if (isEditMode && initialPlayers && initialPlayers.length > 0) {
         players = initialPlayers;
       } else {
-        players = generatePlayersForFormation(teamType, formation, playerStartId);
+        players = generatePlayersForFormation(teamType, formationValue, playerStartId);
       }
 
       return {
         id: isEditMode && initialData ? `${initialData.id}-${teamType}` : `${teamType}-team-create`,
         name: teamName,
-        formation: formation,
+        formation: formationValue,
         players: players,
       };
     };
@@ -315,7 +174,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     
     fetchTrackers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers, form.getValues]);
+  }, [isEditMode, initialData, fetchTrackers]); // form.getValues removed as it might cause too frequent re-runs. Team name/formation is primarily from initialData or defaults.
 
   useEffect(() => {
     if (isEditMode && initialData) {
@@ -355,7 +214,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       players: newPlayers
     });
     form.setValue(teamId === 'home' ? 'homeFormation' : 'awayFormation', newFormation, { shouldValidate: true });
-    sonnerToast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${newFormation}. Players reset.`);
+    sonnerToast.success(`${teamId === 'home' ? 'Home' : 'Away'} team formation updated to ${newFormation}. Players reset for Step 2.`);
   };
 
   const addPlayer = (teamId: 'home' | 'away') => {
@@ -422,12 +281,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         .from('match_notifications')
         .insert(notifications);
 
-      if (error) {
-        console.error('Error sending notifications:', error);
-        sonnerToast.error('Failed to send notifications: ' + error.message);
-      } else {
-        sonnerToast.success(`Notifications sent to ${selectedTrackers.length} tracker(s).`);
-      }
+      if (error) throw error;
+      sonnerToast.success(`Notifications sent to ${selectedTrackers.length} tracker(s).`);
     } catch (err: any) {
       console.error('Error sending notifications:', err);
       sonnerToast.error('An unexpected error occurred while sending notifications: ' + err.message);
@@ -437,16 +292,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const handleFormSubmit = async (values: MatchFormValues) => {
     setIsLoading(true);
     if (!homeTeam || !awayTeam) {
-      sonnerToast.error("Team data is not properly initialized.");
+      sonnerToast.error("Team data is not properly initialized. Please go back and check team setup.");
       setIsLoading(false);
       return;
     }
 
     const matchDataPayload = {
-      home_team_name: homeTeam.name,
-      away_team_name: awayTeam.name,
-      home_team_formation: homeTeam.formation,
-      away_team_formation: awayTeam.formation,
+      home_team_name: homeTeam.name, // Use name from homeTeam state, which reflects updates
+      away_team_name: awayTeam.name, // Use name from awayTeam state
+      home_team_formation: homeTeam.formation, // Use formation from homeTeam state
+      away_team_formation: awayTeam.formation, // Use formation from awayTeam state
       home_team_players: homeTeam.players,
       away_team_players: awayTeam.players,
       match_date: values.matchDate || null,
@@ -457,8 +312,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     try {
       if (isEditMode && onSubmitOverride && initialData?.id) {
         const submissionPayloadForOverride = {
-            ...values,
-            home_team_players: matchDataPayload.home_team_players,
+            ...values, // RHF values (includes team names, formations from form schema)
+            // Override with potentially more up-to-date player lists from state
+            home_team_players: matchDataPayload.home_team_players, 
             away_team_players: matchDataPayload.away_team_players,
         };
         await onSubmitOverride(submissionPayloadForOverride, initialData.id);
@@ -502,296 +358,358 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     );
   };
 
+  const handleNextStep = async () => {
+    const step1Fields: (keyof MatchFormValues)[] = ['homeTeam', 'awayTeam', 'homeFormation', 'awayFormation'];
+    const isValid = await form.trigger(step1Fields);
+    if (isValid) {
+      setCurrentStep(2);
+      window.scrollTo(0, 0);
+    } else {
+      sonnerToast.error("Please fill in all required team details for Step 1.");
+      const fieldErrors = form.formState.errors;
+      const firstErrorField = step1Fields.find(field => fieldErrors[field]);
+      if (firstErrorField) {
+          const element = document.getElementsByName(firstErrorField)[0];
+          if (element) element.focus();
+      }
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep(1);
+    window.scrollTo(0, 0);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8"> {/* Layout: Increased max-width */}
-      <div className="text-center">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
+      <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {isEditMode ? 'Edit Match' : 'Create New Match'}
+          {isEditMode ? 'Edit Match' : 'Create New Match'} - Step {currentStep} of 2
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
-          {isEditMode ? 'Update the details of the existing match.' : 'Set up teams, formations, and notify trackers.'}
+          {currentStep === 1 
+            ? (isEditMode ? 'Update basic team information.' : 'Set up the competing teams and their formations.')
+            : (isEditMode ? 'Manage players, match details, and save changes.' : 'Configure players, match details, and notify trackers.')
+          }
         </p>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 sm:space-y-8">
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
-            {/* Home Team Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Home Team</CardTitle>
-              </Header>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="homeTeam"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Team Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter home team name"
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            updateTeamName('home', e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="homeFormation"
-                  render={({ field }) => ( 
-                    <FormItem>
-                      <FormLabel>Formation</FormLabel>
-                      <FormationSelector
-                        value={homeTeam?.formation || field.value as Formation}
-                        onChange={(newFormation) => updateTeamFormation('home', newFormation)}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-md font-semibold">Players</h3>
-                    <Button type="button" onClick={() => addPlayer('home')} size="sm" variant="outline">Add Player</Button>
-                  </div>
-                  {(!homeTeam?.players || homeTeam.players.length === 0) ? (
-                     <div className="text-center py-4 border rounded-md text-gray-500 dark:text-gray-400">
-                       <p className="mb-2">No players yet.</p>
-                       <Button
-                         type="button"
-                         onClick={() => updateTeamFormation('home', homeTeam?.formation || form.getValues('homeFormation') as Formation || '4-4-2')}
-                         variant="outline"
-                         size="sm"
-                       >
-                         Generate for {homeTeam?.formation || form.getValues('homeFormation') || '4-4-2'}
-                       </Button>
-                     </div>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto p-1 border rounded-md">
-                      {homeTeam.players.map((player, index) => (
-                        <div key={`home-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-gray-50 dark:bg-gray-700">
-                          <div className="col-span-1 sm:col-span-1">
-                            <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('home', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
-                          </div>
-                          <div className="col-span-6 sm:col-span-5">
-                            <Input value={player.name} onChange={(e) => updatePlayer('home', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
-                          </div>
-                          <div className="col-span-3 sm:col-span-4">
-                            <Input value={player.position} onChange={(e) => updatePlayer('home', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
-                          </div>
-                          <div className="col-span-2 sm:col-span-2 text-right">
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('home', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
+          {currentStep === 1 && (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Team Setup</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Define the names and formations for home and away teams.</p>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Home Team Setup</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="homeTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Team Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter home team name"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                updateTeamName('home', e.target.value);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="homeFormation"
+                      render={({ field }) => ( 
+                        <FormItem>
+                          <FormLabel>Formation</FormLabel>
+                          <FormationSelector
+                            value={homeTeam?.formation || field.value as Formation}
+                            onChange={(newFormation) => updateTeamFormation('home', newFormation)}
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
 
-            {/* Away Team Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Away Team</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="awayTeam"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Team Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter away team name"
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            updateTeamName('away', e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="awayFormation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Formation</FormLabel>
-                      <FormationSelector
-                        value={awayTeam?.formation || field.value as Formation}
-                        onChange={(newFormation) => updateTeamFormation('away', newFormation)}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-md font-semibold">Players</h3>
-                    <Button type="button" onClick={() => addPlayer('away')} size="sm" variant="outline">Add Player</Button>
-                  </div>
-                  {(!awayTeam?.players || awayTeam.players.length === 0) ? (
-                     <div className="text-center py-4 border rounded-md text-gray-500 dark:text-gray-400">
-                       <p className="mb-2">No players yet.</p>
-                       <Button
-                         type="button"
-                         onClick={() => updateTeamFormation('away', awayTeam?.formation || form.getValues('awayFormation') as Formation || '4-3-3')}
-                         variant="outline"
-                         size="sm"
-                       >
-                         Generate for {awayTeam?.formation || form.getValues('awayFormation') || '4-3-3'}
-                       </Button>
-                     </div>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto p-1 border rounded-md">
-                      {awayTeam.players.map((player, index) => (
-                        <div key={`away-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-gray-50 dark:bg-gray-700">
-                           <div className="col-span-1 sm:col-span-1">
-                            <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('away', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
-                          </div>
-                          <div className="col-span-6 sm:col-span-5">
-                            <Input value={player.name} onChange={(e) => updatePlayer('away', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
-                          </div>
-                          <div className="col-span-3 sm:col-span-4">
-                            <Input value={player.position} onChange={(e) => updatePlayer('away', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
-                          </div>
-                          <div className="col-span-2 sm:col-span-2 text-right">
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('away', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="matchDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Match Date & Time</FormLabel>
-                  <FormControl>
-                    <Input type="datetime-local" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Optional. Set the date and time for the match.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="live">Live</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    The current status of the match.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description (Optional)</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="e.g., League Match - Week 5, Friendly Tussle"
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  A brief description or title for the match.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {!isEditMode && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Send className="h-5 w-5" />
-                  Notify Trackers (Optional)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {trackers.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {trackers.map((tracker) => (
-                      <div
-                        key={tracker.id}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors dark:border-gray-600 ${
-                          selectedTrackers.includes(tracker.id)
-                            ? 'bg-blue-50 border-blue-300 dark:bg-blue-900 dark:border-blue-700'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
-                        onClick={() => toggleTrackerSelection(tracker.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-                          <span className="font-medium text-gray-800 dark:text-gray-200">{tracker.full_name || 'Unnamed Tracker'}</span>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || `ID: ${tracker.id}`}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No trackers found with the 'tracker' role or unable to fetch tracker details.</p>
-                )}
-                {selectedTrackers.length > 0 && (
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-3">
-                    {selectedTrackers.length} tracker(s) will be notified upon match creation.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Away Team Setup</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="awayTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Team Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter away team name"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                updateTeamName('away', e.target.value);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="awayFormation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Formation</FormLabel>
+                          <FormationSelector
+                            value={awayTeam?.formation || field.value as Formation}
+                            onChange={(newFormation) => updateTeamFormation('away', newFormation)}
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="flex justify-end mt-8">
+                <Button type="button" onClick={handleNextStep} size="lg">
+                  Next: Players & Match Details <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+            </>
           )}
 
-          <Button type="submit" disabled={isLoading} className="w-full" size="lg">
-            {isLoading
-              ? (isEditMode ? 'Updating Match...' : 'Creating Match...')
-              : (isEditMode ? 'Save Changes' : 'Create Match')}
-          </Button>
+          {currentStep === 2 && (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Player & Match Configuration</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Manage player lists, set match details, and notify trackers if needed.</p>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Home Team Players Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      Home Team Players: {form.getValues('homeTeam') || homeTeam?.name || 'Home Team'}
+                      <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">({form.getValues('homeFormation') || homeTeam?.formation})</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-md font-semibold">Players</h3>
+                      <Button type="button" onClick={() => addPlayer('home')} size="sm" variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4"/> Add Player
+                      </Button>
+                    </div>
+                    {(!homeTeam?.players || homeTeam.players.length === 0) ? (
+                      <div className="text-center py-4 border rounded-md text-gray-500 dark:text-gray-400">
+                        <p className="mb-2">No players yet for {homeTeam?.name || 'Home Team'}.</p>
+                        <Button
+                          type="button"
+                          onClick={() => updateTeamFormation('home', homeTeam?.formation || form.getValues('homeFormation') as Formation || '4-4-2')}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Generate for {homeTeam?.formation || form.getValues('homeFormation') || '4-4-2'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
+                        {homeTeam.players.map((player, index) => (
+                          <div key={`home-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
+                            <div className="col-span-1 sm:col-span-1">
+                              <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('home', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
+                            </div>
+                            <div className="col-span-6 sm:col-span-5">
+                              <Input value={player.name} onChange={(e) => updatePlayer('home', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
+                            </div>
+                            <div className="col-span-3 sm:col-span-4">
+                              <Input value={player.position} onChange={(e) => updatePlayer('home', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
+                            </div>
+                            <div className="col-span-2 sm:col-span-2 text-right">
+                              <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('home', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Away Team Players Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      Away Team Players: {form.getValues('awayTeam') || awayTeam?.name || 'Away Team'}
+                      <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">({form.getValues('awayFormation') || awayTeam?.formation})</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-md font-semibold">Players</h3>
+                      <Button type="button" onClick={() => addPlayer('away')} size="sm" variant="outline">
+                         <PlusCircle className="mr-2 h-4 w-4"/> Add Player
+                      </Button>
+                    </div>
+                    {(!awayTeam?.players || awayTeam.players.length === 0) ? (
+                      <div className="text-center py-4 border rounded-md text-gray-500 dark:text-gray-400">
+                        <p className="mb-2">No players yet for {awayTeam?.name || 'Away Team'}.</p>
+                        <Button
+                          type="button"
+                          onClick={() => updateTeamFormation('away', awayTeam?.formation || form.getValues('awayFormation') as Formation || '4-3-3')}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Generate for {awayTeam?.formation || form.getValues('awayFormation') || '4-3-3'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
+                        {awayTeam.players.map((player, index) => (
+                          <div key={`away-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
+                            <div className="col-span-1 sm:col-span-1">
+                              <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('away', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
+                            </div>
+                            <div className="col-span-6 sm:col-span-5">
+                              <Input value={player.name} onChange={(e) => updatePlayer('away', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
+                            </div>
+                            <div className="col-span-3 sm:col-span-4">
+                              <Input value={player.position} onChange={(e) => updatePlayer('away', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
+                            </div>
+                            <div className="col-span-2 sm:col-span-2 text-right">
+                              <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('away', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <Card>
+                <CardHeader><CardTitle>Match Details</CardTitle></CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="matchDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Match Date & Time</FormLabel>
+                          <FormControl>
+                            <Input type="datetime-local" {...field} />
+                          </FormControl>
+                          <FormDescription>Optional. Set the date and time for the match.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="draft">Draft</SelectItem>
+                              <SelectItem value="published">Published</SelectItem>
+                              <SelectItem value="live">Live</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="archived">Archived</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>The current status of the match.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="e.g., League Match - Week 5, Friendly Tussle" className="resize-none" {...field} />
+                        </FormControl>
+                        <FormDescription>A brief description or title for the match.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              {!isEditMode && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Send className="h-5 w-5" /> Notify Trackers (Optional)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {trackers.length > 0 ? (
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {trackers.map((tracker) => (
+                          <div
+                            key={tracker.id}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors dark:border-gray-600 ${
+                              selectedTrackers.includes(tracker.id)
+                                ? 'bg-blue-100 border-blue-400 dark:bg-blue-900/50 dark:border-blue-600 ring-2 ring-blue-500'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            }`}
+                            onClick={() => toggleTrackerSelection(tracker.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                              <span className="font-medium text-gray-800 dark:text-gray-200">{tracker.full_name || 'Unnamed Tracker'}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || `ID: ${tracker.id}`}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No trackers found or unable to fetch tracker details.</p>
+                    )}
+                    {selectedTrackers.length > 0 && (
+                      <p className="text-sm text-blue-600 dark:text-blue-400 mt-3">
+                        {selectedTrackers.length} tracker(s) will be notified upon match creation.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex justify-between items-center mt-8">
+                <Button type="button" onClick={handlePrevStep} variant="outline" size="lg">
+                  <ArrowLeft className="mr-2 h-5 w-5" /> Previous: Team Setup
+                </Button>
+                <Button type="submit" disabled={isLoading} size="lg">
+                  {isLoading
+                    ? (isEditMode ? 'Saving Changes...' : 'Creating Match...')
+                    : (isEditMode ? <><Save className="mr-2 h-5 w-5"/>Save Changes</> : <><PlusCircle className="mr-2 h-5 w-5"/>Create Match</>)}
+                </Button>
+              </div>
+            </>
+          )}
         </form>
       </Form>
     </div>
