@@ -428,16 +428,22 @@ const Admin: React.FC = () => {
     }
   };
 
+  // MODIFIED FUNCTION: handleRoleChange
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
       const { error } = await supabase.functions.invoke('admin-set-user-role', {
-        body: { userIdToUpdate: userId, newRoleToSet: newRole },
+        body: {
+          target_user_id: userId, // CORRECTED NAME
+          new_role: newRole        // CORRECTED NAME
+        },
       });
-      if (error) throw error;
 
-      // CORRECTED: Simplified optimistic update. The `app_metadata` part was problematic
-      // as `User` interface didn't define it and `get-all-users` didn't explicitly return it.
-      // The Edge Function `admin-set-user-role` is responsible for all backend changes.
+      if (error) {
+        console.error('Raw error object from invoke admin-set-user-role:', error);
+        const message = error.context?.errorMessage || error.message || "Unknown error from function invoke.";
+        throw new Error(message);
+      }
+
       setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
       toast.success('User role updated successfully.');
       
@@ -453,13 +459,7 @@ const Admin: React.FC = () => {
 
     } catch (e: any) {
       console.error('Error updating role:', e);
-      let errorMessage = e.message;
-      if (e.context && typeof e.context.error === 'string') {
-          errorMessage = e.context.error;
-      } else if (e.data && typeof e.data.error === 'string') {
-          errorMessage = e.data.error;
-      }
-      toast.error(`Failed to update user role: ${errorMessage}`);
+      toast.error(`Failed to update user role: ${e.message}`); // e.message will now be the refined message
     }
   };
     
