@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -15,19 +15,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-// useToast from shadcn/ui is different from sonner's toast
-// If you intend to use sonner for all toasts, remove useToast and adapt.
-// For this correction, I'll assume you might use shadcn's useToast for some things
-// and sonner's toast for others, but it's better to be consistent.
-// I will prioritize sonner's toast as used in the provided code.
 // import { useToast } from '@/hooks/use-toast'; // Potentially remove if using sonner exclusively
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext'; // Make sure this context provides the user object correctly
+import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import FormationSelector from './FormationSelector'; // Ensure this component exists and works as expected
-import { Formation, Player, Team } from '@/types'; // Ensure these types are correctly defined
-import { generatePlayersForFormation } from '@/utils/formationUtils'; // Ensure this utility exists
-import { toast as sonnerToast } from 'sonner'; // Renamed to avoid conflict if useToast is also used
+import FormationSelector from './FormationSelector';
+import { Formation, Player, Team } from '@/types';
+import { generatePlayersForFormation } from '@/utils/formationUtils';
+import { toast as sonnerToast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Send } from 'lucide-react';
 
@@ -38,21 +33,19 @@ const formSchema = z.object({
   awayTeam: z.string().min(2, {
     message: 'Away team name must be at least 2 characters.',
   }),
-  homeFormation: z.string().min(1, 'Home formation is required'), // Should match Formation type if possible
-  awayFormation: z.string().min(1, 'Away formation is required'), // Should match Formation type if possible
-  matchDate: z.string().optional(), // Consider z.date() if you parse it, or refine validation for datetime-local
+  homeFormation: z.string().min(1, 'Home formation is required'),
+  awayFormation: z.string().min(1, 'Away formation is required'),
+  matchDate: z.string().optional(),
   status: z.enum(['draft', 'published', 'live', 'completed', 'archived']).default('draft'),
-  description: z.string().max(500, "Description too long").optional(), // Added max length
+  description: z.string().max(500, "Description too long").optional(),
 });
 
 type MatchFormValues = z.infer<typeof formSchema>;
 
 interface TrackerUser {
-  id: string; // user_id
-  full_name: string | null; // Profiles might have null full_name
-  email?: string; // Email is usually from auth.users, not profiles directly.
-                   // If profiles.id is user_id, it's not an email.
-                   // Consider fetching email if needed, or clarifying what `tracker.email` displays.
+  id: string; // user_id from profiles table (which is a FK to auth.users.id)
+  full_name: string | null;
+  email?: string; // Email fetched from related auth.users table
 }
 
 interface CreateMatchFormProps {
@@ -61,15 +54,14 @@ interface CreateMatchFormProps {
     id: string;
     homeTeam: string;
     awayTeam: string;
-    home_team_formation?: string; // Should be Formation type ideally
-    away_team_formation?: string; // Should be Formation type ideally
+    home_team_formation?: string;
+    away_team_formation?: string;
     home_team_players?: Player[];
     away_team_players?: Player[];
-    matchDate?: string; // Consider ISO string format for consistency
+    matchDate?: string;
     status?: 'draft' | 'published' | 'live' | 'completed' | 'archived';
     description?: string;
   };
-  // CORRECTED: onSubmitOverride should likely accept the full payload including players
   onSubmitOverride?: (values: MatchFormValues & { home_team_players?: Player[]; away_team_players?: Player[]; }, matchId: string) => Promise<void>;
   onSuccess?: () => void;
 }
@@ -83,8 +75,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
-  // const { toast: showShadcnToast } = useToast(); // Example if using shadcn's toast
-  const { user } = useAuth(); // Ensure 'user' object has 'id'
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const form = useForm<MatchFormValues>({
@@ -103,35 +94,42 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-  const fetchTrackers = useCallback(async () => { // useCallback for stable function reference
+  // CORRECTED fetchTrackers function
+  const fetchTrackers = useCallback(async () => {
     try {
+      // Fetch 'id' and 'full_name' from 'profiles'.
+      // Fetch 'email' from the 'auth.users' table referenced by 'profiles.id'.
+      // 'user_details:id(email)' instructs Supabase to follow the 'id' FK
+      // and get 'email', nesting it under 'user_details'.
       const { data, error } = await supabase
-        .from('profiles') // Fetch directly from profiles
-        .select('id, full_name, email') // Assuming email is stored in profiles or you join with auth.users if needed
-        .eq('role', 'tracker'); // Assuming 'role' column exists in 'profiles' table
+        .from('profiles')
+        .select('id, full_name, user_details:id(email)') // Corrected select query
+        .eq('role', 'tracker');
 
       if (error) {
         console.error('Error fetching trackers:', error);
         sonnerToast.error('Failed to fetch trackers: ' + error.message);
+        // Provide a more specific hint if it's the PGRST200 error mentioned
+        if (error.code === 'PGRST200' && error.message.includes("Could not find a relationship between 'user_roles' and 'profiles'")) {
+            sonnerToast.info("Hint: This error (PGRST200) related to 'user_roles' and 'profiles' might indicate a deeper schema issue or misconfiguration beyond just fetching emails. Please review your database schema, RLS policies, and any views or functions involving these tables if the problem persists.");
+        }
         setTrackers([]);
       } else {
-        // Ensure data conforms to TrackerUser
+        // Map the fetched data, accessing the email from the nested user_details object
         const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
           id: profile.id,
           full_name: profile.full_name,
-          email: profile.email || 'No email provided' // Provide a fallback for email
+          email: profile.user_details?.email || 'No email provided' // Correctly access nested email
         }));
         setTrackers(fetchedTrackers);
       }
     } catch (err: any) {
-      console.error('Error fetching trackers:', err);
+      console.error('Unexpected error in fetchTrackers:', err);
       sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
       setTrackers([]);
     }
-  }, []); // Added supabase to dependency array if it were reactive, but it's stable.
+  }, []); // supabase client is stable, so empty dependency array is fine.
 
-
-  // Effect for initializing teams based on form defaults or initialData
   useEffect(() => {
     const initializeTeam = (
       teamType: 'home' | 'away',
@@ -176,7 +174,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         'away',
         'Away Team Beta',
         '4-3-3',
-        100, // Keep player IDs distinct for away team
+        100,
         initialData?.away_team_players,
         initialData?.awayTeam,
         initialData?.away_team_formation
@@ -185,9 +183,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     
     fetchTrackers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers]); // form.getValues is not reactive, so it's okay for initial setup.
+  }, [isEditMode, initialData, fetchTrackers]); // form.getValues is not reactive, fetchTrackers is stable
 
-  // Effect for resetting form when initialData changes (specifically for edit mode)
   useEffect(() => {
     if (isEditMode && initialData) {
       form.reset({
@@ -235,7 +232,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     if (!currentTeam) return;
 
     const players = currentTeam.players || [];
-    // Ensure unique ID generation, considering existing player IDs
     const existingIds = players.map(p => p.id);
     let newPlayerId = teamId === 'home' ? 1 : 100;
     while (existingIds.includes(newPlayerId)) {
@@ -244,9 +240,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     
     const newPlayer: Player = {
       id: newPlayerId,
-      name: `Player ${players.length + 1}`, // Name can be generic
-      number: players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1, // Suggest next available number
-      position: 'Substitute' // Default position
+      name: `Player ${players.length + 1}`,
+      number: players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1,
+      position: 'Substitute'
     };
 
     teamSetter({
@@ -280,16 +276,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     if (selectedTrackers.length === 0) return;
 
     try {
-      const notifications = selectedTrackers.map(trackerUserId => ({ // Renamed to trackerUserId for clarity
-        tracker_user_id: trackerUserId, // Column name in DB
+      const notifications = selectedTrackers.map(trackerUserId => ({
+        tracker_user_id: trackerUserId,
         message: `Match "${matchName}" created/updated and needs attention.`,
         match_id: matchId,
         is_read: false,
-        // title and type might be useful in the future for different notification types
       }));
 
       const { error } = await supabase
-        .from('match_notifications') // Ensure this table exists with these columns
+        .from('match_notifications')
         .insert(notifications);
 
       if (error) {
@@ -312,7 +307,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       return;
     }
 
-    // Consolidate payload creation
     const matchDataPayload = {
       home_team_name: homeTeam.name,
       away_team_name: awayTeam.name,
@@ -320,16 +314,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       away_team_formation: awayTeam.formation,
       home_team_players: homeTeam.players,
       away_team_players: awayTeam.players,
-      match_date: values.matchDate || null, // Handle empty string as null
+      match_date: values.matchDate || null,
       status: values.status,
-      description: values.description || null, // Handle empty string as null
+      description: values.description || null,
     };
 
     try {
       if (isEditMode && onSubmitOverride && initialData?.id) {
-        // Ensure the values passed to onSubmitOverride match its expected type
         const submissionPayloadForOverride = {
-            ...values, // This includes homeTeam, awayTeam names, formations from Zod
+            ...values,
             home_team_players: matchDataPayload.home_team_players,
             away_team_players: matchDataPayload.away_team_players,
         };
@@ -337,7 +330,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         sonnerToast.success('Match updated successfully!');
         if (onSuccess) onSuccess();
       } else {
-        // Create new match
         if (!user?.id) {
           sonnerToast.error("User not authenticated. Cannot create match.");
           setIsLoading(false);
@@ -357,7 +349,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         await sendNotificationToTrackers(newMatch.id, matchName);
         sonnerToast.success('Match created successfully!');
         if (onSuccess) onSuccess();
-        else navigate('/admin/matches'); // Or a relevant dashboard page
+        else navigate('/admin/matches');
       }
     } catch (error: any) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} match:`, error);
@@ -375,14 +367,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     );
   };
 
-  // Check if teams are loaded before rendering dependent parts
-  if ((!isEditMode && (!homeTeam || !awayTeam)) || (isEditMode && initialData && (!homeTeam || !awayTeam))) {
-    // This check might be too aggressive if initialData is loading.
-    // A better approach would be a loading state for initialData itself if it's fetched asynchronously.
-    // For now, this ensures homeTeam/awayTeam are not null before rendering player UI.
-    // return <div>Loading team data...</div>; // Or a spinner
-  }
-
+  // Conditional rendering for loading could be added here if homeTeam/awayTeam initialization is async
+  // if (!homeTeam || !awayTeam) return <div>Loading team data...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
@@ -415,8 +401,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                           placeholder="Enter home team name"
                           {...field}
                           onChange={(e) => {
-                            field.onChange(e); // RHF update
-                            updateTeamName('home', e.target.value); // Local state update
+                            field.onChange(e);
+                            updateTeamName('home', e.target.value);
                           }}
                         />
                       </FormControl>
@@ -427,11 +413,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 <FormField
                   control={form.control}
                   name="homeFormation"
-                  render={({ field }) => ( // field is not directly used for value here, homeTeam.formation is source of truth
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Formation</FormLabel>
                       <FormationSelector
-                        value={homeTeam?.formation || field.value as Formation} // Use local team state or fallback to form
+                        value={homeTeam?.formation || field.value as Formation}
                         onChange={(newFormation) => updateTeamFormation('home', newFormation)}
                       />
                       <FormMessage />
@@ -479,7 +465,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
               </CardContent>
             </Card>
 
-            {/* Away Team Card (similar structure to Home Team) */}
+            {/* Away Team Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Away Team</CardTitle>
@@ -628,7 +614,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
             )}
           />
 
-          {!isEditMode && ( // Show tracker notification section only in create mode for simplicity
+          {!isEditMode && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -653,12 +639,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                           <Users className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                           <span className="font-medium text-gray-800 dark:text-gray-200">{tracker.full_name || 'Unnamed Tracker'}</span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || tracker.id}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || tracker.id}</p> {/* Display tracker ID if email is not available */}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No trackers found with the 'tracker' role.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No trackers found with the 'tracker' role or unable to fetch tracker details.</p>
                 )}
                 {selectedTrackers.length > 0 && (
                   <p className="text-sm text-blue-600 dark:text-blue-400 mt-3">
