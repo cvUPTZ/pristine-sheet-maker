@@ -12,8 +12,8 @@ import { createSimulatedTeams } from '@/utils/formationUtils';
 interface SetupScreenProps {
   homeTeam: Team | null;
   awayTeam: Team | null;
-  updateTeams: (teams: { home: Team; away: Team }) => void;
-  completeSetup: () => void;
+  updateTeams: (home: Team, away: Team) => void;
+  completeSetup: (home: Team, away: Team) => void;
   matchId?: string; // Optional matchId for when loading existing match
 }
 
@@ -39,9 +39,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     players: []
   };
 
+  const handleTeamsChange = (teams: { home: Team; away: Team }) => {
+    updateTeams(teams.home, teams.away);
+  };
+
   const handleStartMatch = () => {
     // Validation check before starting the match
-    if (!safeHomeTeam.players.length || !safeAwayTeam.players.length) {
+    if (!safeHomeTeam.players?.length || !safeAwayTeam.players?.length) {
       toast.error("Each team must have at least one player.");
       return;
     }
@@ -52,13 +56,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     }
     
     // All validation passed
-    completeSetup();
+    completeSetup(safeHomeTeam, safeAwayTeam);
   };
   
   // Function to create and use simulated teams for testing
   const loadSimulatedTeams = () => {
     const { homeTeam: simulatedHome, awayTeam: simulatedAway } = createSimulatedTeams();
-    updateTeams({ home: simulatedHome, away: simulatedAway });
+    updateTeams(simulatedHome, simulatedAway);
     toast.success("Simulated teams loaded successfully.");
   };
 
@@ -81,7 +85,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
           <TeamSetupWithFormation 
             teams={{ home: safeHomeTeam, away: safeAwayTeam }}
-            onTeamsChange={updateTeams}
+            onTeamsChange={handleTeamsChange}
             onConfirm={handleStartMatch}
           />
           

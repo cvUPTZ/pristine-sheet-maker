@@ -10,7 +10,7 @@ import { Team } from '@/types';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track'>('pitch');
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
 
   const {
     homeTeam,
@@ -46,9 +46,9 @@ const Index: React.FC = () => {
     navigate(`/match/${newMatchId}`);
   };
 
-  const handleCompleteSetup = (teams: { home: Team; away: Team }) => {
-    updateTeams(teams.home, teams.away);
-    completeSetup();
+  const handleCompleteSetup = (home: Team, away: Team) => {
+    updateTeams(home, away);
+    completeSetup(home, away);
   };
 
   const handlePlayerSelect = (player: any) => {

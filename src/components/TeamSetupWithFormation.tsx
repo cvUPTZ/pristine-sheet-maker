@@ -86,13 +86,13 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     
     const team = teams[teamId]!;
     const playerId = teamId === 'home' ? 
-      Math.max(...team.players.map(p => p.id), 0) + 1 : 
-      Math.max(...team.players.map(p => p.id), 100) + 1;
+      Math.max(...(team.players?.map(p => p.id) || [0]), 0) + 1 : 
+      Math.max(...(team.players?.map(p => p.id) || [100]), 100) + 1;
       
     const newPlayer: Player = {
       id: playerId,
-      name: `Player ${team.players.length + 1}`,
-      number: team.players.length + 1,
+      name: `Player ${(team.players?.length || 0) + 1}`,
+      number: (team.players?.length || 0) + 1,
       position: 'Substitute'
     };
     
@@ -100,7 +100,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
       ...teams,
       [teamId]: {
         ...team,
-        players: [...team.players, newPlayer]
+        players: [...(team.players || []), newPlayer]
       }
     } as { home: Team, away: Team });
   };
@@ -109,7 +109,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     if (!teams[teamId]) return;
     
     const team = teams[teamId]!;
-    const updatedPlayers = team.players.map(player => 
+    const updatedPlayers = (team.players || []).map(player => 
       player.id === playerId ? { ...player, ...updates } : player
     );
     
@@ -126,7 +126,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     if (!teams[teamId]) return;
     
     const team = teams[teamId]!;
-    const updatedPlayers = team.players.filter(player => player.id !== playerId);
+    const updatedPlayers = (team.players || []).filter(player => player.id !== playerId);
     
     onTeamsChange({
       ...teams,
@@ -139,11 +139,11 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
   
   // Initialize teams with default players if they have a formation but no players
   useEffect(() => {
-    if (teams.home?.formation && teams.home.players.length === 0) {
+    if (teams.home?.formation && (!teams.home.players || teams.home.players.length === 0)) {
       updateTeamFormation('home', teams.home.formation as Formation);
     }
     
-    if (teams.away?.formation && teams.away.players.length === 0) {
+    if (teams.away?.formation && (!teams.away.players || teams.away.players.length === 0)) {
       updateTeamFormation('away', teams.away.formation as Formation);
     }
   }, [teams.home?.formation, teams.away?.formation]);
@@ -190,7 +190,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
                 <Button onClick={() => addPlayer('home')} size="sm">Add Player</Button>
               </div>
               
-              {teams.home.players.length === 0 ? (
+              {(!teams.home.players || teams.home.players.length === 0) ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
                   <Button onClick={() => updateTeamFormation('home', teams.home.formation as Formation || '4-4-2')}>
@@ -265,7 +265,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
                 <Button onClick={() => addPlayer('away')} size="sm">Add Player</Button>
               </div>
               
-              {teams.away.players.length === 0 ? (
+              {(!teams.away.players || teams.away.players.length === 0) ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
                   <Button onClick={() => updateTeamFormation('away', teams.away.formation as Formation || '4-3-3')}>
