@@ -483,17 +483,19 @@ const MatchAnalysis = () => {
       if (!matchId || !user) return;
 
       try {
-        const { data: assignmentData, error: assignmentError } = await supabase
+        const { data: assignmentDataArray, error: assignmentError } = await supabase
           .from('match_tracker_assignments')
           .select('player_id, player_team_id')
           .eq('match_id', matchId)
-          .eq('tracker_user_id', user.id)
-          .single();
+          .eq('tracker_user_id', user.id);
 
         if (assignmentError) {
           console.error('Error fetching match tracker assignment:', assignmentError);
+          setAssignedPlayerForMatch(null); // Ensure state is reset on error
           return;
         }
+
+        const assignmentData = assignmentDataArray && assignmentDataArray.length > 0 ? assignmentDataArray[0] : null;
 
         if (assignmentData) {
           const team = assignmentData.player_team_id;
@@ -514,10 +516,12 @@ const MatchAnalysis = () => {
             setAssignedPlayerForMatch(null);
           }
         } else {
+          // No assignment found
           setAssignedPlayerForMatch(null);
         }
       } catch (error) {
         console.error('Error fetching assigned player:', error);
+        setAssignedPlayerForMatch(null); // Ensure state is reset on catch
       }
     };
 
