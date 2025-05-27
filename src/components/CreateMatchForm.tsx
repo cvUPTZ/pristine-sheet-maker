@@ -93,44 +93,70 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
+
   const fetchTrackers = useCallback(async () => {
-    try {
-      // Corrected select syntax for PGRST201 error:
-      // Explicitly name 'auth_users' as the target table for the relationship
-      // involving 'profiles.id' to resolve ambiguity.
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, user_email_data:auth_users(email)') // CORRECTED SYNTAX for PGRST201
-        .eq('role', 'tracker');
-
-      if (error) {
-        console.error('Error fetching trackers:', error); // This is your line 405
-        sonnerToast.error('Failed to fetch trackers: ' + error.message);
-
-        if (error.code === 'PGRST201') { // Ambiguous relationship
-            sonnerToast.info("Hint (PGRST201): Ambiguous relationship. The query needs to specify which related table to use. This has been addressed by targeting 'auth_users'. If error persists, verify FK 'profiles_id_fkey' correctly links profiles.id to auth_users.id.");
-        } else if (error.code === 'PGRST100') { // Parse error in select
-            sonnerToast.info("Hint (PGRST100): Parsing error in 'select'. Check syntax for related data.");
-        } else if (error.code === '42703') { // Column does not exist
-            sonnerToast.info("Hint (42703): Column does not exist. Check names and aliases.");
-        } else if (error.code === 'PGRST200') { // Schema cache/relationship finding issue
-             sonnerToast.info("Hint (PGRST200): Schema cache or relationship finding issue. Try reloading schema or check FKs.");
-        }
-        setTrackers([]);
-      } else {
-        const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-          id: profile.id,
-          full_name: profile.full_name,
-          email: profile.user_email_data?.email || 'No email provided'
-        }));
-        setTrackers(fetchedTrackers);
-      }
-    } catch (err: any) {
-      console.error('Unexpected error in fetchTrackers catch block:', err);
-      sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+  try {
+    const { data, error } = await supabase
+      .rpc('get_trackers_with_email');
+      
+    if (error) {
+      console.error('Error fetching trackers:', error);
+      sonnerToast.error('Failed to fetch trackers: ' + error.message);
       setTrackers([]);
+    } else {
+      const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        email: profile.email || 'No email provided'
+      }));
+      setTrackers(fetchedTrackers);
     }
-  }, []);
+  } catch (err: any) {
+    console.error('Unexpected error in fetchTrackers catch block:', err);
+    sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+    setTrackers([]);
+  }
+}, []);
+
+  
+  // const fetchTrackers = useCallback(async () => {
+  //   try {
+  //     // Corrected select syntax for PGRST201 error:
+  //     // Explicitly name 'auth_users' as the target table for the relationship
+  //     // involving 'profiles.id' to resolve ambiguity.
+  //     const { data, error } = await supabase
+  //       .from('profiles')
+  //       .select('id, full_name, user_email_data:auth_users(email)') // CORRECTED SYNTAX for PGRST201
+  //       .eq('role', 'tracker');
+
+  //     if (error) {
+  //       console.error('Error fetching trackers:', error); // This is your line 405
+  //       sonnerToast.error('Failed to fetch trackers: ' + error.message);
+
+  //       if (error.code === 'PGRST201') { // Ambiguous relationship
+  //           sonnerToast.info("Hint (PGRST201): Ambiguous relationship. The query needs to specify which related table to use. This has been addressed by targeting 'auth_users'. If error persists, verify FK 'profiles_id_fkey' correctly links profiles.id to auth_users.id.");
+  //       } else if (error.code === 'PGRST100') { // Parse error in select
+  //           sonnerToast.info("Hint (PGRST100): Parsing error in 'select'. Check syntax for related data.");
+  //       } else if (error.code === '42703') { // Column does not exist
+  //           sonnerToast.info("Hint (42703): Column does not exist. Check names and aliases.");
+  //       } else if (error.code === 'PGRST200') { // Schema cache/relationship finding issue
+  //            sonnerToast.info("Hint (PGRST200): Schema cache or relationship finding issue. Try reloading schema or check FKs.");
+  //       }
+  //       setTrackers([]);
+  //     } else {
+  //       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+  //         id: profile.id,
+  //         full_name: profile.full_name,
+  //         email: profile.user_email_data?.email || 'No email provided'
+  //       }));
+  //       setTrackers(fetchedTrackers);
+  //     }
+  //   } catch (err: any) {
+  //     console.error('Unexpected error in fetchTrackers catch block:', err);
+  //     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+  //     setTrackers([]);
+  //   }
+  // }, []);
 
   useEffect(() => {
     const initializeTeam = (
