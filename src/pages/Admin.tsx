@@ -37,6 +37,8 @@ interface Match {
   description?: string;
   home_team_name: string;
   away_team_name: string;
+  home_team_formation?: string; // Added for edit form
+  away_team_formation?: string; // Added for edit form
   status: string;
   match_date: string;
   created_at: string;
@@ -325,6 +327,10 @@ const Admin: React.FC = () => {
     const updatePayload = {
       home_team_name: values.homeTeam,
       away_team_name: values.awayTeam,
+      home_team_formation: values.homeFormation, // Added from form values
+      away_team_formation: values.awayFormation, // Added from form values
+      home_team_players: values.home_team_players, // Added from form values (passed through by CreateMatchForm)
+      away_team_players: values.away_team_players, // Added from form values (passed through by CreateMatchForm)
       match_date: values.matchDate || null,
       status: values.status,
       description: values.description,
@@ -685,11 +691,19 @@ const Admin: React.FC = () => {
           {editingMatch && <CreateMatchForm 
                             isEditMode 
                             initialData={{
-                              id: editingMatch.id, homeTeam: editingMatch.home_team_name, awayTeam: editingMatch.away_team_name,
-                              matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
+                              id: editingMatch.id, 
+                              homeTeam: editingMatch.home_team_name, 
+                              awayTeam: editingMatch.away_team_name,
+                              home_team_formation: editingMatch.home_team_formation,
+                              away_team_formation: editingMatch.away_team_formation,
+                              home_team_players: editingMatch.home_team_players,
+                              away_team_players: editingMatch.away_team_players,
+                              matchDate: editingMatch.match_date || '', 
+                              status: editingMatch.status as any, 
+                              description: editingMatch.description || editingMatch.name || ''
                             }} 
                             onSubmitOverride={handleUpdateMatch} 
-                            onSuccess={handleEditMatchSuccess} // This will now handle data refresh and dialog close
+                            onSuccess={handleEditMatchSuccess} 
                           />}
         </DialogContent>
       </Dialog>
