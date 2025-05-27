@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -13,7 +12,7 @@ import { useMatchState } from '@/hooks/useMatchState';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, Player } from '@/types';
+import { Team, Player, Statistics, BallTrackingPoint } from '@/types';
 import { AssignedPlayerForMatch } from '@/components/match/DedicatedTrackerUI';
 import { toast } from 'sonner';
 
@@ -31,6 +30,7 @@ const MatchAnalysis: React.FC = () => {
   const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>('stopped');
   const [timerLastStartedAt, setTimerLastStartedAt] = useState<string | null>(null);
   const [assignedPlayerInfo, setAssignedPlayerInfo] = useState<{ playerId: number; playerTeamId: string; } | null>(null);
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track'>('pitch');
 
   const {
     events,
@@ -44,11 +44,9 @@ const MatchAnalysis: React.FC = () => {
     selectedPlayer,
     setupComplete,
     ballTrackingMode,
-    activeTab,
     teamPositions,
     recordEvent,
     setStatistics,
-    setActiveTab,
     setSelectedTeam,
     setSelectedPlayer,
     undoLastEvent,
@@ -132,7 +130,7 @@ const MatchAnalysis: React.FC = () => {
         console.log('Processed awayTeamData to be passed to updateTeams:', awayTeamData);
         updateTeams(homeTeamData, awayTeamData);
 
-        // Initialize statistics, ball tracking, and timer values from matchData
+        // Initialize statistics, ball tracking, and timer values from matchData with proper type checking
         const initialStats = {
           possession: { home: 50, away: 50 },
           shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
@@ -147,16 +145,30 @@ const MatchAnalysis: React.FC = () => {
           offsides: { home: 0, away: 0 },
           freeKicks: { home: 0, away: 0 },
         };
-        console.log('Match statistics from DB:', matchData.match_statistics);
-        console.log('Initial stats for fallback:', initialStats);
-        setStatistics(matchData.match_statistics || initialStats);
-        console.log('Ball tracking data from DB:', matchData.ball_tracking_data);
-        setBallTrackingPoints(matchData.ball_tracking_data || []);
-        console.log('Timer current value from DB:', matchData.timer_current_value);
+        
+        // Safe type conversion for statistics
+        if (matchData.match_statistics && typeof matchData.match_statistics === 'object') {
+          setStatistics(matchData.match_statistics as Statistics);
+        } else {
+          setStatistics(initialStats);
+        }
+        
+        // Safe type conversion for ball tracking data
+        if (matchData.ball_tracking_data && Array.isArray(matchData.ball_tracking_data)) {
+          setBallTrackingPoints(matchData.ball_tracking_data as BallTrackingPoint[]);
+        } else {
+          setBallTrackingPoints([]);
+        }
+        
         setCurrentTimerValue(matchData.timer_current_value || 0);
-        console.log('Timer status from DB:', matchData.timer_status);
-        setTimerStatus(matchData.timer_status || 'stopped');
-        console.log('Timer last started at from DB:', matchData.timer_last_started_at);
+        
+        // Safe type conversion for timer status
+        if (matchData.timer_status && ['stopped', 'running', 'paused'].includes(matchData.timer_status)) {
+          setTimerStatus(matchData.timer_status as 'stopped' | 'running' | 'paused');
+        } else {
+          setTimerStatus('stopped');
+        }
+        
         setTimerLastStartedAt(matchData.timer_last_started_at || null);
 
         // If teams are set up, mark setup as complete
@@ -181,7 +193,7 @@ const MatchAnalysis: React.FC = () => {
     };
 
     fetchMatch();
-  }, [matchId, navigate, showToast, updateTeams, completeSetup]);
+  }, [matchId, navigate, showToast, updateTeams, completeSetup, setStatistics, setBallTrackingPoints]);
 
   // Fetch assigned player for the tracker
   useEffect(() => {
@@ -404,9 +416,9 @@ const MatchAnalysis: React.FC = () => {
     }
   };
 
-  const handleCompleteSetup = (homeTeamData: Team, awayTeamData: Team) => {
-    updateTeams(homeTeamData, awayTeamData);
-    completeSetup(homeTeamData, awayTeamData);
+  const handleCompleteSetup = (teams: { home: Team; away: Team }) => {
+    updateTeams(teams.home, teams.away);
+    completeSetup(teams.home, teams.away);
   };
 
   if (loading) {
@@ -422,8 +434,8 @@ const MatchAnalysis: React.FC = () => {
       <SetupScreen
         homeTeam={homeTeam}
         awayTeam={awayTeam}
-        updateTeams={updateTeams}
-        completeSetup={handleCompleteSetup}
+        updateTeams={(teams) => updateTeams(teams.home, teams.away)}
+        completeSetup={() => completeSetup(homeTeam, awayTeam)}
         matchId={matchId}
       />
     );
@@ -472,7 +484,6 @@ const MatchAnalysis: React.FC = () => {
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
-            toggleBallTrackingMode={toggleBallTrackingMode}
             ballTrackingPoints={ballTrackingPoints}
             statistics={statistics}
             activeTab={activeTab}

@@ -1,18 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import { Match, Player } from '@/types'; // Assuming Match type is correctly defined here
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Match, Player, Statistics } from '@/types';
+import { ArrowLeft, Plus, Play, Pause, RotateCcw, Eye, Edit, Trash2, Calendar, Users, Clock } from 'lucide-react';
+import { format } from 'date-fns';
 
 const Matches: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const { user, userRole } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchMatches();
+  }, []);
 
   const fetchMatches = async () => {
-    setIsLoading(true); // Set loading true at the beginning of the fetch attempt
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -20,115 +29,115 @@ const Matches: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error fetching matches:', error);
-        console.error('Supabase query error details:', error);
-        throw error; // Re-throw to be caught by the component's catch block
-      }
-      console.log('Fetched raw matches:', data);
-
-      // Handle cases where data might be null (e.g., no matches found) or not an array
-      if (!data || !Array.isArray(data)) {
-        setMatches([]); // Set to empty array if no data or data is not an array
-        return; 
-      }
-
-      // Process the data:
-      // 1. Filter out any items that are null, not objects, or don't have a valid 'id'.
-      // 2. Map the valid items to the structure expected by your Match type and UI.
-      const processedMatches = data
-        .filter(item => {
-          if (item === null || typeof item !== 'object') {
-            console.warn('Skipping invalid item from Supabase (null or not an object):', item);
-            return false;
-          }
-          if (typeof item.id === 'undefined' || item.id === null || String(item.id).trim() === '') {
-            console.warn('Skipping item from Supabase due to missing or invalid id:', item);
-            return false;
-          }
-          return true;
-        })
-        .map(dbMatch => {
-          // We are now sure dbMatch is an object and dbMatch.id is valid
-          return {
-            ...dbMatch, // Spread all properties from the database record
-            id: String(dbMatch.id), // Ensure id is a string (good for keys)
-            home_team_name: dbMatch.home_team_name || 'N/A', // Default if missing
-            away_team_name: dbMatch.away_team_name || 'N/A', // Default if missing
-            match_date: dbMatch.match_date, // Keep as is (can be null/undefined if optional)
-            // Ensure status is one of the allowed types for your Match interface
-            // If dbMatch.status can be anything, you might need more sophisticated mapping or a default
-            status: (dbMatch.status || 'draft') as 'published' | 'draft' | 'live' | 'completed' | 'archived',
-            // Properly cast JSON fields to expected types
-            home_team_players: Array.isArray(dbMatch.home_team_players) ? dbMatch.home_team_players as Player[] : [],
-            away_team_players: Array.isArray(dbMatch.away_team_players) ? dbMatch.away_team_players as Player[] : [],
-          };
+        console.error('Error fetching matches:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load matches",
+          variant: "destructive",
         });
-      
-      // Assuming your Match type aligns with the object structure created above
-      console.log('Processed matches to be set:', processedMatches);
-      setMatches(processedMatches as Match[]);
+        return;
+      }
 
-    } catch (error: any) {
-      // Catch errors from Supabase call or from processing logic
-      console.error('Error in fetchMatches process:', error.message);
-      console.error('Error during fetchMatches process (outside Supabase query):', error.message, error.stack);
-      setMatches([]); // Set to empty array on any error to prevent rendering issues
+      // Safely convert the data with proper type handling
+      const typedMatches: Match[] = data.map(match => ({
+        ...match,
+        home_team_players: Array.isArray(match.home_team_players) 
+          ? (match.home_team_players as unknown as Player[])
+          : [],
+        away_team_players: Array.isArray(match.away_team_players) 
+          ? (match.away_team_players as unknown as Player[])
+          : [],
+        match_statistics: match.match_statistics && typeof match.match_statistics === 'object'
+          ? (match.match_statistics as unknown as Statistics)
+          : undefined,
+        ball_tracking_data: Array.isArray(match.ball_tracking_data) 
+          ? match.ball_tracking_data 
+          : []
+      }));
+
+      setMatches(typedMatches);
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load matches",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMatches();
-  }, []);
+  // ... keep existing code (deleteMatch, getStatusColor, getStatusText functions)
 
-  if (isLoading) {
-    return <div className="container mx-auto p-6 text-center">Loading matches...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-lg">Loading matches...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Matches</h1>
-        {/* Optional: Add a button to refresh or create new matches */}
-        {/* <Button onClick={fetchMatches}>Refresh Matches</Button> */}
-      </div>
-      
-      {matches.length === 0 ? (
-        <Card>
-          <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">No matches found or available.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {matches.map((match) => { console.log('Rendering link for match:', match); return (
-            // `match` here is guaranteed by the processing in fetchMatches
-            // to be an object with a valid, stringified `id`.
-            <Card key={match.id}>
-              <CardHeader>
-                <CardTitle>{match.home_team_name} vs {match.away_team_name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Date: {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'Not specified'}
-                  </p>
-                  {/* Ensure match.status has a value; if it can be undefined, handle that for Badge */}
-                  <Badge variant={match.status === 'live' ? 'destructive' : (match.status === 'completed' ? 'default' : 'outline')}>
-                    {match.status || 'Unknown Status'}
-                  </Badge>
-                  <div className="pt-2"> {/* Added some padding for the button */}
-                    <Link to={`/match/${match.id}`}>
-                      <Button variant="default" size="sm">View Match</Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ); })}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" asChild>
+              <Link to="/dashboard" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
+            <h1 className="text-3xl font-bold">Matches</h1>
+          </div>
+          {(userRole === 'admin' || userRole === 'coach') && (
+            <Button asChild>
+              <Link to="/admin" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create Match
+              </Link>
+            </Button>
+          )}
         </div>
-      )}
+
+        {matches.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground mb-4">No matches found.</p>
+            {(userRole === 'admin' || userRole === 'coach') && (
+              <Button asChild>
+                <Link to="/admin">Create your first match</Link>
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {matches.map((match) => (
+              <Card key={match.id}>
+                <CardHeader>
+                  <CardTitle>{match.home_team_name} vs {match.away_team_name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Date: {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'Not specified'}
+                    </p>
+                    {/* Ensure match.status has a value; if it can be undefined, handle that for Badge */}
+                    <Badge variant={match.status === 'live' ? 'destructive' : (match.status === 'completed' ? 'default' : 'outline')}>
+                      {match.status || 'Unknown Status'}
+                    </Badge>
+                    <div className="pt-2"> {/* Added some padding for the button */}
+                      <Link to={`/match/${match.id}`}>
+                        <Button variant="default" size="sm">View Match</Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

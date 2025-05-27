@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import PitchView from '@/components/match/PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
@@ -373,6 +372,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <TabsContent value="individual">
                 <DetailedStatsTable 
                   playerStats={playerStats} 
+                  type="individual"
                 />
               </TabsContent>
               
@@ -415,7 +415,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
-                  metric="ballsPlayed" 
                 />
               </TabsContent>
               
@@ -424,7 +423,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
-                  metric="possession" 
                 />
               </TabsContent>
               
@@ -433,7 +431,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   timeSegments={timeSegments} 
                   homeTeamName={homeTeam?.name || 'Home'} 
                   awayTeamName={awayTeam?.name || 'Away'} 
-                  metric="recoveryTime" 
                 />
               </TabsContent>
             </Tabs>
