@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import ProfileListPage from './pages/Admin/ProfileListPage'; // Added import
 import TrackerInterface from "./pages/TrackerInterface";
 import Header from "./components/Header";
 import { useEffect } from 'react';
@@ -105,6 +106,14 @@ const AppContent = () => {
         <Route path="/matches" element={<RequireAuth><Matches /></RequireAuth>} />
         <Route path="/statistics" element={<RequireAuth><Statistics /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
+        <Route 
+          path="/admin/profiles" 
+          element={
+            <RequireAuth requiredRoles={['admin']}>
+              <ProfileListPage />
+            </RequireAuth>
+          } 
+        /> {/* Added new admin route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
