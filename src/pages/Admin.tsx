@@ -142,7 +142,7 @@ const Admin: React.FC = () => {
           id: user.id,
           email: user.email || undefined, // Store as undefined if not present
           full_name: user.full_name || '', // Fallback to empty string if not present
-          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user', // Default role
+          role: (user.role as 'admin' | 'teacher' | 'tracker') || 'tracker', // Default role
           created_at: user.created_at,
           updated_at: user.updated_at || undefined, // Store as undefined if not present
         }));
