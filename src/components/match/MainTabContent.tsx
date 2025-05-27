@@ -275,7 +275,13 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </TabsContent>
               
               <TabsContent value="heatmap">
-                <PlayerHeatmap homeTeam={homeTeam} awayTeam={awayTeam} teamPositions={teamPositions} selectedTeam={selectedTeam} onSelectTeam={setSelectedTeam} />
+                <PlayerHeatmap 
+                  homeTeam={homeTeam} 
+                  awayTeam={awayTeam} 
+                  teamPositions={teamPositions} 
+                  selectedTeam={selectedTeam} 
+                  onSelectTeam={setSelectedTeam} 
+                />
               </TabsContent>
 
               <TabsContent value="coach">

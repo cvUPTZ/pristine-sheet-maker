@@ -147,9 +147,12 @@ const MatchAnalysis: React.FC = () => {
           freeKicks: { home: 0, away: 0 },
         };
         
-        // Safe type conversion for statistics
-        if (matchData.match_statistics && typeof matchData.match_statistics === 'object' && !Array.isArray(matchData.match_statistics)) {
-          setStatistics(matchData.match_statistics as Statistics);
+        // Safe type conversion for statistics with proper validation
+        if (matchData.match_statistics && 
+            typeof matchData.match_statistics === 'object' && 
+            !Array.isArray(matchData.match_statistics) &&
+            'possession' in matchData.match_statistics) {
+          setStatistics(matchData.match_statistics as unknown as Statistics);
         } else {
           setStatistics(initialStats);
         }
