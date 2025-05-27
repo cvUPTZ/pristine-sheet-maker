@@ -41,10 +41,9 @@ const formSchema = z.object({
 
 type MatchFormValues = z.infer<typeof formSchema>;
 
-// Updated TrackerUser interface as per your new fetchTrackers
 interface TrackerUser {
   id: string;
-  full_name: string | null; // Mapped from 'fullName'
+  full_name: string | null;
   email: string;
 }
 
@@ -73,7 +72,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   onSuccess
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false); // For main form submission
+  const [isLoading, setIsLoading] = useState(false);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
   const { user } = useAuth();
@@ -95,11 +94,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-  // NEW fetchTrackers function using Supabase Edge Function
   const fetchTrackers = useCallback(async () => {
     try {
-      // Invoke the 'get-tracker-users' Edge Function
-      const { data: responseData, error: invokeError } = await supabase.functions.invoke('get-tracker-users');
+      // Invoke the 'get-tracker-users' Edge Function with method GET
+      const { data: responseData, error: invokeError } = await supabase.functions.invoke(
+        'get-tracker-users', 
+        { method: 'GET' } // <<< MODIFIED HERE
+      );
 
       if (invokeError) {
         console.error('Error invoking get-tracker-users function:', invokeError);
@@ -108,17 +109,14 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         return;
       }
 
-      // Check for errors returned by the Edge Function itself in its response body
       if (responseData && responseData.error) {
           console.error('Error from get-tracker-users function:', responseData.error);
-          // Prefer responseData.error.message if available, otherwise use responseData.error
           const errorMessage = typeof responseData.error === 'string' ? responseData.error : responseData.error.message || 'Unknown error from function.';
           sonnerToast.error(`Error fetching trackers: ${errorMessage}`);
           setTrackers([]);
           return;
       }
       
-      // Validate that responseData is an array
       if (!Array.isArray(responseData)) {
           console.error('Invalid data format received from get-tracker-users:', responseData);
           sonnerToast.error('Invalid data format received from server.');
@@ -126,10 +124,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
           return;
       }
 
-      // Map data from Edge Function (fullName) to TrackerUser interface (full_name)
       const fetchedTrackers: TrackerUser[] = responseData.map((tracker: any) => ({
         id: tracker.id,
-        full_name: tracker.fullName || null, // Map from 'fullName'
+        full_name: tracker.fullName || null,
         email: tracker.email,
       }));
 
@@ -140,8 +137,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       sonnerToast.error('An unexpected error occurred while fetching trackers: ' + (err.message || 'Unknown error'));
       setTrackers([]);
     }
-    // No setIsLoading or setError here as this is a background fetch. Errors are handled by toasts.
-  }, [setTrackers]); // setTrackers is stable from useState
+  }, [setTrackers]);
 
   useEffect(() => {
     const initializeTeam = (
@@ -196,7 +192,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     
     fetchTrackers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers]); // form.getValues removed. fetchTrackers is stable.
+  }, [isEditMode, initialData, fetchTrackers]);
 
   useEffect(() => {
     if (isEditMode && initialData) {
@@ -211,7 +207,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, form.reset]); // form.reset is stable.
+  }, [isEditMode, initialData, form.reset]);
 
 
   const updateTeamName = (teamId: 'home' | 'away', name: string) => {
@@ -304,11 +300,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         .from('match_notifications')
         .insert(notifications);
 
-      if (error) throw error; // Let the calling function catch and display
+      if (error) throw error;
       sonnerToast.success(`Notifications sent to ${selectedTrackers.length} tracker(s).`);
     } catch (err: any) {
       console.error('Error sending notifications:', err);
-      // Re-throw to be caught by handleFormSubmit or display a specific toast here
       throw new Error('An unexpected error occurred while sending notifications: ' + (err.message || 'Unknown error'));
     }
   };
@@ -360,8 +355,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         if (!newMatch) throw new Error("Match creation failed to return data.");
 
         const matchName = `${newMatch.home_team_name} vs ${newMatch.away_team_name}`;
-        // Await notification sending and handle its specific errors if necessary
-        if (selectedTrackers.length > 0) { // Only attempt if trackers are selected
+        if (selectedTrackers.length > 0) {
             await sendNotificationToTrackers(newMatch.id, matchName);
         }
         sonnerToast.success('Match created successfully!');
@@ -528,7 +522,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 <p className="text-sm text-gray-500 dark:text-gray-400">Manage player lists, set match details, and notify trackers if needed.</p>
               </div>
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Home Team Players Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle>
@@ -578,7 +571,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                   </CardContent>
                 </Card>
 
-                {/* Away Team Players Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle>
