@@ -1,3 +1,4 @@
+// src/pages/Admin.tsx or similar path
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,16 +20,16 @@ import {
 import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Player, EventType } from '@/types'; // Import Player & EventType type
-import CreateMatchForm from '@/components/admin/CreateMatchForm'; // Import CreateMatchForm
+import { Player, EventType } from '@/types';
+import CreateMatchForm from '@/components/admin/CreateMatchForm';
 
 interface User {
   id: string;
-  email: string;
+  email?: string; // Email can be optional if, for some reason, it's not always present
   full_name: string;
   role: 'admin' | 'teacher' | 'user' | 'tracker';
   created_at: string;
-  updated_at: string;
+  updated_at?: string; // updated_at can also be optional
 }
 
 interface Match {
@@ -37,8 +38,8 @@ interface Match {
   description?: string;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation?: string; // Added for edit form
-  away_team_formation?: string; // Added for edit form
+  home_team_formation?: string;
+  away_team_formation?: string;
   status: string;
   match_date: string;
   created_at: string;
@@ -73,7 +74,6 @@ const availableEventTypes: EventType[] = [
   'penalty', 'free-kick', 'goal-kick', 'throw-in', 'interception'
 ];
 
-// Helper function to filter items with invalid IDs
 const filterValidItems = <T extends { id: string }>(items: T[], itemName: string): T[] => {
   return items.filter(item => {
     if (!item.id || item.id === "") {
@@ -119,24 +119,39 @@ const Admin: React.FC = () => {
     let fetchedMatches: Match[] = [];
 
     try {
-      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
-      if (usersError) throw usersError;
-      if (Array.isArray(usersData)) {
-        fetchedUsers = usersData.map((user: any) => ({
+      // Fetch users using the Edge Function
+      const { data: usersFunctionResponse, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
+      
+      if (usersError) {
+        let errorMessage = usersError.message;
+        // Attempt to parse more specific error from function context if available
+        if (usersError.context && usersError.context.error) {
+            if (typeof usersError.context.error.error === 'string') {
+                 errorMessage = usersError.context.error.error; // If { error: { error: "message" } }
+            } else if (typeof usersError.context.error === 'string') {
+                 errorMessage = usersError.context.error; // If { error: "message" }
+            }
+        }
+        console.error('Error invoking get-all-users function:', usersError);
+        toast.error(`Failed to fetch users: ${errorMessage}`);
+        setUsers([]);
+      } else if (usersFunctionResponse && Array.isArray(usersFunctionResponse)) {
+        fetchedUsers = usersFunctionResponse.map((user: any) => ({
           id: user.id,
-          email: user.email || user.full_name || 'No email provided',
-          full_name: user.full_name || '',
-          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user',
+          email: user.email || undefined, // Store as undefined if not present
+          full_name: user.full_name || '', // Fallback to empty string if not present
+          role: (user.role as 'admin' | 'teacher' | 'user' | 'tracker') || 'user', // Default role
           created_at: user.created_at,
-          updated_at: user.updated_at,
+          updated_at: user.updated_at || undefined, // Store as undefined if not present
         }));
         setUsers(fetchedUsers);
       } else {
-        console.error('Received unexpected data structure for users:', usersData);
-        toast.error('Failed to process user data: unexpected format.');
+        console.error('Received unexpected data structure for users:', usersFunctionResponse);
+        toast.error('Failed to process user data: unexpected format from function.');
         setUsers([]);
       }
 
+      // Fetch matches
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select('id, name, description, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
@@ -145,6 +160,7 @@ const Admin: React.FC = () => {
       fetchedMatches = matchesData || [];
       setMatches(fetchedMatches);
       
+      // Fetch event assignments
       const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
         .from('user_event_assignments')
         .select(`id, user_id, event_type, created_at`);
@@ -165,6 +181,7 @@ const Admin: React.FC = () => {
         setEventAssignments([]);
       }
 
+      // Fetch player-tracker assignments
       const { data: rawAssignments, error: playerTrackerAssignmentsError } = await supabase
         .from('match_tracker_assignments')
         .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at');
@@ -316,36 +333,31 @@ const Admin: React.FC = () => {
     }
   };
 
-  // MODIFIED: handleUpdateMatch focuses on the update and error handling for the update itself.
-  // It will re-throw the error so CreateMatchForm knows if it failed.
   const handleUpdateMatch = async (values: any, matchId?: string) => {
     if (!matchId) {
       const errorMsg = "Match ID is missing. Cannot update.";
       toast.error(errorMsg);
-      throw new Error(errorMsg); // Throw error to prevent onSuccess in form
+      throw new Error(errorMsg);
     }
     const updatePayload = {
       home_team_name: values.homeTeam,
       away_team_name: values.awayTeam,
-      home_team_formation: values.homeFormation, // Added from form values
-      away_team_formation: values.awayFormation, // Added from form values
-      home_team_players: values.home_team_players, // Added from form values (passed through by CreateMatchForm)
-      away_team_players: values.away_team_players, // Added from form values (passed through by CreateMatchForm)
+      home_team_formation: values.homeFormation, 
+      away_team_formation: values.awayFormation,
+      home_team_players: values.home_team_players,
+      away_team_players: values.away_team_players,
       match_date: values.matchDate || null,
       status: values.status,
       description: values.description,
     };
     try {
       const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
-      if (error) throw error; // This error will be caught by the catch block below
+      if (error) throw error; 
       toast.success('Match updated successfully!');
-      // DO NOT call fetchData() or setIsEditMatchDialogOpen(false) or setEditingMatch(null) here.
-      // This will be handled by handleEditMatchSuccess, called by CreateMatchForm's onSuccess.
     } catch (e: any) {
       console.error('Error updating match:', e);
       toast.error(`Failed to update match: ${e.message}`);
-      throw e; // IMPORTANT: Re-throw the error so CreateMatchForm knows the submission failed
-               // and can avoid calling its own onSuccess prop.
+      throw e; 
     }
   };
 
@@ -364,27 +376,13 @@ const Admin: React.FC = () => {
 
   const handleCreateMatchSuccess = useCallback(() => {
     setIsCreateMatchDialogOpen(false);
-    // Attempt to call fetchData and log success or failure of the call itself
-    try {
-      console.log('Attempting to call fetchData from handleCreateMatchSuccess...');
-      fetchData();
-      console.log('fetchData called successfully from handleCreateMatchSuccess.');
-    } catch (e) {
-      console.error('Error calling fetchData within handleCreateMatchSuccess:', e);
-    }
+    fetchData();
   }, [fetchData, setIsCreateMatchDialogOpen]);
 
-  // NO CHANGE NEEDED HERE (from the problem description): handleEditMatchSuccess already does what's needed after a successful update.
   const handleEditMatchSuccess = useCallback(() => {
     setIsEditMatchDialogOpen(false);
     setEditingMatch(null);
-    try {
-      console.log('Attempting to call fetchData from handleEditMatchSuccess...');
-      fetchData();
-      console.log('fetchData called successfully from handleEditMatchSuccess.');
-    } catch (e) {
-      console.error('Error calling fetchData within handleEditMatchSuccess:', e);
-    }
+    fetchData();
   }, [fetchData, setIsEditMatchDialogOpen, setEditingMatch]);
 
   useEffect(() => {
@@ -397,42 +395,58 @@ const Admin: React.FC = () => {
       return;
     }
     try {
+      // This function is expected to create the auth.user and potentially a profile/role
       const { data, error } = await supabase.functions.invoke('create-user', {
         method: 'POST', body: JSON.stringify({ fullName: newUserName, email: newUserEmail, password: newUserPassword, role: newUserRole }),
       });
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (data.error) throw new Error(data.error); // If function returns an error in its body
       toast.success('User created successfully!');
-      await fetchData();
+      await fetchData(); // Refetch all data including the new user
       setNewUserName(''); setNewUserEmail(''); setNewUserPassword(''); setNewUserRole('user');
       setIsCreateUserDialogOpen(false);
     } catch (e: any) {
       console.error('Error creating user:', e);
-      toast.error(`Failed to create user: ${e.message}`);
+      let errorMessage = e.message;
+       if (e.context && e.context.error && typeof e.context.error.error === 'string') {
+          errorMessage = e.context.error.error;
+      } else if (e.context && typeof e.context.error === 'string') {
+          errorMessage = e.context.error;
+      }
+      toast.error(`Failed to create user: ${errorMessage}`);
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
     try {
-      const { error } = await supabase
-        .from('profiles') 
-        .update({ role: newRole })
-        .eq('id', userId); 
-  
-      if (error) {
-        const { error: roleTableError } = await supabase
-          .from('user_roles')
-          .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' }); 
+      // First, update/insert into 'user_roles' as this is the primary source for get-all-users
+      const { error: roleTableError } = await supabase
+        .from('user_roles')
+        .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' }); 
 
-        if (roleTableError) {
-            console.error('Failed to update role in both profiles and user_roles:', error, roleTableError);
-            toast.error('Failed to update user role: ' + roleTableError.message);
-            return;
-        }
+      if (roleTableError) {
+          console.error('Failed to update role in user_roles:', roleTableError);
+          toast.error('Failed to update user role: ' + roleTableError.message);
+          return;
       }
       
+      // Optionally, update 'profiles' table if it also stores role.
+      // This depends on your DB schema and if 'profiles.role' is used elsewhere.
+      // For consistency, if profiles.role exists, it should be updated.
+      // const { error: profileRoleError } = await supabase
+      //   .from('profiles') 
+      //   .update({ role: newRole }) // Assuming 'profiles' table has a 'role' column
+      //   .eq('id', userId);
+      // if (profileRoleError) {
+      //   // Log this error but don't necessarily fail the whole operation if user_roles updated
+      //   console.warn('Failed to update role in profiles table:', profileRoleError.message);
+      // }
+      
       setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
-      toast.success('User role updated successfully. Refresh if change not visible.');
+      toast.success('User role updated successfully. Data will refresh on next load or manually.');
+      // Optionally call fetchData() here if immediate reflection of all data sources is critical,
+      // but simple state update is usually sufficient for UI responsiveness.
+      // await fetchData(); 
     } catch (e: any) {
       console.error('Error updating role:', e);
       toast.error('Failed to update user role: ' + e.message);
@@ -440,15 +454,25 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This might be irreversible.')) return;
+    if (!confirm('Are you sure you want to delete this user? This involves multiple steps and might be irreversible.')) return;
     try {
+      // Consider a 'delete-user' Edge Function for atomicity:
+      // 1. Delete from auth.users (admin operation)
+      // 2. Delete from profiles
+      // 3. Delete from user_roles
+      // 4. Delete from user_event_assignments
+      // 5. Delete from match_tracker_assignments (where tracker_user_id = userId)
+      // For now, just deleting from profiles as per original code, then refetch
+      // This is NOT a complete user deletion.
+
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
       if (error) throw error;
-      setUsers(users.filter(user => user.id !== userId));
-      toast.success('User deleted successfully from profiles. Auth user may still exist.');
+      // setUsers(users.filter(user => user.id !== userId)); // fetchData will handle this
+      toast.success('User record deleted from profiles. Other related data might still exist. Admin function for full deletion recommended.');
+      await fetchData(); // Refetch to get consistent state
     } catch (e: any) {
-      console.error('Error deleting user:', e);
-      toast.error('Failed to delete user: ' + e.message);
+      console.error('Error deleting user profile:', e);
+      toast.error('Failed to delete user profile: ' + e.message);
     }
   };
 
@@ -503,11 +527,11 @@ const Admin: React.FC = () => {
                 <TableBody>
                   {users.map((user) => ( 
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.id ? user.id.slice(0, 8) : 'N/A'}...</TableCell>
+                      <TableCell className="font-medium">{user.id ? user.id.slice(0, 8) + '...' : 'N/A'}</TableCell>
                       <TableCell>{user.full_name || 'No name'}</TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.email || 'No email'}</TableCell>
                       <TableCell>
-                        <Select value={user.role || ''} onValueChange={(value) => handleRoleChange(user.id, value as any)}>
+                        <Select value={user.role || 'user'} onValueChange={(value) => handleRoleChange(user.id, value as any)}>
                           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select role" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="admin">Admin</SelectItem><SelectItem value="teacher">Teacher</SelectItem>
@@ -516,7 +540,7 @@ const Admin: React.FC = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell><Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.id)}>Delete</Button></TableCell>
+                      <TableCell><Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.id)}>Delete Profile</Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -525,6 +549,7 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
 
+        {/* Matches Tab Content */}
         <TabsContent value="matches" className="mt-6">
            <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -554,6 +579,7 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
 
+        {/* Event Assignments Tab Content */}
         <TabsContent value="assignments" className="mt-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -578,6 +604,7 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
 
+        {/* Player-Tracker Assignments Tab Content */}
         <TabsContent value="player-assignments" className="mt-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -603,14 +630,14 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="audit" className="mt-6"> {/* Audit Tab */} </TabsContent>
-        <TabsContent value="settings" className="mt-6"> {/* Settings Tab */} </TabsContent>
+        <TabsContent value="audit" className="mt-6"><Card><CardHeader><CardTitle>Audit Log</CardTitle></CardHeader><CardContent><p>Audit log feature coming soon.</p></CardContent></Card></TabsContent>
+        <TabsContent value="settings" className="mt-6"><Card><CardHeader><CardTitle>Settings</CardTitle></CardHeader><CardContent><p>General settings coming soon.</p></CardContent></Card></TabsContent>
       </Tabs>
 
       {/* Dialogs */}
       {/* Create User Dialog */}
       <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]"><DialogHeader><DialogTitle>Create New User</DialogTitle><DialogDescription>Fill in the details.</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-[425px]"><DialogHeader><DialogTitle>Create New User</DialogTitle><DialogDescription>Fill in the details for the new user.</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Full Name</Label><Input id="name" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="col-span-3" /></div>
             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="col-span-3" /></div>
@@ -627,7 +654,7 @@ const Admin: React.FC = () => {
 
       {/* Create Player-Tracker Assignment Dialog */}
       <Dialog open={isCreateAssignmentDialogOpen} onOpenChange={setIsCreateAssignmentDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle>Create Player-Tracker Assignment</DialogTitle><DialogDescription>Assign a player to a tracker.</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle>Create Player-Tracker Assignment</DialogTitle><DialogDescription>Assign a player from a specific match to a tracker.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
             <div><Label htmlFor="assign-match">Select Match</Label>
               <Select value={selectedMatchIdForAssignment || ''} onValueChange={(value) => { setSelectedMatchIdForAssignment(value); setSelectedPlayerForAssignment(null); }}>
@@ -680,14 +707,14 @@ const Admin: React.FC = () => {
 
       {/* Create Match Dialog */}
       <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
-        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Create New Match</DialogTitle><DialogDescription>Fill details.</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Create New Match</DialogTitle><DialogDescription>Fill in the details for the new match.</DialogDescription></DialogHeader>
           <CreateMatchForm onSuccess={handleCreateMatchSuccess} />
         </DialogContent>
       </Dialog>
 
       {/* Edit Match Dialog */}
       <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
-        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Match</DialogTitle><DialogDescription>Update details.</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Match</DialogTitle><DialogDescription>Update the details for the existing match.</DialogDescription></DialogHeader>
           {editingMatch && <CreateMatchForm 
                             isEditMode 
                             initialData={{
@@ -710,7 +737,7 @@ const Admin: React.FC = () => {
 
       {/* Create User Event Type Assignment Dialog */}
       <Dialog open={isCreateEventAssignmentDialogOpen} onOpenChange={setIsCreateEventAssignmentDialogOpen}>
-        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Assign Event Type to User</DialogTitle><DialogDescription>Select user and event type.</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Assign Event Type to User</DialogTitle><DialogDescription>Select a user and an event type to assign.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
             <div><Label htmlFor="assign-user-event">Select User</Label>
               <Select value={selectedUserIdForEventAssignment || ''} onValueChange={setSelectedUserIdForEventAssignment}>
