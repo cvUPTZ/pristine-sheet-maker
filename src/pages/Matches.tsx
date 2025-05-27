@@ -1,14 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Match, Player, Statistics } from '@/types';
-import { ArrowLeft, Plus, Play, Pause, RotateCcw, Eye, Edit, Trash2, Calendar, Users, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, Plus } from 'lucide-react';
 
 const Matches: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -52,7 +52,8 @@ const Matches: React.FC = () => {
           : undefined,
         ball_tracking_data: Array.isArray(match.ball_tracking_data) 
           ? match.ball_tracking_data 
-          : []
+          : [],
+        status: (match.status as "published" | "draft" | "live" | "completed" | "archived") || "draft"
       }));
 
       setMatches(typedMatches);
@@ -67,8 +68,6 @@ const Matches: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // ... keep existing code (deleteMatch, getStatusColor, getStatusText functions)
 
   if (loading) {
     return (
@@ -91,7 +90,7 @@ const Matches: React.FC = () => {
             </Button>
             <h1 className="text-3xl font-bold">Matches</h1>
           </div>
-          {(userRole === 'admin' || userRole === 'coach') && (
+          {(userRole === 'admin') && (
             <Button asChild>
               <Link to="/admin" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -104,7 +103,7 @@ const Matches: React.FC = () => {
         {matches.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground mb-4">No matches found.</p>
-            {(userRole === 'admin' || userRole === 'coach') && (
+            {(userRole === 'admin') && (
               <Button asChild>
                 <Link to="/admin">Create your first match</Link>
               </Button>
@@ -122,11 +121,10 @@ const Matches: React.FC = () => {
                     <p className="text-sm text-muted-foreground">
                       Date: {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'Not specified'}
                     </p>
-                    {/* Ensure match.status has a value; if it can be undefined, handle that for Badge */}
                     <Badge variant={match.status === 'live' ? 'destructive' : (match.status === 'completed' ? 'default' : 'outline')}>
                       {match.status || 'Unknown Status'}
                     </Badge>
-                    <div className="pt-2"> {/* Added some padding for the button */}
+                    <div className="pt-2">
                       <Link to={`/match/${match.id}`}>
                         <Button variant="default" size="sm">View Match</Button>
                       </Link>
