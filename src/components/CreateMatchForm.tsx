@@ -93,26 +93,31 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-const fetchTrackers = useCallback(async () => {
+
+  const fetchTrackers = useCallback(async () => {
   try {
-    // Simple query now that email is stored in profiles table
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, created_at, updated_at')
-      .eq('role', 'tracker')
-      .order('full_name', { ascending: true, nullsFirst: false });
-      
+      .from('users') // Query the 'users' table from auth schema
+      .select(`
+        id,
+        email, // Assuming you also need email
+        raw_user_meta_data,
+        profiles ( full_name ) // Select full_name from the related profiles table
+      `)
+      .filter('raw_user_meta_data->>role', 'eq', 'tracker') // Filter by role in metadata
+      .order('full_name', { referencedTable: 'profiles', ascending: true, nullsFirst: false }); // Order by full_name in profiles
+
     if (error) {
       console.error('Error fetching trackers:', error);
       sonnerToast.error('Failed to fetch trackers: ' + error.message);
       setTrackers([]);
     } else {
-      const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-        id: profile.id,
-        full_name: profile.full_name || 'No name provided',
-        email: profile.email || 'No email provided'
+      const fetchedTrackers: TrackerUser[] = (data || []).map(user => ({
+        id: user.id,
+        full_name: user.profiles?.full_name || 'No name provided', // Access profile via nesting
+        email: user.email || 'No email provided' // Email from auth.users
       }));
-      
+
       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
       setTrackers(fetchedTrackers);
     }
@@ -122,6 +127,37 @@ const fetchTrackers = useCallback(async () => {
     setTrackers([]);
   }
 }, []);
+
+  
+// const fetchTrackers = useCallback(async () => {
+//   try {
+//     // Simple query now that email is stored in profiles table
+//     const { data, error } = await supabase
+//       .from('profiles')
+//       .select('id, full_name, email, created_at, updated_at')
+//       .eq('role', 'tracker')
+//       .order('full_name', { ascending: true, nullsFirst: false });
+      
+//     if (error) {
+//       console.error('Error fetching trackers:', error);
+//       sonnerToast.error('Failed to fetch trackers: ' + error.message);
+//       setTrackers([]);
+//     } else {
+//       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+//         id: profile.id,
+//         full_name: profile.full_name || 'No name provided',
+//         email: profile.email || 'No email provided'
+//       }));
+      
+//       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
+//       setTrackers(fetchedTrackers);
+//     }
+//   } catch (err: any) {
+//     console.error('Unexpected error in fetchTrackers catch block:', err);
+//     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+//     setTrackers([]);
+//   }
+// }, []);
 
   
 //   const fetchTrackers = useCallback(async () => {
