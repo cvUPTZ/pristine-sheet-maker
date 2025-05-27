@@ -131,7 +131,7 @@ const MatchAnalysis: React.FC = () => {
         console.log('Processed awayTeamData to be passed to updateTeams:', awayTeamData);
         updateTeams(homeTeamData, awayTeamData);
 
-        // Initialize statistics, ball tracking, and timer values from matchData with proper type checking
+        // Initialize statistics with proper validation
         const initialStats = {
           possession: { home: 50, away: 50 },
           shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
@@ -152,7 +152,13 @@ const MatchAnalysis: React.FC = () => {
             typeof matchData.match_statistics === 'object' && 
             !Array.isArray(matchData.match_statistics) &&
             'possession' in matchData.match_statistics) {
-          setStatistics(matchData.match_statistics as unknown as Statistics);
+          const statsData = matchData.match_statistics as { [key: string]: any };
+          // Validate that we have the required structure before casting
+          if (statsData.possession && statsData.shots && statsData.passes) {
+            setStatistics(statsData as unknown as Statistics);
+          } else {
+            setStatistics(initialStats);
+          }
         } else {
           setStatistics(initialStats);
         }

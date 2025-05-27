@@ -1,20 +1,21 @@
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import PitchView from '@/components/match/PitchView';
-import StatisticsDisplay from '@/components/match/StatisticsDisplay';
-import PlayerStatsTable from '@/components/match/PlayerStatsTable';
-import MatchStatsVisualizer from '@/components/match/MatchStatsVisualizer';
-import PlayerHeatmap from '@/components/match/PlayerHeatmap';
-import TeamTimeSegmentCharts from '@/components/match/TeamTimeSegmentCharts';
-import DetailedStatsTable from '@/components/match/DetailedStatsTable';
-import BallFlowVisualization from '@/components/match/BallFlowVisualization';
+import StatisticsDisplay from '@/components/StatisticsDisplay';
+import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
+import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
+import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
+import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
+import DetailedStatsTable from '@/components/DetailedStatsTable';
+import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import PianoInput from '@/components/match/PianoInput';
-import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
-import VideoAnalyzer from '@/components/match/VideoAnalyzer';
+import MatchEventsTimeline from '@/components/MatchEventsTimeline';
+import VideoAnalyzer from '@/components/VideoAnalyzer';
 import DedicatedTrackerUI from '@/components/match/DedicatedTrackerUI';
-import { Team, Player, Statistics, BallTrackingPoint, MatchEvent, TimeSegment } from '@/types';
+import { Team, Player, Statistics, BallTrackingPoint, MatchEvent, TimeSegmentStatistics } from '@/types';
 
 interface MainTabContentProps {
   activeTab: 'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track';
@@ -35,7 +36,7 @@ interface MainTabContentProps {
   playerStats: any;
   handleUndo: () => void;
   handleSave: () => void;
-  timeSegments: TimeSegment[];
+  timeSegments: TimeSegmentStatistics[];
   recordEvent: (eventType: any, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
   assignedPlayerForMatch: { id: number; name: string; teamId: 'home' | 'away'; teamName: string; } | null;
   assignedEventTypes: string[] | null;
@@ -118,6 +119,14 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     }));
   }, [timeSegments, selectedEventTypes]);
 
+  // Convert teamPositions to the format expected by PitchView
+  const pitchTeamPositions: Record<number, { x: number; y: number }> = {};
+  Object.values(teamPositions).forEach(team => {
+    Object.entries(team).forEach(([playerId, position]) => {
+      pitchTeamPositions[parseInt(playerId)] = position;
+    });
+  });
+
   return (
     <div className="w-full">
       <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="w-full">
@@ -138,14 +147,14 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 <PitchView
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
-                  teamPositions={teamPositions}
+                  teamPositions={pitchTeamPositions}
                   selectedPlayer={selectedPlayer}
                   selectedTeam={selectedTeam}
-                  onTeamSelect={setSelectedTeam}
-                  onPlayerSelect={handlePlayerSelect}
+                  setSelectedTeam={setSelectedTeam}
+                  handlePlayerSelect={handlePlayerSelect}
                   ballTrackingPoints={ballTrackingPoints}
                   mode={mode}
-                  onPitchClick={handlePitchClick}
+                  handlePitchClick={handlePitchClick}
                   addBallTrackingPoint={addBallTrackingPoint}
                 />
               </CardContent>
@@ -173,9 +182,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 </CardHeader>
                 <CardContent>
                   <PlayerStatsTable 
-                    playerStats={playerStats} 
-                    homeTeamName={homeTeam.name} 
-                    awayTeamName={awayTeam.name}
+                    ballTrackingPoints={ballTrackingPoints}
+                    homeTeam={homeTeam} 
+                    awayTeam={awayTeam}
                   />
                 </CardContent>
               </Card>
@@ -196,9 +205,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   </CardHeader>
                   <CardContent>
                     <MatchStatsVisualizer 
-                      statistics={statistics} 
-                      homeTeamName={homeTeam.name} 
-                      awayTeamName={awayTeam.name}
+                      homeTeam={homeTeam} 
+                      awayTeam={awayTeam}
+                      ballTrackingPoints={ballTrackingPoints}
+                      timeSegments={timeSegments}
                     />
                   </CardContent>
                 </Card>
@@ -273,7 +283,11 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   <CardTitle>Ball Tracking</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BallFlowVisualization ballTrackingPoints={ballTrackingPoints} />
+                  <BallFlowVisualization 
+                    ballTrackingPoints={ballTrackingPoints}
+                    homeTeam={homeTeam}
+                    awayTeam={awayTeam}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -334,9 +348,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
           <TabsContent value="fast-track" className="space-y-4">
             {assignedPlayerForMatch && (
               <DedicatedTrackerUI
-                assignedPlayer={assignedPlayerForMatch}
+                assignedPlayerForMatch={assignedPlayerForMatch}
                 onRecordEvent={recordEvent}
                 assignedEventTypes={assignedEventTypes}
+                matchId={matchId}
               />
             )}
             {!assignedPlayerForMatch && (
