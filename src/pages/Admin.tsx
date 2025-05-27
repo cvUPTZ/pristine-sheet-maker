@@ -119,7 +119,7 @@ const Admin: React.FC = () => {
     let fetchedMatches: Match[] = [];
 
     try {
-      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
       if (usersError) throw usersError;
       if (Array.isArray(usersData)) {
         fetchedUsers = usersData.map((user: any) => ({
