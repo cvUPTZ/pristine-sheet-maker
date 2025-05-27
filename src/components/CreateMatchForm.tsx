@@ -92,30 +92,46 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
-
-
-  const fetchTrackers = useCallback(async () => {
+const fetchTrackers = useCallback(async () => {
   try {
+    // Method 1: Try direct query without any joins
     const { data, error } = await supabase
-      .from('users') // Query the 'users' table from auth schema
-      .select(`
-        id,
-        email, // Assuming you also need email
-        raw_user_meta_data,
-        profiles ( full_name ) // Select full_name from the related profiles table
-      `)
-      .filter('raw_user_meta_data->>role', 'eq', 'tracker') // Filter by role in metadata
-      .order('full_name', { referencedTable: 'profiles', ascending: true, nullsFirst: false }); // Order by full_name in profiles
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('role', 'tracker')
+      .order('full_name', { ascending: true, nullsFirst: false });
 
     if (error) {
-      console.error('Error fetching trackers:', error);
-      sonnerToast.error('Failed to fetch trackers: ' + error.message);
-      setTrackers([]);
+      console.error('Error fetching trackers (Method 1):', error);
+      
+      // Method 2: Fallback - try with RPC if direct query fails
+      try {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_tracker_users');
+        
+        if (rpcError) {
+          console.error('RPC method also failed:', rpcError);
+          sonnerToast.error('Failed to fetch trackers: ' + error.message);
+          setTrackers([]);
+        } else {
+          const fetchedTrackers: TrackerUser[] = (rpcData || []).map(profile => ({
+            id: profile.id,
+            full_name: profile.full_name || 'No name provided',
+            email: profile.email || 'No email provided'
+          }));
+          console.log(`Successfully fetched ${fetchedTrackers.length} trackers via RPC`);
+          setTrackers(fetchedTrackers);
+        }
+      } catch (rpcErr: any) {
+        console.error('RPC method error:', rpcErr);
+        sonnerToast.error('Failed to fetch trackers: ' + error.message);
+        setTrackers([]);
+      }
     } else {
-      const fetchedTrackers: TrackerUser[] = (data || []).map(user => ({
-        id: user.id,
-        full_name: user.profiles?.full_name || 'No name provided', // Access profile via nesting
-        email: user.email || 'No email provided' // Email from auth.users
+      const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+        id: profile.id,
+        full_name: profile.full_name || 'No name provided',
+        email: profile.email || 'No email provided'
       }));
 
       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
@@ -128,6 +144,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   }
 }, []);
 
+  
   
 // const fetchTrackers = useCallback(async () => {
 //   try {
