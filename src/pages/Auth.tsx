@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from "lucide-react";
+import { FcGoogle } from 'react-icons/fc';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
@@ -15,7 +18,9 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Redirect if already logged in
   if (user) {
@@ -30,6 +35,40 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     await signUp(email, password, fullName);
+  };
+
+  const handleGoogleAuth = async () => {
+    setGoogleLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+
+      if (error) {
+        console.error('Google auth error:', error);
+        toast({
+          title: "Authentication failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Google auth exception:', error);
+      toast({
+        title: "Authentication failed",
+        description: "Failed to authenticate with Google",
+        variant: "destructive",
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -47,6 +86,35 @@ const Auth = () => {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
+            
+            <div className="mt-4 space-y-4">
+              {/* Google Sign In Button */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleGoogleAuth}
+                disabled={googleLoading || loading}
+              >
+                {googleLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FcGoogle className="mr-2 h-4 w-4" />
+                )}
+                Continue with Google
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <TabsContent value="login" className="mt-4">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
@@ -84,6 +152,7 @@ const Auth = () => {
                 </Button>
               </form>
             </TabsContent>
+            
             <TabsContent value="signup" className="mt-4">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">

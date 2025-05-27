@@ -1,95 +1,140 @@
 
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { useMatchState } from '@/hooks/useMatchState';
-import SetupScreen from '@/components/match/SetupScreen';
-import MatchHeader from '@/components/match/MatchHeader';
-import MatchSidebar from '@/components/match/MatchSidebar';
-import { Team } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import CreateMatchForm from '@/components/CreateMatchForm';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
-const Index: React.FC = () => {
-  const {
-    homeTeam,
-    awayTeam,
-    selectedTeam,
-    selectedPlayer,
-    setupComplete,
-    ballTrackingMode,
-    teamPositions,
-    ballTrackingPoints,
-    statistics,
-    isPassTrackingModeActive,
-    setSelectedTeam,
-    completeSetup,
-    updateTeams,
-    toggleBallTrackingMode,
-    togglePassTrackingMode,
-  } = useMatchState();
+interface Match {
+  id: string;
+  name: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string | null;
+  created_at: string | null;
+}
 
-  const handleCompleteSetup = (teams: { home: Team; away: Team }) => {
-    updateTeams(teams.home, teams.away);
-    completeSetup(teams.home, teams.away);
+const Index = () => {
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
+  const fetchMatches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching matches:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch matches",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setMatches(data || []);
+    } catch (error) {
+      console.error('Error in fetchMatches:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!setupComplete) {
+  const handleMatchCreated = (newMatch: Match) => {
+    setMatches(prev => [newMatch, ...prev]);
+    navigate(`/match/${newMatch.id}`);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'live': return 'bg-red-500';
+      case 'completed': return 'bg-green-500';
+      case 'scheduled': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <SetupScreen
-          homeTeam={homeTeam}
-          awayTeam={awayTeam}
-          updateTeams={(teams) => updateTeams(teams.home, teams.away)}
-          completeSetup={() => completeSetup(homeTeam, awayTeam)}
-        />
+      <div className="container mx-auto p-6">
+        <div className="text-center">Loading matches...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="flex h-screen">
-        {/* Left Sidebar */}
-        <div className="w-80 bg-white shadow-lg border-r border-gray-200 flex flex-col">
-          <MatchHeader 
-            homeTeam={homeTeam} 
-            awayTeam={awayTeam}
-            mode={ballTrackingMode ? 'tracking' : 'piano'}
-            setMode={toggleBallTrackingMode}
-            handleToggleTracking={toggleBallTrackingMode}
-            handleSave={() => {}}
-          />
-          
-          <MatchSidebar
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            selectedPlayer={selectedPlayer}
-            mode={ballTrackingMode ? 'tracking' : 'piano'}
-            handleActionSelect={() => {}}
-            ballTrackingPoints={ballTrackingPoints}
-            trackBallMovement={() => {}}
-            statistics={statistics}
-            isRunning={false}
-            isPassTrackingModeActive={isPassTrackingModeActive}
-            togglePassTrackingMode={togglePassTrackingMode}
-          />
-        </div>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Football Matches</h1>
+      </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <Card className="w-full max-w-2xl">
+      {(userRole === 'admin' || userRole === 'tracker') && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Match</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CreateMatchForm onMatchCreated={handleMatchCreated} />
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {matches.map((match) => (
+          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
-              <CardTitle className="text-2xl text-center">Match Analysis</CardTitle>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg">
+                  {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                </CardTitle>
+                <span className={`px-2 py-1 rounded-full text-xs text-white ${getStatusColor(match.status)}`}>
+                  {match.status}
+                </span>
+              </div>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Your match setup is complete! Use the sidebar to interact with players and track events.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Teams: {homeTeam?.name} vs {awayTeam?.name}
-              </p>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  <strong>Teams:</strong> {match.home_team_name} vs {match.away_team_name}
+                </div>
+                {match.match_date && (
+                  <div className="text-sm text-muted-foreground">
+                    <strong>Date:</strong> {new Date(match.match_date).toLocaleDateString()}
+                  </div>
+                )}
+                <Button 
+                  onClick={() => navigate(`/match/${match.id}`)}
+                  className="w-full mt-4"
+                >
+                  View Match
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        </div>
+        ))}
       </div>
+
+      {matches.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-muted-foreground">No matches found. Create your first match to get started!</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
