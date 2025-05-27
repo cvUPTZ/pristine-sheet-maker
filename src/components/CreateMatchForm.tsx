@@ -271,15 +271,15 @@ const removePlayer = (teamId: 'home' | 'away', playerId: number) => {
     try {
       // Create notifications for each selected tracker
       const notifications = selectedTrackers.map(trackerId => ({
-        user_id: trackerId,
-        title: 'New Match Available',
+        tracker_id: trackerId, // Changed from user_id
         message: `Match "${matchName}" is now live and ready for tracking`,
         match_id: matchId,
-        type: 'match_notification'
+        is_read: false // Explicitly set
+        // title and type fields removed
       }));
 
       const { error } = await supabase
-        .from('notifications')
+        .from('match_notifications') // Changed table name
         .insert(notifications);
 
       if (error) {
