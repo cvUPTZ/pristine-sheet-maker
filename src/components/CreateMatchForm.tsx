@@ -549,7 +549,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-72 overflow-y-auto p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50"> {/* MODIFIED HERE */}
                         {homeTeam.players.map((player, index) => (
                           <div key={`home-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
                             <div className="col-span-1 sm:col-span-1">
@@ -598,7 +598,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-72 overflow-y-auto p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50"> {/* MODIFIED HERE */}
                         {awayTeam.players.map((player, index) => (
                           <div key={`away-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
                             <div className="col-span-1 sm:col-span-1">
