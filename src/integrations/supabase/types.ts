@@ -159,6 +159,41 @@ export type Database = {
           },
         ]
       }
+      match_tracker_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          player_id: number
+          player_team_id: string
+          tracker_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          player_id: number
+          player_team_id: string
+          tracker_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          player_id?: number
+          player_team_id?: string
+          tracker_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_tracker_assignments_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           away_team_formation: string | null
