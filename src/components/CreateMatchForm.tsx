@@ -93,42 +93,41 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-  // CORRECTED fetchTrackers function
+  // fetchTrackers function with the corrected Supabase select query
   const fetchTrackers = useCallback(async () => {
     try {
-      // Select 'id' and 'full_name' from 'profiles'.
-      // For 'email', we query the 'auth.users' table.
-      // 'user_auth_email_data:auth.users(email)' tells Supabase/PostgREST:
-      //   1. Look at the 'auth.users' table.
-      //   2. Find the record related to the current 'profiles' record
-      //      (using the FK: profiles.id -> auth.users.id).
-      //   3. Fetch the 'email' column from that 'auth.users' record.
-      //   4. Nest this result under the alias 'user_auth_email_data'.
-      //      The result for this part will be like: { email: 'user@example.com' }
+      // Corrected select syntax:
+      // - 'id' and 'full_name' are from 'profiles'.
+      // - 'user_email_data:id(email)' means:
+      //   - Use the 'id' column of the 'profiles' table (which is an FK to auth.users.id).
+      //   - From the related 'auth.users' record, fetch the 'email' column.
+      //   - Make this resulting object { email: '...' } available under the alias 'user_email_data'.
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, user_auth_email_data:auth.users(email)')
+        .select('id, full_name, user_email_data:id(email)') // THIS IS THE CORRECTED SYNTAX
         .eq('role', 'tracker');
 
       if (error) {
-        // This is where your log `index-4R0Jr-mr.js:405 Error fetching trackers:` originates
-        console.error('Error fetching trackers:', error); // Logs the actual error object
+        // The error message you provided (PGRST100 for "...user_auth_email_data:auth.users(email)...")
+        // indicates that an older version of this select string was causing the issue.
+        // This new string should resolve that specific PGRST100 error.
+        console.error('Error fetching trackers:', error);
         sonnerToast.error('Failed to fetch trackers: ' + error.message);
 
-        // Specific hint for "column does not exist" error
-        if (error.code === '42703' && error.message.includes('column profiles.email does not exist')) {
-            sonnerToast.info("Hint: The query is trying to get 'email' directly from 'profiles' table where it doesn't exist. The Supabase 'select' statement for joining 'auth.users' might need review or there could be an RLS issue or schema mismatch if 'profiles' is a view.");
-        } else if (error.code === 'PGRST200') { // Handle the other error you saw previously
-            sonnerToast.info("Hint: Error PGRST200 might indicate a schema issue with relationships (e.g., 'user_roles' and 'profiles'). Please review your database schema, RLS policies, and any views or functions involving these tables.");
+        if (error.code === 'PGRST100') {
+            sonnerToast.info("Hint (PGRST100): This indicates a parsing error in the 'select' query. Ensure the syntax for fetching related data is correct, especially if foreign key relationships are involved. The current syntax `user_email_data:id(email)` should be correct if `profiles.id` correctly references `auth.users.id`.");
+        } else if (error.code === '42703') { // PostgreSQL: column does not exist
+            sonnerToast.info("Hint (42703): A column specified in the query does not exist. Double-check column names and table aliases.");
+        } else if (error.code === 'PGRST200') { // PostgREST: schema cache issue
+             sonnerToast.info("Hint (PGRST200): This could indicate a schema cache issue or a problem with PostgREST finding relationships. Try reloading the schema in Supabase (Project Settings > API > Reload Schema) or check foreign key definitions.");
         }
         setTrackers([]);
       } else {
-        // Map the fetched data, accessing the email from the nested object
         const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
           id: profile.id,
           full_name: profile.full_name,
-          // Access email from profile.user_auth_email_data.email
-          email: profile.user_auth_email_data?.email || 'No email provided'
+          // Access the email from the aliased nested object
+          email: profile.user_email_data?.email || 'No email provided'
         }));
         setTrackers(fetchedTrackers);
       }
@@ -137,7 +136,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
       setTrackers([]);
     }
-  }, []); // supabase client is stable, so empty dependency array is okay.
+  }, []); // supabase is stable, empty dependency array is fine.
 
   useEffect(() => {
     const initializeTeam = (
@@ -190,9 +189,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       )
     );
     
-    fetchTrackers(); // Call fetchTrackers
+    fetchTrackers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers, form.getValues]); // Added fetchTrackers and form.getValues as it's used indirectly
+  }, [isEditMode, initialData, fetchTrackers, form.getValues]);
 
   useEffect(() => {
     if (isEditMode && initialData) {
@@ -242,18 +241,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
     const players = currentTeam.players || [];
     const existingIds = players.map(p => p.id);
-    let newPlayerId = teamId === 'home' ? 1 : 100; // Simplified starting ID
+    let newPlayerId = teamId === 'home' ? 1 : 100;
     if (players.length > 0) {
         newPlayerId = Math.max(...existingIds, teamId === 'home' ? 0 : 99) + 1;
     }
-    while (existingIds.includes(newPlayerId)) { // Should be less common now
+    while (existingIds.includes(newPlayerId)) {
       newPlayerId++;
     }
     
     const newPlayer: Player = {
       id: newPlayerId,
-      name: `Player ${newPlayerId}`, // Use ID for uniqueness in default name
-      number: newPlayerId <= 99 ? newPlayerId : (players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1), // Attempt unique number
+      name: `Player ${newPlayerId}`,
+      number: newPlayerId <= 99 ? newPlayerId : (players.length > 0 ? Math.max(...players.map(p => p.number || 0)) + 1 : 1),
       position: 'Substitute'
     };
 
@@ -379,9 +378,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     );
   };
 
-
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8"> {/* Layout: Increased max-width */}
       <div className="text-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
           {isEditMode ? 'Edit Match' : 'Create New Match'}
@@ -649,7 +647,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                           <Users className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                           <span className="font-medium text-gray-800 dark:text-gray-200">{tracker.full_name || 'Unnamed Tracker'}</span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || `ID: ${tracker.id}`}</p> {/* Display tracker ID if email is not available */}
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tracker.email || `ID: ${tracker.id}`}</p>
                       </div>
                     ))}
                   </div>
