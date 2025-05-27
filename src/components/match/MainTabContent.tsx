@@ -7,7 +7,7 @@ import { BarChart3, Flag, TableIcon, ActivityIcon, MapPinIcon, Clock, Video, Pia
 import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
-import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics, Team }_ from '@/types'; // Player conflicts, use PlayerType
+import { BallTrackingPoint, EventType, Player, PlayerStatistics, Statistics, TimeSegmentStatistics, Team } from '@/types'; // Fixed: removed trailing underscore
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import PianoInput from './PianoInput';

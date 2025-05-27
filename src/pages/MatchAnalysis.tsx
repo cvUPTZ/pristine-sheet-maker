@@ -13,7 +13,7 @@ import { useMatchState } from '@/hooks/useMatchState';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, Player }_ from '@/types'; // Player conflicts, use Player as PlayerType
+import { Team, Player } from '@/types'; // Fixed: removed trailing underscore
 import { AssignedPlayerForMatch } from '@/components/match/DedicatedTrackerUI';
 import { toast } from 'sonner';
 
