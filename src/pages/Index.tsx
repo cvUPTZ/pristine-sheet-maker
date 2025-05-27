@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MatchHeader from '@/components/match/MatchHeader';
@@ -9,7 +10,7 @@ import { Team } from '@/types';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
+  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video' | 'fast-track'>('pitch');
 
   const {
     homeTeam,
@@ -18,24 +19,26 @@ const Index: React.FC = () => {
     selectedPlayer,
     selectedTeam,
     ballTrackingPoints,
-    mode,
+    ballTrackingMode,
     statistics,
     playerStats,
     timeSegments,
     setSelectedTeam,
-    handlePlayerSelect,
-    handlePitchClick,
+    setSelectedPlayer,
     addBallTrackingPoint,
     setStatistics,
-    handleUndo,
     generateMatchId,
-    setActiveTab: setMatchStateActiveTab,
     setTeamPositions,
     recordEvent,
     setupComplete,
     updateTeams,
     completeSetup,
     toggleBallTrackingMode,
+    undoLastEvent,
+    isPassTrackingModeActive,
+    potentialPasser,
+    ballPathHistory,
+    togglePassTrackingMode,
   } = useMatchState();
 
   const handleSave = () => {
@@ -46,6 +49,22 @@ const Index: React.FC = () => {
   const handleCompleteSetup = (homeTeamData: Team, awayTeamData: Team) => {
     updateTeams(homeTeamData, awayTeamData);
     completeSetup(homeTeamData, awayTeamData);
+  };
+
+  const handlePlayerSelect = (player: any) => {
+    setSelectedPlayer(player);
+  };
+
+  const handlePitchClick = (coordinates: { x: number; y: number }) => {
+    if (ballTrackingMode) {
+      addBallTrackingPoint({
+        x: coordinates.x,
+        y: coordinates.y,
+        timestamp: Date.now(),
+        playerId: selectedPlayer?.id || 0,
+        teamId: selectedTeam
+      });
+    }
   };
 
   if (!setupComplete) {
@@ -67,7 +86,7 @@ const Index: React.FC = () => {
           <MatchHeader 
             homeTeam={homeTeam} 
             awayTeam={awayTeam}
-            mode={mode}
+            mode={ballTrackingMode ? 'tracking' : 'piano'}
             setMode={toggleBallTrackingMode}
             handleToggleTracking={toggleBallTrackingMode}
             handleSave={handleSave}
@@ -77,8 +96,7 @@ const Index: React.FC = () => {
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
-            handlePlayerSelect={handlePlayerSelect}
-            mode={mode}
+            mode={ballTrackingMode ? 'tracking' : 'piano'}
             toggleBallTrackingMode={toggleBallTrackingMode}
             ballTrackingPoints={ballTrackingPoints}
             statistics={statistics}
@@ -86,10 +104,10 @@ const Index: React.FC = () => {
             setActiveTab={setActiveTab}
             teamPositions={teamPositions}
             setTeamPositions={setTeamPositions}
-            isPassTrackingModeActive={false}
-            potentialPasser={null}
-            ballPathHistory={[]}
-            togglePassTrackingMode={() => {}}
+            isPassTrackingModeActive={isPassTrackingModeActive}
+            potentialPasser={potentialPasser}
+            ballPathHistory={ballPathHistory}
+            togglePassTrackingMode={togglePassTrackingMode}
           />
         </div>
 
@@ -107,13 +125,13 @@ const Index: React.FC = () => {
               setSelectedTeam={setSelectedTeam}
               handlePlayerSelect={handlePlayerSelect}
               ballTrackingPoints={ballTrackingPoints}
-              mode={mode}
+              mode={ballTrackingMode ? 'tracking' : 'piano'}
               handlePitchClick={handlePitchClick}
               addBallTrackingPoint={addBallTrackingPoint}
               statistics={statistics}
               setStatistics={setStatistics}
               playerStats={playerStats}
-              handleUndo={handleUndo}
+              handleUndo={undoLastEvent}
               handleSave={handleSave}
               timeSegments={timeSegments}
               recordEvent={recordEvent}

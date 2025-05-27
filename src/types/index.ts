@@ -1,3 +1,4 @@
+
 export interface Match {
   id: string;
   name?: string | null;
@@ -6,13 +7,18 @@ export interface Match {
   away_team_name: string;
   home_team_formation?: string | null;
   away_team_formation?: string | null;
-  home_team_players?: any;
-  away_team_players?: any;
+  home_team_players?: Player[];
+  away_team_players?: Player[];
   match_date?: string | null;
   status: 'published' | 'draft' | 'live' | 'completed' | 'archived';
   created_at?: string | null;
   updated_at?: string | null;
   created_by?: string | null;
+  match_statistics?: Statistics;
+  ball_tracking_data?: BallTrackingPoint[];
+  timer_current_value?: number;
+  timer_status?: string;
+  timer_last_started_at?: string | null;
 }
 
 export interface Team {

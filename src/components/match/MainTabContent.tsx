@@ -1,13 +1,14 @@
+
 import React, { useState } from 'react';
 import PitchView from '@/components/match/PitchView';
-import PianoInput from '@/components/match/PianoInput';
-import StatisticsDisplay from '@/components/match/StatisticsDisplay';
-import DetailedStatsTable from '@/components/match/DetailedStatsTable';
-import TimeSegmentChart from '@/components/match/TimeSegmentChart';
-import VideoAnalyzer from '@/components/match/VideoAnalyzer';
+import StatisticsDisplay from '@/components/StatisticsDisplay';
+import DetailedStatsTable from '@/components/DetailedStatsTable';
+import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
+import VideoAnalyzer from '@/components/VideoAnalyzer';
 import DedicatedTrackerUI, { AssignedPlayerForMatch } from '@/components/match/DedicatedTrackerUI';
-import MatchRadarChart from '@/components/match/MatchRadarChart';
-import PlayerHeatmap from '@/components/match/PlayerHeatmap';
+import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
+import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
+import PianoInput from '@/components/match/PianoInput';
 import {
   BarChart3,
   Flag,
@@ -68,7 +69,7 @@ interface MainTabContentProps {
   handleUndo: () => void;
   handleSave: () => void;
   timeSegments?: TimeSegmentStatistics[];
-  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates?: { x: number; y: number } | undefined) => void; // Updated to allow optional coordinates
+  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates?: { x: number; y: number } | undefined) => void;
   // Props for DedicatedTrackerUI
   assignedPlayerForMatch: AssignedPlayerForMatch | null;
   assignedEventTypes: string[] | null;
@@ -90,9 +91,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   mode,
   handlePitchClick,
   addBallTrackingPoint,
-  statistics = defaultStatistics, // Provide default value
+  statistics = defaultStatistics,
   setStatistics,
-  playerStats = [], // Provide default value
+  playerStats = [],
   handleUndo,
   handleSave,
   timeSegments = [],
@@ -144,7 +145,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
       {/* Large, prominent tab navigation */}
       <div className="mb-6">
         <div className="bg-white rounded-lg shadow-md p-2 mb-4">
-          <div className="grid grid-cols-3 gap-2"> {/* Adjusted to grid-cols-3 for two rows */}
+          <div className="grid grid-cols-3 gap-2">
             <Button 
               variant={activeTab === 'pitch' ? 'default' : 'outline'} 
               className="w-full flex items-center justify-center gap-2"
@@ -447,7 +448,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
 
         {activeTab === 'fast-track' && userRole === 'tracker' && assignedPlayerForMatch && (
           <DedicatedTrackerUI 
-            assignedPlayer={assignedPlayerForMatch}
+            assignedPlayerForMatch={assignedPlayerForMatch}
             assignedEventTypes={assignedEventTypes}
             matchId={matchId}
             recordEvent={recordEvent}
