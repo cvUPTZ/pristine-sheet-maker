@@ -15,13 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // Adjust path as needed
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import FormationSelector from './FormationSelector'; // Ensure this path is correct
 import { Formation, Player, Team } from '@/types'; // Ensure this path is correct
 import { generatePlayersForFormation } from '@/utils/formationUtils'; // Ensure this path is correct
-import { toast as sonnerToast } from 'sonner';
+import { toast as sonnerToast } from 'sonner'; // Ensure sonner is imported
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Send, ArrowLeft, ArrowRight, Save, PlusCircle } from 'lucide-react';
 
@@ -41,10 +41,11 @@ const formSchema = z.object({
 
 type MatchFormValues = z.infer<typeof formSchema>;
 
+// Updated TrackerUser interface as per your new fetchTrackers
 interface TrackerUser {
   id: string;
-  full_name: string | null;
-  email?: string;
+  full_name: string | null; // Mapped from 'fullName'
+  email: string;
 }
 
 interface CreateMatchFormProps {
@@ -72,7 +73,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   onSuccess
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For main form submission
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
   const { user } = useAuth();
@@ -94,32 +95,53 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
+  // NEW fetchTrackers function using Supabase Edge Function
   const fetchTrackers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles_with_role')
-        .select('id, email, role, full_name')
-        .eq('role', 'tracker')
-        .order('full_name', { ascending: true, nullsFirst: false });
+      // Invoke the 'get-tracker-users' Edge Function
+      const { data: responseData, error: invokeError } = await supabase.functions.invoke('get-tracker-users');
 
-      if (error) {
-        console.error('Error fetching trackers:', error);
-        sonnerToast.error('Failed to fetch trackers: ' + error.message);
+      if (invokeError) {
+        console.error('Error invoking get-tracker-users function:', invokeError);
+        sonnerToast.error(`Function invocation failed: ${invokeError.message}`);
         setTrackers([]);
-      } else {
-        const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-          id: profile.id,
-          full_name: profile.full_name || 'No name provided',
-          email: profile.email || 'No email provided'
-        }));
-        setTrackers(fetchedTrackers);
+        return;
       }
+
+      // Check for errors returned by the Edge Function itself in its response body
+      if (responseData && responseData.error) {
+          console.error('Error from get-tracker-users function:', responseData.error);
+          // Prefer responseData.error.message if available, otherwise use responseData.error
+          const errorMessage = typeof responseData.error === 'string' ? responseData.error : responseData.error.message || 'Unknown error from function.';
+          sonnerToast.error(`Error fetching trackers: ${errorMessage}`);
+          setTrackers([]);
+          return;
+      }
+      
+      // Validate that responseData is an array
+      if (!Array.isArray(responseData)) {
+          console.error('Invalid data format received from get-tracker-users:', responseData);
+          sonnerToast.error('Invalid data format received from server.');
+          setTrackers([]);
+          return;
+      }
+
+      // Map data from Edge Function (fullName) to TrackerUser interface (full_name)
+      const fetchedTrackers: TrackerUser[] = responseData.map((tracker: any) => ({
+        id: tracker.id,
+        full_name: tracker.fullName || null, // Map from 'fullName'
+        email: tracker.email,
+      }));
+
+      console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
+      setTrackers(fetchedTrackers);
     } catch (err: any) {
       console.error('Unexpected error in fetchTrackers catch block:', err);
-      sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+      sonnerToast.error('An unexpected error occurred while fetching trackers: ' + (err.message || 'Unknown error'));
       setTrackers([]);
     }
-  }, []);
+    // No setIsLoading or setError here as this is a background fetch. Errors are handled by toasts.
+  }, [setTrackers]); // setTrackers is stable from useState
 
   useEffect(() => {
     const initializeTeam = (
@@ -174,7 +196,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     
     fetchTrackers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, initialData, fetchTrackers]); // form.getValues removed as it might cause too frequent re-runs. Team name/formation is primarily from initialData or defaults.
+  }, [isEditMode, initialData, fetchTrackers]); // form.getValues removed. fetchTrackers is stable.
 
   useEffect(() => {
     if (isEditMode && initialData) {
@@ -188,7 +210,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         description: initialData.description || '',
       });
     }
-  }, [isEditMode, initialData, form.reset]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, initialData, form.reset]); // form.reset is stable.
 
 
   const updateTeamName = (teamId: 'home' | 'away', name: string) => {
@@ -281,11 +304,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         .from('match_notifications')
         .insert(notifications);
 
-      if (error) throw error;
+      if (error) throw error; // Let the calling function catch and display
       sonnerToast.success(`Notifications sent to ${selectedTrackers.length} tracker(s).`);
     } catch (err: any) {
       console.error('Error sending notifications:', err);
-      sonnerToast.error('An unexpected error occurred while sending notifications: ' + err.message);
+      // Re-throw to be caught by handleFormSubmit or display a specific toast here
+      throw new Error('An unexpected error occurred while sending notifications: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -298,10 +322,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     }
 
     const matchDataPayload = {
-      home_team_name: homeTeam.name, // Use name from homeTeam state, which reflects updates
-      away_team_name: awayTeam.name, // Use name from awayTeam state
-      home_team_formation: homeTeam.formation, // Use formation from homeTeam state
-      away_team_formation: awayTeam.formation, // Use formation from awayTeam state
+      home_team_name: homeTeam.name,
+      away_team_name: awayTeam.name,
+      home_team_formation: homeTeam.formation,
+      away_team_formation: awayTeam.formation,
       home_team_players: homeTeam.players,
       away_team_players: awayTeam.players,
       match_date: values.matchDate || null,
@@ -312,9 +336,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     try {
       if (isEditMode && onSubmitOverride && initialData?.id) {
         const submissionPayloadForOverride = {
-            ...values, // RHF values (includes team names, formations from form schema)
-            // Override with potentially more up-to-date player lists from state
-            home_team_players: matchDataPayload.home_team_players, 
+            ...values,
+            home_team_players: matchDataPayload.home_team_players,
             away_team_players: matchDataPayload.away_team_players,
         };
         await onSubmitOverride(submissionPayloadForOverride, initialData.id);
@@ -337,13 +360,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         if (!newMatch) throw new Error("Match creation failed to return data.");
 
         const matchName = `${newMatch.home_team_name} vs ${newMatch.away_team_name}`;
-        await sendNotificationToTrackers(newMatch.id, matchName);
+        // Await notification sending and handle its specific errors if necessary
+        if (selectedTrackers.length > 0) { // Only attempt if trackers are selected
+            await sendNotificationToTrackers(newMatch.id, matchName);
+        }
         sonnerToast.success('Match created successfully!');
         if (onSuccess) onSuccess();
         else navigate('/admin/matches');
       }
     } catch (error: any) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} match:`, error);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} match or sending notifications:`, error);
       sonnerToast.error(`Error: ${error.message || 'An unknown error occurred.'}`);
     } finally {
       setIsLoading(false);
