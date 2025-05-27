@@ -92,46 +92,27 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
-const fetchTrackers = useCallback(async () => {
+
+  const fetchTrackers = useCallback(async () => {
   try {
-    // Method 1: Try direct query without any joins
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .eq('role', 'tracker')
+      .from('user_profiles_with_role') // Query the VIEW
+      .select('id, email, role, full_name') // Select the columns defined in the VIEW
+      .eq('role', 'tracker') // Filter by the 'role' column from the VIEW
       .order('full_name', { ascending: true, nullsFirst: false });
 
     if (error) {
-      console.error('Error fetching trackers (Method 1):', error);
-      
-      // Method 2: Fallback - try with RPC if direct query fails
-      try {
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_tracker_users');
-        
-        if (rpcError) {
-          console.error('RPC method also failed:', rpcError);
-          sonnerToast.error('Failed to fetch trackers: ' + error.message);
-          setTrackers([]);
-        } else {
-          const fetchedTrackers: TrackerUser[] = (rpcData || []).map(profile => ({
-            id: profile.id,
-            full_name: profile.full_name || 'No name provided',
-            email: profile.email || 'No email provided'
-          }));
-          console.log(`Successfully fetched ${fetchedTrackers.length} trackers via RPC`);
-          setTrackers(fetchedTrackers);
-        }
-      } catch (rpcErr: any) {
-        console.error('RPC method error:', rpcErr);
-        sonnerToast.error('Failed to fetch trackers: ' + error.message);
-        setTrackers([]);
-      }
+      console.error('Error fetching trackers:', error);
+      sonnerToast.error('Failed to fetch trackers: ' + error.message);
+      setTrackers([]);
     } else {
+      // Assuming TrackerUser interface is something like:
+      // interface TrackerUser { id: string; full_name: string; email: string; /* other fields if needed */ }
       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
-        id: profile.id,
+        id: profile.id, // This is the auth.users ID
         full_name: profile.full_name || 'No name provided',
-        email: profile.email || 'No email provided'
+        email: profile.email || 'No email provided' 
+        // 'role' is available as profile.role if you need it in TrackerUser
       }));
 
       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
@@ -143,7 +124,6 @@ const fetchTrackers = useCallback(async () => {
     setTrackers([]);
   }
 }, []);
-
   
   
 // const fetchTrackers = useCallback(async () => {
