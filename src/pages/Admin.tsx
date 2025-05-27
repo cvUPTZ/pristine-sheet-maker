@@ -1,3 +1,5 @@
+
+
 // src/pages/Admin.tsx or similar path
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -416,43 +418,38 @@ const Admin: React.FC = () => {
       toast.error(`Failed to create user: ${errorMessage}`);
     }
   };
+// In Admin.tsx (handleRoleChange) - Simplified concept
+const handleRoleChange = async (userId: string, newRole: UserRole) => {
+  try {
+    // Call an Edge Function that does both:
+    // 1. Upserts into user_roles table (using service_role)
+    // 2. Updates app_metadata for the user (using auth.admin.updateUserById)
+    const { error } = await supabase.functions.invoke('admin-set-user-role', {
+      body: { userIdToUpdate: userId, newRoleToSet: newRole },
+    });
 
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'teacher' | 'user' | 'tracker') => {
-    try {
-      // First, update/insert into 'user_roles' as this is the primary source for get-all-users
-      const { error: roleTableError } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' }); 
+    if (error) throw error;
 
-      if (roleTableError) {
-          console.error('Failed to update role in user_roles:', roleTableError);
-          toast.error('Failed to update user role: ' + roleTableError.message);
-          return;
-      }
-      
-      // Optionally, update 'profiles' table if it also stores role.
-      // This depends on your DB schema and if 'profiles.role' is used elsewhere.
-      // For consistency, if profiles.role exists, it should be updated.
-      // const { error: profileRoleError } = await supabase
-      //   .from('profiles') 
-      //   .update({ role: newRole }) // Assuming 'profiles' table has a 'role' column
-      //   .eq('id', userId);
-      // if (profileRoleError) {
-      //   // Log this error but don't necessarily fail the whole operation if user_roles updated
-      //   console.warn('Failed to update role in profiles table:', profileRoleError.message);
-      // }
-      
-      setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
-      toast.success('User role updated successfully. Data will refresh on next load or manually.');
-      // Optionally call fetchData() here if immediate reflection of all data sources is critical,
-      // but simple state update is usually sufficient for UI responsiveness.
-      // await fetchData(); 
-    } catch (e: any) {
-      console.error('Error updating role:', e);
-      toast.error('Failed to update user role: ' + e.message);
+    // Optimistically update UI or call auth.refreshUserSessionAndRole()
+    setUsers(users.map(user => user.id === userId ? { ...user, role: newRole, app_metadata: {...user.app_metadata, role: newRole} } : user));
+    toast.success('User role updated successfully.');
+    
+    // If the updated user is the current user, refresh their session to get new metadata
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser && currentUser.id === userId) {
+      const auth = useAuth(); // Assuming you can get useAuth here or pass refreshUserSessionAndRole
+      await auth.refreshUserSessionAndRole();
     }
-  };
 
+  } catch (e: any) {
+    console.error('Error updating role:', e);
+    toast.error(`Failed to update user role: ${e.message}`);
+  }
+};
+
+
+
+    
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user? This involves multiple steps and might be irreversible.')) return;
     try {
