@@ -172,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           password,
           fullName,
-          role: 'user' // Default role for public signups
+          role: 'viewer' // Default role for public signups
         }
       });
 
