@@ -158,25 +158,39 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
   const fetchTrackers = async () => {
     try {
+      // Fetch users who have the 'tracker' role in user_roles, and get their profile info
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
+        .from('user_roles')
+        .select(`
+          role,
+          profiles (
+            id,
+            full_name
+          )
+        `)
         .eq('role', 'tracker');
 
       if (error) {
         console.error('Error fetching trackers:', error);
         toast.error('Failed to fetch trackers');
+        setTrackers([]); // Ensure trackers is empty on error
       } else {
-        // Transform data to include email from id (assuming email is the id)
-        const trackersWithEmail = (data || []).map(tracker => ({
-          ...tracker,
-          email: tracker.id // Assuming id is the email
-        }));
+        // Transform data to fit the TrackerUser interface
+        // The data will be an array of objects like: { role: 'tracker', profiles: { id: 'uuid', full_name: 'John Doe' } }
+        // We need to ensure 'profiles' is not null before accessing its properties.
+        const trackersWithEmail = (data || [])
+          .filter(item => item.profiles) // Ensure profile data exists
+          .map(item => ({
+            id: item.profiles.id,          // This is profiles.id which should be the user_id
+            full_name: item.profiles.full_name,
+            email: item.profiles.id        // Assuming profiles.id (user_id) is used as email or unique identifier for display
+          }));
         setTrackers(trackersWithEmail);
       }
     } catch (error) {
       console.error('Error fetching trackers:', error);
       toast.error('Failed to fetch trackers');
+      setTrackers([]); // Ensure trackers is empty on catch
     }
   };
 
