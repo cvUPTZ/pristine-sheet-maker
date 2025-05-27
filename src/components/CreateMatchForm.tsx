@@ -93,28 +93,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
   const [awayTeam, setAwayTeam] = useState<Team | null>(null);
 
-
-  const fetchTrackers = useCallback(async () => {
+const fetchTrackers = useCallback(async () => {
   try {
-    // Use RPC function to get trackers with email data
+    // Simple query now that email is stored in profiles table
     const { data, error } = await supabase
-      .rpc('get_trackers_with_email');
+      .from('profiles')
+      .select('id, full_name, email, created_at, updated_at')
+      .eq('role', 'tracker')
+      .order('full_name', { ascending: true, nullsFirst: false });
       
     if (error) {
       console.error('Error fetching trackers:', error);
       sonnerToast.error('Failed to fetch trackers: ' + error.message);
-      
-      // Enhanced error handling for different PostgREST codes
-      if (error.code === 'PGRST201') {
-        sonnerToast.info("Hint (PGRST201): Using RPC function to avoid relationship ambiguity.");
-      } else if (error.code === 'PGRST100') {
-        sonnerToast.info("Hint (PGRST100): Parsing error in RPC call. Check function parameters.");
-      } else if (error.code === '42883') {
-        sonnerToast.info("Hint (42883): Function does not exist. Make sure get_trackers_with_email() is created.");
-      } else if (error.code === 'PGRST200') {
-        sonnerToast.info("Hint (PGRST200): Schema cache or function finding issue. Try reloading schema.");
-      }
-      
       setTrackers([]);
     } else {
       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
@@ -132,6 +122,46 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     setTrackers([]);
   }
 }, []);
+
+  
+//   const fetchTrackers = useCallback(async () => {
+//   try {
+//     // Use RPC function to get trackers with email data
+//     const { data, error } = await supabase
+//       .rpc('get_trackers_with_email');
+      
+//     if (error) {
+//       console.error('Error fetching trackers:', error);
+//       sonnerToast.error('Failed to fetch trackers: ' + error.message);
+      
+//       // Enhanced error handling for different PostgREST codes
+//       if (error.code === 'PGRST201') {
+//         sonnerToast.info("Hint (PGRST201): Using RPC function to avoid relationship ambiguity.");
+//       } else if (error.code === 'PGRST100') {
+//         sonnerToast.info("Hint (PGRST100): Parsing error in RPC call. Check function parameters.");
+//       } else if (error.code === '42883') {
+//         sonnerToast.info("Hint (42883): Function does not exist. Make sure get_trackers_with_email() is created.");
+//       } else if (error.code === 'PGRST200') {
+//         sonnerToast.info("Hint (PGRST200): Schema cache or function finding issue. Try reloading schema.");
+//       }
+      
+//       setTrackers([]);
+//     } else {
+//       const fetchedTrackers: TrackerUser[] = (data || []).map(profile => ({
+//         id: profile.id,
+//         full_name: profile.full_name || 'No name provided',
+//         email: profile.email || 'No email provided'
+//       }));
+      
+//       console.log(`Successfully fetched ${fetchedTrackers.length} trackers`);
+//       setTrackers(fetchedTrackers);
+//     }
+//   } catch (err: any) {
+//     console.error('Unexpected error in fetchTrackers catch block:', err);
+//     sonnerToast.error('An unexpected error occurred while fetching trackers: ' + err.message);
+//     setTrackers([]);
+//   }
+// }, []);
 
   
 
