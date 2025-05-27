@@ -46,9 +46,9 @@ const Index: React.FC = () => {
     navigate(`/match/${newMatchId}`);
   };
 
-  const handleCompleteSetup = (homeTeamData: Team, awayTeamData: Team) => {
-    updateTeams(homeTeamData, awayTeamData);
-    completeSetup(homeTeamData, awayTeamData);
+  const handleCompleteSetup = (teams: { home: Team; away: Team }) => {
+    updateTeams(teams.home, teams.away);
+    completeSetup();
   };
 
   const handlePlayerSelect = (player: any) => {
@@ -97,7 +97,6 @@ const Index: React.FC = () => {
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
             mode={ballTrackingMode ? 'tracking' : 'piano'}
-            toggleBallTrackingMode={toggleBallTrackingMode}
             ballTrackingPoints={ballTrackingPoints}
             statistics={statistics}
             activeTab={activeTab}

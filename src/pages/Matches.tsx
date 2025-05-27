@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Match } from '@/types'; // Assuming Match type is correctly defined here
+import { Match, Player } from '@/types'; // Assuming Match type is correctly defined here
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -56,7 +57,10 @@ const Matches: React.FC = () => {
             match_date: dbMatch.match_date, // Keep as is (can be null/undefined if optional)
             // Ensure status is one of the allowed types for your Match interface
             // If dbMatch.status can be anything, you might need more sophisticated mapping or a default
-            status: (dbMatch.status || 'draft') as 'published' | 'draft' | 'live' | 'completed' | 'archived', 
+            status: (dbMatch.status || 'draft') as 'published' | 'draft' | 'live' | 'completed' | 'archived',
+            // Properly cast JSON fields to expected types
+            home_team_players: Array.isArray(dbMatch.home_team_players) ? dbMatch.home_team_players as Player[] : [],
+            away_team_players: Array.isArray(dbMatch.away_team_players) ? dbMatch.away_team_players as Player[] : [],
           };
         });
       

@@ -373,8 +373,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <TabsContent value="individual">
                 <DetailedStatsTable 
                   playerStats={playerStats} 
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
                 />
               </TabsContent>
               
@@ -415,8 +413,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <TabsContent value="ballsPlayed">
                 <TimeSegmentChart 
                   timeSegments={timeSegments} 
-                  homeTeam={homeTeam} 
-                  awayTeam={awayTeam} 
+                  homeTeamName={homeTeam?.name || 'Home'} 
+                  awayTeamName={awayTeam?.name || 'Away'} 
                   metric="ballsPlayed" 
                 />
               </TabsContent>
@@ -424,8 +422,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <TabsContent value="possession">
                 <TimeSegmentChart 
                   timeSegments={timeSegments} 
-                  homeTeam={homeTeam} 
-                  awayTeam={awayTeam} 
+                  homeTeamName={homeTeam?.name || 'Home'} 
+                  awayTeamName={awayTeam?.name || 'Away'} 
                   metric="possession" 
                 />
               </TabsContent>
@@ -433,8 +431,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <TabsContent value="recoveryTime">
                 <TimeSegmentChart 
                   timeSegments={timeSegments} 
-                  homeTeam={homeTeam} 
-                  awayTeam={awayTeam} 
+                  homeTeamName={homeTeam?.name || 'Home'} 
+                  awayTeamName={awayTeam?.name || 'Away'} 
                   metric="recoveryTime" 
                 />
               </TabsContent>

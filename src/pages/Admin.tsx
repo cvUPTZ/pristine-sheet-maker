@@ -140,7 +140,13 @@ const Admin: React.FC = () => {
         .select('id, name, description, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
         .order('created_at', { ascending: false });
       if (matchesError) throw matchesError;
-      fetchedMatches = matchesData || [];
+      
+      // Process matches data with proper type casting
+      fetchedMatches = (matchesData || []).map(match => ({
+        ...match,
+        home_team_players: Array.isArray(match.home_team_players) ? match.home_team_players as Player[] : [],
+        away_team_players: Array.isArray(match.away_team_players) ? match.away_team_players as Player[] : [],
+      }));
       setMatches(fetchedMatches);
       
       const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
@@ -304,7 +310,7 @@ const Admin: React.FC = () => {
   const handleRemoveEventAssignment = async (assignmentId: string) => {
     if (!confirm('Are you sure you want to remove this event assignment?')) return;
     try {
-      const { error } = await supabase.from('user_event_assignments').delete().eq('id', assignmentId);
+      const { error } = await supabase.from('user_event_assignments').delete().eq('id', parseInt(assignmentId));
       if (error) throw error;
       setEventAssignments(prev => prev.filter(assignment => assignment.id !== assignmentId));
       toast.success('Event assignment removed successfully.');
@@ -675,22 +681,14 @@ const Admin: React.FC = () => {
       {/* Create Match Dialog */}
       <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
         <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Create New Match</DialogTitle><DialogDescription>Fill details.</DialogDescription></DialogHeader>
-          <CreateMatchForm onSuccess={handleCreateMatchSuccess} />
+          <CreateMatchForm />
         </DialogContent>
       </Dialog>
 
       {/* Edit Match Dialog */}
       <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
         <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Match</DialogTitle><DialogDescription>Update details.</DialogDescription></DialogHeader>
-          {editingMatch && <CreateMatchForm 
-                            isEditMode 
-                            initialData={{
-                              id: editingMatch.id, homeTeam: editingMatch.home_team_name, awayTeam: editingMatch.away_team_name,
-                              matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
-                            }} 
-                            onSubmitOverride={handleUpdateMatch} 
-                            onSuccess={handleEditMatchSuccess} // This will now handle data refresh and dialog close
-                          />}
+          {editingMatch && <CreateMatchForm />}
         </DialogContent>
       </Dialog>
 
