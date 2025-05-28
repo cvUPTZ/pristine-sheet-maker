@@ -110,7 +110,7 @@ export interface Player {
   name: string;
   number?: number;
   position: string;
-  [key: string]: any; // Allow additional properties for JSON compatibility
+  [key: string]: any;
 }
 
 export interface Team {
@@ -133,6 +133,10 @@ export interface Match {
   created_at: string;
   home_team_players?: Player[];
   away_team_players?: Player[];
+}
+
+export interface SavedMatch extends Match {
+  // Additional properties for saved matches if needed
 }
 
 export interface MatchEvent {
@@ -173,6 +177,10 @@ export interface PlayerStatistics {
 
 export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3';
 
+export interface FormationPositions {
+  [key: string]: { x: number; y: number };
+}
+
 export type EventType = 
   | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'
   | 'assist' | 'yellowCard' | 'redCard' | 'substitution' | 'card'
@@ -181,3 +189,4 @@ export type EventType =
   | 'clearance' | 'block' | 'save' | 'ownGoal' | 'freeKick' | 'throwIn'
   | 'goalKick' | 'aerialDuel' | 'groundDuel';
 
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';

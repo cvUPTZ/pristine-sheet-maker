@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +39,39 @@ const initialStatistics: Statistics = {
     fouls: 0,
     possession: 50,
   },
+  possession: {
+    home: 50,
+    away: 50,
+  },
+  shots: {
+    home: { onTarget: 0, offTarget: 0 },
+    away: { onTarget: 0, offTarget: 0 }
+  },
+  passes: {
+    home: { successful: 0, attempted: 0 },
+    away: { successful: 0, attempted: 0 }
+  },
+  ballsPlayed: { home: 0, away: 0 },
+  ballsLost: { home: 0, away: 0 },
+  duels: {
+    home: { won: 0, lost: 0, aerial: 0 },
+    away: { won: 0, lost: 0, aerial: 0 }
+  },
+  cards: {
+    home: { yellow: 0, red: 0 },
+    away: { yellow: 0, red: 0 }
+  },
+  crosses: {
+    home: { total: 0, successful: 0 },
+    away: { total: 0, successful: 0 }
+  },
+  dribbles: {
+    home: { successful: 0, attempted: 0 },
+    away: { successful: 0, attempted: 0 }
+  },
+  corners: { home: 0, away: 0 },
+  offsides: { home: 0, away: 0 },
+  freeKicks: { home: 0, away: 0 }
 };
 
 const MatchAnalysis = () => {
@@ -334,7 +368,7 @@ const MatchAnalysis = () => {
             player_id: playerId,
             team: teamId,
             timestamp: timerValue,
-            coordinates: coordinates,
+            coordinates: JSON.stringify(coordinates),
             created_by: user.id
           }
         ]);
@@ -372,19 +406,32 @@ const MatchAnalysis = () => {
       let currentSegment: TimeSegmentStatistics = {
         startTime: 0,
         endTime: 60,
+        timeSegment: '0-60s',
         events: []
       };
 
       if (data && Array.isArray(data)) {
         data.forEach(event => {
+          // Convert database event to MatchEvent format
+          const matchEvent: MatchEvent = {
+            id: event.id,
+            type: event.event_type as EventType,
+            timestamp: event.timestamp,
+            playerId: event.player_id,
+            teamId: event.team as 'home' | 'away',
+            coordinates: typeof event.coordinates === 'string' ? JSON.parse(event.coordinates) : event.coordinates,
+            status: 'confirmed'
+          };
+
           if (event.timestamp >= currentSegment.startTime && event.timestamp <= currentSegment.endTime) {
-            currentSegment.events?.push(event);
+            currentSegment.events?.push(matchEvent);
           } else {
             segments.push(currentSegment);
             currentSegment = {
               startTime: currentSegment.endTime,
               endTime: currentSegment.endTime + 60,
-              events: [event]
+              timeSegment: `${currentSegment.endTime}-${currentSegment.endTime + 60}s`,
+              events: [matchEvent]
             };
           }
         });
@@ -478,7 +525,7 @@ const MatchAnalysis = () => {
         const assignmentData = assignmentDataArray && assignmentDataArray.length > 0 ? assignmentDataArray[0] : null;
 
         if (assignmentData) {
-          const team = assignmentData.player_team_id;
+          const team: 'home' | 'away' = assignmentData.player_team_id as 'home' | 'away';
           const playerId = assignmentData.player_id;
 
           const players = team === 'home' ? homeTeamPlayers : awayTeamPlayers;

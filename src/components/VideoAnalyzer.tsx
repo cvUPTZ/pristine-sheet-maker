@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +109,10 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
           tackles: 0,
           fouls: 0,
           possession: 50
+        },
+        duels: data.statistics.duels || {
+          home: { won: 0, lost: 0, aerial: 0 },
+          away: { won: 0, lost: 0, aerial: 0 }
         },
         cards: data.statistics.cards || {
           home: { yellow: 0, red: 0 },
