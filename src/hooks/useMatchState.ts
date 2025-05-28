@@ -1,380 +1,250 @@
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+import { Match, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics } from '@/types';
 
-export interface BallPath {
-  id: string;
-  startPoint: { x: number; y: number };
-  endPoint: { x: number; y: number };
-  playerId: number;
-  teamId: string;
-  timestamp: number;
-  eventType: string;
-  status: 'active' | 'completed' | 'cancelled';
-}
-
-interface MatchState {
-  events: MatchEvent[];
-  statistics: Statistics;
-  timeSegments: TimeSegmentStatistics[];
-  playerStats: PlayerStatistics[];
-  ballTrackingPoints: BallTrackingPoint[];
-}
-
-const initialMatchState: MatchState = {
-  events: [],
-  statistics: {
+export const useMatchState = (matchId: string) => {
+  const [match, setMatch] = useState<Match | null>(null);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [statistics, setStatistics] = useState<Statistics>({
+    home: { passes: 0, shots: 0, tackles: 0, fouls: 0, possession: 50 },
+    away: { passes: 0, shots: 0, tackles: 0, fouls: 0, possession: 50 },
     possession: { home: 50, away: 50 },
-    shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
-    passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+    shots: {
+      home: { onTarget: 0, offTarget: 0 },
+      away: { onTarget: 0, offTarget: 0 }
+    },
+    passes: {
+      home: { successful: 0, attempted: 0 },
+      away: { successful: 0, attempted: 0 }
+    },
     ballsPlayed: { home: 0, away: 0 },
     ballsLost: { home: 0, away: 0 },
-    duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
-    cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
-    crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-    dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+    duels: {
+      home: { won: 0, lost: 0, aerial: 0 },
+      away: { won: 0, lost: 0, aerial: 0 }
+    },
+    cards: {
+      home: { yellow: 0, red: 0 },
+      away: { yellow: 0, red: 0 }
+    },
+    crosses: {
+      home: { total: 0, successful: 0 },
+      away: { total: 0, successful: 0 }
+    },
+    dribbles: {
+      home: { successful: 0, attempted: 0 },
+      away: { successful: 0, attempted: 0 }
+    },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
-    freeKicks: { home: 0, away: 0 },
-  },
-  timeSegments: [],
-  playerStats: [],
-  ballTrackingPoints: [],
-};
+    freeKicks: { home: 0, away: 0 }
+  });
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>([]);
+  const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>([]);
+  const [timerValue, setTimerValue] = useState(0);
+  const [timerStatus, setTimerStatus] = useState<'running' | 'stopped' | 'reset'>('stopped');
+  const { toast } = useToast();
 
-export const useMatchState = () => {
-  const [events, setEvents] = useState<MatchEvent[]>(initialMatchState.events);
-  const [statistics, setStatistics] = useState<Statistics>(initialMatchState.statistics);
-  const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(initialMatchState.ballTrackingPoints);
-  const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '4-4-2' });
-  const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '4-4-2' });
-  
-  // UI State
-  const [isRunning, setIsRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [setupComplete, setSetupComplete] = useState(false);
-  const [ballTrackingMode, setBallTrackingMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pitch' | 'stats' | 'details' | 'piano' | 'timeline' | 'video'>('pitch');
-  const [teamPositions, setTeamPositions] = useState<Record<number, { x: number; y: number }>>({});
-  const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([]);
-  const [match, setMatch] = useState<any>(null);
-  const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false);
-  const [potentialPasser, setPotentialPasser] = useState<Player | null>(null);
-  const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]);
+  // Load match data
+  useEffect(() => {
+    const loadMatch = async () => {
+      if (!matchId) return;
 
-  const addEvent = (event: MatchEvent) => {
-    setEvents((prevEvents) => [...prevEvents, event]);
-    setMatchEvents((prevEvents) => [...prevEvents, event]);
+      try {
+        const { data, error } = await supabase
+          .from('matches')
+          .select('*')
+          .eq('id', matchId)
+          .single();
+
+        if (error) throw error;
+        setMatch(data);
+
+        // Load existing statistics
+        if (data.match_statistics) {
+          setStatistics(data.match_statistics);
+        }
+
+        // Load ball tracking data
+        if (data.ball_tracking_data) {
+          setBallTrackingPoints(data.ball_tracking_data);
+        }
+
+      } catch (error) {
+        console.error('Error loading match:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load match data",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadMatch();
+  }, [matchId, toast]);
+
+  // Load events
+  useEffect(() => {
+    const loadEvents = async () => {
+      if (!matchId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('match_events')
+          .select('*')
+          .eq('match_id', matchId)
+          .order('timestamp', { ascending: true });
+
+        if (error) throw error;
+        
+        const formattedEvents: MatchEvent[] = data.map(event => ({
+          id: event.id,
+          type: event.event_type as any,
+          timestamp: event.timestamp || 0,
+          playerId: event.player_id || 0,
+          teamId: (event.team as 'home' | 'away') || 'home',
+          coordinates: typeof event.coordinates === 'string' 
+            ? JSON.parse(event.coordinates) 
+            : event.coordinates || { x: 0, y: 0 },
+          status: 'confirmed'
+        }));
+
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error('Error loading events:', error);
+      }
+    };
+
+    loadEvents();
+  }, [matchId]);
+
+  const addEvent = async (newEvent: Omit<MatchEvent, 'id'>) => {
+    try {
+      const eventWithId: MatchEvent = {
+        ...newEvent,
+        id: crypto.randomUUID(),
+        status: 'confirmed'
+      };
+
+      // Save to database
+      const { error } = await supabase.from('match_events').insert({
+        id: eventWithId.id,
+        match_id: matchId,
+        event_type: newEvent.type,
+        timestamp: newEvent.timestamp,
+        player_id: newEvent.playerId,
+        team: newEvent.teamId,
+        coordinates: JSON.stringify(newEvent.coordinates),
+        created_by: supabase.auth.getUser().then(({ data }) => data.user?.id || '')
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setEvents(prev => [...prev, eventWithId]);
+      
+      // Update statistics
+      updateStatistics(newEvent.type, newEvent.teamId);
+
+    } catch (error) {
+      console.error('Error adding event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add event",
+        variant: "destructive",
+      });
+    }
   };
 
-  const confirmEvent = (clientId: string) => {
-    setEvents(prev => 
-      prev.map(event => 
-        event.clientId === clientId 
-          ? { ...event, status: 'confirmed' as const }
-          : event
-      )
-    );
-  };
-
-  const updateEvent = (update: { id: string; clientId: string; status: 'confirmed' | 'failed' }) => {
-    setEvents(prev => 
-      prev.map(event => 
-        event.clientId === update.clientId 
-          ? { ...event, id: update.id, status: update.status }
-          : event
-      )
-    );
-  };
-
-  const updateStatistics = (newStatistics: Partial<Statistics>) => {
-    setStatistics((prevStatistics) => ({
-      ...prevStatistics,
-      ...newStatistics,
-    }));
+  const updateStatistics = (eventType: string, teamId: 'home' | 'away') => {
+    setStatistics(prev => {
+      const newStats = { ...prev };
+      
+      // Update team-specific stats based on event type
+      switch (eventType) {
+        case 'pass':
+          newStats[teamId].passes += 1;
+          newStats.passes[teamId].attempted += 1;
+          break;
+        case 'shot':
+          newStats[teamId].shots += 1;
+          newStats.shots[teamId].offTarget += 1;
+          break;
+        case 'tackle':
+          newStats[teamId].tackles += 1;
+          break;
+        case 'foul':
+          newStats[teamId].fouls += 1;
+          break;
+        // Add more cases as needed
+      }
+      
+      return newStats;
+    });
   };
 
   const addBallTrackingPoint = (point: BallTrackingPoint) => {
-    setBallTrackingPoints((prevPoints) => [...prevPoints, point]);
+    setBallTrackingPoints(prev => [...prev, point]);
   };
 
-  const setTeams = (home: Team, away: Team) => {
-    setHomeTeam(home);
-    setAwayTeam(away);
-  };
-
-  const toggleTimer = () => {
-    setIsRunning(!isRunning);
-  };
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setElapsedTime(0);
-  };
-
-  const undoLastEvent = () => {
-    setEvents(prev => prev.slice(0, -1));
-    setMatchEvents(prev => prev.slice(0, -1));
-  };
-
-  const updateTeams = (home: Team, away: Team) => {
-    setHomeTeam(home);
-    setAwayTeam(away);
-  };
-
-  const completeSetup = (home: Team, away: Team) => {
-    console.log('useMatchState: completeSetup called with homeTeam:', home, 'and awayTeam:', away);
-    setHomeTeam(home);
-    setAwayTeam(away);
-    setSetupComplete(true);
-    console.log('useMatchState: setupComplete state has been set to true.');
-  };
-
-  const toggleBallTrackingMode = () => {
-    setBallTrackingMode(!ballTrackingMode);
-  };
-
-  const trackBallMovement = (coordinates: { x: number; y: number }) => {
-    addBallTrackingPoint({
-      x: coordinates.x,
-      y: coordinates.y,
-      timestamp: Date.now()
-    });
-  };
-
-  const generateMatchId = () => {
-    const matchId = `match-${Date.now()}`;
-    return matchId;
-  };
-
-  const recordEvent = useCallback((
-    eventType: EventType,
-    playerId: number,
-    teamId: 'home' | 'away',
-    coordinates: { x: number; y: number }
-  ) => {
-    const newEvent: MatchEvent = {
-      id: `event-${Date.now()}`,
-      matchId: 'current-match',
-      teamId,
-      playerId,
-      type: eventType,
-      timestamp: Date.now(),
-      coordinates,
-      status: 'confirmed'
-    };
-
-    addEvent(newEvent);
-  }, [addEvent]);
-
-  const recordPass = useCallback((
-    passer: Player,
-    receiver: Player,
-    passerTeamIdStr: 'home' | 'away',
-    receiverTeamIdStr: 'home' | 'away',
-    passerCoords: { x: number; y: number },
-    receiverCoords: { x: number; y: number }
-  ) => {
-    const passEvent: MatchEvent = {
-      id: `event-${Date.now()}`,
-      matchId: 'current-match',
-      teamId: passerTeamIdStr,
-      playerId: passer.id,
-      type: 'pass',
-      timestamp: Date.now(),
-      coordinates: passerCoords,
-      status: 'confirmed',
-      relatedPlayerId: receiver.id
-    };
-
-    addEvent(passEvent);
-  }, [addEvent]);
-
-  const processEventsForLocalState = (events: MatchEvent[]) => {
-    setEvents(events);
-    setMatchEvents(events);
-  };
-
-  const togglePassTrackingMode = () => {
-    setIsPassTrackingModeActive(!isPassTrackingModeActive);
-  };
-
-  const calculatePossession = useCallback(() => {
-    // Add null checks to prevent runtime errors
-    if (!homeTeam?.id || !awayTeam?.id) {
-      return;
+  const startTimer = async () => {
+    setTimerStatus('running');
+    
+    if (match) {
+      await supabase
+        .from('matches')
+        .update({ 
+          timer_status: 'running',
+          timer_last_started_at: new Date().toISOString()
+        })
+        .eq('id', match.id);
     }
+  };
 
-    const homeEvents = events.filter((event) => event.teamId === homeTeam.id);
-    const awayEvents = events.filter((event) => event.teamId === awayTeam.id);
-
-    const totalEvents = events.length;
-    const homePossession = totalEvents > 0 ? (homeEvents.length / totalEvents) * 100 : 50;
-    const awayPossession = totalEvents > 0 ? (awayEvents.length / totalEvents) * 100 : 50;
-
-    setStatistics((prev) => ({
-      ...prev,
-      possession: {
-        home: homePossession,
-        away: awayPossession,
-      },
-    }));
-  }, [events, homeTeam?.id, awayTeam?.id]);
-
-  useEffect(() => {
-    // Only calculate possession if both teams are properly initialized
-    if (homeTeam?.id && awayTeam?.id) {
-      calculatePossession();
+  const stopTimer = async () => {
+    setTimerStatus('stopped');
+    
+    if (match) {
+      await supabase
+        .from('matches')
+        .update({ 
+          timer_status: 'stopped',
+          timer_current_value: timerValue
+        })
+        .eq('id', match.id);
     }
-  }, [calculatePossession]);
+  };
 
-  const timeSegments = useMemo(() => {
-    const segmentLength = 5; // minutes
-    const matchDuration = 90; // minutes
-    const numberOfSegments = matchDuration / segmentLength;
-
-    const segments = Array.from({ length: numberOfSegments }, (_, i) => ({
-      start: i * segmentLength,
-      end: (i + 1) * segmentLength,
-    }));
-
-    return segments.map((segment, index) => ({
-      id: `segment-${index}`,
-      timeSegment: `${segment.start}-${segment.end}min`,
-      possession: {
-        home: 50, // Simplified for now, needs calculation based on events in this segment
-        away: 50, // Simplified for now, needs calculation based on events in this segment
-      },
-      ballsPlayed: { // Example: calculation for balls played in this segment
-        home: homeTeam?.id ? events.filter(e => e.teamId === homeTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length : 0,
-        away: awayTeam?.id ? events.filter(e => e.teamId === awayTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length : 0,
-      },
-      ballsGiven: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
-      },
-      ballsRecovered: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
-      },
-      recoveryTime: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
-      },
-      contacts: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
-      },
-      // Cumulative stats would ideally be calculated based on previous segments' cumulative stats + current segment's stats
-      cumulativePossession: { home: 50, away: 50, },
-      cumulativeBallsPlayed: { home: 0, away: 0, },
-      cumulativeBallsGiven: { home: 0, away: 0, },
-      cumulativeBallsRecovered: { home: 0, away: 0, },
-      cumulativeRecoveryTime: { home: 0, away: 0, },
-      cumulativeContacts: { home: 0, away: 0, },
-      possessionDifference: { home: 0, away: 0, },
-      ballsPlayedDifference: { home: 0, away: 0, },
-      ballsGivenDifference: { home: 0, away: 0, },
-      ballsRecoveredDifference: { home: 0, away: 0, },
-    }));
-  }, [events, homeTeam?.id, awayTeam?.id]);
-
-  const playerStats = useMemo(() => {
-    const playerStats: PlayerStatistics[] = [];
-    const allPlayers: Player[] = [...(homeTeam?.players || []), ...(awayTeam?.players || [])];
-
-    allPlayers.forEach(player => {
-      const playerEvents = events.filter(event => event.playerId === player.id);
-      const ballsPlayed = playerEvents.length;
-      const ballsLost = playerEvents.filter(event => event.type === 'foul').length;
-      const ballsRecovered = playerEvents.filter(event => event.type === 'tackle').length;
-      const passesCompleted = playerEvents.filter(event => event.type === 'pass' && event.status === 'confirmed').length; // Assuming only confirmed passes count
-      const passesAttempted = playerEvents.filter(event => event.type === 'pass').length; // All pass attempts
-      const possessionTime = ballsPlayed * 2; // This is a simplification, actual possession time is complex
-      const contacts = ballsPlayed + ballsLost + ballsRecovered;
-      const lossRatio = ballsPlayed > 0 ? ballsLost / ballsPlayed : 0;
-      const goals = playerEvents.filter(event => event.type === 'goal').length;
-      const assists = playerEvents.filter(event => event.type === 'assist').length;
-      const shots = playerEvents.filter(event => event.type === 'shot').length;
-      const fouls = playerEvents.filter(event => event.type === 'foul').length;
-
-      playerStats.push({
-        playerId: player.id,
-        playerName: player.name,
-        teamId: player.teamId || (homeTeam?.players?.find(p => p.id === player.id) ? homeTeam.id : awayTeam?.id || ''),
-        team: homeTeam?.players?.find(p => p.id === player.id) ? homeTeam.name : awayTeam?.name || '',
-        player: player,
-        ballsPlayed: ballsPlayed,
-        ballsLost: ballsLost,
-        ballsRecovered: ballsRecovered,
-        passesCompleted: passesCompleted,
-        passesAttempted: passesAttempted,
-        possessionTime: possessionTime,
-        contacts: contacts,
-        lossRatio: lossRatio,
-        goals: goals,
-        assists: assists,
-        passes: passesAttempted, // Total passes attempted
-        shots: shots,
-        fouls: fouls,
-      });
-    });
-    return playerStats;
-  }, [events, homeTeam?.players, awayTeam?.players, homeTeam?.id, homeTeam?.name, awayTeam?.id, awayTeam?.name]);
+  const resetTimer = async () => {
+    setTimerValue(0);
+    setTimerStatus('reset');
+    
+    if (match) {
+      await supabase
+        .from('matches')
+        .update({ 
+          timer_status: 'reset',
+          timer_current_value: 0
+        })
+        .eq('id', match.id);
+    }
+  };
 
   return {
+    match,
     events,
     statistics,
-    timeSegments,
-    playerStats,
     ballTrackingPoints,
-    homeTeam,
-    awayTeam,
-    isRunning,
-    elapsedTime,
-    selectedTeam,
-    selectedPlayer,
-    setupComplete,
-    ballTrackingMode,
-    activeTab,
-    teamPositions,
-    matchEvents,
-    match,
-    isPassTrackingModeActive,
-    potentialPasser,
-    ballPathHistory,
-    setActiveTab,
-    setSelectedTeam,
-    setSelectedPlayer,
-    toggleTimer,
-    resetTimer,
+    timeSegments,
+    timerValue,
+    timerStatus,
     addEvent,
-    undoLastEvent,
-    updateTeams,
-    completeSetup,
-    setElapsedTime,
-    toggleBallTrackingMode,
     addBallTrackingPoint,
-    trackBallMovement,
-    generateMatchId,
-    recordEvent,
-    recordPass,
-    setStatistics,
-    updateStatistics,
-    setTeams,
-    confirmEvent,
-    updateEvent,
-    setBallTrackingPoints,
-    setMatchEvents,
-    setMatch,
-    setHomeTeam,
-    setAwayTeam,
-    processEventsForLocalState,
-    togglePassTrackingMode,
-    setPotentialPasser,
-    setBallPathHistory,
-    setTeamPositions,
+    startTimer,
+    stopTimer,
+    resetTimer,
+    updateStatistics
   };
 };

@@ -136,7 +136,13 @@ export interface Match {
 }
 
 export interface SavedMatch extends Match {
-  // Additional properties for saved matches if needed
+  date: string;
+  homeTeam: Team;
+  awayTeam: Team;
+  events: MatchEvent[];
+  ballTrackingPoints: BallTrackingPoint[];
+  timeSegments: TimeSegmentStatistics[];
+  statistics: Statistics;
 }
 
 export interface MatchEvent {
