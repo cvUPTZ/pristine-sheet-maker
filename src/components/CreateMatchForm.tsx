@@ -14,10 +14,10 @@ import { Switch } from './ui/switch';
 
 // Schema for form validation using Zod
 const matchFormSchema = z.object({
-  name: z.string().min(1, 'Match name is required'),
+  name: z.string().min(1, 'Match name is required').max(255, 'Match name is too long'),
   match_type: z.string().min(1, 'Match type is required'),
-  home_team_name: z.string().min(1, 'Home team name is required'),
-  away_team_name: z.string().min(1, 'Away team name is required'),
+  home_team_name: z.string().min(1, 'Home team name is required').max(100, 'Home team name is too long'),
+  away_team_name: z.string().min(1, 'Away team name is required').max(100, 'Away team name is too long'),
   status: z.string().optional().default('pending'),
   description: z.string().optional(),
   assigned_tracker_id: z.string().optional(),
@@ -132,25 +132,36 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
   const onSubmit = async (data: MatchFormData) => {
     setIsLoading(true);
     try {
+      // Ensure we have clean, non-empty data
+      const matchPayload = {
+        name: data.name.trim(), // Ensure name is trimmed and not empty
+        match_type: data.match_type.trim(),
+        home_team_name: data.home_team_name.trim(),
+        away_team_name: data.away_team_name.trim(),
+        status: data.enable_live_tracking ? 'pending_live' : data.status,
+        description: data.description?.trim() || null, // Convert empty string to null
+      };
+
+      console.log('Creating match with payload:', matchPayload);
+
       const { data: matchData, error } = await supabase
         .from('matches')
-        .insert([
-          {
-            name: data.name,
-            match_type: data.match_type,
-            home_team_name: data.home_team_name,
-            away_team_name: data.away_team_name,
-            status: data.enable_live_tracking ? 'pending_live' : data.status,
-            description: data.description,
-          },
-        ])
+        .insert([matchPayload])
         .select()
         .single();
 
       if (error) {
+        console.error('Supabase error creating match:', error);
         throw error;
       }
 
+      if (!matchData || !matchData.id) {
+        throw new Error('Match created but no data returned from database');
+      }
+
+      console.log('Match created successfully:', matchData);
+
+      // Handle tracker assignment if provided
       if (matchData && data.assigned_tracker_id) {
         const { error: assignmentError } = await supabase
           .from('match_tracker_assignments')
@@ -161,6 +172,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             },
           ]);
         if (assignmentError) {
+          console.error('Error assigning tracker:', assignmentError);
           sonnerToast.error(`Match created, but failed to assign tracker: ${assignmentError.message}`);
         }
       }
@@ -190,7 +202,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             {/* Row 1: Match Name and Type */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-sm font-medium">Match Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Match Name <span className="text-red-500">*</span>
+                </Label>
                 <Controller
                   name="name"
                   control={control}
@@ -207,7 +221,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="match_type" className="text-sm font-medium">Match Type</Label>
+                <Label htmlFor="match_type" className="text-sm font-medium">
+                  Match Type <span className="text-red-500">*</span>
+                </Label>
                 <Controller
                   name="match_type"
                   control={control}
@@ -232,7 +248,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             {/* Row 2: Team Names */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="home_team_name" className="text-sm font-medium">Home Team</Label>
+                <Label htmlFor="home_team_name" className="text-sm font-medium">
+                  Home Team <span className="text-red-500">*</span>
+                </Label>
                 <Controller
                   name="home_team_name"
                   control={control}
@@ -249,7 +267,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="away_team_name" className="text-sm font-medium">Away Team</Label>
+                <Label htmlFor="away_team_name" className="text-sm font-medium">
+                  Away Team <span className="text-red-500">*</span>
+                </Label>
                 <Controller
                   name="away_team_name"
                   control={control}
@@ -308,6 +328,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
                         <SelectItem value="upcoming">Upcoming</SelectItem>
                         <SelectItem value="postponed">Postponed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
