@@ -188,13 +188,13 @@ export function PianoInput({
               onClick={() => handleEventTypeSelect(et)}
               disabled={!!selectedEventType && selectedEventType.key !== et.key}
               className={`flex flex-col items-center justify-center gap-1 p-3 rounded-lg text-xs font-medium transition-colors shadow-sm hover:shadow-md
-                          min-w-[80px] min-h-[80px]  // Ensure minimum size for icon and text
+                          min-w-[90px] min-h-[90px]  // Ensure minimum size for icon and text
                           ${selectedEventType?.key === et.key 
                             ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
                             : 'bg-white hover:bg-gray-50 text-gray-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none'}`}
               title={`${et.label} (Shortcut: ${et.key.charAt(0).toUpperCase()})`} // Tooltip for full label and shortcut
             >
-              {getEventTypeIcon(et.key, { size: 32 })} {/* Icon size 32x32 */}
+              {getEventTypeIcon(et.key, { size: 40 })} {/* Icon size 40x40 */}
               <span className="mt-1 truncate">{et.label}</span> {/* Label below icon */}
               {/* Shortcut hint can be part of the tooltip or subtly displayed if needed */}
             </button>
