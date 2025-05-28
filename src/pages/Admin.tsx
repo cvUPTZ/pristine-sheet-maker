@@ -77,6 +77,7 @@ interface UIDisplayedPlayerTrackerAssignment {
   trackerUser_id: string;
   trackerName: string;
   created_at?: string;
+  assigned_event_types?: string[] | null; // Added
 }
 
 const availableEventTypes: EventType[] = [
@@ -218,41 +219,77 @@ const Admin: React.FC = () => {
 
       const { data: rawAssignments, error: playerTrackerAssignmentsError } = await supabase
         .from('match_tracker_assignments')
-        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at'); // Ensure player_id is selected
+        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at, assigned_event_types'); // Ensure player_id and assigned_event_types are selected
       if (playerTrackerAssignmentsError) throw playerTrackerAssignmentsError;
 
       if (rawAssignments) {
         const processedAssignments = rawAssignments.map(assignment => {
-          // Skip if player_id is null or undefined for Player-Tracker Assignments table
-          if (assignment.player_id === null || assignment.player_id === undefined) {
-            return null; // This assignment is not for a specific player, might be general match tracker
-          }
-
           const match = fetchedMatches.find(m => m.id === assignment.match_id);
           const tracker = fetchedUsers.find(u => u.id === assignment.tracker_user_id);
+          
           let playerName = 'Unknown Player';
           let playerTeamName = 'Unknown Team';
+          let processedPlayerId = 0; // Default for match-level or if player_id is missing
+          let playerTeamContext: 'home' | 'away' | undefined = undefined; // Handle possible null for player_team_id
 
-          if (match) {
-            const playerList = assignment.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
-            // Ensure player_id is treated as a number for comparison with Player.id
-            const player = Array.isArray(playerList) ? playerList.find(p => p.id === Number(assignment.player_id)) : null;
-            if (player) playerName = player.name;
-            playerTeamName = assignment.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
+          if (assignment.player_id !== null && assignment.player_id !== undefined) {
+            // This is a player-specific assignment
+            processedPlayerId = Number(assignment.player_id);
+            playerTeamContext = assignment.player_team_id as 'home' | 'away'; // Assume valid if player_id exists
+
+            if (match && playerTeamContext) {
+              const playerList = playerTeamContext === 'home' ? match.home_team_players : match.away_team_players;
+              const player = Array.isArray(playerList) ? playerList.find(p => p.id === processedPlayerId) : null;
+              if (player) {
+                playerName = player.name;
+              } else {
+                playerName = `Player ID ${processedPlayerId} not found in roster`;
+              }
+              playerTeamName = playerTeamContext === 'home' ? match.home_team_name : match.away_team_name;
+            } else if (match) { // Player ID exists, but team context might be missing or match not found for player
+              playerName = `Player ID ${processedPlayerId}`;
+              playerTeamName = "Team context error or match not fully loaded";
+            }
+          } else if (match) {
+            // This is a general match assignment (player_id is NULL)
+            playerName = "N/A (Match Assignment)";
+            playerTeamName = "N/A";
+            // playerTeamContext remains undefined or you can assign a default like 'home' if your type strictly needs it
+            // For UIDisplayedPlayerTrackerAssignment, playerTeamId is 'home' | 'away'.
+            // If player_team_id can be null from DB for match assignments, this needs care.
+            // Assuming for now match-level assignments won't have a player_team_id from DB or it's ignored.
+            // We'll set a default for the type if necessary, or adjust the type.
+            // Let's ensure playerTeamContext has a default for the type if player_id is null.
+            playerTeamContext = assignment.player_team_id ? assignment.player_team_id as 'home' | 'away' : undefined; // Use if available, else undefined.
+                                                                                                                      // If playerTeamId must be 'home'|'away', then a default is needed here.
+                                                                                                                      // For now, if it's a match assignment, "N/A" for team name is clear.
+          } else {
+            // Match not found for this assignment
+            playerName = "N/A (Match data missing)";
+            playerTeamName = "N/A";
           }
+
           return {
             id: assignment.id.toString(),
             matchId: assignment.match_id,
             matchName: match?.name || match?.description || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
-            playerId: Number(assignment.player_id),
+            playerId: processedPlayerId,
             playerName: playerName,
-            playerTeamId: assignment.player_team_id as 'home' | 'away',
+            // If playerTeamContext is undefined for a match assignment, and the type UIDisplayedPlayerTrackerAssignment.playerTeamId
+            // is strictly 'home' | 'away', this might cause issues. Let's provide a fallback if needed, or adjust type.
+            // For now, if team context is undefined (e.g. for match-level), we pass it as such.
+            // The UI type `UIDisplayedPlayerTrackerAssignment` has `playerTeamId: 'home' | 'away'`.
+            // So, if `player_id` is null, `playerTeamContext` might be null/undefined from `assignment.player_team_id`.
+            // A default value like 'home' or a specific 'match-level' enum could be used if the type isn't changed.
+            // Given the UI, "N/A" for playerTeamName is the most important part for match assignments.
+            playerTeamId: playerTeamContext || 'home', // Default to 'home' if undefined, to satisfy type. Or adjust type.
             playerTeamName: playerTeamName,
             trackerUser_id: assignment.tracker_user_id,
-            trackerName: tracker?.full_name || tracker?.email || 'Unknown Tracker',
+            trackerName: tracker?.full_name || tracker?.email || tracker?.id || 'Unknown Tracker',
             created_at: assignment.created_at,
+            assigned_event_types: assignment.assigned_event_types, // Added
           };
-        }).filter(Boolean); // Filter out nulls (general match assignments)
+        }); // .filter(Boolean) is removed as the map always returns an object now.
         setPlayerTrackerAssignments(processedAssignments as UIDisplayedPlayerTrackerAssignment[]);
       } else {
         setPlayerTrackerAssignments([]);
@@ -641,13 +678,18 @@ const Admin: React.FC = () => {
             <CardContent><Table>
                 <TableCaption>{playerTrackerAssignments.length === 0 ? "No player-tracker assignments found." : "A list of players assigned to specific trackers for matches."}</TableCaption>
                 <TableHeader><TableRow>
-                    <TableHead>Match</TableHead><TableHead>Player</TableHead><TableHead>Player's Team</TableHead><TableHead>Tracker</TableHead><TableHead>Assigned At</TableHead><TableHead>Actions</TableHead>
+                    <TableHead>Match</TableHead><TableHead>Player</TableHead><TableHead>Player's Team</TableHead><TableHead>Tracker</TableHead><TableHead>Assigned Event Types</TableHead><TableHead>Assigned At</TableHead><TableHead>Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {playerTrackerAssignments.map((assignment) => (
                     <TableRow key={assignment.id}>
                       <TableCell>{assignment.matchName}</TableCell><TableCell>{assignment.playerName}</TableCell>
                       <TableCell>{assignment.playerTeamName}</TableCell><TableCell>{assignment.trackerName}</TableCell>
+                      <TableCell>
+                        {assignment.assigned_event_types && assignment.assigned_event_types.length > 0 
+                          ? assignment.assigned_event_types.join(', ') 
+                          : 'All Types'}
+                      </TableCell>
                       <TableCell>{assignment.created_at ? new Date(assignment.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell><Button variant="destructive" size="sm" onClick={() => handleDeletePlayerAssignment(assignment.id)}>Delete</Button></TableCell>
                     </TableRow>

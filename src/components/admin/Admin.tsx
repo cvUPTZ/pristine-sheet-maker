@@ -6,10 +6,14 @@ import { Database } from "@/lib/database.types"; // Assuming this path is correc
 import { useMemo } from "react";
 import { RealTimeMatchEvents } from "./RealTimeMatchEvents"; // Import the new component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Badge } from "@/components/ui/badge"; // Import Badge component
 
 // Define interfaces for our data
 interface Match {
   id:string;
+  name?: string | null; // Added
+  status?: string | null; // Added
+  match_type?: string | null; // Added
   match_date: string;
   location: string;
   competition: string;
@@ -180,6 +184,9 @@ export default function AdminPage() {
               <thead className="bg-gray-100">
                 <tr>
                   <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Date</th>
+                  <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Match Name</th>
+                  <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Status</th>
+                  <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Match Type</th>
                   <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Competition</th>
                   <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Location</th>
                   <th className="py-3 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Home Team</th>
@@ -191,6 +198,18 @@ export default function AdminPage() {
                 {matches.map((match, index) => (
                   <tr key={match.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     <td className="py-2 px-4 border-b border-gray-200">{new Date(match.match_date).toLocaleDateString()}</td>
+                    <td className="py-2 px-4 border-b border-gray-200">{match.name || 'Unnamed Match'}</td>
+                    <td className="py-2 px-4 border-b border-gray-200">
+                      <Badge variant={
+                        match.status === 'live' ? 'destructive' : 
+                        match.status === 'completed' ? 'secondary' : 
+                        match.status === 'upcoming' ? 'default' : // Assuming 'default' is suitable for upcoming
+                        'outline' // Fallback for draft, postponed, cancelled
+                      }>
+                        {match.status || 'N/A'}
+                      </Badge>
+                    </td>
+                    <td className="py-2 px-4 border-b border-gray-200">{match.match_type || 'N/A'}</td>
                     <td className="py-2 px-4 border-b border-gray-200">{match.competition}</td>
                     <td className="py-2 px-4 border-b border-gray-200">{match.location}</td>
                     <td className="py-2 px-4 border-b border-gray-200">{match.home_team_name}</td>
