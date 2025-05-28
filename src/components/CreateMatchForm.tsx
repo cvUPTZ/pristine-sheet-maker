@@ -290,7 +290,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
     try {
       const notifications = selectedTrackers.map(trackerUserId => ({
-        tracker_user_id: trackerUserId,
+        tracker_id: trackerUserId, // Changed from tracker_user_id to tracker_id
         message: `Match "${matchName}" created/updated and needs attention.`,
         match_id: matchId,
         is_read: false,
@@ -549,20 +549,46 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50"> {/* MODIFIED HERE */}
+                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
                         {homeTeam.players.map((player, index) => (
                           <div key={`home-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
                             <div className="col-span-1 sm:col-span-1">
-                              <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('home', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
+                              <Input 
+                                type="number" 
+                                value={player.number || ''} 
+                                onChange={(e) => updatePlayer('home', player.id, { number: parseInt(e.target.value) || undefined })} 
+                                placeholder="#" 
+                                className="text-xs p-1 h-8 w-full" 
+                                min="1" 
+                                max="99"
+                              />
                             </div>
                             <div className="col-span-6 sm:col-span-5">
-                              <Input value={player.name} onChange={(e) => updatePlayer('home', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
+                              <Input 
+                                value={player.name} 
+                                onChange={(e) => updatePlayer('home', player.id, { name: e.target.value })} 
+                                placeholder={`P ${index + 1}`} 
+                                className="text-xs p-1 h-8"
+                              />
                             </div>
                             <div className="col-span-3 sm:col-span-4">
-                              <Input value={player.position} onChange={(e) => updatePlayer('home', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
+                              <Input 
+                                value={player.position} 
+                                onChange={(e) => updatePlayer('home', player.id, { position: e.target.value })} 
+                                placeholder="Pos" 
+                                className="text-xs p-1 h-8"
+                              />
                             </div>
                             <div className="col-span-2 sm:col-span-2 text-right">
-                              <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('home', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => removePlayer('home', player.id)} 
+                                className="text-xs h-8 w-8 text-red-500 hover:text-red-700"
+                              >
+                                X
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -598,20 +624,46 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50"> {/* MODIFIED HERE */}
+                      <div className="space-y-2 max-h-72 overflow-y-scroll p-1 border rounded-md bg-gray-50/50 dark:bg-gray-800/50">
                         {awayTeam.players.map((player, index) => (
                           <div key={`away-player-${player.id}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-white dark:bg-gray-700 shadow-sm">
                             <div className="col-span-1 sm:col-span-1">
-                              <Input type="number" value={player.number || ''} onChange={(e) => updatePlayer('away', player.id, { number: parseInt(e.target.value) || undefined })} placeholder="#" className="text-xs p-1 h-8 w-full" min="1" max="99"/>
+                              <Input 
+                                type="number" 
+                                value={player.number || ''} 
+                                onChange={(e) => updatePlayer('away', player.id, { number: parseInt(e.target.value) || undefined })} 
+                                placeholder="#" 
+                                className="text-xs p-1 h-8 w-full" 
+                                min="1" 
+                                max="99"
+                              />
                             </div>
                             <div className="col-span-6 sm:col-span-5">
-                              <Input value={player.name} onChange={(e) => updatePlayer('away', player.id, { name: e.target.value })} placeholder={`P ${index + 1}`} className="text-xs p-1 h-8"/>
+                              <Input 
+                                value={player.name} 
+                                onChange={(e) => updatePlayer('away', player.id, { name: e.target.value })} 
+                                placeholder={`P ${index + 1}`} 
+                                className="text-xs p-1 h-8"
+                              />
                             </div>
                             <div className="col-span-3 sm:col-span-4">
-                              <Input value={player.position} onChange={(e) => updatePlayer('away', player.id, { position: e.target.value })} placeholder="Pos" className="text-xs p-1 h-8"/>
+                              <Input 
+                                value={player.position} 
+                                onChange={(e) => updatePlayer('away', player.id, { position: e.target.value })} 
+                                placeholder="Pos" 
+                                className="text-xs p-1 h-8"
+                              />
                             </div>
                             <div className="col-span-2 sm:col-span-2 text-right">
-                              <Button type="button" variant="ghost" size="icon" onClick={() => removePlayer('away', player.id)} className="text-xs h-8 w-8 text-red-500 hover:text-red-700">X</Button>
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => removePlayer('away', player.id)} 
+                                className="text-xs h-8 w-8 text-red-500 hover:text-red-700"
+                              >
+                                X
+                              </Button>
                             </div>
                           </div>
                         ))}

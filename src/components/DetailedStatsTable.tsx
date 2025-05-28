@@ -9,65 +9,70 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlayerStatistics } from '@/types';
+import { Statistics } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 interface DetailedStatsTableProps {
-  playerStats: PlayerStatistics[];
-  type: 'team' | 'individual';
-  teamId?: string;
+  statistics: Statistics;
+  homeTeamName: string;
+  awayTeamName: string;
 }
 
 const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({ 
-  playerStats, 
-  type, 
-  teamId 
+  statistics,
+  homeTeamName,
+  awayTeamName
 }) => {
-  
-  // Filter by team if needed
-  const filteredStats = teamId 
-    ? playerStats.filter(stat => stat.team === teamId)
-    : playerStats;
   
   return (
     <div className="overflow-auto">
       <Table>
         <TableCaption>
-          {type === 'individual' 
-            ? 'Individual Player Statistics' 
-            : 'Team Performance Statistics'}
+          Team Performance Statistics
         </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[80px]">Number</TableHead>
-            <TableHead>Player</TableHead>
-            <TableHead>Team</TableHead>
-            <TableHead className="text-right">Goals</TableHead>
-            <TableHead className="text-right">Assists</TableHead>
-            <TableHead className="text-right">Passes</TableHead>
-            <TableHead className="text-right">Shots</TableHead>
-            <TableHead className="text-right">Fouls</TableHead>
+            <TableHead>Metric</TableHead>
+            <TableHead className="text-right">{homeTeamName}</TableHead>
+            <TableHead className="text-right">{awayTeamName}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredStats.map((stat) => (
-            <TableRow key={`${stat.playerId}-${stat.team}`}>
-              <TableCell className="font-medium">
-                <Badge variant="outline">{stat.player?.number || 0}</Badge>
-              </TableCell>
-              <TableCell>{stat.playerName}</TableCell>
-              <TableCell>
-                <Badge className={`bg-${stat.team === 'home' ? 'football-home' : 'football-away'} text-white`}>
-                  {stat.team}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">{stat.goals || 0}</TableCell>
-              <TableCell className="text-right">{stat.assists || 0}</TableCell>
-              <TableCell className="text-right">{stat.passes || 0}</TableCell>
-              <TableCell className="text-right">{stat.shots || 0}</TableCell>
-              <TableCell className="text-right">{stat.fouls || 0}</TableCell>
-            </TableRow>
-          ))}
+          <TableRow>
+            <TableCell className="font-medium">Possession (%)</TableCell>
+            <TableCell className="text-right">{Math.round(statistics.possession.home)}%</TableCell>
+            <TableCell className="text-right">{Math.round(statistics.possession.away)}%</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Total Shots</TableCell>
+            <TableCell className="text-right">{statistics.shots.home.onTarget + statistics.shots.home.offTarget}</TableCell>
+            <TableCell className="text-right">{statistics.shots.away.onTarget + statistics.shots.away.offTarget}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Shots on Target</TableCell>
+            <TableCell className="text-right">{statistics.shots.home.onTarget}</TableCell>
+            <TableCell className="text-right">{statistics.shots.away.onTarget}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Successful Passes</TableCell>
+            <TableCell className="text-right">{statistics.passes.home.successful}</TableCell>
+            <TableCell className="text-right">{statistics.passes.away.successful}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Total Passes</TableCell>
+            <TableCell className="text-right">{statistics.passes.home.attempted}</TableCell>
+            <TableCell className="text-right">{statistics.passes.away.attempted}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Balls Played</TableCell>
+            <TableCell className="text-right">{statistics.ballsPlayed.home}</TableCell>
+            <TableCell className="text-right">{statistics.ballsPlayed.away}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="font-medium">Balls Lost</TableCell>
+            <TableCell className="text-right">{statistics.ballsLost.home}</TableCell>
+            <TableCell className="text-right">{statistics.ballsLost.away}</TableCell>
+          </TableRow>
         </TableBody>
       </Table>
     </div>

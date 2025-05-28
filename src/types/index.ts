@@ -1,6 +1,39 @@
+
 export interface Statistics {
   home: TeamStats;
   away: TeamStats;
+  possession: {
+    home: number;
+    away: number;
+  };
+  shots: {
+    home: {
+      onTarget: number;
+      offTarget: number;
+    };
+    away: {
+      onTarget: number;
+      offTarget: number;
+    };
+  };
+  passes: {
+    home: {
+      successful: number;
+      attempted: number;
+    };
+    away: {
+      successful: number;
+      attempted: number;
+    };
+  };
+  ballsPlayed: {
+    home: number;
+    away: number;
+  };
+  ballsLost: {
+    home: number;
+    away: number;
+  };
 }
 
 export interface TeamStats {
@@ -14,13 +47,14 @@ export interface TeamStats {
 export interface TimeSegmentStatistics {
   startTime: number;
   endTime: number;
-  events?: any[];
+  events?: MatchEvent[];
 }
 
 export interface Player {
   id: number;
   name: string;
-  position: { x: number; y: number };
+  number?: number;
+  position: string;
   [key: string]: any; // Allow additional properties for JSON compatibility
 }
 
@@ -45,6 +79,39 @@ export interface Match {
   home_team_players?: Player[];
   away_team_players?: Player[];
 }
+
+export interface MatchEvent {
+  id: string;
+  type: EventType;
+  timestamp: number;
+  playerId: number;
+  teamId: 'home' | 'away';
+  coordinates: { x: number; y: number };
+  status?: 'pending_confirmation' | 'confirmed' | 'failed';
+}
+
+export interface BallTrackingPoint {
+  x: number;
+  y: number;
+  timestamp: number;
+  teamId?: 'home' | 'away';
+}
+
+export interface PlayerStatistics {
+  playerId: number;
+  playerName: string;
+  team: 'home' | 'away';
+  goals?: number;
+  assists?: number;
+  passes?: number;
+  shots?: number;
+  fouls?: number;
+  player?: {
+    number?: number;
+  };
+}
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3';
 
 export type EventType = 
   | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'

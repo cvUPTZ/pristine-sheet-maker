@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 export const RequireAuth: React.FC<{ 
   children: React.ReactNode;
-  requiredRoles?: Array<'admin' | 'tracker' | 'viewer'>;
+  requiredRoles?: Array<'admin' | 'tracker' | 'viewer' | 'user'>;
 }> = ({ 
   children, 
   requiredRoles 

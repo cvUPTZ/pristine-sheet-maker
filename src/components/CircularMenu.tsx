@@ -21,7 +21,21 @@ const eventTypes: Record<EventType, { color: string; description: string; icon?:
   "free-kick": { color: "bg-cyan-500", description: "Free Kick", icon: "⚽" },
   "goal-kick": { color: "bg-teal-500", description: "Goal Kick", icon: "🥅" },
   "throw-in": { color: "bg-sky-500", description: "Throw-in", icon: "🤾" },
-  interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️" }
+  interception: { color: "bg-amber-500", description: "Intercept", icon: "🛡️" },
+  possession: { color: "bg-blue-600", description: "Possession", icon: "⚽" },
+  ballLost: { color: "bg-red-300", description: "Ball Lost", icon: "❌" },
+  ballRecovered: { color: "bg-green-600", description: "Ball Recovered", icon: "✅" },
+  dribble: { color: "bg-purple-400", description: "Dribble", icon: "🏃" },
+  cross: { color: "bg-orange-400", description: "Cross", icon: "↗️" },
+  clearance: { color: "bg-gray-500", description: "Clearance", icon: "🦵" },
+  block: { color: "bg-gray-600", description: "Block", icon: "🛡️" },
+  save: { color: "bg-blue-800", description: "Save", icon: "🥅" },
+  ownGoal: { color: "bg-red-800", description: "Own Goal", icon: "😞" },
+  freeKick: { color: "bg-cyan-400", description: "Free Kick", icon: "⚽" },
+  throwIn: { color: "bg-sky-400", description: "Throw In", icon: "🤾" },
+  goalKick: { color: "bg-teal-400", description: "Goal Kick", icon: "🥅" },
+  aerialDuel: { color: "bg-indigo-400", description: "Aerial Duel", icon: "🤸" },
+  groundDuel: { color: "bg-brown-500", description: "Ground Duel", icon: "⚔️" }
 };
 
 // Frequently used actions for quick access
