@@ -1,5 +1,7 @@
-
-import { Formation } from '@/types';
+// src/utils/formationUtils.ts
+// Assuming Formation type is defined in @/types like:
+// export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3';
+import { Formation } from '@/types'; // Make sure this path and type are correct
 
 // Define formation positions for players on the field
 export const formationPositions: Record<Formation, { x: number; y: number }[]> = {
@@ -67,6 +69,7 @@ export const formationPositions: Record<Formation, { x: number; y: number }[]> =
   ]
 };
 
-export const getFormationPositions = (formation: Formation): { x: number; y: number }[] => {
+// Renamed from getFormationPositions to getPlayerPositions
+export const getPlayerPositions = (formation: Formation): { x: number; y: number }[] => {
   return formationPositions[formation] || formationPositions['4-4-2'];
 };
