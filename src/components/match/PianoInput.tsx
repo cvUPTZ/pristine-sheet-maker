@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EVENT_TYPES, KEYBOARD_MAPPINGS } from '@/constants/eventTypes'; // This import should now be satisfied
 import { Badge } from '@/components/ui/badge';
+import {
+  ArrowRightLeft, Circle, ShieldAlert, Target, CornerRightDown, AlertOctagon, Hand, Replace, Square, XSquare,
+  RectangleHorizontal, Minus, Goal, Zap, Bot, ShieldCheck, Footprints, Swords, ThumbsUp, ThumbsDown
+} from 'lucide-react'; // Importing a selection of icons
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Team, Player, EventType } from '@/types'; // Ensure these types are correctly defined
@@ -115,11 +119,12 @@ const PianoInput: React.FC<PianoInputProps> = ({
               key={eventType}
               variant={selectedEventType === eventType ? 'secondary' : 'outline'}
               onClick={() => handleEventTypeSelect(eventType)}
-              className="flex flex-col h-auto py-2" // Adjust button layout
+              className="flex flex-col items-center justify-center h-28 w-full p-2 rounded-lg shadow hover:shadow-md active:scale-95 transform transition-transform duration-100 ease-out hover:bg-accent focus:ring-2 focus:ring-primary"
             >
-              <span>{EVENT_TYPES[eventType]}</span>
+              {getEventTypeIcon(eventType as EventType)}
+              <span className="text-xs text-center mt-1">{EVENT_TYPES[eventType]}</span>
               {KEYBOARD_MAPPINGS[eventType] && (
-                <Badge variant="outline" className="mt-1 text-xs">
+                <Badge variant="outline" className="mt-1 text-xs scale-90">
                   {KEYBOARD_MAPPINGS[eventType]}
                 </Badge>
               )}
@@ -194,6 +199,46 @@ const PianoInput: React.FC<PianoInputProps> = ({
       </Button>
     </div>
   );
+};
+
+// Helper function to get an icon for an event type
+const getEventTypeIcon = (eventType: EventType) => {
+  const iconProps = { className: "w-5 h-5 mb-1" };
+  switch (eventType) {
+    case 'pass': return <ArrowRightLeft {...iconProps} />;
+    case 'shot': return <Target {...iconProps} />;
+    case 'tackle': return <ShieldCheck {...iconProps} />;
+    case 'foul': return <ShieldAlert {...iconProps} />;
+    case 'corner': return <CornerRightDown {...iconProps} />;
+    case 'offside': return <AlertOctagon {...iconProps} />;
+    case 'goal': return <Goal {...iconProps} />; // Lucide Goal icon is a net
+    case 'assist': return <ThumbsUp {...iconProps} />; // Placeholder, can be improved
+    case 'yellowCard': return <Square {...iconProps} style={{ fill: 'yellow', color: 'black' }} />;
+    case 'redCard': return <Square {...iconProps} style={{ fill: 'red', color: 'white' }}/>;
+    case 'substitution': return <Replace {...iconProps} />;
+    case 'card': return <RectangleHorizontal {...iconProps} />; // Generic card
+    case 'penalty': return <Circle {...iconProps} />; // Simple circle for penalty spot
+    case 'free-kick': return <Zap {...iconProps} />; // Zap for a powerful kick
+    case 'goal-kick': return <Bot {...iconProps} />; // Placeholder, like a robot taking a kick
+    case 'throw-in': return <Hand {...iconProps} />;
+    case 'interception': return <ShieldCheck {...iconProps} transform="rotate(180)" />; // Inverted shield
+    case 'possession': return <Footprints {...iconProps} />; // Placeholder
+    case 'ballLost': return <ThumbsDown {...iconProps} />; // Placeholder
+    case 'ballRecovered': return <ThumbsUp {...iconProps} />; // Placeholder
+    case 'dribble': return <Footprints {...iconProps} />; // Placeholder
+    case 'cross': return <CornerRightDown {...iconProps} transform="scale(1, -1)"/>; // Flipped corner
+    case 'clearance': return <ShieldAlert {...iconProps} transform="rotate(180)" />; // Inverted alert
+    case 'block': return <ShieldCheck {...iconProps} />;
+    case 'save': return <Hand {...iconProps} />; // Goalkeeper hand
+    case 'ownGoal': return <XSquare {...iconProps} style={{ fill: 'darkred', color: 'white' }} />;
+    case 'aerialDuel': return <Swords {...iconProps} />; // Swords for duel
+    case 'groundDuel': return <Swords {...iconProps} transform="rotate(90)" />;
+    // Handle camelCase versions if they are distinct types and exist in EVENT_TYPES
+    case 'freeKick': return <Zap {...iconProps} />;
+    case 'goalKick': return <Bot {...iconProps} />;
+    case 'throwIn': return <Hand {...iconProps} />;
+    default: return <Minus {...iconProps} />; // Default icon
+  }
 };
 
 export default PianoInput;

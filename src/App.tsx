@@ -103,8 +103,8 @@ const AppContent = () => {
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysis /></RequireAuth>} />
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
-        <Route path="/matches" element={<RequireAuth><Matches /></RequireAuth>} />
-        <Route path="/statistics" element={<RequireAuth><Statistics /></RequireAuth>} />
+        <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
+        <Route path="/statistics" element={<RequireAuth requiredRoles={['admin']}><Statistics /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
         <Route 
           path="/admin/profiles" 
