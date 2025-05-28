@@ -14,31 +14,31 @@ import PianoInput from '@/components/match/PianoInput';
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
 import DedicatedTrackerUI from '@/components/match/DedicatedTrackerUI';
-import { Statistics, TimeSegmentStatistics, Team } from '@/types';
+import { Statistics, TimeSegmentStatistics, Team, Player, EventType, MatchEvent } from '@/types'; // Added Player, EventType, MatchEvent
 
 interface MainTabContentProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   homeTeam: Team;
   awayTeam: Team;
-  teamPositions: Record<string, Record<number, { x: number; y: number }>>;
-  selectedPlayer: number | null;
+  teamPositions: Record<string, Record<number, { x: number; y: number }>>; // This is the raw data from parent
+  selectedPlayer: Player | null; // Changed from number | null
   selectedTeam: 'home' | 'away';
   setSelectedTeam: (team: 'home' | 'away') => void;
-  handlePlayerSelect: (playerId: number) => void;
+  handlePlayerSelect: (player: Player) => void; // Changed from playerId: number
   ballTrackingPoints: Array<{ x: number; y: number; timestamp: number }>;
-  mode: 'select' | 'ball';
-  handlePitchClick: (event: any) => void;
+  mode: 'piano' | 'tracking'; // Changed from 'select' | 'ball'
+  handlePitchClick: (coordinates: { x: number; y: number }) => void; // Changed event: any
   addBallTrackingPoint: (point: { x: number; y: number }) => void;
   statistics: Statistics;
   setStatistics: (stats: Statistics) => void;
-  playerStats: any;
+  playerStats: any; // Consider defining a specific type
   handleUndo: () => void;
   handleSave: () => void;
   timeSegments: TimeSegmentStatistics[];
-  recordEvent: (eventType: string, playerId: number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => void;
+  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void; // eventType to EventType, coordinates optional
   assignedPlayerForMatch: { id: number; name: string; teamId: 'home' | 'away'; teamName: string } | null;
-  assignedEventTypes: string[];
+  assignedEventTypes: string[]; // Should ideally be EventType[]
   userRole: string | null;
   matchId: string;
 }
@@ -54,18 +54,18 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   setSelectedTeam,
   handlePlayerSelect,
   ballTrackingPoints,
-  mode,
+  mode, // Prop 'mode' is now 'piano' | 'tracking'
   handlePitchClick,
   addBallTrackingPoint,
   statistics,
   setStatistics,
-  playerStats,
+  playerStats, // Still any, consider typing
   handleUndo,
   handleSave,
   timeSegments,
-  recordEvent,
+  recordEvent, // Prop 'recordEvent' now has EventType and optional coordinates
   assignedPlayerForMatch,
-  assignedEventTypes,
+  assignedEventTypes, // Consider EventType[]
   userRole,
   matchId
 }) => {
@@ -97,6 +97,26 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     });
     return positions;
   }, [teamPositions]);
+  
+  // PianoInput related state and handlers - these are placeholders and might need to be lifted up or managed differently
+  const [currentSelectedEventType, setCurrentSelectedEventType] = useState<EventType | null>(null);
+  const [currentSelectedTeamForPiano, setCurrentSelectedTeamForPiano] = useState<Team | null>(null);
+  // fullSelectedPlayer is already memoized above for the selected player object
+  const [isPianoPassTrackingMode, setIsPianoPassTrackingMode] = useState<boolean>(false); // Example state
+
+  const handlePianoEventTypeSelect = (eventType: EventType) => {
+    setCurrentSelectedEventType(eventType);
+  };
+  const handlePianoTeamSelect = (team: Team) => {
+    setCurrentSelectedTeamForPiano(team);
+  };
+  const handlePianoPlayerSelect = (player: Player) => {
+    // This might conflict with the main handlePlayerSelect if PianoInput is meant to control a different selection
+    console.log("PianoInput selected player:", player);
+    // For now, let's assume it uses the main selectedPlayer logic or its own
+    handlePlayerSelect(player); 
+  };
+
 
   return (
     <div className="w-full">
@@ -118,14 +138,14 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 <PitchView
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
-                  teamPositions={teamPositions}
-                  selectedPlayer={selectedPlayer}
+                  teamPositions={allPlayerPositions} // Use flattened positions
+                  selectedPlayer={selectedPlayer}    // Pass Player object
                   selectedTeam={selectedTeam}
-                  onTeamSelect={setSelectedTeam}
-                  onPlayerSelect={handlePlayerSelect}
+                  setSelectedTeam={setSelectedTeam}   // Prop name matches PitchView
+                  handlePlayerSelect={handlePlayerSelect} // Prop name matches PitchView
                   ballTrackingPoints={ballTrackingPoints}
-                  mode={mode}
-                  onPitchClick={handlePitchClick}
+                  mode={mode} // mode is now 'piano' | 'tracking'
+                  handlePitchClick={handlePitchClick} // Prop name matches PitchView
                   addBallTrackingPoint={addBallTrackingPoint}
                 />
               </CardContent>
@@ -145,10 +165,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 </CardHeader>
                 <CardContent>
                   <MatchStatsVisualizer 
-                    homeStats={statistics.home}
-                    awayStats={statistics.away}
-                    homeTeamName={homeTeam.name}
-                    awayTeamName={awayTeam.name}
+                    homeTeam={homeTeam}
+                    awayTeam={awayTeam}
+                    ballTrackingPoints={ballTrackingPoints}
+                    timeSegments={timeSegments}
                   />
                 </CardContent>
               </Card>
@@ -178,7 +198,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   <PlayerHeatmap 
                     homeTeam={homeTeam}
                     awayTeam={awayTeam}
-                    selectedPlayer={selectedPlayer}
+                    teamPositions={allPlayerPositions} // Pass flattened positions
+                    selectedTeam={selectedTeam}
+                    onSelectTeam={setSelectedTeam} // Pass handler
                   />
                 </CardContent>
               </Card>
@@ -211,13 +233,24 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </CardHeader>
               <CardContent>
                 <PianoInput
-                  onEventRecord={(eventType, playerId, team: Team, coordinates) => 
-                    recordEvent(eventType, playerId, team.name === homeTeam.name ? 'home' : 'away', coordinates)
-                  }
-                  selectedPlayer={selectedPlayer}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
-                  assignedEventTypes={assignedEventTypes}
+                  onEventAdd={(event: MatchEvent) => {
+                    // Adapt MatchEvent to recordEvent's signature
+                    // Assuming event.teamId from PianoInput is 'home' or 'away' string if not full Team object
+                    // Or if PianoInput provides full Team object, use event.team.id === homeTeam.id etc.
+                    // For now, direct pass-through if MatchEvent.teamId is 'home' | 'away'
+                    recordEvent(event.type, event.playerId, event.teamId, event.coordinates);
+                  }}
+                  elapsedTime={0} // Placeholder - This needs to come from a timer state
+                  selectedEventType={currentSelectedEventType}
+                  onEventTypeSelect={handlePianoEventTypeSelect}
+                  selectedTeam={currentSelectedTeamForPiano}
+                  onTeamSelect={handlePianoTeamSelect}
+                  selectedPlayer={selectedPlayer} // Pass the main selectedPlayer (Player | null)
+                  onPlayerSelect={handlePianoPlayerSelect} // Pass appropriate handler
+                  isPassTrackingMode={isPianoPassTrackingMode} // Pass relevant state
+                  // assignedEventTypes prop is not in PianoInputProps, remove if not needed by PianoInput
                 />
               </CardContent>
             </Card>
@@ -230,7 +263,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               </CardHeader>
               <CardContent>
                 <MatchEventsTimeline 
-                  events={timeSegments.flatMap((segment: any) => segment.events || [])}
+                  events={timeSegments.flatMap(segment => segment.events || [])}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
                 />

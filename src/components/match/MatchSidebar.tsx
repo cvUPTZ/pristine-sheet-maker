@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,17 +70,17 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   const { toast } = useToast();
   const [hasCalculatedSegments, setHasCalculatedSegments] = useState(false);
   
-  const handleCalculateTimeSegments = () => {
+  const handleCalculateTimeSegments = useCallback(() => {
     if (calculateTimeSegments && setTimeSegments) {
       const segments = calculateTimeSegments();
       setTimeSegments(segments);
-      setHasCalculatedSegments(true);
+      setHasCalculatedSegments(true); // This state change will prevent re-calculation if deps don't change much
       toast({
         title: "Time Segments Calculated",
         description: `Analysis complete for ${segments.length} time segments`
       });
     }
-  };
+  }, [calculateTimeSegments, setTimeSegments, toast]); // Added dependencies for useCallback
   
   const handleVideoAnalysis = (videoStats: Statistics) => {
     if (updateStatistics) {
@@ -98,9 +98,10 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   // Automatically calculate time segments once we have enough data
   useEffect(() => {
     if (!hasCalculatedSegments && ballTrackingPoints.length > 50 && calculateTimeSegments && setTimeSegments) {
+      // Check if calculateTimeSegments and setTimeSegments are defined before calling
       handleCalculateTimeSegments();
     }
-  }, [ballTrackingPoints, hasCalculatedSegments, calculateTimeSegments, setTimeSegments]);
+  }, [ballTrackingPoints, hasCalculatedSegments, calculateTimeSegments, setTimeSegments, handleCalculateTimeSegments]); // Added handleCalculateTimeSegments
   
   return (
     <div className="space-y-4">

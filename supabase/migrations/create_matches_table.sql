@@ -30,6 +30,11 @@ EXECUTE FUNCTION public.update_updated_at_column();
 -- Enable RLS for the matches table
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 
+-- Add indexes for performance
+CREATE INDEX idx_matches_status ON public.matches(status);
+CREATE INDEX idx_matches_match_date ON public.matches(match_date);
+CREATE INDEX idx_matches_created_by ON public.matches(created_by);
+
 -- Define RLS Policies for matches table
 
 -- Policy 1 (Admins): Admins can perform all operations (SELECT, INSERT, UPDATE, DELETE).
@@ -47,12 +52,16 @@ TO authenticated
 USING (status = 'published' OR status = 'live');
 
 -- Policy 3 (Trackers Update Status): Trackers should be able to update status and description of 'live' or 'published' matches.
-CREATE POLICY "Allow trackers to update status of live/published matches"
+-- Note: This policy grants permission to update rows. Column-specific update permissions 
+-- (e.g., allowing trackers to update only 'status' and 'description') would typically be managed 
+-- via column-level privileges (`GRANT UPDATE(status, description) ON public.matches TO ...`) 
+-- or by using an RPC function that performs partial updates. This RLS policy focuses on row selection.
+CREATE POLICY "Allow trackers to update live/published matches"
 ON public.matches
 FOR UPDATE
 TO authenticated
 USING (public.get_user_role(auth.uid()) = 'tracker' AND (status = 'live' OR status = 'published'))
-WITH CHECK (public.get_user_role(auth.uid()) = 'tracker');
+WITH CHECK (public.get_user_role(auth.uid()) = 'tracker' AND (status = 'live' OR status = 'published'));
 
 -- Policy 4 (Creators can update/delete their own drafts): Users can only update/delete matches where created_by matches their auth.uid() AND status is 'draft'.
 CREATE POLICY "Allow creators to update/delete their draft matches"
