@@ -15,13 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client'; // Adjust path as needed
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import FormationSelector from './FormationSelector'; // Ensure this path is correct
-import { Formation, Player, Team } from '@/types'; // Ensure this path is correct
-import { generatePlayersForFormation } from '@/utils/formationUtils'; // Ensure this path is correct
-import { toast as sonnerToast } from 'sonner'; // Ensure sonner is imported
+import FormationSelector from './FormationSelector';
+import { Formation, Player, Team } from '@/types';
+import { generatePlayersForFormation } from '@/utils/formationUtils';
+import { toast as sonnerToast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Send, ArrowLeft, ArrowRight, Save, PlusCircle } from 'lucide-react';
 
@@ -96,10 +96,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
   const fetchTrackers = useCallback(async () => {
     try {
-      // Invoke the 'get-tracker-users' Edge Function with method GET
       const { data: responseData, error: invokeError } = await supabase.functions.invoke(
         'get-tracker-users', 
-        { method: 'GET' } // <<< MODIFIED HERE
+        { method: 'GET' }
       );
 
       if (invokeError) {
@@ -191,7 +190,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     );
     
     fetchTrackers();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, initialData, fetchTrackers]);
 
   useEffect(() => {
@@ -206,9 +204,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         description: initialData.description || '',
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, initialData, form.reset]);
-
 
   const updateTeamName = (teamId: 'home' | 'away', name: string) => {
     const teamSetter = teamId === 'home' ? setHomeTeam : setAwayTeam;
@@ -290,7 +286,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 
     try {
       const notifications = selectedTrackers.map(trackerUserId => ({
-        tracker_id: trackerUserId, // Changed from tracker_user_id to tracker_id
+        tracker_id: trackerUserId,
         message: `Match "${matchName}" created/updated and needs attention.`,
         match_id: matchId,
         is_read: false,

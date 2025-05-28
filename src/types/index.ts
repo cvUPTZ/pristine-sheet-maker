@@ -34,6 +34,60 @@ export interface Statistics {
     home: number;
     away: number;
   };
+  duels: {
+    home: {
+      won: number;
+      lost: number;
+      aerial: number;
+    };
+    away: {
+      won: number;
+      lost: number;
+      aerial: number;
+    };
+  };
+  cards: {
+    home: {
+      yellow: number;
+      red: number;
+    };
+    away: {
+      yellow: number;
+      red: number;
+    };
+  };
+  crosses: {
+    home: {
+      total: number;
+      successful: number;
+    };
+    away: {
+      total: number;
+      successful: number;
+    };
+  };
+  dribbles: {
+    home: {
+      successful: number;
+      attempted: number;
+    };
+    away: {
+      successful: number;
+      attempted: number;
+    };
+  };
+  corners: {
+    home: number;
+    away: number;
+  };
+  offsides: {
+    home: number;
+    away: number;
+  };
+  freeKicks: {
+    home: number;
+    away: number;
+  };
 }
 
 export interface TeamStats {
@@ -47,6 +101,7 @@ export interface TeamStats {
 export interface TimeSegmentStatistics {
   startTime: number;
   endTime: number;
+  timeSegment: string;
   events?: MatchEvent[];
 }
 
@@ -87,7 +142,11 @@ export interface MatchEvent {
   playerId: number;
   teamId: 'home' | 'away';
   coordinates: { x: number; y: number };
-  status?: 'pending_confirmation' | 'confirmed' | 'failed';
+  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
+  clientId?: string;
+  optimisticCreationTime?: number;
+  user_id?: string;
+  matchId?: string;
 }
 
 export interface BallTrackingPoint {
@@ -95,6 +154,7 @@ export interface BallTrackingPoint {
   y: number;
   timestamp: number;
   teamId?: 'home' | 'away';
+  playerId?: number;
 }
 
 export interface PlayerStatistics {
@@ -120,3 +180,4 @@ export type EventType =
   | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'cross'
   | 'clearance' | 'block' | 'save' | 'ownGoal' | 'freeKick' | 'throwIn'
   | 'goalKick' | 'aerialDuel' | 'groundDuel';
+

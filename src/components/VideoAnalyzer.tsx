@@ -97,9 +97,19 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         },
         ballsPlayed: data.statistics.ballsPlayed || { home: 0, away: 0 },
         ballsLost: data.statistics.ballsLost || { home: 0, away: 0 },
-        duels: data.statistics.duels || {
-          home: { won: 0, lost: 0, aerial: 0 },
-          away: { won: 0, lost: 0, aerial: 0 }
+        home: data.statistics.home || {
+          passes: 0,
+          shots: 0,
+          tackles: 0,
+          fouls: 0,
+          possession: 50
+        },
+        away: data.statistics.away || {
+          passes: 0,
+          shots: 0,
+          tackles: 0,
+          fouls: 0,
+          possession: 50
         },
         cards: data.statistics.cards || {
           home: { yellow: 0, red: 0 },
@@ -132,7 +142,7 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => 
         console.warn("No onAnalysisComplete callback provided");
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Video analysis error:", error);
       toast({
         title: "Analysis failed",

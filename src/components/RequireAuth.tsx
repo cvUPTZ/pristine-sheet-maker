@@ -30,7 +30,7 @@ export const RequireAuth: React.FC<{
 
   // If specific roles are required, check user's role
   if (requiredRoles && requiredRoles.length > 0) {
-    if (!userRole || !requiredRoles.includes(userRole)) {
+    if (!userRole || !requiredRoles.includes(userRole as 'admin' | 'tracker' | 'viewer' | 'user')) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>

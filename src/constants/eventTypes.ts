@@ -18,7 +18,21 @@ export const EVENT_TYPES: Record<EventType, string> = {
   'free-kick': 'Free Kick',
   'goal-kick': 'Goal Kick',
   'throw-in': 'Throw In',
-  interception: 'Interception'
+  interception: 'Interception',
+  possession: 'Possession',
+  ballLost: 'Ball Lost',
+  ballRecovered: 'Ball Recovered',
+  dribble: 'Dribble',
+  cross: 'Cross',
+  clearance: 'Clearance',
+  block: 'Block',
+  save: 'Save',
+  ownGoal: 'Own Goal',
+  freeKick: 'Free Kick',
+  throwIn: 'Throw In',
+  goalKick: 'Goal Kick',
+  aerialDuel: 'Aerial Duel',
+  groundDuel: 'Ground Duel'
 };
 
 export const KEYBOARD_MAPPINGS: Record<EventType, string> = {
@@ -38,5 +52,19 @@ export const KEYBOARD_MAPPINGS: Record<EventType, string> = {
   'free-kick': 'Q',
   'goal-kick': 'L',
   'throw-in': 'H',
-  interception: 'I'
+  interception: 'I',
+  possession: 'B',
+  ballLost: 'X',
+  ballRecovered: 'V',
+  dribble: 'D',
+  cross: 'Z',
+  clearance: 'W',
+  block: 'M',
+  save: 'N',
+  ownGoal: 'J',
+  freeKick: '1',
+  throwIn: '2',
+  goalKick: '3',
+  aerialDuel: '4',
+  groundDuel: '5'
 };

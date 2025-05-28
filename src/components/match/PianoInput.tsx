@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,17 +82,17 @@ const PianoInput: React.FC<PianoInputProps> = ({
     const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
       matchId: 'match-1',
-      teamId: selectedTeam.id,
+      teamId: selectedTeam.id === homeTeam.id ? 'home' : 'away',
       playerId: selectedPlayer.id,
       type: selectedEventType,
       timestamp: elapsedTime,
       coordinates: { x: 50, y: 50 },
-      status: 'optimistic',
+      status: 'confirmed',
       clientId: `client-${Date.now()}`
     };
 
     onEventAdd(newEvent);
-  }, [selectedEventType, selectedTeam, selectedPlayer, elapsedTime, onEventAdd]);
+  }, [selectedEventType, selectedTeam, selectedPlayer, elapsedTime, onEventAdd, homeTeam.id]);
 
   return (
     <div className="space-y-4">
