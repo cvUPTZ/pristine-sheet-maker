@@ -16,7 +16,7 @@ interface Team {
 
 interface MatchData {
   id: string;
-  name: string;
+  name: string; // Consider if this can be string | null if 'name' can be missing
   status: string;
   home_team_name: string | null;
   away_team_name: string | null;
@@ -78,21 +78,36 @@ const MatchAnalysis: React.FC = () => {
         .single();
 
       if (matchError) {
-        console.error('Error fetching match:', matchError);
+        // Log the specific Supabase error for PGRST116 or other issues
+        console.error('Supabase error fetching match:', JSON.stringify(matchError, null, 2));
+        if (matchError.code === 'PGRST116') {
+          throw new Error(`Match not found or access denied. (PGRST116: ${matchError.details})`);
+        }
         throw new Error(`Failed to fetch match: ${matchError.message}`);
       }
+      
+      // Log raw data from Supabase to see exactly what's returned
+      console.log('Raw matchData from Supabase:', JSON.stringify(matchData, null, 2));
 
       if (!matchData) {
-        throw new Error('Match not found.');
+        // This case should ideally be caught by matchError with PGRST116 if .single() is used
+        throw new Error('Match not found (matchData is null/undefined after query).');
       }
       
-      setMatch(matchData as MatchData);
+      // Specifically check if 'name' is missing or null BEFORE setting the state
+      if (matchData.name === undefined || matchData.name === null) {
+          console.warn(`Match ID ${matchId}: 'name' property is missing or null in fetched data. Value:`, matchData.name);
+          // Optionally, provide a default name if it's critical and missing
+          // matchData.name = "Unnamed Match (Data Missing)";
+      }
+
+      setMatch(matchData as MatchData); // Cast, but be mindful if 'name' can truly be null
       setHomeTeam({
-        name: matchData.home_team_name || 'Home Team',
+        name: matchData.home_team_name || 'Home Team', // Provide fallbacks
         formation: matchData.home_team_formation || '4-3-3',
       });
       setAwayTeam({
-        name: matchData.away_team_name || 'Away Team',
+        name: matchData.away_team_name || 'Away Team', // Provide fallbacks
         formation: matchData.away_team_formation || '4-4-2',
       });
 
@@ -112,10 +127,10 @@ const MatchAnalysis: React.FC = () => {
       ]);
 
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'An unexpected error occurred.');
+      console.error("Error in loadMatch:", err); // Log the full error object
+      setError(err.message || 'An unexpected error occurred while loading match data.');
       setMatch(null); // Ensure match is null on error
-      // toast.error(err.message || 'Failed to load match data.'); // Sonner toast
+      toast.error(err.message || 'Failed to load match data.');
     } finally {
       setLoading(false);
     }
@@ -146,42 +161,52 @@ const MatchAnalysis: React.FC = () => {
     );
   }
 
-  if (error || !match) { // Check for error state as well
+  if (error || !match) { // Check for error state AND if match is null
+    console.log("DEBUG: Rendering error/no-match state. Error:", error, "Match:", match);
     return (
       <div className="container mx-auto p-4 text-center">
-        <p>{error || 'Match not found or access denied.'}</p>
+        <p>{error || 'Match data is not available or match not found.'}</p>
         <Button onClick={() => navigate('/')} className="mt-4">Go Home</Button>
       </div>
     );
   }
   
   // At this point, match, homeTeam, and awayTeam should be populated
+  // If we reach here, `match` is not null.
+
+  // --- BEGIN ADDED CONSOLE LOGS ---
+  console.log("DEBUG: Rendering MatchAnalysis - Just before MatchHeader");
+  // Safely stringify match. If match.name is problematic, this will show it.
+  try {
+    console.log("DEBUG: match state:", JSON.stringify(match, null, 2));
+  } catch (e) {
+    console.error("DEBUG: Error stringifying match state:", e);
+    console.log("DEBUG: match state (raw object):", match); // Log raw object if stringify fails
+  }
+  console.log("DEBUG: homeTeam state:", JSON.stringify(homeTeam, null, 2));
+  console.log("DEBUG: awayTeam state:", JSON.stringify(awayTeam, null, 2));
+  console.log("DEBUG: mode state:", mode);
+  console.log("DEBUG: userRole state:", userRole); // Added for completeness
+  // --- END ADDED CONSOLE LOGS ---
   
   return (
     <div className="flex flex-col h-screen">
       <MatchHeader
-        matchName={match.name} // Pass match name directly
+        matchName={match.name || "Unnamed Match"} // Provide a fallback just in case, even if type says string
         matchStatus={match.status}
         homeTeam={{ name: homeTeam.name, formation: homeTeam.formation }}
         awayTeam={{ name: awayTeam.name, formation: awayTeam.formation }}
         mode={mode}
         setMode={setMode}
-        onToggleTracking={handleToggleTracking} // Renamed prop to onToggleTracking for clarity
-        onSave={handleSave} // Renamed prop to onSave
-        // Timer and userRole are not direct props of MatchHeader based on its typical design
-        // If MatchHeader needs them, they should be added to its props definition
-        // For now, assuming they are managed internally or via context by MatchHeader itself if needed.
+        onToggleTracking={handleToggleTracking}
+        onSave={handleSave}
       />
 
-      {/* Conditional rendering based on mode or other state */}
       {mode === 'piano' && (
         <div className="flex-grow overflow-hidden p-4">
           <PianoRoll 
-            // Assuming PianoRoll takes events and other necessary props
-            // Example:
             // events={events}
-            // duration={match.duration || 300} // Example: total duration in seconds
-            // onEventClick={(event) => console.log('Event clicked:', event)}
+            // duration={300} 
           />
         </div>
       )}
@@ -189,17 +214,13 @@ const MatchAnalysis: React.FC = () => {
       {mode === 'tracking' && (
          <MainTabContent
             matchId={match.id}
-            userRole={userRole || ''} // Pass userRole; ensure default if null
-            // Pass other necessary props to MainTabContent
-            // Example: homeTeam, awayTeam, events for display or interaction
+            userRole={userRole || ''} 
             // homeTeam={homeTeam}
             // awayTeam={awayTeam}
             // timelineEvents={timelineEvents}
-            // onAddEvent={(newEvent) => setEvents(prev => [...prev, newEvent])}
           />
       )}
 
-      {/* Fallback or other UI elements */}
       {mode !== 'piano' && mode !== 'tracking' && (
         <div className="container mx-auto p-4">
           <p>Selected mode: {mode}. No specific UI configured for this mode.</p>
