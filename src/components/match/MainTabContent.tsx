@@ -17,34 +17,6 @@ import VideoAnalyzer from '@/components/VideoAnalyzer';
 import DedicatedTrackerUI from '@/components/match/DedicatedTrackerUI';
 import { Statistics, TimeSegmentStatistics, Team } from '@/types';
 
-const EVENT_TYPES = [
-  { id: 'pass', label: 'Pass' },
-  { id: 'shot', label: 'Shot' },
-  { id: 'tackle', label: 'Tackle' },
-  { id: 'foul', label: 'Foul' },
-  { id: 'corner', label: 'Corner' },
-  { id: 'offside', label: 'Offside' },
-  { id: 'yellowCard', label: 'Yellow Card' },
-  { id: 'redCard', label: 'Red Card' },
-  { id: 'substitution', label: 'Substitution' },
-  { id: 'possession', label: 'Possession' },
-  { id: 'ballLost', label: 'Ball Lost' },
-  { id: 'ballRecovered', label: 'Ball Recovered' },
-  { id: 'dribble', label: 'Dribble' },
-  { id: 'cross', label: 'Cross' },
-  { id: 'clearance', label: 'Clearance' },
-  { id: 'block', label: 'Block' },
-  { id: 'interception', label: 'Interception' },
-  { id: 'save', label: 'Save' },
-  { id: 'penalty', label: 'Penalty' },
-  { id: 'ownGoal', label: 'Own Goal' },
-  { id: 'freeKick', label: 'Free Kick' },
-  { id: 'throwIn', label: 'Throw In' },
-  { id: 'goalKick', label: 'Goal Kick' },
-  { id: 'aerialDuel', label: 'Aerial Duel' },
-  { id: 'groundDuel', label: 'Ground Duel' }
-];
-
 interface MainTabContentProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -112,10 +84,20 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     if (selectedEventTypes.length === 0) return timeSegments;
     return timeSegments.map(segment => ({
       ...segment,
-      // Fix: TimeSegmentStatistics might not have events property
-      events: (segment as any).events?.filter((event: any) => selectedEventTypes.includes(event.type)) || []
+      events: segment.events?.filter((event: any) => selectedEventTypes.includes(event.type)) || []
     }));
   }, [timeSegments, selectedEventTypes]);
+
+  // Get player positions for heatmap
+  const allPlayerPositions = useMemo(() => {
+    const positions: Record<number, { x: number; y: number }> = {};
+    Object.values(teamPositions).forEach(teamPos => {
+      Object.entries(teamPos).forEach(([playerId, pos]) => {
+        positions[parseInt(playerId)] = pos;
+      });
+    });
+    return positions;
+  }, [teamPositions]);
 
   return (
     <div className="w-full">
@@ -152,14 +134,23 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-4">
-            <StatisticsDisplay statistics={statistics} />
+            <StatisticsDisplay 
+              statistics={statistics}
+              homeTeamName={homeTeam.name}
+              awayTeamName={awayTeam.name}
+            />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Match Statistics Visualizer</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <MatchStatsVisualizer statistics={statistics} />
+                  <MatchStatsVisualizer 
+                    homeStats={statistics.home}
+                    awayStats={statistics.away}
+                    homeTeamName={homeTeam.name}
+                    awayTeamName={awayTeam.name}
+                  />
                 </CardContent>
               </Card>
               
@@ -168,7 +159,11 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   <CardTitle>Team Performance Over Time</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TeamTimeSegmentCharts timeSegments={timeSegments} />
+                  <TeamTimeSegmentCharts 
+                    timeSegments={timeSegments}
+                    homeTeamName={homeTeam.name}
+                    awayTeamName={awayTeam.name}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -182,7 +177,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                 </CardHeader>
                 <CardContent>
                   <PlayerHeatmap 
-                    playerPositions={Object.values(teamPositions).reduce((acc, team) => ({ ...acc, ...team }), {})}
+                    homeTeam={homeTeam}
+                    awayTeam={awayTeam}
                     selectedPlayer={selectedPlayer}
                   />
                 </CardContent>
@@ -193,14 +189,17 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
                   <CardTitle>Ball Flow Visualization</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BallFlowVisualization ballTrackingPoints={ballTrackingPoints} />
+                  <BallFlowVisualization 
+                    ballTrackingPoints={ballTrackingPoints}
+                    homeTeam={homeTeam}
+                    awayTeam={awayTeam}
+                  />
                 </CardContent>
               </Card>
             </div>
             
             <DetailedStatsTable 
-              homeTeamStats={statistics.home}
-              awayTeamStats={statistics.away}
+              statistics={statistics}
               homeTeamName={homeTeam.name}
               awayTeamName={awayTeam.name}
             />
@@ -233,6 +232,8 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
               <CardContent>
                 <MatchEventsTimeline 
                   events={timeSegments.flatMap((segment: any) => segment.events || [])}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
                 />
               </CardContent>
             </Card>

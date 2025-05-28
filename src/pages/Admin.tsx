@@ -20,7 +20,7 @@ import {
 import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Player, EventType } from '@/types'; // Assuming Player has { id: number, name: string, ... }
+import { Player, EventType, Match } from '@/types'; // Assuming Player has { id: number, name: string, ... }
 import CreateMatchForm from '@/components/admin/CreateMatchForm';
 // import { useAuth } from '@/hooks/useAuth'; // Assuming a custom hook for auth operations like session refresh
 
@@ -28,7 +28,7 @@ interface User {
   id: string;
   email?: string;
   full_name: string;
-  role: 'admin' | 'teacher' | 'user' | 'tracker';
+  role: 'admin' | 'tracker' | 'user' | 'viewer';
   created_at: string;
   updated_at?: string;
   // app_metadata?: { role?: User['role']; [key: string]: any }; // Optional: if you plan to use app_metadata more directly
@@ -162,7 +162,17 @@ const Admin: React.FC = () => {
         .select('id, name, description, home_team_name, away_team_name, status, match_date, created_at, home_team_players, away_team_players')
         .order('created_at', { ascending: false });
       if (matchesError) throw matchesError;
-      fetchedMatches = matchesData || [];
+      
+      // Parse player data for matches
+      fetchedMatches = (matchesData || []).map(match => ({
+        ...match,
+        home_team_players: match.home_team_players ? 
+          (typeof match.home_team_players === 'string' ? 
+            JSON.parse(match.home_team_players) : match.home_team_players) : [],
+        away_team_players: match.away_team_players ?
+          (typeof match.away_team_players === 'string' ? 
+            JSON.parse(match.away_team_players) : match.away_team_players) : []
+      }));
       setMatches(fetchedMatches);
       
       const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
@@ -197,8 +207,7 @@ const Admin: React.FC = () => {
           let playerTeamName = 'Unknown Team';
           if (match) {
             const playerList = assignment.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
-            // Ensure playerList is an array before finding
-            const player = Array.isArray(playerList) ? playerList.find(p => p.id === assignment.player_id) : null;
+            const player = Array.isArray(playerList) ? playerList.find(p => p.id === Number(assignment.player_id)) : null;
             if (player) playerName = player.name;
             playerTeamName = assignment.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
           }
@@ -206,7 +215,7 @@ const Admin: React.FC = () => {
             id: assignment.id.toString(),
             matchId: assignment.match_id,
             matchName: match?.description || match?.name || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
-            playerId: assignment.player_id, // This is a number
+            playerId: Number(assignment.player_id),
             playerName: playerName,
             playerTeamId: assignment.player_team_id as 'home' | 'away',
             playerTeamName: playerTeamName,
@@ -296,7 +305,7 @@ const Admin: React.FC = () => {
       let playerTeamName = 'Unknown Team';
       if (match) {
         const playerList = newAssignmentData.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
-        const player = Array.isArray(playerList) ? playerList.find(p => p.id === newAssignmentData.player_id) : undefined;
+        const player = Array.isArray(playerList) ? playerList.find(p => p.id === Number(newAssignmentData.player_id)) : undefined;
         if (player) playerName = player.name;
         playerTeamName = newAssignmentData.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
       }
@@ -304,7 +313,7 @@ const Admin: React.FC = () => {
         id: newAssignmentData.id.toString(),
         matchId: newAssignmentData.match_id,
         matchName: match?.description || match?.name || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
-        playerId: newAssignmentData.player_id,
+        playerId: Number(newAssignmentData.player_id),
         playerName: playerName,
         playerTeamId: newAssignmentData.player_team_id as 'home' | 'away',
         playerTeamName: playerTeamName,
@@ -348,8 +357,8 @@ const Admin: React.FC = () => {
       away_team_name: values.awayTeam,
       home_team_formation: values.homeFormation, 
       away_team_formation: values.awayFormation,
-      home_team_players: values.home_team_players,
-      away_team_players: values.away_team_players,
+      home_team_players: JSON.stringify(values.home_team_players || []),
+      away_team_players: JSON.stringify(values.away_team_players || []),
       match_date: values.matchDate || null,
       status: values.status,
       description: values.description,
@@ -546,12 +555,11 @@ const Admin: React.FC = () => {
                       <TableCell>{user.full_name || 'No name'}</TableCell>
                       <TableCell>{user.email || 'No email'}</TableCell>
                       <TableCell>
-                        {/* CORRECTED: Use UserRole for type safety in onValueChange */}
                         <Select value={user.role || 'user'} onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}>
                           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select role" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem><SelectItem value="teacher">Teacher</SelectItem>
-                            <SelectItem value="user">User</SelectItem><SelectItem value="tracker">Tracker</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem><SelectItem value="tracker">Tracker</SelectItem>
+                            <SelectItem value="user">User</SelectItem><SelectItem value="viewer">Viewer</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -655,9 +663,8 @@ const Admin: React.FC = () => {
             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="col-span-3" /></div>
             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="password" className="text-right">Password</Label><Input id="password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} className="col-span-3" /></div>
             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="role" className="text-right">Role</Label>
-              {/* CORRECTED: Use UserRole for type safety in onValueChange */}
               <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a role" /></SelectTrigger>
-                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="teacher">Teacher</SelectItem><SelectItem value="user">User</SelectItem><SelectItem value="tracker">Tracker</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="tracker">Tracker</SelectItem><SelectItem value="user">User</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
               </Select>
             </div>
           </div>

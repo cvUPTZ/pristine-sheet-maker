@@ -7,7 +7,7 @@ import MatchHeader from '@/components/match/MatchHeader';
 import MatchSidebar from '@/components/match/MatchSidebar';
 import MainTabContent from '@/components/match/MainTabContent';
 import SetupScreen from '@/components/match/SetupScreen';
-import { Statistics, Team, TimeSegmentStatistics } from '@/types';
+import { Statistics, Team, TimeSegmentStatistics, Player } from '@/types';
 
 interface Match {
   id: string;
@@ -21,12 +21,6 @@ interface Match {
   away_team_players: any;
   home_team_formation: string | null;
   away_team_formation: string | null;
-}
-
-interface Player {
-  id: number;
-  name: string;
-  position: { x: number; y: number };
 }
 
 const initialStatistics: Statistics = {
@@ -94,10 +88,10 @@ const MatchAnalysis = () => {
         setTimerValue(data.timer_current_value || 0);
         setTimerStatus(data.timer_status as 'running' | 'stopped' | 'reset' || 'reset');
 
-        // Parse player data safely
-        const parsePlayers = (players: any) => {
+        const parsePlayers = (players: any): Player[] => {
           try {
-            return typeof players === 'string' ? JSON.parse(players) : players;
+            const parsed = typeof players === 'string' ? JSON.parse(players) : players;
+            return Array.isArray(parsed) ? parsed : [];
           } catch (e) {
             console.error("Error parsing player data:", e);
             return [];
@@ -331,18 +325,6 @@ const MatchAnalysis = () => {
     }
 
     try {
-      const { data: player, error: playerError } = await supabase
-        .from(teamId === 'home' ? 'home_team_players' : 'away_team_players')
-        .select('name, team_id')
-        .eq('id', playerId)
-        .single();
-
-      if (playerError) {
-        console.error("Error fetching player details:", playerError);
-        toast({ title: 'Error', description: 'Failed to fetch player details', variant: 'destructive' });
-        return;
-      }
-
       const { data, error } = await supabase
         .from('match_events')
         .insert([
@@ -361,7 +343,7 @@ const MatchAnalysis = () => {
         console.error("Error recording event:", error);
         toast({ title: 'Error', description: 'Failed to record event', variant: 'destructive' });
       } else {
-        console.log(`${eventType} recorded for player ${playerId} of team ${teamId} at ${coordinates.x}, ${coordinates.y}`);
+        console.log(`${eventType} recorded for player ${playerId} of team ${teamId}`);
         fetchTimeSegments();
       }
     } catch (err: any) {
@@ -421,12 +403,10 @@ const MatchAnalysis = () => {
   }, [fetchTimeSegments]);
 
   const handleUndo = () => {
-    // Implement undo logic here
     console.log('Undo action');
   };
 
   const handleSave = () => {
-    // Implement save logic here
     console.log('Save action');
   };
 
@@ -491,7 +471,7 @@ const MatchAnalysis = () => {
 
         if (assignmentError) {
           console.error('Error fetching match tracker assignment:', assignmentError);
-          setAssignedPlayerForMatch(null); // Ensure state is reset on error
+          setAssignedPlayerForMatch(null);
           return;
         }
 
@@ -509,19 +489,18 @@ const MatchAnalysis = () => {
               id: assignedPlayer.id,
               name: assignedPlayer.name,
               teamId: team,
-              teamName: team === 'home' ? match?.home_team_name : match?.away_team_name
+              teamName: team === 'home' ? match?.home_team_name || '' : match?.away_team_name || ''
             });
           } else {
             console.warn('Assigned player not found in team.');
             setAssignedPlayerForMatch(null);
           }
         } else {
-          // No assignment found
           setAssignedPlayerForMatch(null);
         }
       } catch (error) {
         console.error('Error fetching assigned player:', error);
-        setAssignedPlayerForMatch(null); // Ensure state is reset on catch
+        setAssignedPlayerForMatch(null);
       }
     };
 
