@@ -51,14 +51,20 @@ const Pitch: React.FC<PitchProps> = ({
   const [processingEvent, setProcessingEvent] = useState(false);
   const { user, userRole } = useAuth();
   
-  // Only use collaboration if matchId is provided
-  const collaboration = matchId ? useMatchCollaboration({ 
-    matchId, 
+  // Call the hook unconditionally.
+  // The hook itself should handle cases where matchId might be null/undefined.
+  const collaboration = useMatchCollaboration({ 
+    matchId: matchId, 
     userId: user?.id || 'anonymous',
-    teamId: selectedTeam === 'home' ? homeTeam.id : awayTeam.id
-  }) : null;
+    // Ensure teamId is valid or handled appropriately if matchId is not present.
+    // For now, we assume homeTeam/awayTeam ids are available or default.
+    // This might need adjustment based on how useMatchCollaboration handles absent matchId.
+    teamId: selectedTeam === 'home' ? homeTeam.id : awayTeam.id 
+  });
 
-  const { users = [], recordEvent } = collaboration || {};
+  // If collaboration can be null/undefined from the hook when matchId is missing,
+  // this destructuring remains safe. Otherwise, adjust based on what the hook returns.
+  const { users = [], recordEvent = () => {} } = collaboration || {};
 
   // Handle pitch click with debouncing to prevent multiple rapid clicks
   const handlePitchClick = (coordinates: { x: number; y: number }) => {

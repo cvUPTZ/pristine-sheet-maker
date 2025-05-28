@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,12 +16,7 @@ const Matches: React.FC = () => {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // console.log("Matches.tsx: Component mounted. Fetching matches.");
-    fetchMatches();
-  }, []);
-
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     // console.log("Matches.tsx: fetchMatches initiated.");
     setLoading(true);
     try {
@@ -103,7 +98,12 @@ const Matches: React.FC = () => {
       setLoading(false);
       // console.log("Matches.tsx: fetchMatches completed.");
     }
-  };
+  }, [toast]); // Added toast as a dependency
+
+  useEffect(() => {
+    // console.log("Matches.tsx: Component mounted. Fetching matches.");
+    fetchMatches();
+  }, [fetchMatches]); // Now correctly depends on fetchMatches
 
   if (loading) {
     return (

@@ -25,6 +25,22 @@ export const useMatchCollaboration = ({
   teamId = 'default-team',
   optimisticUpdates = true,
 }: CollaborationOptions) => {
+  // If matchId is not provided, return a disabled state immediately.
+  if (!matchId) {
+    return {
+      sendEvent: () => console.warn('Collaboration disabled: No matchId provided.'),
+      recordEvent: () => console.warn('Collaboration disabled: No matchId provided.'),
+      presence: {},
+      onlineUsers: [],
+      isOnline: false,
+      isConnected: false,
+      participants: [],
+      events: [],
+      lastReceivedEvent: null,
+      users: [],
+    };
+  }
+
   const [isOnline, setIsOnline] = useState(false);
   const [pendingEvents, setPendingEvents] = useState<MatchEvent[]>([]);
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
@@ -38,8 +54,8 @@ export const useMatchCollaboration = ({
     onlineUsers,
     isOnline: realtimeIsOnline,
     pushEvent,
-  } = useRealtime({
-    channelName: `match:${matchId || 'default'}`,
+  } = useRealtime({ // This hook will only be called if matchId is valid due to the check above.
+    channelName: `match:${matchId}`, // matchId is guaranteed to be valid here
     onEventReceived: (event) => {
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
@@ -97,8 +113,9 @@ export const useMatchCollaboration = ({
     coordinates: { x: number; y: number },
     relatedPlayerId?: number
   ) => {
+    // matchId is guaranteed to be present due to the early return if it's not.
     const eventData = {
-      matchId: matchId || 'default',
+      matchId: matchId!, 
       teamId,
       playerId,
       type: eventType as any,

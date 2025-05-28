@@ -20,7 +20,7 @@ import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { EventType } from '@/types'; 
-import CreateMatchForm, { MatchFormData } from '@/components/admin/CreateMatchForm'; // Import MatchFormData
+import CreateMatchForm, { MatchFormData } from '@/components/CreateMatchForm'; // Import MatchFormData
 // import { useAuth } from '@/hooks/useAuth'; 
 
 // Define Player interface (or import from @/types if it exists there)
@@ -133,7 +133,8 @@ const Admin: React.FC = () => {
     let fetchedMatches: Match[] = [];
 
     try {
-      const { data: usersFunctionResponse, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
+      // Updated to use 'get-users' which returns actual emails and full_name correctly
+      const { data: usersFunctionResponse, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
       
       if (usersError) {
         let errorMessage = usersError.message;

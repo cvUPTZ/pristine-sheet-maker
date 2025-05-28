@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ interface Notification {
   is_read: boolean;
   created_at: string;
   matches?: {
-    name: string;
+    name: string | null; // Allow name to be null, as it can be from DB
     home_team_name: string;
     away_team_name: string;
     status: string;
@@ -30,8 +30,12 @@ const TrackerNotifications: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const fetchNotifications = async () => {
-    if (!user?.id) return;
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setNotifications([]); // Clear notifications if no user
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -56,7 +60,7 @@ const TrackerNotifications: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]); // Dependency on user.id
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -104,30 +108,50 @@ const TrackerNotifications: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchNotifications();
+    if (user?.id) { // Only run if user.id is available
+      fetchNotifications();
 
-    // Subscribe to real-time notifications
-    const channel = supabase
-      .channel('tracker-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'match_notifications',
-          filter: `tracker_id=eq.${user?.id}`,
-        },
-        () => {
-          fetchNotifications();
-          toast.info('New match notification received!');
+      // Subscribe to real-time notifications
+      const channel = supabase
+        .channel('tracker-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'match_notifications',
+            filter: `tracker_id=eq.${user.id}`, // user.id is confirmed here
+          },
+          (payload) => { // payload can be used if needed
+            console.log('New notification received via Supabase RT:', payload);
+            fetchNotifications(); // Refetch all notifications
+            toast.info('New match notification received!');
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Subscribed to tracker-notifications channel for user:', user.id);
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('Tracker notification channel error:', status, err);
+          }
+        });
+
+      return () => {
+        if (channel) {
+          supabase.removeChannel(channel).then(status => {
+            console.log('Unsubscribed from tracker-notifications. Status:', status);
+          }).catch(error => {
+            console.error('Error unsubscribing from tracker-notifications:', error);
+          });
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
+      };
+    } else {
+      // If no user.id, ensure notifications are cleared and not attempting to subscribe
+      setNotifications([]);
+      setLoading(false);
+    }
+  }, [user?.id, fetchNotifications]); // Added fetchNotifications
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 

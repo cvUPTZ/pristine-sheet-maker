@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,11 +25,8 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchMatches();
-  }, []);
-
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
+    setLoading(true); // Ensure loading is true at the start of fetch
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -52,7 +49,11 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]); // Added toast as it's used inside
+
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]); // Now correctly depends on fetchMatches
 
   const handleMatchCreated = (newMatch: Match) => {
     setMatches(prev => [newMatch, ...prev]);

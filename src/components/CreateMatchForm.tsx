@@ -155,7 +155,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
       }
     };
     populateFormForEdit();
-  }, [isEditMode, initialData, reset, supabase]);
+  }, [isEditMode, initialData, reset]); // Removed supabase
 
   // Effect to manage status when enableLiveTracking changes
   useEffect(() => {
@@ -207,7 +207,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
         if (data.assigned_tracker_id) { // If a new tracker is selected
           const { error: assignmentError } = await supabase
             .from('match_tracker_assignments')
-            .insert([{ match_id: updatedMatchData.id, tracker_user_id: data.assigned_tracker_id }]);
+            .insert([{ 
+              match_id: updatedMatchData.id, 
+              tracker_user_id: data.assigned_tracker_id
+              // player_id and player_team_id removed, assuming DB handles defaults or they are nullable
+            }]);
           if (assignmentError) {
             console.error('Error updating tracker assignment:', assignmentError);
             sonnerToast.warning(`Match updated, but tracker assignment failed: ${assignmentError.message}`);
@@ -232,7 +236,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
         if (data.assigned_tracker_id) {
           const { error: assignmentError } = await supabase
             .from('match_tracker_assignments')
-            .insert([{ match_id: newMatchData.id, tracker_user_id: data.assigned_tracker_id }]);
+            .insert([{ 
+              match_id: newMatchData.id, 
+              tracker_user_id: data.assigned_tracker_id
+              // player_id and player_team_id removed
+            }]);
           if (assignmentError) {
             console.error('Error assigning tracker:', assignmentError);
             // Don't throw, match was created. Show a warning/error toast.
