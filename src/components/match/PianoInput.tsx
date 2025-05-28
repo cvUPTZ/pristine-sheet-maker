@@ -1,244 +1,273 @@
-// src/components/PianoInput.tsx (This file was already provided and should now work)
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { EVENT_TYPES, KEYBOARD_MAPPINGS } from '@/constants/eventTypes'; // This import should now be satisfied
-import { Badge } from '@/components/ui/badge';
-import {
-  ArrowRightLeft, Circle, ShieldAlert, Target, CornerRightDown, AlertOctagon, Hand, Replace, Square, XSquare,
-  RectangleHorizontal, Minus, Goal, Zap, Bot, ShieldCheck, Footprints, Swords, ThumbsUp, ThumbsDown
-} from 'lucide-react'; // Importing a selection of icons
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Separator } from '@/components/ui/separator';
-import { Team, Player, EventType } from '@/types'; // Ensure these types are correctly defined
-import { MatchEvent } from '@/types'; // Ensure this type is correctly defined
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { EventType, PlayerForPianoInput, AssignedPlayers } from './types';
+import { getEventTypeIcon } from './getEventTypeIcon'; // Import the icon getter
+
+// This represents all possible event types configured in the system.
+// It's used to get full event details (like label) for assigned event type keys.
+const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
+  { key: 'pass', label: 'Pass' },
+  { key: 'shot', label: 'Shot' },
+  { key: 'foul', label: 'Foul' },
+  { key: 'goal', label: 'Goal' },
+  { key: 'save', label: 'Save' },
+  { key: 'offside', label: 'Offside' },
+  { key: 'corner', label: 'Corner Kick' },
+  { key: 'sub', label: 'Substitution' },
+  // ... add all other possible event types here
+];
 
 interface PianoInputProps {
-  homeTeam: Team;
-  awayTeam: Team;
-  onEventAdd: (event: MatchEvent) => void;
-  elapsedTime: number;
-  selectedEventType: EventType | null;
-  onEventTypeSelect: (eventType: EventType) => void;
-  selectedTeam: Team | null;
-  onTeamSelect: (team: Team) => void;
-  selectedPlayer: Player | null;
-  onPlayerSelect: (player: Player) => void;
-  isPassTrackingMode: boolean;
+  fullMatchRoster: AssignedPlayers | null; // All players in the current match
+  assignedEventTypes: EventType[] | null;  // Specific event types assigned to the tracker
+  assignedPlayers: AssignedPlayers | null; // Specific players assigned to the tracker
+  onEventRecord: (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => void;
 }
 
-const PianoInput: React.FC<PianoInputProps> = ({
-  homeTeam,
-  awayTeam,
-  onEventAdd,
-  elapsedTime,
-  selectedEventType,
-  onEventTypeSelect,
-  selectedTeam,
-  onTeamSelect,
-  selectedPlayer,
-  onPlayerSelect,
-  isPassTrackingMode // This prop is defined but not used in the provided snippet.
-                     // Ensure it's used or remove it if not needed.
-}) => {
-  // const [isExpanded, setIsExpanded] = useState(false); // isExpanded is declared but not used.
+export function PianoInput({
+  fullMatchRoster,
+  assignedEventTypes,
+  assignedPlayers,
+  onEventRecord,
+}: PianoInputProps) {
+  const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
+  const [activeTeamContext, setActiveTeamContext] = useState<'home' | 'away' | null>(null);
 
-  const handleEventTypeSelect = useCallback((eventType: EventType) => {
-    onEventTypeSelect(eventType);
-  }, [onEventTypeSelect]);
 
-  const handleTeamSelect = (team: Team) => {
-    onTeamSelect(team);
-  };
+  const displayableEventTypes = useMemo(() => {
+    if (assignedEventTypes === null) { // No specific assignment, show all system types
+      return ALL_SYSTEM_EVENT_TYPES;
+    }
+    // Filter system types by keys from assignedEventTypes
+    return ALL_SYSTEM_EVENT_TYPES.filter(sysEt =>
+      assignedEventTypes.some(assignedEt => assignedEt.key === sysEt.key)
+    );
+  }, [assignedEventTypes]);
 
-  const handlePlayerSelect = (player: Player) => {
-    onPlayerSelect(player);
-  };
+  const displayableHomePlayers = useMemo(() => {
+    if (!fullMatchRoster) return [];
+    if (assignedPlayers === null) { // No specific player assignment, show all from full roster for home
+      return fullMatchRoster.home;
+    }
+    // Filter full roster home players by assigned home players
+    return fullMatchRoster.home.filter(rosterPlayer =>
+      assignedPlayers.home.some(assignedP => assignedP.id === rosterPlayer.id)
+    );
+  }, [fullMatchRoster, assignedPlayers]);
 
-  // keyboardMappings is declared but its value is KEYBOARD_MAPPINGS.
-  // You can directly use KEYBOARD_MAPPINGS in the useEffect hook.
-  // const keyboardMappings = KEYBOARD_MAPPINGS; // This line can be removed if KEYBOARD_MAPPINGS is used directly
+  const displayableAwayPlayers = useMemo(() => {
+    if (!fullMatchRoster) return [];
+    if (assignedPlayers === null) { // No specific player assignment, show all from full roster for away
+      return fullMatchRoster.away;
+    }
+    // Filter full roster away players by assigned away players
+    return fullMatchRoster.away.filter(rosterPlayer =>
+      assignedPlayers.away.some(assignedP => assignedP.id === rosterPlayer.id)
+    );
+  }, [fullMatchRoster, assignedPlayers]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (document.activeElement instanceof HTMLInputElement ||
-          document.activeElement instanceof HTMLTextAreaElement) { // Good practice to check for textareas too
+
+  // Keyboard shortcut handling
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    const key = event.key.toLowerCase();
+
+    // 1. Event Type Selection (e.g., 'p' for Pass, 's' for Shot)
+    // Assumes first letter of event key is the shortcut, can be made more robust
+    if (!selectedEventType) { // Only allow event type selection if none is selected yet
+      const targetEventType = displayableEventTypes.find(
+        et => et.key.charAt(0).toLowerCase() === key && !event.metaKey && !event.ctrlKey
+      );
+      if (targetEventType) {
+        event.preventDefault();
+        handleEventTypeSelect(targetEventType);
         return;
       }
+    }
 
-      const eventType = (Object.keys(KEYBOARD_MAPPINGS) as EventType[]).find(
-        (key) => KEYBOARD_MAPPINGS[key as EventType] === event.key.toUpperCase()
-      );
-
-      if (eventType) {
-        event.preventDefault(); // Prevent default browser actions for these keys if needed
-        handleEventTypeSelect(eventType);
+    // 2. Team Context Selection (e.g., 'h' for Home, 'a' for Away) after an event type is selected
+    if (selectedEventType && !activeTeamContext) {
+      if (key === 'h' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setActiveTeamContext('home');
+        console.log("Active team: Home");
+        return;
       }
-    };
+      if (key === 'a' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setActiveTeamContext('away');
+        console.log("Active team: Away");
+        return;
+      }
+    }
+    
+    // 3. Player Selection (e.g., by jersey number) after team context is active
+    if (selectedEventType && activeTeamContext && /^\d$/.test(key)) { // if a digit is pressed
+      event.preventDefault();
+      // This is a simplified example. A more robust solution would accumulate digits for multi-digit jersey numbers
+      // and then find the player. For now, assumes single digit jersey numbers for simplicity of demo.
+      const jerseyNumber = parseInt(key, 10);
+      const targetPlayers = activeTeamContext === 'home' ? displayableHomePlayers : displayableAwayPlayers;
+      const targetPlayer = targetPlayers.find(p => p.jersey_number === jerseyNumber);
 
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleEventTypeSelect]); // Removed keyboardMappings from dependency array as it's a constant from import
-
-  const addEvent = useCallback(() => {
-    if (!selectedEventType || !selectedTeam || !selectedPlayer) {
-      console.warn('Cannot add event: Event Type, Team, or Player not selected.');
+      if (targetPlayer) {
+        handlePlayerSelect(targetPlayer);
+      } else {
+        console.log(`No ${activeTeamContext} player with jersey #${jerseyNumber} found or assigned.`);
+      }
       return;
     }
 
-    const newEvent: MatchEvent = {
-      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Added randomness to ID
-      matchId: 'match-1', // Consider making this dynamic if needed
-      teamId: selectedTeam.id === homeTeam.id ? homeTeam.id : awayTeam.id, // Use actual team ID
-      playerId: selectedPlayer.id,
-      type: selectedEventType,
-      timestamp: elapsedTime,
-      coordinates: { x: 50, y: 50 }, // Placeholder, should be dynamic
-      status: 'confirmed', // Default status
-      clientId: `client-${Date.now()}` // This might be redundant if `id` is already client-generated and unique
-    };
+    // 4. Clear selection (e.g., Escape key)
+    if (key === 'escape') {
+      event.preventDefault();
+      setSelectedEventType(null);
+      setSelectedPlayer(null);
+      setActiveTeamContext(null);
+      console.log("Selection cleared.");
+    }
 
-    onEventAdd(newEvent);
-    // Optionally reset selections after adding an event
-    // onEventTypeSelect(null);
-    // onPlayerSelect(null); // Team selection might persist or reset based on UX
-  }, [selectedEventType, selectedTeam, selectedPlayer, elapsedTime, onEventAdd, homeTeam.id, awayTeam.id]);
+  }, [selectedEventType, activeTeamContext, displayableEventTypes, displayableHomePlayers, displayableAwayPlayers /*, onEventRecord */]);
+  // Note: onEventRecord removed from deps as direct call from shortcut isn't typical without player selection first for most events.
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [handleKeyPress]);
+
+  const handleEventTypeSelect = (eventType: EventType) => {
+    setSelectedEventType(eventType);
+    setSelectedPlayer(null); 
+    setActiveTeamContext(null); // Reset team context when a new event type is selected
+    console.log(`Selected Event Type: ${eventType.label}`);
+    // Example: If event type doesn't require a player (e.g., "Offside")
+    // if (!eventRequiresPlayer(eventType.key)) { 
+    //   onEventRecord(eventType);
+    //   setSelectedEventType(null); // Reset after recording
+    // }
+  };
+
+  const handlePlayerSelect = (player: PlayerForPianoInput) => {
+    if (!selectedEventType) {
+      console.warn("Player selected without an event type. Please select an event type first.");
+      return;
+    }
+    setSelectedPlayer(player);
+    console.log(`Selected Player: ${player.player_name} (#${player.jersey_number}) for event: ${selectedEventType.label}`);
+    onEventRecord(selectedEventType, player);
+    
+    // Reset for next event recording
+    setSelectedEventType(null);
+    setSelectedPlayer(null);
+    setActiveTeamContext(null);
+  };
+
+  if (!fullMatchRoster) {
+    return <div className="p-4 text-center text-gray-500">Loading match data or match data unavailable...</div>;
+  }
+  
+  const showPlayerSelection = selectedEventType && (displayableHomePlayers.length > 0 || displayableAwayPlayers.length > 0);
 
   return (
-    <div className="space-y-4 p-4"> {/* Added some padding for better layout */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Event Type</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"> {/* Responsive grid */}
-          {(Object.keys(EVENT_TYPES) as EventType[]).map((eventType) => (
-            <Button
-              key={eventType}
-              variant={selectedEventType === eventType ? 'secondary' : 'outline'}
-              onClick={() => handleEventTypeSelect(eventType)}
-              className="flex flex-col items-center justify-center h-28 w-full p-2 rounded-lg shadow hover:shadow-md active:scale-95 transform transition-transform duration-100 ease-out hover:bg-accent focus:ring-2 focus:ring-primary"
+    <div className="p-4 border rounded-lg bg-gray-50 shadow-md">
+      <h2 className="text-xl font-semibold mb-4">Event Piano Input</h2>
+
+      {/* Event Type Selection */}
+      <div className="mb-6">
+        <h3 className="text-lg font-medium mb-2">
+          1. Select Event Type {selectedEventType && <span className="text-blue-600 font-normal">(Selected: {selectedEventType.label})</span>}
+        </h3>
+        {displayableEventTypes.length === 0 && <p className="text-sm text-gray-500">No event types assigned or available.</p>}
+        <div className="flex flex-wrap gap-2">
+          {displayableEventTypes.map(et => (
+            <button
+              key={et.key}
+              onClick={() => handleEventTypeSelect(et)}
+              disabled={!!selectedEventType && selectedEventType.key !== et.key}
+              className={`flex flex-col items-center justify-center gap-1 p-3 rounded-lg text-xs font-medium transition-colors shadow-sm hover:shadow-md
+                          min-w-[80px] min-h-[80px]  // Ensure minimum size for icon and text
+                          ${selectedEventType?.key === et.key 
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                            : 'bg-white hover:bg-gray-50 text-gray-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none'}`}
+              title={`${et.label} (Shortcut: ${et.key.charAt(0).toUpperCase()})`} // Tooltip for full label and shortcut
             >
-              {getEventTypeIcon(eventType as EventType)}
-              <span className="text-xs text-center mt-1">{EVENT_TYPES[eventType]}</span>
-              {KEYBOARD_MAPPINGS[eventType] && (
-                <Badge variant="outline" className="mt-1 text-xs scale-90">
-                  {KEYBOARD_MAPPINGS[eventType]}
-                </Badge>
-              )}
-            </Button>
+              {getEventTypeIcon(et.key, { size: 32 })} {/* Icon size 32x32 */}
+              <span className="mt-1 truncate">{et.label}</span> {/* Label below icon */}
+              {/* Shortcut hint can be part of the tooltip or subtly displayed if needed */}
+            </button>
           ))}
-        </CardContent>
-      </Card>
-
-      <Accordion type="single" collapsible className="w-full" defaultValue="team-selection"> {/* `single` and `collapsible` often go together */}
-        <AccordionItem value="team-selection">
-          <AccordionTrigger>Team & Player Selection</AccordionTrigger>
-          <AccordionContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card className={selectedTeam === homeTeam ? "border-primary" : ""}>
-                <CardHeader>
-                  <CardTitle>{homeTeam.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 max-h-60 overflow-y-auto"> {/* Scrollable player list */}
-                  {homeTeam.players.map((player) => (
-                    <Button
-                      key={player.id}
-                      variant={selectedTeam === homeTeam && selectedPlayer === player ? 'default' : 'outline'}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        handleTeamSelect(homeTeam);
-                        handlePlayerSelect(player);
-                      }}
-                    >
-                      {player.jerseyNumber && <Badge variant="secondary" className="mr-2">{player.jerseyNumber}</Badge>}
-                      {player.name}
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card className={selectedTeam === awayTeam ? "border-primary" : ""}>
-                <CardHeader>
-                  <CardTitle>{awayTeam.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 max-h-60 overflow-y-auto"> {/* Scrollable player list */}
-                  {awayTeam.players.map((player) => (
-                    <Button
-                      key={player.id}
-                      variant={selectedTeam === awayTeam && selectedPlayer === player ? 'default' : 'outline'}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        handleTeamSelect(awayTeam);
-                        handlePlayerSelect(player);
-                      }}
-                    >
-                       {player.jerseyNumber && <Badge variant="secondary" className="mr-2">{player.jerseyNumber}</Badge>}
-                       {player.name}
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
+        </div>
+      </div>
+      
+      {/* Player Selection Area: Visible if an event type is selected AND there are players to show */}
+      {showPlayerSelection && (
+        <div className="mb-6">
+          <h3 className="text-lg font-medium mb-2">
+            2. Select Player {activeTeamContext && <span className="text-blue-600 font-normal">(Active Team: {activeTeamContext.toUpperCase()})</span>}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Home Players */}
+            <div>
+              <h4 className="text-md font-semibold mb-1 flex items-center">
+                Home Team 
+                {selectedEventType && !activeTeamContext && <button onClick={() => setActiveTeamContext('home')} className="ml-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded hover:bg-blue-600">(H)</button>}
+                {activeTeamContext === 'home' && <span className="ml-2 text-xs bg-green-500 text-white px-1.5 py-0.5 rounded">ACTIVE (H)</span>}
+              </h4>
+              {displayableHomePlayers.length === 0 && <p className="text-sm text-gray-500">No home players assigned or available for this match.</p>}
+              <div className="flex flex-col space-y-1 max-h-60 overflow-y-auto pr-2">
+                {displayableHomePlayers.map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => handlePlayerSelect(player)}
+                    disabled={activeTeamContext !== null && activeTeamContext !== 'home'}
+                    className={`px-3 py-1.5 rounded-md text-left text-sm transition-colors w-full
+                                ${'bg-gray-100 hover:bg-green-100 text-gray-700 focus:ring-2 focus:ring-green-400 disabled:bg-gray-50 disabled:text-gray-400'}`}
+                  >
+                    #{player.jersey_number} - {player.player_name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
 
-      <Separator />
+            {/* Away Players */}
+            <div>
+              <h4 className="text-md font-semibold mb-1 flex items-center">
+                Away Team
+                {selectedEventType && !activeTeamContext && <button onClick={() => setActiveTeamContext('away')} className="ml-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded hover:bg-blue-600">(A)</button>}
+                {activeTeamContext === 'away' && <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">ACTIVE (A)</span>}
+              </h4>
+              {displayableAwayPlayers.length === 0 && <p className="text-sm text-gray-500">No away players assigned or available for this match.</p>}
+              <div className="flex flex-col space-y-1 max-h-60 overflow-y-auto pr-2">
+                {displayableAwayPlayers.map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => handlePlayerSelect(player)}
+                    disabled={activeTeamContext !== null && activeTeamContext !== 'away'}
+                    className={`px-3 py-1.5 rounded-md text-left text-sm transition-colors w-full
+                                ${'bg-gray-100 hover:bg-red-100 text-gray-700 focus:ring-2 focus:ring-red-400 disabled:bg-gray-50 disabled:text-gray-400'}`}
+                  >
+                    #{player.jersey_number} - {player.player_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Button 
-        onClick={addEvent} 
-        disabled={!selectedEventType || !selectedTeam || !selectedPlayer}
-        className="w-full"
-        size="lg"
-      >
-        Add Event: {selectedEventType ? EVENT_TYPES[selectedEventType] : 'Select Event'}
-        {selectedPlayer && selectedTeam && ` by ${selectedPlayer.name} (${selectedTeam.name})`}
-      </Button>
+      {!selectedEventType && (
+         <p className="text-sm text-gray-600 pt-2">Select an event type to begin. Use keyboard shortcuts for faster input (e.g., P for Pass, S for Shot, then H/A for team, then jersey number).</p>
+       )}
+       {selectedEventType && !showPlayerSelection && (
+         <p className="text-sm text-yellow-700 pt-2">No players available for selection for the current assignment or match roster.</p>
+       )}
+       {selectedEventType && !activeTeamContext && showPlayerSelection && (
+          <p className="text-sm text-gray-600 pt-2">Select Home (H) or Away (A) team, then player by jersey number. Press Esc to clear event selection.</p>
+       )}
+
     </div>
   );
-};
-
-// Helper function to get an icon for an event type
-const getEventTypeIcon = (eventType: EventType) => {
-  const iconProps = { className: "w-5 h-5 mb-1" };
-  switch (eventType) {
-    case 'pass': return <ArrowRightLeft {...iconProps} />;
-    case 'shot': return <Target {...iconProps} />;
-    case 'tackle': return <ShieldCheck {...iconProps} />;
-    case 'foul': return <ShieldAlert {...iconProps} />;
-    case 'corner': return <CornerRightDown {...iconProps} />;
-    case 'offside': return <AlertOctagon {...iconProps} />;
-    case 'goal': return <Goal {...iconProps} />; // Lucide Goal icon is a net
-    case 'assist': return <ThumbsUp {...iconProps} />; // Placeholder, can be improved
-    case 'yellowCard': return <Square {...iconProps} style={{ fill: 'yellow', color: 'black' }} />;
-    case 'redCard': return <Square {...iconProps} style={{ fill: 'red', color: 'white' }}/>;
-    case 'substitution': return <Replace {...iconProps} />;
-    case 'card': return <RectangleHorizontal {...iconProps} />; // Generic card
-    case 'penalty': return <Circle {...iconProps} />; // Simple circle for penalty spot
-    case 'free-kick': return <Zap {...iconProps} />; // Zap for a powerful kick
-    case 'goal-kick': return <Bot {...iconProps} />; // Placeholder, like a robot taking a kick
-    case 'throw-in': return <Hand {...iconProps} />;
-    case 'interception': return <ShieldCheck {...iconProps} transform="rotate(180)" />; // Inverted shield
-    case 'possession': return <Footprints {...iconProps} />; // Placeholder
-    case 'ballLost': return <ThumbsDown {...iconProps} />; // Placeholder
-    case 'ballRecovered': return <ThumbsUp {...iconProps} />; // Placeholder
-    case 'dribble': return <Footprints {...iconProps} />; // Placeholder
-    case 'cross': return <CornerRightDown {...iconProps} transform="scale(1, -1)"/>; // Flipped corner
-    case 'clearance': return <ShieldAlert {...iconProps} transform="rotate(180)" />; // Inverted alert
-    case 'block': return <ShieldCheck {...iconProps} />;
-    case 'save': return <Hand {...iconProps} />; // Goalkeeper hand
-    case 'ownGoal': return <XSquare {...iconProps} style={{ fill: 'darkred', color: 'white' }} />;
-    case 'aerialDuel': return <Swords {...iconProps} />; // Swords for duel
-    case 'groundDuel': return <Swords {...iconProps} transform="rotate(90)" />;
-    // Handle camelCase versions if they are distinct types and exist in EVENT_TYPES
-    case 'freeKick': return <Zap {...iconProps} />;
-    case 'goalKick': return <Bot {...iconProps} />;
-    case 'throwIn': return <Hand {...iconProps} />;
-    default: return <Minus {...iconProps} />; // Default icon
-  }
-};
-
-export default PianoInput;
+}
