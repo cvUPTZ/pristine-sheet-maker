@@ -356,7 +356,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         }
         sonnerToast.success('Match created successfully!');
         if (onSuccess) onSuccess();
-        else navigate('/admin/matches');
+        else navigate('/matches');
       }
     } catch (error: any) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} match or sending notifications:`, error);
