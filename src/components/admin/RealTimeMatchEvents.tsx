@@ -182,7 +182,7 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
               <span>{new Date(event.created_at).toLocaleTimeString()}</span>
               <span>ID: {event.id.substring(0, 8)}</span>
             </div>
-            <p className="font-semibold text-gray-800">
+            <p className="font-semibold text-lg text-gray-900">
               {event.event_type_label || 'Unknown Event'}
             </p>
             {event.player_name && (
