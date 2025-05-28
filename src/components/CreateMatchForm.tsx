@@ -22,9 +22,13 @@ const matchFormSchema = z.object({
   description: z.string().optional(),
   assigned_tracker_id: z.string().optional(),
   enable_live_tracking: z.boolean().default(false),
+  home_team_formation: z.string().optional(),
+  away_team_formation: z.string().optional(),
 });
 
 export type MatchFormData = z.infer<typeof matchFormSchema>;
+// Update initialData type in CreateMatchFormProps if MatchFormData now includes new fields
+// The Partial should handle it, but good to be aware.
 
 interface TrackerUser {
   id: string;
@@ -61,6 +65,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
       description: '',
       assigned_tracker_id: '',
       enable_live_tracking: false,
+      home_team_formation: '',
+      away_team_formation: '',
     },
   });
 
@@ -133,6 +139,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
           match_type: initialData.match_type || '',
           home_team_name: initialData.home_team_name || '',
           away_team_name: initialData.away_team_name || '',
+          home_team_formation: initialData.home_team_formation || '', // Add this
+          away_team_formation: initialData.away_team_formation || '', // Add this
           description: initialData.description || '',
           assigned_tracker_id: currentAssignedTrackerId || initialData.assigned_tracker_id || '',
         };
@@ -149,6 +157,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
         // Reset to creation defaults if not in edit mode or no initial data
         reset({
           name: '', match_type: '', home_team_name: '', away_team_name: '',
+          home_team_formation: '', away_team_formation: '', // Add this
           status: 'pending', description: '', assigned_tracker_id: '',
           enable_live_tracking: false,
         });
@@ -171,6 +180,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
 
 
   const onSubmit = async (data: MatchFormData) => {
+    // TODO: Implement Player Roster Saving Logic (Conceptual Outline)
+    // This will be triggered after match creation/update successfully returns a match ID.
+    // 1. Get `matchId` (either `newMatchData.id` or `updatedMatchData.id`).
+    // 2. Access player roster data from form state (e.g., `data.homeTeamPlayers`, `data.awayTeamPlayers` - these fields would be added to schema and form).
+    // 3. For an update, potentially clear existing players for this match from `match_rosters` table:
+    //    `await supabase.from('match_rosters').delete().eq('match_id', matchId);`
+    // 4. Insert new player data into `match_rosters` table. Each player might be an object:
+    //    `{ match_id: matchId, team_context: 'home', name: 'Player Name', jersey_number: 10, position: 'Forward' }`
+    //    `await supabase.from('match_rosters').insert(arrayOfPlayerObjects);`
+    // Note: A `match_rosters` table would need columns like: id, match_id, team_context (e.g., 'home'/'away'), player_name, jersey_number, position.
+
     setIsLoading(true);
     try {
       const matchPayload = {
@@ -178,6 +198,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
         match_type: data.match_type.trim(),
         home_team_name: data.home_team_name.trim(),
         away_team_name: data.away_team_name.trim(),
+        home_team_formation: data.home_team_formation || null,
+        away_team_formation: data.away_team_formation || null,
         status: data.enable_live_tracking ? 'pending_live' : (data.status || 'pending'),
         description: data.description?.trim() || null,
       };
@@ -215,6 +237,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
           if (assignmentError) {
             console.error('Error updating tracker assignment:', assignmentError);
             sonnerToast.warning(`Match updated, but tracker assignment failed: ${assignmentError.message}`);
+          } else {
+            console.log(`TODO: Tracker assignment successful. Implement notification for tracker ${data.assigned_tracker_id} for match ${updatedMatchData.id}`);
+            // sonnerToast.success('Tracker assignment updated successfully.'); // Optional, might be too many toasts
           }
         }
         sonnerToast.success('Match updated successfully!');
@@ -245,6 +270,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
             console.error('Error assigning tracker:', assignmentError);
             // Don't throw, match was created. Show a warning/error toast.
             sonnerToast.error(`Match created, but failed to assign tracker: ${assignmentError.message}`);
+          } else {
+            // Add placeholder log here
+            console.log(`TODO: Tracker assignment successful. Implement notification for tracker ${data.assigned_tracker_id} for match ${newMatchData.id}`);
+            sonnerToast.success('Tracker assigned successfully.'); // Optional: separate toast for tracker assignment
           }
         }
         sonnerToast.success('Match created successfully!');
@@ -362,7 +391,68 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
               </div>
             </div>
 
-            {/* Row 3: Tracker Assignment and Status */}
+            {/* New Row for Formations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="home_team_formation" className="text-sm font-medium">
+                  Home Team Formation
+                </Label>
+                <Controller
+                  name="home_team_formation"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={field.value || ""}>
+                      <SelectTrigger id="home_team_formation" className="h-9">
+                        <SelectValue placeholder="Select formation (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="4-4-2">4-4-2</SelectItem>
+                        <SelectItem value="4-3-3">4-3-3</SelectItem>
+                        <SelectItem value="3-5-2">3-5-2</SelectItem>
+                        <SelectItem value="4-2-3-1">4-2-3-1</SelectItem>
+                        <SelectItem value="4-5-1">4-5-1</SelectItem>
+                        <SelectItem value="3-4-3">3-4-3</SelectItem>
+                        <SelectItem value="5-3-2">5-3-2</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.home_team_formation && <p className="text-xs text-red-500">{errors.home_team_formation.message}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="away_team_formation" className="text-sm font-medium">
+                  Away Team Formation
+                </Label>
+                <Controller
+                  name="away_team_formation"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={field.value || ""}>
+                      <SelectTrigger id="away_team_formation" className="h-9">
+                        <SelectValue placeholder="Select formation (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="4-4-2">4-4-2</SelectItem>
+                        <SelectItem value="4-3-3">4-3-3</SelectItem>
+                        <SelectItem value="3-5-2">3-5-2</SelectItem>
+                        <SelectItem value="4-2-3-1">4-2-3-1</SelectItem>
+                        <SelectItem value="4-5-1">4-5-1</SelectItem>
+                        <SelectItem value="3-4-3">3-4-3</SelectItem>
+                        <SelectItem value="5-3-2">5-3-2</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.away_team_formation && <p className="text-xs text-red-500">{errors.away_team_formation.message}</p>}
+              </div>
+            </div>
+
+            {/* Row 3 (now Row 4): Tracker Assignment and Status */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="assigned_tracker_id" className="text-sm font-medium">Assign Tracker</Label>
@@ -459,6 +549,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Placeholder for Team Rosters */}
+            <div className="space-y-1.5 pt-4 mt-4 border-t">
+              <Label className="text-lg font-semibold">Team Rosters (Home & Away)</Label>
+              <Card className="mt-2">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">
+                    Player editing functionality (names, numbers, positions for players in this specific match) will be implemented here in a future update.
+                  </p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Submit Button */}
