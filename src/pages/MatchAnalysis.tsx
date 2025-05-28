@@ -72,46 +72,80 @@ const MatchAnalysis: React.FC = () => {
     try {
       console.log('Attempting to fetch match with ID:', matchId);
       
-      // First, let's try to fetch the match data
-      const { data: matchData, error: matchError } = await supabase
+      // Try multiple approaches to fetch the match
+      let matchData = null;
+      let matchError = null;
+
+      // Approach 1: Try with specific columns to avoid potential RLS issues
+      const { data: basicMatchData, error: basicError } = await supabase
         .from('matches')
-        .select('*')
-        .eq('id', matchId);
+        .select('id, name, status, home_team_name, away_team_name, home_team_formation, away_team_formation, match_type, description, created_at')
+        .eq('id', matchId)
+        .maybeSingle(); // Use maybeSingle instead of single to handle 0 results gracefully
 
-      console.log('Raw query response:', { matchData, matchError });
+      if (basicError) {
+        console.error('Basic query failed:', basicError);
+        
+        // Approach 2: Try with RPC if basic query fails (for RLS bypass if you have such function)
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('get_match_by_id', { 
+            match_id: matchId 
+          });
+          
+          if (rpcError) {
+            console.error('RPC query also failed:', rpcError);
+            matchError = basicError; // Use the original error
+          } else {
+            matchData = rpcData;
+          }
+        } catch (rpcCatchError) {
+          console.error('RPC approach failed:', rpcCatchError);
+          matchError = basicError; // Use the original error
+        }
+      } else {
+        matchData = basicMatchData;
+      }
 
+      console.log('Query results:', { matchData, matchError });
+
+      // Handle specific error cases
       if (matchError) {
-        console.error('Supabase error fetching match:', JSON.stringify(matchError, null, 2));
-        throw new Error(`Failed to fetch match: ${matchError.message}`);
+        if (matchError.code === 'PGRST116') {
+          throw new Error('Match not found. This match may be in draft status or you may not have permission to view it.');
+        } else if (matchError.code === '42501') {
+          throw new Error('Access denied. You do not have permission to view this match.');
+        } else {
+          throw new Error(`Database error: ${matchError.message} (Code: ${matchError.code})`);
+        }
       }
       
       // Check if we got any results
-      if (!matchData || matchData.length === 0) {
-        throw new Error('Match not found. It may not exist or you may not have permission to view it.');
+      if (!matchData) {
+        throw new Error('Match not found. It may not exist, be in draft status, or you may not have permission to view it.');
       }
 
-      // If we have multiple matches (shouldn't happen with unique ID), take the first one
-      const singleMatch = matchData[0];
-      
-      console.log('Single match data:', JSON.stringify(singleMatch, null, 2));
+      console.log('Match data received:', JSON.stringify(matchData, null, 2));
 
       // Validate that we have essential data
-      if (!singleMatch || !singleMatch.id) {
+      if (!matchData.id) {
         throw new Error('Invalid match data received from database.');
       }
 
       // Handle missing or null name field gracefully
-      const matchName = singleMatch.name || `Match ${singleMatch.id.slice(0, 8)}`;
+      const matchName = matchData.name || `Match ${matchData.id.slice(0, 8)}`;
       
       // Create the match object with safe defaults
       const processedMatch: MatchData = {
-        ...singleMatch,
+        id: matchData.id,
         name: matchName,
-        status: singleMatch.status || 'unknown',
-        home_team_name: singleMatch.home_team_name || null,
-        away_team_name: singleMatch.away_team_name || null,
-        home_team_formation: singleMatch.home_team_formation || null,
-        away_team_formation: singleMatch.away_team_formation || null,
+        status: matchData.status || 'unknown',
+        home_team_name: matchData.home_team_name || null,
+        away_team_name: matchData.away_team_name || null,
+        home_team_formation: matchData.home_team_formation || null,
+        away_team_formation: matchData.away_team_formation || null,
+        match_type: matchData.match_type || null,
+        description: matchData.description || null,
+        created_at: matchData.created_at || null,
       };
 
       console.log('Processed match data:', JSON.stringify(processedMatch, null, 2));
@@ -139,7 +173,12 @@ const MatchAnalysis: React.FC = () => {
 
     } catch (err: any) {
       console.error("Error in loadMatch:", err);
-      const errorMessage = err.message || 'An unexpected error occurred while loading match data.';
+      let errorMessage = 'An unexpected error occurred while loading match data.';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
       setMatch(null);
       toast.error(errorMessage);
