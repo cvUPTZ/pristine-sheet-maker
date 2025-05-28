@@ -24,7 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
 import { Label } from "@/components/ui/label"; // Added Label
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
+
 import { Database } from "@/lib/database.types";
 
 // Define the schema for a single player
