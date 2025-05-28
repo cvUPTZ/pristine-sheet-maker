@@ -1,580 +1,608 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast as sonnerToast } from 'sonner';
-import { Textarea } from '@/components/ui/textarea'; // Corrected import path
-import { Switch } from '@/components/ui/switch';
+"use client";
 
-// Schema for form validation using Zod
-const matchFormSchema = z.object({
-  name: z.string().min(1, 'Match name is required').max(255, 'Match name is too long'),
-  match_type: z.string().min(1, 'Match type is required'),
-  home_team_name: z.string().min(1, 'Home team name is required').max(100, 'Home team name is too long'),
-  away_team_name: z.string().min(1, 'Away team name is required').max(100, 'Away team name is too long'),
-  status: z.string().min(1, "Status is required").default('pending'), // Made status required as it's always set
-  description: z.string().optional(),
-  assigned_tracker_id: z.string().optional(),
-  enable_live_tracking: z.boolean().default(false),
-  home_team_formation: z.string().optional(),
-  away_team_formation: z.string().optional(),
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useFieldArray } from "react-hook-form";
+import * as z from "zod";
+import { useEffect } from "react"; // Added useEffect
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // Added Select components
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
+import { Database } from "@/lib/database.types";
+
+// Define the schema for a single player
+export const playerSchema = z.object({ // Exported for potential use elsewhere
+  id: z.string().optional(), // For existing players, not part of DB schema for match_rosters directly but useful for UI keying
+  name: z.string().min(2, { message: "Player name must be at least 2 characters." }),
+  jerseyNumber: z.coerce.number().int().min(0, { message: "Jersey number must be a non-negative integer." }), // Allow 0
+  position: z.string().min(2, { message: "Position must be at least 2 characters." }),
 });
 
-export type MatchFormData = z.infer<typeof matchFormSchema>;
-// Update initialData type in CreateMatchFormProps if MatchFormData now includes new fields
-// The Partial should handle it, but good to be aware.
+export type PlayerFormValues = z.infer<typeof playerSchema>; // Exported for potential use elsewhere
 
-interface TrackerUser {
-  id: string;
-  full_name: string;
-  email: string;
-}
+// Define the main form schema
+export const matchFormSchema = z.object({ // Exported for potential use elsewhere
+  matchDate: z.string().min(1, { message: "Match date is required." }),
+  location: z.string().min(1, { message: "Location is required." }),
+  competition: z.string().min(1, { message: "Competition is required." }),
+  notes: z.string().optional(),
+  homeTeamName: z.string().min(1, { message: "Home team name is required." }),
+  awayTeamName: z.string().min(1, { message: "Away team name is required." }),
+  homeTeamFormation: z.string().optional(), // Added home team formation
+  awayTeamFormation: z.string().optional(), // Added away team formation
+  homeTeamScore: z.coerce.number().int().min(0, { message: "Score must be a non-negative integer." }).optional(),
+  awayTeamScore: z.coerce.number().int().min(0, { message: "Score must be a non-negative integer." }).optional().nullable(),
+  homeTeamPlayers: z.array(playerSchema).optional(),
+  awayTeamPlayers: z.array(playerSchema).optional(),
+});
+
+export type MatchFormValues = z.infer<typeof matchFormSchema>; // Exported for potential use elsewhere
+
+/*
+match_rosters table schema:
+- id: uuid (Primary Key, auto-generated)
+- match_id: uuid (Foreign Key referencing matches.id)
+- team_id: uuid (Foreign Key referencing teams.id) - Assuming you have a teams table. This is not used in current implementation.
+- team_context: text (e.g., 'home' or 'away')
+- player_name: text
+- jersey_number: integer
+- position: text
+*/
+
+const commonFormations = [
+  "None", "Other",
+  "4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "4-5-1", "3-4-3",
+  "5-3-2", "4-1-4-1", "4-4-1-1", "4-1-3-2", "3-4-1-2",
+];
 
 interface CreateMatchFormProps {
-  onSuccess?: (matchId: string) => void; // Renamed from onMatchCreated for generality
   isEditMode?: boolean;
-  initialData?: Partial<MatchFormData> & { id?: string }; // id is for context, not part of form schema
+  initialMatchData?: MatchFormValues & { id?: string; home_team_formation?: string; away_team_formation?: string }; // Match ID is crucial for edit mode
+  onFormSubmit?: () => void; // Optional callback after successful submission
 }
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode = false, initialData }) => {
-  const [trackers, setTrackers] = useState<TrackerUser[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [fetchTrackersError, setFetchTrackersError] = useState<string | null>(null);
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    watch,
-    setValue, // Added for dependent field updates
-  } = useForm<MatchFormData>({
-    resolver: zodResolver(matchFormSchema),
-    defaultValues: {
-      name: '',
-      match_type: '',
-      home_team_name: '',
-      away_team_name: '',
-      status: 'pending',
-      description: '',
-      assigned_tracker_id: '',
-      enable_live_tracking: false,
-      home_team_formation: '',
-      away_team_formation: '',
-    },
-  });
-
-  const enableLiveTracking = watch('enable_live_tracking');
-
-  const fetchTrackersCb = useCallback(async () => { // Renamed to avoid conflict
-    setFetchTrackersError(null);
-    try {
-      const { data: responseData, error: invokeError } = await supabase.functions.invoke('get-tracker-users', {
-        method: 'GET',
-      });
-
-      if (invokeError) throw new Error(`Function invocation failed: ${invokeError.message}`);
-      if (responseData && responseData.error) throw new Error(`Error fetching trackers: ${responseData.error.message || responseData.error}`);
-      if (!Array.isArray(responseData)) throw new Error('Invalid data format received from server.');
-
-      const mappedData: TrackerUser[] = responseData.map((user: any) => ({
-        id: user.id,
-        full_name: user.fullName || user.full_name || 'No name provided',
-        email: user.email,
-      }));
-      return mappedData;
-
-    } catch (error: any) {
-      console.error('General error in fetchTrackersCb:', error.message);
-      const errorMessage = error.message || 'An unexpected error occurred while fetching trackers.';
-      setFetchTrackersError(errorMessage);
-      sonnerToast.error(errorMessage); // Toast once here
-      throw error;
-    }
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadTrackers = async () => {
-      try {
-        const data = await fetchTrackersCb();
-        if (isMounted) setTrackers(data);
-      } catch (error) {
-        if (isMounted) setTrackers([]);
-        console.error("Failed to load trackers in component:", error);
-      }
-    };
-    loadTrackers();
-    return () => { isMounted = false; };
-  }, [fetchTrackersCb]);
-
-  useEffect(() => {
-    const populateFormForEdit = async () => {
-      if (isEditMode && initialData) {
-        let currentAssignedTrackerId = '';
-        if (initialData.id) { // Fetch assigned tracker if editing an existing match
-          try {
-            const { data: assignment, error: assignmentError } = await supabase
-              .from('match_tracker_assignments')
-              .select('tracker_user_id')
-              .eq('match_id', initialData.id)
-              // .is('player_id', null) // If you distinguish general match vs player-specific assignments here
-              .maybeSingle();
-
-            if (assignmentError) console.error("Error fetching tracker assignment for edit:", assignmentError.message);
-            if (assignment) currentAssignedTrackerId = assignment.tracker_user_id;
-          } catch (e: any) {
-            console.error("Exception fetching tracker assignment:", e.message);
-          }
-        }
-
-        const dataToReset: Partial<MatchFormData> = {
-          name: initialData.name || '',
-          match_type: initialData.match_type || '',
-          home_team_name: initialData.home_team_name || '',
-          away_team_name: initialData.away_team_name || '',
-          home_team_formation: initialData.home_team_formation || '', // Add this
-          away_team_formation: initialData.away_team_formation || '', // Add this
-          description: initialData.description || '',
-          assigned_tracker_id: currentAssignedTrackerId || initialData.assigned_tracker_id || '',
-        };
-
-        if (initialData.status === 'pending_live') {
-          dataToReset.enable_live_tracking = true;
-          dataToReset.status = 'pending_live'; // Keep it as pending_live for the display
-        } else {
-          dataToReset.enable_live_tracking = false;
-          dataToReset.status = initialData.status || 'pending';
-        }
-        reset(dataToReset as MatchFormData);
-      } else {
-        // Reset to creation defaults if not in edit mode or no initial data
-        reset({
-          name: '', match_type: '', home_team_name: '', away_team_name: '',
-          home_team_formation: '', away_team_formation: '', // Add this
-          status: 'pending', description: '', assigned_tracker_id: '',
-          enable_live_tracking: false,
-        });
-      }
-    };
-    populateFormForEdit();
-  }, [isEditMode, initialData, reset]); // Removed supabase
-
-  // Effect to manage status when enableLiveTracking changes
-  useEffect(() => {
-    if (enableLiveTracking) {
-      setValue('status', 'pending_live', { shouldValidate: true });
-    } else {
-      // If was pending_live and now disabled, revert to 'pending' or initial status
-      if (watch('status') === 'pending_live') {
-        setValue('status', initialData?.status && initialData.status !== 'pending_live' ? initialData.status : 'pending', { shouldValidate: true });
-      }
-    }
-  }, [enableLiveTracking, setValue, initialData, watch]);
-
-
-  const onSubmit = async (data: MatchFormData) => {
-    // TODO: Implement Player Roster Saving Logic (Conceptual Outline)
-    // This will be triggered after match creation/update successfully returns a match ID.
-    // 1. Get `matchId` (either `newMatchData.id` or `updatedMatchData.id`).
-    // 2. Access player roster data from form state (e.g., `data.homeTeamPlayers`, `data.awayTeamPlayers` - these fields would be added to schema and form).
-    // 3. For an update, potentially clear existing players for this match from `match_rosters` table:
-    //    `await supabase.from('match_rosters').delete().eq('match_id', matchId);`
-    // 4. Insert new player data into `match_rosters` table. Each player might be an object:
-    //    `{ match_id: matchId, team_context: 'home', name: 'Player Name', jersey_number: 10, position: 'Forward' }`
-    //    `await supabase.from('match_rosters').insert(arrayOfPlayerObjects);`
-    // Note: A `match_rosters` table would need columns like: id, match_id, team_context (e.g., 'home'/'away'), player_name, jersey_number, position.
-
-    setIsLoading(true);
-    try {
-      const matchPayload = {
-        name: data.name.trim(),
-        match_type: data.match_type.trim(),
-        home_team_name: data.home_team_name.trim(),
-        away_team_name: data.away_team_name.trim(),
-        home_team_formation: data.home_team_formation || null,
-        away_team_formation: data.away_team_formation || null,
-        status: data.enable_live_tracking ? 'pending_live' : (data.status || 'pending'),
-        description: data.description?.trim() || null,
-      };
-
-      let reportedMatchId: string | undefined;
-
-      if (isEditMode && initialData?.id) {
-        console.log('Updating match with payload:', matchPayload, 'for ID:', initialData.id);
-        const { data: updatedMatchData, error: updateError } = await supabase
-          .from('matches')
-          .update(matchPayload)
-          .eq('id', initialData.id)
-          .select('id')
-          .single();
-
-        if (updateError) throw updateError;
-        if (!updatedMatchData) throw new Error('Match update failed or no data returned.');
-        
-        reportedMatchId = updatedMatchData.id;
-        console.log('Match updated successfully:', updatedMatchData);
-        
-        // Handle tracker assignment update for edit mode
-        // Remove existing general assignment for this match (if any)
-        await supabase.from('match_tracker_assignments').delete().eq('match_id', updatedMatchData.id);
-            // .is('player_id', null); // If distinguishing general match trackers
-
-        if (data.assigned_tracker_id) { // If a new tracker is selected
-          const { error: assignmentError } = await supabase
-            .from('match_tracker_assignments')
-            .insert([{ 
-              match_id: updatedMatchData.id, 
-              tracker_user_id: data.assigned_tracker_id
-              // player_id and player_team_id removed, assuming DB handles defaults or they are nullable
-            }]);
-          if (assignmentError) {
-            console.error('Error updating tracker assignment:', assignmentError);
-            sonnerToast.warning(`Match updated, but tracker assignment failed: ${assignmentError.message}`);
-          } else {
-            console.log(`TODO: Tracker assignment successful. Implement notification for tracker ${data.assigned_tracker_id} for match ${updatedMatchData.id}`);
-            // sonnerToast.success('Tracker assignment updated successfully.'); // Optional, might be too many toasts
-          }
-        }
-        sonnerToast.success('Match updated successfully!');
-
-      } else { // Creation Mode
-        console.log('Creating match with payload:', matchPayload);
-        const { data: newMatchData, error: createError } = await supabase
-          .from('matches')
-          .insert([matchPayload])
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        if (!newMatchData || !newMatchData.id) throw new Error('Match created but no data returned from database');
-        
-        reportedMatchId = newMatchData.id;
-        console.log('Match created successfully:', newMatchData);
-
-        if (data.assigned_tracker_id) {
-          const { error: assignmentError } = await supabase
-            .from('match_tracker_assignments')
-            .insert([{ 
-              match_id: newMatchData.id, 
-              tracker_user_id: data.assigned_tracker_id
-              // player_id and player_team_id removed
-            }]);
-          if (assignmentError) {
-            console.error('Error assigning tracker:', assignmentError);
-            // Don't throw, match was created. Show a warning/error toast.
-            sonnerToast.error(`Match created, but failed to assign tracker: ${assignmentError.message}`);
-          } else {
-            // Add placeholder log here
-            console.log(`TODO: Tracker assignment successful. Implement notification for tracker ${data.assigned_tracker_id} for match ${newMatchData.id}`);
-            sonnerToast.success('Tracker assigned successfully.'); // Optional: separate toast for tracker assignment
-          }
-        }
-        sonnerToast.success('Match created successfully!');
-        reset(); // Reset form only on successful creation
-      }
-      
-      if (onSuccess && reportedMatchId) {
-        onSuccess(reportedMatchId);
-      }
-
-    } catch (error: any) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} match:`, error);
-      sonnerToast.error(`Failed to ${isEditMode ? 'update' : 'create'} match: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+export function CreateMatchForm({ isEditMode = false, initialMatchData, onFormSubmit }: CreateMatchFormProps) {
+  const router = useRouter();
+  const supabase = createClientComponentClient<Database>();
+  // Ensure defaultValues are fully defined to avoid uncontrolled component warnings
+  const defaultVals: MatchFormValues = {
+    matchDate: initialMatchData?.matchDate || "",
+    location: initialMatchData?.location || "",
+    competition: initialMatchData?.competition || "",
+    notes: initialMatchData?.notes || "",
+    homeTeamName: initialMatchData?.homeTeamName || "",
+    awayTeamName: initialMatchData?.awayTeamName || "",
+    homeTeamFormation: initialMatchData?.homeTeamFormation || "None", // Default to "None"
+    awayTeamFormation: initialMatchData?.awayTeamFormation || "None", // Default to "None"
+    homeTeamScore: initialMatchData?.homeTeamScore === undefined ? null : initialMatchData.homeTeamScore, // Handle undefined by setting to null
+    awayTeamScore: initialMatchData?.awayTeamScore === undefined ? null : initialMatchData.awayTeamScore, // Handle undefined by setting to null
+    homeTeamPlayers: initialMatchData?.homeTeamPlayers || [],
+    awayTeamPlayers: initialMatchData?.awayTeamPlayers || [],
   };
 
+
+  const form = useForm<MatchFormValues>({
+    resolver: zodResolver(matchFormSchema),
+    defaultValues: defaultVals,
+  });
+
+  useEffect(() => {
+    // Populate form with initialMatchData if in edit mode
+    // Rosters are fetched separately if initialMatchData.id is present
+    if (isEditMode && initialMatchData) {
+      form.reset({ // Reset form with all initial data, except rosters which are fetched next
+        matchDate: initialMatchData.matchDate,
+        location: initialMatchData.location,
+        competition: initialMatchData.competition,
+        notes: initialMatchData.notes || "",
+        homeTeamName: initialMatchData.homeTeamName,
+        awayTeamName: initialMatchData.awayTeamName,
+        homeTeamFormation: initialMatchData.homeTeamFormation || "None",
+        awayTeamFormation: initialMatchData.awayTeamFormation || "None",
+        homeTeamScore: initialMatchData.homeTeamScore === undefined ? null : initialMatchData.homeTeamScore,
+        awayTeamScore: initialMatchData.awayTeamScore === undefined ? null : initialMatchData.awayTeamScore,
+        homeTeamPlayers: [], // Will be populated by fetched data
+        awayTeamPlayers: [], // Will be populated by fetched data
+      });
+
+      if (initialMatchData.id) {
+        // Ensure form values for formations are explicitly set from initialMatchData if available
+        // This covers cases where initialMatchData might have these fields even if not in defaultVals directly
+        // or if they need to be specifically re-validated/marked as dirty.
+        if (initialMatchData.homeTeamFormation) {
+            form.setValue("homeTeamFormation", initialMatchData.homeTeamFormation, { shouldDirty: true, shouldValidate: true });
+        }
+        if (initialMatchData.awayTeamFormation) {
+            form.setValue("awayTeamFormation", initialMatchData.awayTeamFormation, { shouldDirty: true, shouldValidate: true });
+        }
+
+        const fetchRosters = async (matchId: string) => {
+          const { data: rosterData, error } = await supabase
+            .from("match_rosters")
+            .select("player_name, jersey_number, position, team_context")
+            .eq("match_id", matchId);
+
+          if (error) {
+            console.error("Error fetching rosters for edit:", error);
+            return;
+          }
+
+          const homePlayers: PlayerFormValues[] = [];
+          const awayPlayers: PlayerFormValues[] = [];
+
+          rosterData?.forEach(player => {
+            const formattedPlayer: PlayerFormValues = {
+              name: player.player_name,
+              jerseyNumber: player.jersey_number,
+              position: player.position,
+            };
+            if (player.team_context === "home") {
+              homePlayers.push(formattedPlayer);
+            } else if (player.team_context === "away") {
+              awayPlayers.push(formattedPlayer);
+            }
+          });
+          
+          // Update form state with fetched rosters
+          // This should trigger a re-render with the player fields populated
+          form.setValue("homeTeamPlayers", homePlayers, { shouldDirty: true, shouldValidate: true });
+          form.setValue("awayTeamPlayers", awayPlayers, { shouldDirty: true, shouldValidate: true });
+
+        };
+        fetchRosters(initialMatchData.id);
+      }
+    }
+  }, [isEditMode, initialMatchData, supabase, form]);
+
+
+  const { fields: homePlayerFields, append: appendHomePlayer, remove: removeHomePlayer } = useFieldArray({
+    control: form.control,
+    name: "homeTeamPlayers",
+  });
+
+  const { fields: awayPlayerFields, append: appendAwayPlayer, remove: removeAwayPlayer } = useFieldArray({
+    control: form.control,
+    name: "awayTeamPlayers",
+  });
+
+  async function onSubmit(data: MatchFormValues) {
+    if (!supabase) {
+      console.error("Supabase client not available.");
+      return;
+    }
+    
+    let matchIdToUse = initialMatchData?.id;
+
+    try {
+      if (isEditMode && initialMatchData?.id) {
+        // ---- EDIT MODE ----
+        const { data: updatedMatchData, error: updateMatchError } = await supabase
+          .from("matches")
+          .update({
+            match_date: data.matchDate,
+            location: data.location,
+            competition: data.competition,
+            notes: data.notes,
+            home_team_name: data.homeTeamName,
+            away_team_name: data.awayTeamName,
+            home_team_formation: data.homeTeamFormation,
+            away_team_formation: data.awayTeamFormation,
+            home_team_score: data.homeTeamScore,
+            away_team_score: data.awayTeamScore,
+          })
+          .eq("id", initialMatchData.id)
+          .select()
+          .single();
+
+        if (updateMatchError) {
+          console.error("Error updating match:", updateMatchError);
+          // Handle error
+          return;
+        }
+        if (!updatedMatchData) {
+          console.error("No data returned after updating match");
+          return;
+        }
+        matchIdToUse = updatedMatchData.id;
+
+        // Delete existing rosters for this match
+        const { error: deleteRostersError } = await supabase
+          .from("match_rosters")
+          .delete()
+          .eq("match_id", matchIdToUse);
+
+        if (deleteRostersError) {
+          console.error("Error deleting existing rosters:", deleteRostersError);
+          // Handle error, possibly alert user or attempt rollback/compensation
+          return;
+        }
+      } else {
+        // ---- CREATE MODE ----
+        const { data: newMatchData, error: insertMatchError } = await supabase
+          .from("matches")
+          .insert([
+            {
+              match_date: data.matchDate,
+              location: data.location,
+              competition: data.competition,
+              notes: data.notes,
+              home_team_name: data.homeTeamName,
+              away_team_name: data.awayTeamName,
+              home_team_formation: data.homeTeamFormation,
+              away_team_formation: data.awayTeamFormation,
+              home_team_score: data.homeTeamScore,
+              away_team_score: data.awayTeamScore,
+              // created_by: userId // Assuming you have a way to get the current user's ID
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertMatchError) {
+          console.error("Error inserting match:", insertMatchError);
+          return;
+        }
+        if (!newMatchData) {
+          console.error("No data returned after inserting match");
+          return;
+        }
+        matchIdToUse = newMatchData.id;
+      }
+
+      if (!matchIdToUse) {
+        console.error("Match ID is missing, cannot save rosters.");
+        return;
+      }
+
+      // Save home team players (common for both create and edit after rosters are cleared for edit)
+      if (data.homeTeamPlayers && data.homeTeamPlayers.length > 0) {
+        const homeRosterData = data.homeTeamPlayers.map(player => ({
+          match_id: matchIdToUse!,
+          team_context: "home",
+          player_name: player.name,
+          jersey_number: player.jerseyNumber,
+          position: player.position,
+        }));
+
+        const { error: homeRosterError } = await supabase
+          .from("match_rosters")
+          .insert(homeRosterData);
+
+        if (homeRosterError) {
+          console.error("Error inserting home team roster:", homeRosterError);
+          // Handle error
+        }
+      }
+
+      // Save away team players (common for both create and edit)
+      if (data.awayTeamPlayers && data.awayTeamPlayers.length > 0) {
+        const awayRosterData = data.awayTeamPlayers.map(player => ({
+          match_id: matchIdToUse!,
+          team_context: "away",
+          player_name: player.name,
+          jersey_number: player.jerseyNumber,
+          position: player.position,
+        }));
+
+        const { error: awayRosterError } = await supabase
+          .from("match_rosters")
+          .insert(awayRosterData);
+
+        if (awayRosterError) {
+          console.error("Error inserting away team roster:", awayRosterError);
+          // Handle error
+        }
+      }
+
+      console.log(isEditMode ? "Match updated:" : "Match created:", data);
+      if (onFormSubmit) {
+        onFormSubmit(); // Call the callback
+      } else {
+        // Default behavior if no callback is provided (e.g., redirect or reset)
+        if (!isEditMode) form.reset(defaultVals); // Reset form only in create mode or if specified
+         // Potentially redirect or show success notification
+      }
+      // Optionally, always reset if that's the desired UX after edit too
+      // form.reset(defaultVals); 
+      // router.push("/path-to-matches-list"); // Or use router from props if needed
+
+    } catch (error) {
+      console.error("Submission error:", error);
+      // Handle error (e.g., show global notification to user)
+    }
+  }
+
   return (
-    // ... JSX structure (unchanged from original except button text) ...
-    <div className="w-full max-w-4xl mx-auto">
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl">{isEditMode ? 'Edit Match' : 'Create New Match'}</CardTitle>
-          <CardDescription className="text-sm">
-            {isEditMode ? 'Update the details for this match.' : 'Fill in the details below to create a new match.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Row 1: Match Name and Type */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Match Name <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  name="name"
-                  control={control}
-                  render={({ field }) => (
-                    <Input 
-                      id="name" 
-                      placeholder="e.g., Champions League Final" 
-                      className="h-9"
-                      {...field} 
-                    />
-                  )}
-                />
-                {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-              </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <h2 className="text-xl font-semibold">{isEditMode ? "Edit Match Details" : "Create New Match"}</h2>
+        <FormField
+          control={form.control}
+          name="matchDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Match Date</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter location" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="competition"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Competition</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter competition" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="homeTeamName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Home Team Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter home team name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="awayTeamName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Away Team Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter away team name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="homeTeamFormation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Home Team Formation</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select formation" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {commonFormations.map(formation => (
+                    <SelectItem key={`home-${formation}`} value={formation}>
+                      {formation}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="awayTeamFormation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Away Team Formation</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select formation" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {commonFormations.map(formation => (
+                    <SelectItem key={`away-${formation}`} value={formation}>
+                      {formation}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="homeTeamScore"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Home Team Score</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="awayTeamScore"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Away Team Score</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Enter any notes" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-              <div className="space-y-1.5">
-                <Label htmlFor="match_type" className="text-sm font-medium">
-                  Match Type <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  name="match_type"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value || ""}>
-                      <SelectTrigger id="match_type" className="h-9">
-                        <SelectValue placeholder="Select match type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="friendly">Friendly</SelectItem>
-                        <SelectItem value="league">League</SelectItem>
-                        <SelectItem value="cup">Cup</SelectItem>
-                        <SelectItem value="tournament">Tournament</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.match_type && <p className="text-xs text-red-500">{errors.match_type.message}</p>}
-              </div>
-            </div>
-
-            {/* Row 2: Team Names */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="home_team_name" className="text-sm font-medium">
-                  Home Team <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  name="home_team_name"
-                  control={control}
-                  render={({ field }) => (
-                    <Input 
-                      id="home_team_name" 
-                      placeholder="Enter home team name" 
-                      className="h-9"
-                      {...field} 
-                    />
-                  )}
-                />
-                {errors.home_team_name && <p className="text-xs text-red-500">{errors.home_team_name.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="away_team_name" className="text-sm font-medium">
-                  Away Team <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  name="away_team_name"
-                  control={control}
-                  render={({ field }) => (
-                    <Input 
-                      id="away_team_name" 
-                      placeholder="Enter away team name" 
-                      className="h-9"
-                      {...field} 
-                    />
-                  )}
-                />
-                {errors.away_team_name && <p className="text-xs text-red-500">{errors.away_team_name.message}</p>}
-              </div>
-            </div>
-
-            {/* New Row for Formations */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="home_team_formation" className="text-sm font-medium">
-                  Home Team Formation
-                </Label>
-                <Controller
-                  name="home_team_formation"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={field.value || ""}>
-                      <SelectTrigger id="home_team_formation" className="h-9">
-                        <SelectValue placeholder="Select formation (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        <SelectItem value="4-4-2">4-4-2</SelectItem>
-                        <SelectItem value="4-3-3">4-3-3</SelectItem>
-                        <SelectItem value="3-5-2">3-5-2</SelectItem>
-                        <SelectItem value="4-2-3-1">4-2-3-1</SelectItem>
-                        <SelectItem value="4-5-1">4-5-1</SelectItem>
-                        <SelectItem value="3-4-3">3-4-3</SelectItem>
-                        <SelectItem value="5-3-2">5-3-2</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.home_team_formation && <p className="text-xs text-red-500">{errors.home_team_formation.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="away_team_formation" className="text-sm font-medium">
-                  Away Team Formation
-                </Label>
-                <Controller
-                  name="away_team_formation"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={field.value || ""}>
-                      <SelectTrigger id="away_team_formation" className="h-9">
-                        <SelectValue placeholder="Select formation (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        <SelectItem value="4-4-2">4-4-2</SelectItem>
-                        <SelectItem value="4-3-3">4-3-3</SelectItem>
-                        <SelectItem value="3-5-2">3-5-2</SelectItem>
-                        <SelectItem value="4-2-3-1">4-2-3-1</SelectItem>
-                        <SelectItem value="4-5-1">4-5-1</SelectItem>
-                        <SelectItem value="3-4-3">3-4-3</SelectItem>
-                        <SelectItem value="5-3-2">5-3-2</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.away_team_formation && <p className="text-xs text-red-500">{errors.away_team_formation.message}</p>}
-              </div>
-            </div>
-
-            {/* Row 3 (now Row 4): Tracker Assignment and Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="assigned_tracker_id" className="text-sm font-medium">Assign Tracker</Label>
-                <Controller
-                  name="assigned_tracker_id"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={field.value || ""}>
-                      <SelectTrigger id="assigned_tracker_id" className="h-9">
-                        <SelectValue placeholder="Select a tracker (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {trackers.map((tracker) => (
-                          <SelectItem key={tracker.id} value={tracker.id}>
-                            {tracker.full_name} ({tracker.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {fetchTrackersError && !trackers.length && <p className="text-xs text-red-500">Error loading trackers: {fetchTrackersError}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="status" className="text-sm font-medium">Match Status</Label>
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value}
-                      defaultValue={field.value} 
-                      disabled={enableLiveTracking}
-                    >
-                      <SelectTrigger id="status" className="h-9">
-                        <SelectValue placeholder="Set match status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {enableLiveTracking && <SelectItem value="pending_live">Pending Live</SelectItem>}
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="upcoming">Upcoming</SelectItem>
-                        <SelectItem value="postponed">Postponed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.status && <p className="text-xs text-red-500">{errors.status.message}</p>}
-              </div>
-            </div>
-
-            {/* Row 4: Description and Live Tracking */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-              <div className="lg:col-span-2 space-y-1.5">
-                <Label htmlFor="description" className="text-sm font-medium">Description (Optional)</Label>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea
-                      id="description"
-                      placeholder="Add any relevant notes..."
-                      className="resize-none h-20"
-                      {...field}
-                      value={field.value || ''} // Ensure controlled component if value can be null/undefined
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="space-y-3 lg:pt-6">
-                <div className="flex items-center space-x-2">
-                  <Controller
-                    name="enable_live_tracking"
-                    control={control}
-                    render={({ field }) => (
-                      <Switch
-                        id="enable_live_tracking"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    )}
-                  />
-                  <Label htmlFor="enable_live_tracking" className="text-sm cursor-pointer">
-                    Enable Live Tracking
-                  </Label>
-                </div>
-                {enableLiveTracking && (
-                  <p className="text-xs text-muted-foreground">
-                    Status will be set to 'pending_live'.
-                  </p>
+        {/* Home Team Players */}
+        <div>
+          <h3 className="text-lg font-medium">Home Team Players</h3>
+          {homePlayerFields.map((field, index) => (
+            <div key={field.id} className="space-y-2 p-2 border rounded-md">
+              <FormField
+                control={form.control}
+                name={`homeTeamPlayers.${index}.name`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Player Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Player Name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </div>
+              />
+              <FormField
+                control={form.control}
+                name={`homeTeamPlayers.${index}.jerseyNumber`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jersey Number</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Jersey Number" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`homeTeamPlayers.${index}.position`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Position</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Position" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="button" variant="outline" onClick={() => removeHomePlayer(index)}>Remove Player</Button>
             </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => appendHomePlayer({ name: "", jerseyNumber: 0, position: "" })}
+            className="mt-2"
+          >
+            Add Home Player
+          </Button>
+        </div>
 
-            {/* Placeholder for Team Rosters */}
-            <div className="space-y-1.5 pt-4 mt-4 border-t">
-              <Label className="text-lg font-semibold">Team Rosters (Home & Away)</Label>
-              <Card className="mt-2">
-                <CardContent className="pt-6">
-                  <p className="text-sm text-muted-foreground">
-                    Player editing functionality (names, numbers, positions for players in this specific match) will be implemented here in a future update.
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Away Team Players */}
+        <div>
+          <h3 className="text-lg font-medium">Away Team Players</h3>
+          {awayPlayerFields.map((field, index) => (
+            <div key={field.id} className="space-y-2 p-2 border rounded-md">
+              <FormField
+                control={form.control}
+                name={`awayTeamPlayers.${index}.name`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Player Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Player Name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`awayTeamPlayers.${index}.jerseyNumber`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jersey Number</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Jersey Number" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`awayTeamPlayers.${index}.position`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Position</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Position" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="button" variant="outline" onClick={() => removeAwayPlayer(index)}>Remove Player</Button>
             </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => appendAwayPlayer({ name: "", jerseyNumber: 0, position: "" })}
+            className="mt-2"
+          >
+            Add Away Player
+          </Button>
+        </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4 border-t">
-              <Button type="submit" disabled={isLoading} className="min-w-32">
-                {isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <Button type="submit" className="w-full md:w-auto">
+          {isEditMode ? "Update Match" : "Create Match"}
+        </Button>
+      </form>
+    </Form>
   );
-};
-
-export default CreateMatchForm;
-
+}
