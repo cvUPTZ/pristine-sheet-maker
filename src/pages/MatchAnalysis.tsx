@@ -14,6 +14,7 @@ import useMatchData, {
   MatchEvent as HookMatchEvent
 } from '@/hooks/useMatchData'; // Your custom hook for fetching match data
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration'; // Import the collaboration hook
+import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents'; // Import RealTimeMatchEvents
 
 // Define or import detailed Player and Team types if MainTabContent or other parts need them
 // These are distinct from the simpler TeamHeaderData provided by the hook for the MatchHeader.
@@ -434,6 +435,13 @@ const MatchAnalysis: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Add the new section for RealTimeMatchEvents */}
+      {userRole === 'admin' && matchId && (
+        <div className="p-2 md:p-4"> {/* Optional wrapper for spacing */}
+          <RealTimeMatchEvents matchId={matchId} />
+        </div>
+      )}
     </div>
   );
 };

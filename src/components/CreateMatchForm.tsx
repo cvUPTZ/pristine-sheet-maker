@@ -375,7 +375,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, isEditMode
                         <SelectValue placeholder="Select a tracker (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
                         {trackers.map((tracker) => (
                           <SelectItem key={tracker.id} value={tracker.id}>
                             {tracker.full_name} ({tracker.email})
