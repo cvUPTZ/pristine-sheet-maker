@@ -1,188 +1,72 @@
-import { Formation, FormationPositions, Player, Team } from '@/types';
 
-// Define formation positions (normalized to field coordinates 0-1)
-export const formationPositions: FormationPositions = {
+import { Formation } from '@/types';
+
+// Define formation positions for players on the field
+export const formationPositions: Record<Formation, { x: number; y: number }[]> = {
   '4-4-2': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.2, y: 0.7 },  // LB
-    { x: 0.4, y: 0.7 },  // CB
-    { x: 0.6, y: 0.7 },  // CB
-    { x: 0.8, y: 0.7 },  // RB
-    { x: 0.2, y: 0.5 },  // LM
-    { x: 0.4, y: 0.5 },  // CM
-    { x: 0.6, y: 0.5 },  // CM
-    { x: 0.8, y: 0.5 },  // RM
-    { x: 0.4, y: 0.3 },  // ST
-    { x: 0.6, y: 0.3 },  // ST
+    // GK
+    { x: 10, y: 50 },
+    // Defense (4)
+    { x: 25, y: 20 }, { x: 25, y: 40 }, { x: 25, y: 60 }, { x: 25, y: 80 },
+    // Midfield (4)
+    { x: 50, y: 20 }, { x: 50, y: 40 }, { x: 50, y: 60 }, { x: 50, y: 80 },
+    // Attack (2)
+    { x: 75, y: 35 }, { x: 75, y: 65 }
   ],
   '4-3-3': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.2, y: 0.7 },  // LB
-    { x: 0.4, y: 0.7 },  // CB
-    { x: 0.6, y: 0.7 },  // CB
-    { x: 0.8, y: 0.7 },  // RB
-    { x: 0.3, y: 0.5 },  // CM
-    { x: 0.5, y: 0.5 },  // CM
-    { x: 0.7, y: 0.5 },  // CM
-    { x: 0.2, y: 0.3 },  // LW
-    { x: 0.5, y: 0.3 },  // ST
-    { x: 0.8, y: 0.3 },  // RW
+    // GK
+    { x: 10, y: 50 },
+    // Defense (4)
+    { x: 25, y: 15 }, { x: 25, y: 35 }, { x: 25, y: 65 }, { x: 25, y: 85 },
+    // Midfield (3)
+    { x: 50, y: 30 }, { x: 50, y: 50 }, { x: 50, y: 70 },
+    // Attack (3)
+    { x: 75, y: 25 }, { x: 75, y: 50 }, { x: 75, y: 75 }
   ],
   '3-5-2': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.3, y: 0.7 },  // CB
-    { x: 0.5, y: 0.7 },  // CB
-    { x: 0.7, y: 0.7 },  // CB
-    { x: 0.1, y: 0.5 },  // LWB
-    { x: 0.3, y: 0.5 },  // CM
-    { x: 0.5, y: 0.5 },  // CM
-    { x: 0.7, y: 0.5 },  // CM
-    { x: 0.9, y: 0.5 },  // RWB
-    { x: 0.4, y: 0.3 },  // ST
-    { x: 0.6, y: 0.3 },  // ST
+    // GK
+    { x: 10, y: 50 },
+    // Defense (3)
+    { x: 25, y: 25 }, { x: 25, y: 50 }, { x: 25, y: 75 },
+    // Midfield (5)
+    { x: 40, y: 10 }, { x: 50, y: 30 }, { x: 50, y: 50 }, { x: 50, y: 70 }, { x: 40, y: 90 },
+    // Attack (2)
+    { x: 75, y: 40 }, { x: 75, y: 60 }
   ],
   '5-3-2': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.1, y: 0.7 },  // LWB
-    { x: 0.3, y: 0.7 },  // CB
-    { x: 0.5, y: 0.7 },  // CB
-    { x: 0.7, y: 0.7 },  // CB
-    { x: 0.9, y: 0.7 },  // RWB
-    { x: 0.3, y: 0.5 },  // CM
-    { x: 0.5, y: 0.5 },  // CM
-    { x: 0.7, y: 0.5 },  // CM
-    { x: 0.4, y: 0.3 },  // ST
-    { x: 0.6, y: 0.3 },  // ST
+    // GK
+    { x: 10, y: 50 },
+    // Defense (5)
+    { x: 25, y: 10 }, { x: 25, y: 30 }, { x: 25, y: 50 }, { x: 25, y: 70 }, { x: 25, y: 90 },
+    // Midfield (3)
+    { x: 50, y: 30 }, { x: 50, y: 50 }, { x: 50, y: 70 },
+    // Attack (2)
+    { x: 75, y: 40 }, { x: 75, y: 60 }
   ],
   '4-2-3-1': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.2, y: 0.7 },  // LB
-    { x: 0.4, y: 0.7 },  // CB
-    { x: 0.6, y: 0.7 },  // CB
-    { x: 0.8, y: 0.7 },  // RB
-    { x: 0.4, y: 0.55 }, // CDM
-    { x: 0.6, y: 0.55 }, // CDM
-    { x: 0.3, y: 0.4 },  // CAM
-    { x: 0.5, y: 0.4 },  // CAM
-    { x: 0.7, y: 0.4 },  // CAM
-    { x: 0.5, y: 0.25 }, // ST
+    // GK
+    { x: 10, y: 50 },
+    // Defense (4)
+    { x: 25, y: 20 }, { x: 25, y: 40 }, { x: 25, y: 60 }, { x: 25, y: 80 },
+    // Defensive Mid (2)
+    { x: 45, y: 35 }, { x: 45, y: 65 },
+    // Attacking Mid (3)
+    { x: 60, y: 25 }, { x: 60, y: 50 }, { x: 60, y: 75 },
+    // Striker (1)
+    { x: 80, y: 50 }
   ],
   '3-4-3': [
-    { x: 0.5, y: 0.9 },  // GK
-    { x: 0.3, y: 0.7 },  // CB
-    { x: 0.5, y: 0.7 },  // CB
-    { x: 0.7, y: 0.7 },  // CB
-    { x: 0.2, y: 0.5 },  // LM
-    { x: 0.4, y: 0.5 },  // CM
-    { x: 0.6, y: 0.5 },  // CM
-    { x: 0.8, y: 0.5 },  // RM
-    { x: 0.3, y: 0.3 },  // LW
-    { x: 0.5, y: 0.3 },  // ST
-    { x: 0.7, y: 0.3 },  // RW
+    // GK
+    { x: 10, y: 50 },
+    // Defense (3)
+    { x: 25, y: 25 }, { x: 25, y: 50 }, { x: 25, y: 75 },
+    // Midfield (4)
+    { x: 50, y: 20 }, { x: 50, y: 40 }, { x: 50, y: 60 }, { x: 50, y: 80 },
+    // Attack (3)
+    { x: 75, y: 25 }, { x: 75, y: 50 }, { x: 75, y: 75 }
   ]
 };
 
-// Updated function to better handle null or undefined teams
-export const getPlayerPositions = (team: Partial<Team> & { players?: Player[], formation?: string } | null, isHomeTeam: boolean) => {
-  // Return empty object if team is null or undefined
-  if (!team || !team.players) {
-    return {};
-  }
-  
-  const positions: Record<number, { x: number; y: number }> = {};
-  
-  // Default to 4-4-2 if no formation is specified
-  const formation = team.formation || '4-4-2';
-  
-  // Create a deep copy of the formation positions to avoid mutations
-  const basePositions = JSON.parse(JSON.stringify(formationPositions[formation as Formation]));
-  
-  // For away team, flip the y coordinates
-  if (!isHomeTeam) {
-    basePositions.forEach((pos: {x: number, y: number}) => {
-      pos.y = 1 - pos.y;
-    });
-  }
-  
-  team.players.forEach((player: Player, index: number) => {
-    // Make sure we don't exceed the available positions in the formation
-    positions[player.id] = index < basePositions.length 
-      ? { ...basePositions[index] } // Use spread to create a new object, preventing mutation
-      : { x: Math.random(), y: isHomeTeam ? 0.7 : 0.3 }; // Position extras in a reasonable place
-  });
-  
-  return positions;
-};
-
-// Create simulated teams for testing with real position names
-export const createSimulatedTeams = () => {
-  // Create home team with 4-3-3 formation
-  const homeTeam: Team = {
-    id: 'home-team',
-    name: 'Barcelona',
-    formation: '4-3-3',
-    players: generatePlayersForFormation('home', '4-3-3', 1),
-  };
-
-  // Create away team with 4-4-2 formation
-  const awayTeam: Team = {
-    id: 'away-team',
-    name: 'Real Madrid',
-    formation: '4-4-2',
-    players: generatePlayersForFormation('away', '4-4-2', 100),
-  };
-
-  return { homeTeam, awayTeam };
-};
-
-// Helper function to get position name based on formation and index
-export function getPositionName(formation: string, index: number): string {
-  if (index === 0) return 'Goalkeeper';
-  
-  // Full position names instead of abbreviations
-  if (formation === '4-4-2') {
-    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
-                       'Left Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Midfielder', 
-                       'Striker', 'Striker'];
-    return positions[index] || 'Substitute';
-  } else if (formation === '4-3-3') {
-    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
-                       'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 
-                       'Left Winger', 'Striker', 'Right Winger'];
-    return positions[index] || 'Substitute';
-  } else if (formation === '3-5-2') {
-    const positions = ['Goalkeeper', 'Center Back', 'Center Back', 'Center Back', 
-                       'Left Wing Back', 'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Wing Back', 
-                       'Striker', 'Striker'];
-    return positions[index] || 'Substitute';
-  } else if (formation === '5-3-2') {
-    const positions = ['Goalkeeper', 'Left Wing Back', 'Center Back', 'Center Back', 'Center Back', 'Right Wing Back', 
-                       'Center Midfielder', 'Center Midfielder', 'Center Midfielder', 'Striker', 'Striker'];
-    return positions[index] || 'Substitute';
-  } else if (formation === '4-2-3-1') {
-    const positions = ['Goalkeeper', 'Left Back', 'Center Back', 'Center Back', 'Right Back', 
-                       'Defensive Midfielder', 'Defensive Midfielder', 
-                       'Attacking Midfielder', 'Attacking Midfielder', 'Attacking Midfielder', 'Striker'];
-    return positions[index] || 'Substitute';
-  } else if (formation === '3-4-3') {
-    const positions = ['Goalkeeper', 'Center Back', 'Center Back', 'Center Back', 
-                       'Left Midfielder', 'Center Midfielder', 'Center Midfielder', 'Right Midfielder', 
-                       'Left Winger', 'Striker', 'Right Winger'];
-    return positions[index] || 'Substitute';
-  } else {
-    const positions = ['Goalkeeper', 'Defender', 'Defender', 'Defender', 'Defender', 
-                       'Midfielder', 'Midfielder', 'Midfielder', 'Midfielder', 
-                       'Forward', 'Forward'];
-    return positions[index] || 'Substitute';
-  }
-}
-
-// Function to generate players based on a specific formation
-export const generatePlayersForFormation = (teamId: string, formation: Formation, startId: number = 1): Player[] => {
-  return Array.from({ length: 11 }, (_, i) => ({
-    id: startId + i,
-    name: `${teamId === 'home' ? 'Home' : 'Away'} Player ${i + 1}`,
-    number: i + 1,
-    position: getPositionName(formation, i)
-  }));
+export const getFormationPositions = (formation: Formation): { x: number; y: number }[] => {
+  return formationPositions[formation] || formationPositions['4-4-2'];
 };

@@ -143,6 +143,7 @@ export interface SavedMatch extends Match {
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
   statistics: Statistics;
+  matchId?: string;
 }
 
 export interface MatchEvent {

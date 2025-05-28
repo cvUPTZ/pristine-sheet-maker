@@ -14,7 +14,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
-import ProfileListPage from './pages/Admin/ProfileListPage'; // Added import
+import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
 import Header from "./components/Header";
 import { useEffect } from 'react';
@@ -36,13 +36,13 @@ interface MatchPayload {
 }
 
 const AppContent = () => {
-  const { session, user } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (session && user && user.app_metadata?.role === 'tracker') {
+    if (user && user.app_metadata?.role === 'tracker') {
       const channel = supabase
         .channel('match-live-notifications')
         .on(
@@ -92,7 +92,7 @@ const AppContent = () => {
         });
       };
     }
-  }, [session, user, toast, navigate, location]);
+  }, [user, toast, navigate, location]);
 
   return (
     <>
@@ -113,7 +113,7 @@ const AppContent = () => {
               <ProfileListPage />
             </RequireAuth>
           } 
-        /> {/* Added new admin route */}
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

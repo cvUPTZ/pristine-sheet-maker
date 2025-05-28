@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Match, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics } from '@/types';
+import { Match, MatchEvent, Statistics, BallTrackingPoint, TimeSegmentStatistics, Player } from '@/types';
 
 export const useMatchState = (matchId: string) => {
   const [match, setMatch] = useState<Match | null>(null);
@@ -60,16 +60,34 @@ export const useMatchState = (matchId: string) => {
           .single();
 
         if (error) throw error;
-        setMatch(data);
+        
+        // Parse player data
+        const parsedMatch = {
+          ...data,
+          home_team_players: typeof data.home_team_players === 'string' 
+            ? JSON.parse(data.home_team_players) 
+            : data.home_team_players || [],
+          away_team_players: typeof data.away_team_players === 'string' 
+            ? JSON.parse(data.away_team_players) 
+            : data.away_team_players || []
+        };
+        
+        setMatch(parsedMatch);
 
         // Load existing statistics
         if (data.match_statistics) {
-          setStatistics(data.match_statistics);
+          const stats = typeof data.match_statistics === 'string' 
+            ? JSON.parse(data.match_statistics) 
+            : data.match_statistics;
+          setStatistics(stats);
         }
 
         // Load ball tracking data
         if (data.ball_tracking_data) {
-          setBallTrackingPoints(data.ball_tracking_data);
+          const ballData = typeof data.ball_tracking_data === 'string' 
+            ? JSON.parse(data.ball_tracking_data) 
+            : data.ball_tracking_data;
+          setBallTrackingPoints(ballData);
         }
 
       } catch (error) {
@@ -128,16 +146,18 @@ export const useMatchState = (matchId: string) => {
         status: 'confirmed'
       };
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
       // Save to database
       const { error } = await supabase.from('match_events').insert({
-        id: eventWithId.id,
         match_id: matchId,
         event_type: newEvent.type,
         timestamp: newEvent.timestamp,
         player_id: newEvent.playerId,
         team: newEvent.teamId,
         coordinates: JSON.stringify(newEvent.coordinates),
-        created_by: supabase.auth.getUser().then(({ data }) => data.user?.id || '')
+        created_by: user?.id || ''
       });
 
       if (error) throw error;

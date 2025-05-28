@@ -1,7 +1,7 @@
 
 import { EventType } from '@/types';
 
-export const EVENT_TYPES: Record<EventType, string> = {
+export const eventTypeLabels: Record<EventType, string> = {
   pass: 'Pass',
   shot: 'Shot',
   tackle: 'Tackle',
@@ -35,36 +35,36 @@ export const EVENT_TYPES: Record<EventType, string> = {
   groundDuel: 'Ground Duel'
 };
 
-export const KEYBOARD_MAPPINGS: Record<EventType, string> = {
-  pass: 'P',
-  shot: 'S',
-  tackle: 'T',
-  foul: 'F',
-  corner: 'C',
-  offside: 'O',
-  goal: 'G',
-  assist: 'A',
-  yellowCard: 'Y',
-  redCard: 'R',
-  substitution: 'U',
-  card: 'K',
-  penalty: 'E',
-  'free-kick': 'Q',
-  'goal-kick': 'L',
-  'throw-in': 'H',
-  interception: 'I',
-  possession: 'B',
-  ballLost: 'X',
-  ballRecovered: 'V',
-  dribble: 'D',
-  cross: 'Z',
-  clearance: 'W',
-  block: 'M',
-  save: 'N',
-  ownGoal: 'J',
-  freeKick: '1',
-  throwIn: '2',
-  goalKick: '3',
-  aerialDuel: '4',
-  groundDuel: '5'
+export const eventTypeDescriptions: Record<EventType, string> = {
+  pass: 'A successful pass between players',
+  shot: 'An attempt at goal',
+  tackle: 'A defensive action to win the ball',
+  foul: 'A rule violation',
+  corner: 'A corner kick',
+  offside: 'An offside offense',
+  goal: 'A goal scored',
+  assist: 'An assist for a goal',
+  yellowCard: 'A yellow card shown',
+  redCard: 'A red card shown',
+  substitution: 'A player substitution',
+  card: 'A card shown to a player',
+  penalty: 'A penalty kick',
+  'free-kick': 'A free kick awarded',
+  'goal-kick': 'A goal kick',
+  'throw-in': 'A throw in',
+  interception: 'Ball intercepted',
+  possession: 'Ball possession',
+  ballLost: 'Ball lost',
+  ballRecovered: 'Ball recovered',
+  dribble: 'Dribbling action',
+  cross: 'Cross into the box',
+  clearance: 'Defensive clearance',
+  block: 'Shot blocked',
+  save: 'Goalkeeper save',
+  ownGoal: 'Own goal scored',
+  freeKick: 'Free kick',
+  throwIn: 'Throw in',
+  goalKick: 'Goal kick',
+  aerialDuel: 'Aerial duel',
+  groundDuel: 'Ground duel'
 };
