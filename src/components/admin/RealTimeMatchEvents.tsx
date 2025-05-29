@@ -1,204 +1,239 @@
 
-"use client";
-
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { DisplayableMatchEvent, MatchEventPayload, MatchRosterPlayer, EventType } from '@/components/match/types';
+import { Tables } from '@/lib/database.types';
+import { Clock, Users, Activity } from 'lucide-react';
 
-const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
-    { key: 'pass', label: 'Pass' },
-    { key: 'shot', label: 'Shot' },
-    { key: 'foul', label: 'Foul' },
-    { key: 'goal', label: 'Goal' },
-    { key: 'save', label: 'Save' },
-    { key: 'offside', label: 'Offside' },
-    { key: 'corner', label: 'Corner Kick' },
-    { key: 'sub', label: 'Substitution' },
-];
-
-interface RealTimeMatchEventsProps {
-  matchId: string | null;
+interface MatchEvent {
+  id: string;
+  event_type: string;
+  timestamp: number | null;
+  player_id: number | null;
+  team: string | null;
+  coordinates: any;
+  created_at: string;
+  created_by: string;
+  match_id: string;
 }
 
-export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
-  const [events, setEvents] = useState<DisplayableMatchEvent[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingInitial, setLoadingInitial] = useState(false);
-  const [matchPlayers, setMatchPlayers] = useState<Map<string, MatchRosterPlayer>>(new Map());
+const RealTimeMatchEvents: React.FC = () => {
+  const [liveMatches, setLiveMatches] = useState<Tables<'matches'>[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const eventTypeMap = useMemo(() => 
-    new Map(ALL_SYSTEM_EVENT_TYPES.map(et => [et.key, et.label])), 
-  []);
-
-  const formatEvent = useCallback((event: MatchEventPayload): DisplayableMatchEvent => {
-    const player = event.player_roster_id ? matchPlayers.get(event.player_roster_id) : null;
-    return {
-      ...event,
-      event_type_label: eventTypeMap.get(event.event_type_key) || event.event_type_key,
-      player_name: player?.player_name || null,
-      player_jersey_number: player?.jersey_number || null,
-      team_context: player?.team_context || event.team_context || null,
-      is_new: false,
-    };
-  }, [matchPlayers, eventTypeMap]);
-
-  // Fetch initial data and players
   useEffect(() => {
-    if (!matchId) {
-      setEvents([]);
-      setMatchPlayers(new Map());
-      return;
-    }
-
-    let isMounted = true;
-    setLoadingInitial(true);
-    setError(null);
-
-    async function fetchInitialData() {
-      try {
-        // Fetch players for the match
-        const { data: playersData, error: playersError } = await supabase
-          .from('match_rosters')
-          .select('*')
-          .eq('match_id', matchId);
-
-        if (playersError) throw playersError;
-        if (isMounted) {
-          const playersMap = new Map(playersData.map((p: MatchRosterPlayer) => [p.id, p as MatchRosterPlayer]));
-          setMatchPlayers(playersMap);
-        
-          // Fetch initial events after players are fetched and map is ready
-          const { data: initialEventsData, error: initialEventsError } = await supabase
-            .from('match_events')
-            .select('*')
-            .eq('match_id', matchId)
-            .order('created_at', { ascending: false })
-            .limit(20);
-
-          if (initialEventsError) throw initialEventsError;
-          
-          if (isMounted) {
-            const formattedInitialEvents = (initialEventsData || []).map((event: any) => {
-                 const player = event.player_roster_id ? playersMap.get(event.player_roster_id) : null;
-                 return {
-                    ...event,
-                    event_type_label: eventTypeMap.get(event.event_type_key) || event.event_type_key,
-                    player_name: player?.player_name || null,
-                    player_jersey_number: player?.jersey_number || null,
-                    team_context: player?.team_context || event.team_context || null,
-                    is_new: false,
-                 } as DisplayableMatchEvent;
-            });
-            setEvents(formattedInitialEvents.reverse());
-          }
-        }
-      } catch (err: any) {
-        console.error('Error fetching initial data:', err);
-        if (isMounted) setError(err.message || 'Failed to load initial data.');
-      } finally {
-        if (isMounted) setLoadingInitial(false);
-      }
-    }
-
-    fetchInitialData();
-    return () => { isMounted = false; };
-  }, [matchId, eventTypeMap]);
-
-  // Real-time subscription
-  useEffect(() => {
-    if (!matchId) return;
-
-    let channel: RealtimeChannel | null = null;
-
-    const subscription = supabase
-      .channel(`match_events_for_${matchId}`)
-      .on<MatchEventPayload>(
+    fetchLiveMatches();
+    
+    // Subscribe to live match updates
+    const matchesChannel = supabase
+      .channel('live-matches')
+      .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'match_events', filter: `match_id=eq.${matchId}` },
-        (payload: any) => {
-          console.log('New event received:', payload.new);
-          const formattedNewEvent = formatEvent({ ...payload.new as MatchEventPayload });
-          setEvents((prevEvents) => [
-            { ...formattedNewEvent, is_new: true },
-            ...prevEvents.map(e => ({...e, is_new: false}))
-          ].slice(0, 50));
-
-          setTimeout(() => {
-            setEvents(currentEvents => 
-              currentEvents.map(e => e.id === formattedNewEvent.id ? {...e, is_new: false} : e)
-            );
-          }, 3000);
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+          filter: 'status=eq.live'
+        },
+        () => {
+          fetchLiveMatches();
         }
       )
-      .subscribe((status: any, err: any) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to match_events for match ${matchId}`);
-          setError(null);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Subscription error for match ${matchId}:`, err);
-          setError(`Real-time connection error: ${err?.message || 'Failed to subscribe'}`);
-        }
-      });
-      
-    channel = subscription;
+      .subscribe();
 
     return () => {
-      if (channel) {
-        console.log(`Unsubscribing from match_events for match ${matchId}`);
-        supabase.removeChannel(channel).catch((err: any) => console.error("Error removing channel", err));
-      }
+      supabase.removeChannel(matchesChannel);
     };
-  }, [matchId, formatEvent]);
+  }, []);
 
-  if (!matchId) {
-    return <div className="p-4 text-center text-gray-500">Please select a match to view live events.</div>;
-  }
+  useEffect(() => {
+    if (selectedMatch) {
+      fetchMatchEvents(selectedMatch);
+      
+      // Subscribe to events for selected match
+      const eventsChannel = supabase
+        .channel(`match-events-${selectedMatch}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'match_events',
+            filter: `match_id=eq.${selectedMatch}`
+          },
+          (payload: any) => {
+            console.log('Event update:', payload);
+            if (payload.eventType === 'INSERT') {
+              setEvents(prev => [payload.new as MatchEvent, ...prev]);
+            }
+          }
+        )
+        .subscribe((status: any, err: any) => {
+          console.log('Events subscription status:', status, err);
+        });
 
-  if (loadingInitial) {
-    return <div className="p-4 text-center">Loading initial events...</div>;
-  }
+      return () => {
+        supabase.removeChannel(eventsChannel);
+      };
+    }
+  }, [selectedMatch]);
 
-  if (error) {
-    return <div className="p-4 text-red-500 text-center">Error: {error}</div>;
+  const fetchLiveMatches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('status', 'live')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching live matches:', error);
+      } else {
+        setLiveMatches(data || []);
+        if (data && data.length > 0 && !selectedMatch) {
+          setSelectedMatch(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching live matches:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMatchEvents = async (matchId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching match events:', error);
+      } else {
+        setEvents(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching match events:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading live matches...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-4 border rounded-lg shadow-md bg-white h-[500px] overflow-y-auto flex flex-col-reverse">
-      {events.length === 0 && <p className="text-center text-gray-500">No events yet for this match.</p>}
-      <ul className="space-y-3">
-        {events.map((event) => (
-          <li
-            key={event.id}
-            className={`p-3 rounded-md border transition-all duration-500 ease-out
-                        ${event.is_new ? 'bg-blue-50 border-blue-300 shadow-lg' : 'bg-gray-50 border-gray-200'}`}
-          >
-            <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
-              <span>{new Date(event.created_at).toLocaleTimeString()}</span>
-              <span>ID: {event.id.substring(0, 8)}</span>
-            </div>
-            <p className="font-semibold text-lg text-gray-900">
-              {event.event_type_label || 'Unknown Event'}
-            </p>
-            {event.player_name && (
-              <p className="text-sm text-gray-700">
-                Player: {event.player_name} (#{event.player_jersey_number})
-                {event.team_context && <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full ${event.team_context === 'home' ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>{event.team_context.toUpperCase()}</span>}
-              </p>
-            )}
-            {!event.player_name && event.team_context && (
-                 <p className="text-sm text-gray-700">
-                    Team: <span className={`ml-1 text-xs font-medium px-1.5 py-0.5 rounded-full ${event.team_context === 'home' ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>{event.team_context.toUpperCase()}</span>
-                 </p>
-            )}
-            {event.event_data && (
-              <pre className="mt-1 text-xs bg-gray-100 p-1.5 rounded overflow-x-auto">
-                {JSON.stringify(event.event_data, null, 2)}
-              </pre>
-            )}
-          </li>
-        ))}
-      </ul>
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-6">
+        <Activity className="h-6 w-6" />
+        <h2 className="text-2xl font-bold">Live Match Events</h2>
+      </div>
+
+      {liveMatches.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Live Matches</h3>
+            <p className="text-gray-600">There are currently no live matches to monitor.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Live Matches List */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Live Matches
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {liveMatches.map((match) => (
+                <div
+                  key={match.id}
+                  onClick={() => setSelectedMatch(match.id)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                    selectedMatch === match.id
+                      ? 'bg-blue-100 border-2 border-blue-300'
+                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="font-medium text-sm">
+                    {match.home_team_name} vs {match.away_team_name}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date'}
+                  </div>
+                  <Badge variant="secondary" className="mt-2 text-xs">
+                    Live
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Events Feed */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Real-time Events
+                {selectedMatch && (
+                  <span className="text-sm font-normal text-gray-600">
+                    ({events.length} events)
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedMatch ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {events.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No events recorded yet</p>
+                  ) : (
+                    events.map((event) => (
+                      <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">
+                            {event.event_type}
+                          </Badge>
+                          <div className="text-sm">
+                            <div className="font-medium">
+                              Player #{event.player_id || 'Unknown'} - {event.team || 'Unknown team'}
+                            </div>
+                            <div className="text-gray-600">
+                              {event.timestamp ? `${Math.floor(event.timestamp / 60)}:${(event.timestamp % 60).toString().padStart(2, '0')}` : 'No time'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(event.created_at).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Select a match to view events</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default RealTimeMatchEvents;

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { EventType, PlayerForPianoInput, AssignedPlayers, MatchRosterPlayer } from '@/components/match/types';
+import { EventType, PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 
 interface EventTypeConfig {
   key: string;
@@ -46,30 +46,41 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       setError(null);
 
       try {
-        const { data: allMatchPlayersData, error: allMatchPlayersError } = await supabase
-          .from('match_rosters')
-          .select('id, player_name, jersey_number, team_context')
-          .eq('match_id', matchId);
+        // Since match_rosters table doesn't exist, we'll work with match data
+        const { data: matchData, error: matchError } = await supabase
+          .from('matches')
+          .select('home_team_players, away_team_players')
+          .eq('id', matchId)
+          .single();
 
-        if (allMatchPlayersError) {
-          console.error('Error fetching full match roster:', allMatchPlayersError);
-          throw new Error(`Failed to fetch full match roster: ${allMatchPlayersError.message}`);
+        if (matchError) {
+          console.error('Error fetching match data:', matchError);
+          throw new Error(`Failed to fetch match data: ${matchError.message}`);
         }
 
-        const currentFullRoster: AssignedPlayers = { home: [], away: [] };
-        (allMatchPlayersData as MatchRosterPlayer[])?.forEach((player: MatchRosterPlayer) => {
-          const pScoped: PlayerForPianoInput = {
-            id: player.id,
-            player_name: player.player_name,
-            jersey_number: player.jersey_number,
-            team_context: player.team_context,
-          };
-          if (player.team_context === 'home') {
-            currentFullRoster.home.push(pScoped);
-          } else {
-            currentFullRoster.away.push(pScoped);
-          }
-        });
+        // Parse the player data from the match
+        const homeTeamPlayers = typeof matchData.home_team_players === 'string' 
+          ? JSON.parse(matchData.home_team_players) 
+          : matchData.home_team_players || [];
+        
+        const awayTeamPlayers = typeof matchData.away_team_players === 'string' 
+          ? JSON.parse(matchData.away_team_players) 
+          : matchData.away_team_players || [];
+
+        const currentFullRoster: AssignedPlayers = { 
+          home: homeTeamPlayers.map((p: any, index: number) => ({
+            id: p.id || `home-${index}`,
+            player_name: p.name || `Player ${index + 1}`,
+            jersey_number: p.number || index + 1,
+            team_context: 'home'
+          })), 
+          away: awayTeamPlayers.map((p: any, index: number) => ({
+            id: p.id || `away-${index}`,
+            player_name: p.name || `Player ${index + 1}`,
+            jersey_number: p.number || index + 1,
+            team_context: 'away'
+          }))
+        };
         setFullMatchRoster(currentFullRoster);
 
         const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase

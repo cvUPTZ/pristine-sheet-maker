@@ -15,7 +15,7 @@ export const generatePlayersForFormation = (formation: Formation, teamName: stri
   // Generate 11 players for the formation
   for (let i = 1; i <= 11; i++) {
     players.push({
-      id: `${teamName.toLowerCase()}-${i}`,
+      id: i.toString(),
       name: `${teamName} Player ${i}`,
       position: i === 1 ? 'Goalkeeper' : 'Outfield',
       number: i
@@ -43,7 +43,7 @@ export const createSimulatedTeams = (): { homeTeam: Team; awayTeam: Team } => {
   return { homeTeam, awayTeam };
 };
 
-export const getFormationPositions = (formation: Formation) => {
+export const getFormationPositions = (formation: Formation): Array<{x: number, y: number}> => {
   // Return basic position layout for formations
   const positions: Record<Formation, Array<{x: number, y: number}>> = {
     '4-4-2': [

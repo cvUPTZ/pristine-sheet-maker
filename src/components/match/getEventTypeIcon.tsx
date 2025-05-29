@@ -1,18 +1,15 @@
 
 import React from 'react';
-import {
-  Play,
-  Target,
-  User,
-  AlertTriangle,
-  Flag,
+import { 
+  ArrowRight, 
+  Target, 
+  AlertTriangle, 
+  Trophy, 
+  Shield, 
+  Flag, 
   CornerDownRight,
-  Trophy,
-  Shield,
-  Square,
-  Plus,
-  ArrowRight,
-  RotateCcw
+  ArrowUpDown,
+  LucideIcon
 } from 'lucide-react';
 
 interface IconProps {
@@ -20,11 +17,16 @@ interface IconProps {
   className?: string;
 }
 
-export function getEventTypeIcon(eventType: string, props: IconProps = {}): React.ReactElement {
+export function getEventTypeIcon(eventKey: string, props: IconProps = {}): JSX.Element {
   const { size = 24, className = '' } = props;
-  const iconProps = { size, className };
+  
+  const iconProps = {
+    size,
+    className,
+    strokeWidth: 2
+  };
 
-  switch (eventType.toLowerCase()) {
+  switch (eventKey) {
     case 'pass':
       return <ArrowRight {...iconProps} />;
     case 'shot':
@@ -41,12 +43,8 @@ export function getEventTypeIcon(eventType: string, props: IconProps = {}): Reac
       return <CornerDownRight {...iconProps} />;
     case 'sub':
     case 'substitution':
-      return <RotateCcw {...iconProps} />;
-    case 'tackle':
-      return <User {...iconProps} />;
-    case 'cross':
-      return <Plus {...iconProps} />;
+      return <ArrowUpDown {...iconProps} />;
     default:
-      return <Play {...iconProps} />;
+      return <ArrowRight {...iconProps} />;
   }
 }

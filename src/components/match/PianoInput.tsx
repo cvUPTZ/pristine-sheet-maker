@@ -150,79 +150,121 @@ export function PianoInput({
   const showPlayerSelection = selectedEventType && (displayableHomePlayers.length > 0 || displayableAwayPlayers.length > 0);
 
   return (
-    <div className="p-4 border rounded-lg bg-gray-50 shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Event Piano Input</h2>
+    <div className="p-6 border rounded-lg bg-gradient-to-br from-gray-50 to-white shadow-lg">
+      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Event Piano Input</h2>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4 text-gray-700">
           1. Select Event Type {selectedEventType && <span className="text-blue-600 font-normal">(Selected: {selectedEventType.label})</span>}
         </h3>
-        {displayableEventTypes.length === 0 && <p className="text-sm text-gray-500">No event types assigned or available.</p>}
-        <div className="flex flex-wrap gap-2">
+        {displayableEventTypes.length === 0 && <p className="text-sm text-gray-500 mb-4">No event types assigned or available.</p>}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {displayableEventTypes.map((et: EventType) => (
             <button
               key={et.key}
               onClick={() => handleEventTypeSelect(et)}
               disabled={!!selectedEventType && selectedEventType.key !== et.key}
-              className={`flex flex-col items-center justify-center gap-1 p-3 rounded-lg text-xs font-medium transition-colors shadow-sm hover:shadow-md
-                          min-w-[90px] min-h-[90px]
+              className={`group relative flex flex-col items-center justify-center gap-3 p-6 rounded-xl text-sm font-semibold transition-all duration-200 transform hover:scale-105 hover:shadow-lg
+                          min-w-[120px] min-h-[120px] border-2
                           ${selectedEventType?.key === et.key 
-                            ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
-                            : 'bg-white hover:bg-gray-50 text-gray-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none'}`}
+                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg scale-105' 
+                            : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-100 disabled:shadow-none disabled:scale-100'}`}
               title={`${et.label} (Shortcut: ${et.key.charAt(0).toUpperCase()})`}
             >
-              {getEventTypeIcon(et.key, { size: 40 })}
-              <span className="mt-1 truncate">{et.label}</span>
+              <div className={`transition-colors duration-200 ${selectedEventType?.key === et.key ? 'text-white' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                {getEventTypeIcon(et.key, { size: 48 })}
+              </div>
+              <span className="text-center leading-tight">{et.label}</span>
+              <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                              ${selectedEventType?.key === et.key ? 'bg-white text-blue-600' : 'bg-gray-200 text-gray-600'}`}>
+                {et.key.charAt(0).toUpperCase()}
+              </div>
             </button>
           ))}
         </div>
       </div>
       
       {showPlayerSelection && (
-        <div className="mb-6">
-          <h3 className="text-lg font-medium mb-2">
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold mb-4 text-gray-700">
             2. Select Player {activeTeamContext && <span className="text-blue-600 font-normal">(Active Team: {activeTeamContext.toUpperCase()})</span>}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-md font-semibold mb-1 flex items-center">
-                Home Team 
-                {selectedEventType && !activeTeamContext && <button onClick={() => setActiveTeamContext('home')} className="ml-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded hover:bg-blue-600">(H)</button>}
-                {activeTeamContext === 'home' && <span className="ml-2 text-xs bg-green-500 text-white px-1.5 py-0.5 rounded">ACTIVE (H)</span>}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+              <h4 className="text-lg font-semibold mb-3 flex items-center text-green-800">
+                🏠 Home Team 
+                {selectedEventType && !activeTeamContext && (
+                  <button 
+                    onClick={() => setActiveTeamContext('home')} 
+                    className="ml-3 text-xs bg-green-500 text-white px-2 py-1 rounded-md hover:bg-green-600 transition-colors"
+                  >
+                    Press H
+                  </button>
+                )}
+                {activeTeamContext === 'home' && (
+                  <span className="ml-3 text-xs bg-green-600 text-white px-2 py-1 rounded-md font-bold">
+                    ACTIVE (H)
+                  </span>
+                )}
               </h4>
-              {displayableHomePlayers.length === 0 && <p className="text-sm text-gray-500">No home players assigned or available for this match.</p>}
-              <div className="flex flex-col space-y-1 max-h-60 overflow-y-auto pr-2">
+              {displayableHomePlayers.length === 0 && (
+                <p className="text-sm text-gray-500 italic">No home players assigned or available for this match.</p>
+              )}
+              <div className="grid gap-2 max-h-80 overflow-y-auto">
                 {displayableHomePlayers.map((player: PlayerForPianoInput) => (
                   <button
                     key={player.id}
                     onClick={() => handlePlayerSelect(player)}
                     disabled={activeTeamContext !== null && activeTeamContext !== 'home'}
-                    className={`px-3 py-1.5 rounded-md text-left text-sm transition-colors w-full
-                                ${'bg-gray-100 hover:bg-green-100 text-gray-700 focus:ring-2 focus:ring-green-400 disabled:bg-gray-50 disabled:text-gray-400'}`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium transition-all duration-200 w-full
+                                ${activeTeamContext === 'home' || activeTeamContext === null
+                                  ? 'bg-white hover:bg-green-100 text-gray-800 border border-green-200 hover:border-green-300 hover:shadow-md transform hover:scale-[1.02]' 
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'}`}
                   >
-                    #{player.jersey_number} - {player.player_name}
+                    <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-xs">
+                      {player.jersey_number}
+                    </div>
+                    <span className="flex-1">{player.player_name}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div>
-              <h4 className="text-md font-semibold mb-1 flex items-center">
-                Away Team
-                {selectedEventType && !activeTeamContext && <button onClick={() => setActiveTeamContext('away')} className="ml-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded hover:bg-blue-600">(A)</button>}
-                {activeTeamContext === 'away' && <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">ACTIVE (A)</span>}
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+              <h4 className="text-lg font-semibold mb-3 flex items-center text-red-800">
+                ✈️ Away Team
+                {selectedEventType && !activeTeamContext && (
+                  <button 
+                    onClick={() => setActiveTeamContext('away')} 
+                    className="ml-3 text-xs bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600 transition-colors"
+                  >
+                    Press A
+                  </button>
+                )}
+                {activeTeamContext === 'away' && (
+                  <span className="ml-3 text-xs bg-red-600 text-white px-2 py-1 rounded-md font-bold">
+                    ACTIVE (A)
+                  </span>
+                )}
               </h4>
-              {displayableAwayPlayers.length === 0 && <p className="text-sm text-gray-500">No away players assigned or available for this match.</p>}
-              <div className="flex flex-col space-y-1 max-h-60 overflow-y-auto pr-2">
+              {displayableAwayPlayers.length === 0 && (
+                <p className="text-sm text-gray-500 italic">No away players assigned or available for this match.</p>
+              )}
+              <div className="grid gap-2 max-h-80 overflow-y-auto">
                 {displayableAwayPlayers.map((player: PlayerForPianoInput) => (
                   <button
                     key={player.id}
                     onClick={() => handlePlayerSelect(player)}
                     disabled={activeTeamContext !== null && activeTeamContext !== 'away'}
-                    className={`px-3 py-1.5 rounded-md text-left text-sm transition-colors w-full
-                                ${'bg-gray-100 hover:bg-red-100 text-gray-700 focus:ring-2 focus:ring-red-400 disabled:bg-gray-50 disabled:text-gray-400'}`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium transition-all duration-200 w-full
+                                ${activeTeamContext === 'away' || activeTeamContext === null
+                                  ? 'bg-white hover:bg-red-100 text-gray-800 border border-red-200 hover:border-red-300 hover:shadow-md transform hover:scale-[1.02]' 
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'}`}
                   >
-                    #{player.jersey_number} - {player.player_name}
+                    <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-xs">
+                      {player.jersey_number}
+                    </div>
+                    <span className="flex-1">{player.player_name}</span>
                   </button>
                 ))}
               </div>
@@ -231,15 +273,29 @@ export function PianoInput({
         </div>
       )}
 
-      {!selectedEventType && (
-         <p className="text-sm text-gray-600 pt-2">Select an event type to begin. Use keyboard shortcuts for faster input (e.g., P for Pass, S for Shot, then H/A for team, then jersey number).</p>
-       )}
-       {selectedEventType && !showPlayerSelection && (
-         <p className="text-sm text-yellow-700 pt-2">No players available for selection for the current assignment or match roster.</p>
-       )}
-       {selectedEventType && !activeTeamContext && showPlayerSelection && (
-          <p className="text-sm text-gray-600 pt-2">Select Home (H) or Away (A) team, then player by jersey number. Press Esc to clear event selection.</p>
-       )}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+        {!selectedEventType && (
+          <div className="text-gray-600">
+            <p className="font-medium mb-1">🎹 Piano Mode Instructions</p>
+            <p className="text-sm">Select an event type to begin. Use keyboard shortcuts for faster input (e.g., P for Pass, S for Shot, then H/A for team, then jersey number).</p>
+          </div>
+        )}
+        {selectedEventType && !showPlayerSelection && (
+          <p className="text-yellow-700 font-medium">⚠️ No players available for selection for the current assignment or match roster.</p>
+        )}
+        {selectedEventType && !activeTeamContext && showPlayerSelection && (
+          <div className="text-gray-600">
+            <p className="font-medium mb-1">👥 Team Selection Required</p>
+            <p className="text-sm">Select Home (H) or Away (A) team, then player by jersey number. Press Esc to clear event selection.</p>
+          </div>
+        )}
+        {selectedEventType && activeTeamContext && (
+          <div className="text-gray-600">
+            <p className="font-medium mb-1">🎯 Ready to Record</p>
+            <p className="text-sm">Click on a player or press their jersey number (0-9) to record the {selectedEventType.label} event.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
