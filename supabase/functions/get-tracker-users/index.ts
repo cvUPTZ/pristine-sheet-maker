@@ -52,11 +52,12 @@ serve(async (req) => {
       )
     }
 
-    // Check if user has admin role
-    const { data: userRoles, error: roleError } = await supabaseClient
-      .from('user_roles')
+    // Check if user has admin role using the user_profiles_with_role view
+    const { data: userProfile, error: roleError } = await supabaseClient
+      .from('user_profiles_with_role')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
+      .single()
 
     if (roleError) {
       console.error('Role check error:', roleError)
@@ -69,7 +70,7 @@ serve(async (req) => {
       )
     }
 
-    const isAdmin = userRoles?.some(r => r.role === 'admin')
+    const isAdmin = userProfile?.role === 'admin'
     if (!isAdmin) {
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
@@ -80,16 +81,16 @@ serve(async (req) => {
       )
     }
 
-    // Get tracker users from user_roles table
-    const { data: trackerRoles, error: trackerRolesError } = await supabaseClient
-      .from('user_roles')
-      .select('user_id')
+    // Get tracker users from user_profiles_with_role view
+    const { data: trackerUsers, error: trackersError } = await supabaseClient
+      .from('user_profiles_with_role')
+      .select('id, full_name, email')
       .eq('role', 'tracker')
 
-    if (trackerRolesError) {
-      console.error('Error fetching tracker roles:', trackerRolesError)
+    if (trackersError) {
+      console.error('Error fetching tracker users:', trackersError)
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch tracker roles' }),
+        JSON.stringify({ error: 'Failed to fetch tracker users' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -97,7 +98,7 @@ serve(async (req) => {
       )
     }
 
-    if (!trackerRoles || trackerRoles.length === 0) {
+    if (!trackerUsers || trackerUsers.length === 0) {
       return new Response(
         JSON.stringify([]),
         { 
@@ -107,49 +108,12 @@ serve(async (req) => {
       )
     }
 
-    // Get tracker user IDs
-    const trackerUserIds = trackerRoles.map(tr => tr.user_id)
-
-    // Fetch profiles for tracker users
-    const { data: trackerProfiles, error: profilesError } = await supabaseClient
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', trackerUserIds)
-
-    if (profilesError) {
-      console.error('Error fetching tracker profiles:', profilesError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch tracker profiles' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Get emails from auth.users for these tracker users
-    const { data: { users: authUsers }, error: authUsersError } = await supabaseClient.auth.admin.listUsers()
-
-    if (authUsersError) {
-      console.error('Error fetching auth users:', authUsersError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch user emails' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Combine profile and auth data
-    const trackersWithEmails = trackerProfiles?.map(profile => {
-      const authUser = authUsers?.find(au => au.id === profile.id)
-      return {
-        id: profile.id,
-        full_name: profile.full_name,
-        email: authUser?.email || 'No email'
-      }
-    }) || []
+    // Format the response to match the expected structure
+    const trackersWithEmails = trackerUsers.map(user => ({
+      id: user.id,
+      full_name: user.full_name || 'No name',
+      email: user.email || 'No email'
+    }))
 
     console.log(`Found ${trackersWithEmails.length} tracker users`)
 
