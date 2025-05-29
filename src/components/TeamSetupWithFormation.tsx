@@ -46,7 +46,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
     }
 
     // Check if jersey number already exists
-    const numberExists = team.players.some(p => p.number.toString() === newPlayer.number);
+    const numberExists = team.players.some(p => p.number?.toString() === newPlayer.number);
     if (numberExists) {
       alert('Jersey number already exists!');
       return;
@@ -165,7 +165,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
                         className="flex-1"
                       />
                       <Input
-                        value={player.number.toString()}
+                        value={player.number?.toString() || ''}
                         onChange={(e) => handlePlayerEdit(player.id, 'number', e.target.value)}
                         className="w-16"
                         type="number"
@@ -195,7 +195,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
                   ) : (
                     <>
                       <span className="flex-1">{player.name}</span>
-                      <Badge variant="secondary">#{player.number}</Badge>
+                      <Badge variant="secondary">#{player.number || 'N/A'}</Badge>
                       <Badge variant="outline">{player.position}</Badge>
                       <Button
                         size="sm"

@@ -112,11 +112,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
   const fetchTrackers = async () => {
     setIsLoadingTrackers(true);
     try {
-      console.log('Fetching trackers using edge function...');
+      console.log('Fetching trackers using get-tracker-users edge function...');
       
-      const { data, error } = await supabase.functions.invoke('get-all-users', {
-        body: { userType: 'tracker' }
-      });
+      const { data, error } = await supabase.functions.invoke('get-tracker-users');
 
       if (error) {
         console.error('Edge function error:', error);
@@ -125,8 +123,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       
       console.log('Edge function response:', data);
       
-      if (data && data.users) {
-        const transformedData: TrackerProfile[] = data.users.map((tracker: any) => ({
+      if (data && Array.isArray(data)) {
+        const transformedData: TrackerProfile[] = data.map((tracker: any) => ({
           id: tracker.id,
           full_name: tracker.full_name || null,
           email: tracker.email || 'No email'
