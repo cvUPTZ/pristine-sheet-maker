@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -64,13 +65,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
   const [homeTeam, setHomeTeam] = useState<Team>({
     id: 'home',
     name: initialData?.homeTeamName || '',
-    formation: (initialData?.home_team_formation || '4-4-2') as Formation,
+    formation: (initialData?.home_team_formation as Formation) || '4-4-2',
     players: initialData?.home_team_players || []
   });
   const [awayTeam, setAwayTeam] = useState<Team>({
     id: 'away',
     name: initialData?.awayTeamName || '',
-    formation: (initialData?.away_team_formation || '4-3-3') as Formation,
+    formation: (initialData?.away_team_formation as Formation) || '4-3-3',
     players: initialData?.away_team_players || []
   });
   const [trackers, setTrackers] = useState<TrackerProfile[]>([]);
@@ -94,22 +95,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
         competition: initialData.competition || '',
         homeTeamName: initialData.home_team_name || '',
         awayTeamName: initialData.away_team_name || '',
-        homeTeamScore: initialData.home_team_score,
-        awayTeamScore: initialData.away_team_score,
+        homeTeamScore: initialData.home_team_score ?? null,
+        awayTeamScore: initialData.away_team_score ?? null,
         notes: initialData.notes || '',
       });
 
       setHomeTeam({
         id: 'home',
         name: initialData.home_team_name || '',
-        formation: (initialData.home_team_formation || '4-4-2') as Formation,
+        formation: (initialData.home_team_formation as Formation) || '4-4-2',
         players: initialData.home_team_players || []
       });
 
       setAwayTeam({
         id: 'away',
         name: initialData.away_team_name || '',
-        formation: (initialData.away_team_formation || '4-3-3') as Formation,
+        formation: (initialData.away_team_formation as Formation) || '4-3-3',
         players: initialData.away_team_players || []
       });
     }
@@ -530,7 +531,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
                     type="number"
                     id="homeTeamScore"
                     name="homeTeamScore"
-                    value={matchDetails.homeTeamScore === null ? '' : matchDetails.homeTeamScore.toString()}
+                    value={matchDetails.homeTeamScore === null || matchDetails.homeTeamScore === undefined ? '' : matchDetails.homeTeamScore.toString()}
                     onChange={(e) => handleNumberChange(e, 'homeTeamScore')}
                     placeholder="Enter home team score"
                   />
@@ -541,7 +542,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
                     type="number"
                     id="awayTeamScore"
                     name="awayTeamScore"
-                    value={matchDetails.awayTeamScore === null ? '' : matchDetails.awayTeamScore.toString()}
+                    value={matchDetails.awayTeamScore === null || matchDetails.awayTeamScore === undefined ? '' : matchDetails.awayTeamScore.toString()}
                     onChange={(e) => handleNumberChange(e, 'awayTeamScore')}
                     placeholder="Enter away team score"
                   />
@@ -615,7 +616,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
                         </Button>
                       </div>
                     ) : (
-                      <ScrollArea className="h-80">
+                      <ScrollArea className="h-96">
                         <div className="space-y-4">
                           {trackers.map((tracker) => (
                             <div key={tracker.id} className="border rounded-lg p-4">
@@ -626,7 +627,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 <div>
                                   <Label className="text-sm font-medium">Event Types</Label>
-                                  <div className="grid grid-cols-3 gap-1 mt-2">
+                                  <div className="grid grid-cols-3 gap-1 mt-2 max-h-32 overflow-y-auto">
                                     {eventTypes.map((eventType) => (
                                       <div key={eventType} className="flex items-center space-x-1">
                                         <Checkbox

@@ -46,7 +46,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
     }
 
     // Check if jersey number already exists
-    const numberExists = team.players.some(p => p.number?.toString() === newPlayer.number);
+    const numberExists = team.players.some(p => p.number?.toString() === newPlayer.number.toString());
     if (numberExists) {
       alert('Jersey number already exists!');
       return;
