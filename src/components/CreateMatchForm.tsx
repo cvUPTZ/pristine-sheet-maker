@@ -54,7 +54,13 @@ interface TrackerProfile {
   email: string;
 }
 
-const CreateMatchForm: React.FC = () => {
+interface CreateMatchFormProps {
+  onSuccess?: () => void;
+  // isEditMode?: boolean; // Not used in current version of file, but good for future reference
+  // initialData?: Partial<MatchFormData>; // Not used in current version of file
+}
+
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [matchDetails, setMatchDetails] = useState<MatchFormData>(initialMatchFormState);
   const [homeTeam, setHomeTeam] = useState<Team>({
@@ -285,12 +291,14 @@ const CreateMatchForm: React.FC = () => {
 
           if (notificationError) {
             console.error('Error sending notification:', notificationError);
+            toast.error(`Failed to send notification to tracker ${assignment.trackerId}: ${notificationError.message}`);
           }
         }
       }
 
       toast.success('Match created successfully!');
-      navigate('/admin');
+      onSuccess?.(); // Call onSuccess callback if provided
+      // navigate('/admin'); // Removed as per task to let Admin.tsx handle dialog closure via onSuccess
     } catch (error: any) {
       console.error('Error creating match:', error);
       toast.error(`Failed to create match: ${error.message}`);
