@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Player, MatchFormData, User, TrackerAssignmentDetails } from '@/types';
 import { EVENT_TYPE_CATEGORIES } from '@/constants/eventTypes';
 import FormationSelector from '@/components/FormationSelector';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CreateMatchFormProps {
   onMatchCreated?: (newMatch: any) => void;
@@ -27,6 +28,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
   const [trackers, setTrackers] = useState<User[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const isMobile = useIsMobile();
+
   const [assignmentDetails, setAssignmentDetails] = useState<TrackerAssignmentDetails>({
     eventCategories: [],
     specificEvents: [],
@@ -66,7 +69,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
       if (error) throw error;
       
-      // Filter out null values and ensure proper typing
       const validTrackers = (data || [])
         .filter(tracker => tracker.email && tracker.full_name)
         .map(tracker => ({
@@ -273,7 +275,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
       if (error) throw error;
 
-      // Send notifications to selected trackers
       await sendNotificationToTrackers(data.id);
 
       toast.success('Match created successfully!');
@@ -324,35 +325,35 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
     return (
       <Card className={`border-l-4 ${colorClass}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
             {teamName || `${team === 'home' ? 'Home' : 'Away'} Team`}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
+        <CardContent className="space-y-2 sm:space-y-4">
+          <div className="space-y-2 sm:space-y-3">
             {(players || []).map((player, index) => (
-              <div key={player.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 p-3 border rounded-lg">
+              <div key={player.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 p-2 sm:p-3 border rounded-lg">
                 <Input
                   type="number"
                   value={player.number}
                   onChange={(e) => updatePlayer(team, index, 'number', parseInt(e.target.value) || 0)}
                   placeholder="№"
-                  className="w-full"
+                  className="w-full text-sm"
                 />
                 <Input
                   value={player.name}
                   onChange={(e) => updatePlayer(team, index, 'name', e.target.value)}
                   placeholder="Player Name"
-                  className="sm:col-span-2"
+                  className="sm:col-span-2 text-sm"
                 />
                 <div className="flex gap-2">
                   <Select 
                     value={player.position} 
                     onValueChange={(value) => updatePlayer(team, index, 'position', value)}
                   >
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="flex-1 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -364,11 +365,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                   </Select>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size={isMobile ? "sm" : "icon"}
                     onClick={() => removePlayer(team, index)}
                     className="text-red-600 hover:text-red-800"
                   >
-                    <Minus className="h-4 w-4" />
+                    <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
@@ -377,9 +378,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             <Button
               variant="outline"
               onClick={() => addPlayer(team)}
-              className="w-full"
+              className="w-full text-sm"
+              size={isMobile ? "sm" : "default"}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
               Add Player
             </Button>
           </div>
@@ -389,89 +391,106 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
   };
 
   return (
-    <Card className="w-full max-w-4xl">
-      <CardHeader>
-        <CardTitle>Create New Match</CardTitle>
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-lg sm:text-xl">Create New Match</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 sm:p-6">
         <Tabs value={currentStep} onValueChange={setCurrentStep}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">Match Details</TabsTrigger>
-            <TabsTrigger value="teams">Team Setup</TabsTrigger>
-            <TabsTrigger value="players">Players</TabsTrigger>
-            <TabsTrigger value="trackers">Trackers</TabsTrigger>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2' : 'grid-cols-4'} mb-4`}>
+            <TabsTrigger value="details" className="text-xs sm:text-sm px-1 sm:px-3">
+              {isMobile ? 'Details' : 'Match Details'}
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="text-xs sm:text-sm px-1 sm:px-3">
+              {isMobile ? 'Teams' : 'Team Setup'}
+            </TabsTrigger>
+            {!isMobile && (
+              <>
+                <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-3">Players</TabsTrigger>
+                <TabsTrigger value="trackers" className="text-xs sm:text-sm px-1 sm:px-3">Trackers</TabsTrigger>
+              </>
+            )}
+            {isMobile && (
+              <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-3">More</TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="details" className="space-y-4 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="details" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label htmlFor="name">Match Name *</Label>
+                <Label htmlFor="name" className="text-sm">Match Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter match name"
+                  className="text-sm"
                   required
                 />
               </div>
               
               <div>
-                <Label htmlFor="competition">Competition</Label>
+                <Label htmlFor="competition" className="text-sm">Competition</Label>
                 <Input
                   id="competition"
                   value={formData.competition || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, competition: e.target.value }))}
                   placeholder="Enter competition name"
+                  className="text-sm"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label htmlFor="venue">Venue</Label>
+                <Label htmlFor="venue" className="text-sm">Venue</Label>
                 <Input
                   id="venue"
                   value={formData.venue || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, venue: e.target.value }))}
                   placeholder="Enter venue"
+                  className="text-sm"
                 />
               </div>
               
               <div>
-                <Label htmlFor="matchDate">Match Date</Label>
+                <Label htmlFor="matchDate" className="text-sm">Match Date</Label>
                 <Input
                   id="matchDate"
                   type="datetime-local"
                   value={formData.matchDate || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, matchDate: e.target.value }))}
+                  className="text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-sm">Description</Label>
               <Textarea
                 id="description"
                 value={formData.description || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter match description (optional)"
                 rows={3}
+                className="text-sm resize-none"
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="teams" className="space-y-4 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="homeTeam">Home Team *</Label>
+          <TabsContent value="teams" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-3">
+                <Label htmlFor="homeTeam" className="text-sm">Home Team *</Label>
                 <Input
                   id="homeTeam"
                   value={formData.homeTeamName}
                   onChange={(e) => setFormData(prev => ({ ...prev, homeTeamName: e.target.value }))}
                   placeholder="Enter home team name"
+                  className="text-sm"
                   required
                 />
-                <div className="mt-3">
+                <div>
                   <FormationSelector
                     value={formData.homeTeamFormation as any}
                     onChange={(formation) => setFormData(prev => ({ ...prev, homeTeamFormation: formation }))}
@@ -480,16 +499,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                 </div>
               </div>
               
-              <div>
-                <Label htmlFor="awayTeam">Away Team *</Label>
+              <div className="space-y-3">
+                <Label htmlFor="awayTeam" className="text-sm">Away Team *</Label>
                 <Input
                   id="awayTeam"
                   value={formData.awayTeamName}
                   onChange={(e) => setFormData(prev => ({ ...prev, awayTeamName: e.target.value }))}
                   placeholder="Enter away team name"
+                  className="text-sm"
                   required
                 />
-                <div className="mt-3">
+                <div>
                   <FormationSelector
                     value={formData.awayTeamFormation as any}
                     onChange={(formation) => setFormData(prev => ({ ...prev, awayTeamFormation: formation }))}
@@ -500,233 +520,279 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             </div>
           </TabsContent>
 
-          <TabsContent value="players" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {renderPlayerForm('home')}
-              {renderPlayerForm('away')}
-            </div>
+          <TabsContent value="players" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+            {isMobile && (
+              <Tabs defaultValue="players-tab" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="players-tab" className="text-xs">Players</TabsTrigger>
+                  <TabsTrigger value="trackers-tab" className="text-xs">Trackers</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="players-tab" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    {renderPlayerForm('home')}
+                    {renderPlayerForm('away')}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="trackers-tab" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Users className="h-4 w-4" />
+                          Select Trackers
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 gap-2">
+                          {trackers.map((tracker) => (
+                            <div key={tracker.id} className="flex items-center space-x-2 p-2 border rounded-lg">
+                              <Checkbox
+                                id={tracker.id}
+                                checked={selectedTrackers.includes(tracker.id)}
+                                onCheckedChange={() => handleTrackerToggle(tracker.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <label htmlFor={tracker.id} className="text-xs font-medium cursor-pointer truncate block">
+                                  {tracker.full_name}
+                                </label>
+                                <p className="text-xs text-gray-500 truncate">{tracker.email}</p>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">{tracker.role}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+            
+            {!isMobile && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {renderPlayerForm('home')}
+                {renderPlayerForm('away')}
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="trackers" className="space-y-6 mt-6">
-            <div className="space-y-6">
-              {/* Tracker Selection */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Select Trackers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {trackers.map((tracker) => (
-                      <div key={tracker.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <Checkbox
-                          id={tracker.id}
-                          checked={selectedTrackers.includes(tracker.id)}
-                          onCheckedChange={() => handleTrackerToggle(tracker.id)}
-                        />
-                        <div className="flex-1">
-                          <label htmlFor={tracker.id} className="text-sm font-medium cursor-pointer">
-                            {tracker.full_name}
-                          </label>
-                          <p className="text-xs text-gray-500">{tracker.email}</p>
+          {!isMobile && (
+            <TabsContent value="trackers" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Select Trackers
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {trackers.map((tracker) => (
+                        <div key={tracker.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                          <Checkbox
+                            id={tracker.id}
+                            checked={selectedTrackers.includes(tracker.id)}
+                            onCheckedChange={() => handleTrackerToggle(tracker.id)}
+                          />
+                          <div className="flex-1">
+                            <label htmlFor={tracker.id} className="text-sm font-medium cursor-pointer">
+                              {tracker.full_name}
+                            </label>
+                            <p className="text-xs text-gray-500">{tracker.email}</p>
+                          </div>
+                          <Badge variant="secondary">{tracker.role}</Badge>
                         </div>
-                        <Badge variant="secondary">{tracker.role}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Assignment Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assignment Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Event Categories & Types */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Event Categories & Types</h3>
-                    
-                    {EVENT_TYPE_CATEGORIES.map((category) => {
-                      const isOpen = openCategories.includes(category.key);
-                      const isSelected = assignmentDetails.eventCategories.includes(category.key);
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Assignment Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Event Categories & Types</h3>
                       
-                      return (
-                        <div key={category.key} className="border rounded-lg">
-                          <Collapsible
-                            open={isOpen}
-                            onOpenChange={() => toggleCategory(category.key)}
-                          >
-                            <CollapsibleTrigger className="w-full">
-                              <div className="flex items-center justify-between p-4 hover:bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={(checked) => handleCategoryToggle(category.key, !!checked)}
-                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                                  />
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{ backgroundColor: category.color }}
-                                  />
-                                  <div className="text-left">
-                                    <h4 className="font-medium">{category.label}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      Events related to ball movement and possession
-                                    </p>
-                                  </div>
-                                </div>
-                                {isOpen ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </div>
-                            </CollapsibleTrigger>
-                            
-                            <CollapsibleContent>
-                              <div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">
-                                {category.events.map((event) => (
-                                  <div key={event.key} className="flex items-center space-x-2">
+                      {EVENT_TYPE_CATEGORIES.map((category) => {
+                        const isOpen = openCategories.includes(category.key);
+                        const isSelected = assignmentDetails.eventCategories.includes(category.key);
+                        
+                        return (
+                          <div key={category.key} className="border rounded-lg">
+                            <Collapsible
+                              open={isOpen}
+                              onOpenChange={() => toggleCategory(category.key)}
+                            >
+                              <CollapsibleTrigger className="w-full">
+                                <div className="flex items-center justify-between p-4 hover:bg-muted/50">
+                                  <div className="flex items-center gap-3">
                                     <Checkbox
-                                      id={`event-${event.key}`}
-                                      checked={assignmentDetails.specificEvents.includes(event.key)}
-                                      onCheckedChange={(checked) => handleEventTypeChange(event.key, !!checked)}
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => handleCategoryToggle(category.key, !!checked)}
+                                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
                                     />
-                                    <label
-                                      htmlFor={`event-${event.key}`}
-                                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                      {event.label}
-                                    </label>
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: category.color }}
+                                    />
+                                    <div className="text-left">
+                                      <h4 className="font-medium">{category.label}</h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        Events related to ball movement and possession
+                                      </p>
+                                    </div>
                                   </div>
-                                ))}
+                                  {isOpen ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </CollapsibleTrigger>
+                              
+                              <CollapsibleContent>
+                                <div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">
+                                  {category.events.map((event) => (
+                                    <div key={event.key} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`event-${event.key}`}
+                                        checked={assignmentDetails.specificEvents.includes(event.key)}
+                                        onCheckedChange={(checked) => handleEventTypeChange(event.key, !!checked)}
+                                      />
+                                      <label
+                                        htmlFor={`event-${event.key}`}
+                                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                      >
+                                        {event.label}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Assign Players</h3>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Home Team:</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {(formData.homeTeamPlayers || []).map((player) => (
+                              <div key={`home-${player.id}`} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`home-player-${player.id}`}
+                                  checked={assignmentDetails.assignedPlayers.home.includes(player.id)}
+                                  onCheckedChange={(checked) => handlePlayerToggle('home', player.id, !!checked)}
+                                />
+                                <label
+                                  htmlFor={`home-player-${player.id}`}
+                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  #{player.jersey_number} {player.player_name}
+                                </label>
                               </div>
-                            </CollapsibleContent>
-                          </Collapsible>
+                            ))}
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Away Team:</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {(formData.awayTeamPlayers || []).map((player) => (
+                              <div key={`away-${player.id}`} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`away-player-${player.id}`}
+                                  checked={assignmentDetails.assignedPlayers.away.includes(player.id)}
+                                  onCheckedChange={(checked) => handlePlayerToggle('away', player.id, !!checked)}
+                                />
+                                <label
+                                  htmlFor={`away-player-${player.id}`}
+                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  #{player.jersey_number} {player.player_name}
+                                </label>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-5 w-5" />
+                        <h3 className="font-semibold">Notification Settings</h3>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="notify-assigned"
+                            checked={assignmentDetails.notificationSettings.trackerAssigned}
+                            onCheckedChange={(checked) => handleNotificationSettingChange('trackerAssigned', !!checked)}
+                          />
+                          <label htmlFor="notify-assigned" className="text-sm">
+                            Send notification when tracker is assigned
+                          </label>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  <Separator />
-
-                  {/* Assign Players */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Assign Players</h3>
-                    
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Home Team */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Home Team:</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {(formData.homeTeamPlayers || []).map((player) => (
-                            <div key={`home-${player.id}`} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`home-player-${player.id}`}
-                                checked={assignmentDetails.assignedPlayers.home.includes(player.id)}
-                                onCheckedChange={(checked) => handlePlayerToggle('home', player.id, !!checked)}
-                              />
-                              <label
-                                htmlFor={`home-player-${player.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                #{player.jersey_number} {player.player_name}
-                              </label>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-
-                      {/* Away Team */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Away Team:</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {(formData.awayTeamPlayers || []).map((player) => (
-                            <div key={`away-${player.id}`} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`away-player-${player.id}`}
-                                checked={assignmentDetails.assignedPlayers.away.includes(player.id)}
-                                onCheckedChange={(checked) => handlePlayerToggle('away', player.id, !!checked)}
-                              />
-                              <label
-                                htmlFor={`away-player-${player.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                #{player.jersey_number} {player.player_name}
-                              </label>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Notification Settings */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-5 w-5" />
-                      <h3 className="font-semibold">Notification Settings</h3>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="notify-assigned"
-                          checked={assignmentDetails.notificationSettings.trackerAssigned}
-                          onCheckedChange={(checked) => handleNotificationSettingChange('trackerAssigned', !!checked)}
-                        />
-                        <label htmlFor="notify-assigned" className="text-sm">
-                          Send notification when tracker is assigned
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="notify-starts"
-                          checked={assignmentDetails.notificationSettings.matchStarts}
-                          onCheckedChange={(checked) => handleNotificationSettingChange('matchStarts', !!checked)}
-                        />
-                        <label htmlFor="notify-starts" className="text-sm">
-                          Send notification when match starts
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="notify-ends"
-                          checked={assignmentDetails.notificationSettings.matchEnds}
-                          onCheckedChange={(checked) => handleNotificationSettingChange('matchEnds', !!checked)}
-                        />
-                        <label htmlFor="notify-ends" className="text-sm">
-                          Send notification when match ends
-                        </label>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="notify-starts"
+                            checked={assignmentDetails.notificationSettings.matchStarts}
+                            onCheckedChange={(checked) => handleNotificationSettingChange('matchStarts', !!checked)}
+                          />
+                          <label htmlFor="notify-starts" className="text-sm">
+                            Send notification when match starts
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="notify-ends"
+                            checked={assignmentDetails.notificationSettings.matchEnds}
+                            onCheckedChange={(checked) => handleNotificationSettingChange('matchEnds', !!checked)}
+                          />
+                          <label htmlFor="notify-ends" className="text-sm">
+                            Send notification when match ends
+                          </label>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {selectedTrackers.length > 0 && (
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    {selectedTrackers.length} tracker(s) will be notified with the specified assignment details.
-                  </p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                {selectedTrackers.length > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      {selectedTrackers.length} tracker(s) will be notified with the specified assignment details.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
 
-        <Separator className="my-6" />
+        <Separator className="my-4 sm:my-6" />
 
         <div className="flex justify-between">
           <Button
@@ -739,11 +805,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
               }
             }}
             disabled={currentStep === 'details'}
+            size={isMobile ? "sm" : "default"}
+            className="text-xs sm:text-sm"
           >
             Previous
           </Button>
 
-          {currentStep !== 'trackers' ? (
+          {currentStep !== 'trackers' && !isMobile ? (
             <Button
               onClick={() => {
                 const steps = ['details', 'teams', 'players', 'trackers'];
@@ -752,11 +820,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                   setCurrentStep(steps[currentIndex + 1]);
                 }
               }}
+              size={isMobile ? "sm" : "default"}
+              className="text-xs sm:text-sm"
             >
               Next: {currentStep === 'details' ? 'Teams' : currentStep === 'teams' ? 'Players' : 'Trackers'}
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={loading}
+              size={isMobile ? "sm" : "default"}
+              className="text-xs sm:text-sm"
+            >
               {loading ? 'Creating Match...' : 'Create Match'}
             </Button>
           )}

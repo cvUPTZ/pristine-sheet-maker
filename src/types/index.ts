@@ -122,6 +122,26 @@ export interface PlayerAssignment {
   };
 }
 
+// Match interface for admin management
+export interface Match {
+  id: string;
+  name: string | null;
+  status: string;
+  match_date: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  home_team_formation: string | null;
+  away_team_formation: string | null;
+  home_team_score: number | null;
+  away_team_score: number | null;
+  home_team_players: any[];
+  away_team_players: any[];
+  venue?: string | null;
+  competition?: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
 // Add missing types
 export type EventType = 
   | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'
@@ -141,7 +161,17 @@ export interface MatchEvent {
   description?: string;
 }
 
-export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2';
+export interface TimelineEvent {
+  id: string;
+  type: EventType;
+  timestamp: number;
+  team: 'home' | 'away';
+  player?: Player;
+  coordinates?: { x: number; y: number };
+  description?: string;
+}
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2' | '3-4-3';
 
 export interface NotificationSettings {
   trackerAssigned: boolean;
