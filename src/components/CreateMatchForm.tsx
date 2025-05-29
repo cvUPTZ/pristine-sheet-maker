@@ -30,9 +30,6 @@ import {
 import { Team, Player } from '@/types';
 import { MatchFormData, TrackerAssignment } from '@/types/matchForm';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
-// Button is already imported via lucide-react, but if a specific Button component from ui/button is needed, ensure it's aliased or imported directly.
-// For this task, assuming the existing Button or a new import from '@/components/ui/button' will be used.
-// import { Button } from '@/components/ui/button'; // Already imported, or ensure it's the correct one.
 
 const initialMatchFormState: MatchFormData = {
   name: '',
@@ -56,8 +53,6 @@ interface TrackerProfile {
 
 interface CreateMatchFormProps {
   onSuccess?: () => void;
-  // isEditMode?: boolean; // Not used in current version of file, but good for future reference
-  // initialData?: Partial<MatchFormData>; // Not used in current version of file
 }
 
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
@@ -90,7 +85,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       return;
     }
 
-    // Use matchDetails.homeTeamName and matchDetails.awayTeamName as they are the source of truth for team names
     const generatedHomePlayers = generatePlayersForFormation(homeTeam.formation, matchDetails.homeTeamName);
     const generatedAwayPlayers = generatePlayersForFormation(awayTeam.formation, matchDetails.awayTeamName);
 
@@ -116,12 +110,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
 
   const fetchTrackers = async () => {
     try {
-      // Use the get_trackers_with_email function to get trackers with their emails
       const { data, error } = await supabase.rpc('get_trackers_with_email');
 
       if (error) throw error;
       
-      // Transform the data to match our TrackerProfile interface
       const transformedData: TrackerProfile[] = (data || []).map((tracker: any) => ({
         id: tracker.id,
         full_name: tracker.full_name,
@@ -129,6 +121,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       }));
       
       setTrackers(transformedData);
+      console.log('Fetched trackers:', transformedData);
     } catch (error: any) {
       console.error('Error fetching trackers:', error);
       toast.error('Failed to load trackers');
@@ -261,14 +254,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
         if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
           // Create separate assignments for each player
           for (const playerId of assignment.playerIds) {
+            // Find if the player is in home or away team
+            const isHomePlayer = homeTeam.players.some(p => p.id === playerId);
+            const playerTeamId = isHomePlayer ? 'home' : 'away';
+            
             const { error: assignmentError } = await supabase
               .from('match_tracker_assignments')
               .insert({
                 match_id: matchData.id,
                 tracker_user_id: assignment.trackerId,
                 assigned_event_types: assignment.eventTypes,
-                player_id: parseInt(playerId), // Convert string to number
-                player_team_id: homeTeam.players.find(p => p.id === playerId) ? 'home' : 'away'
+                player_id: parseInt(playerId),
+                player_team_id: playerTeamId
               });
 
             if (assignmentError) {
@@ -297,8 +294,28 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       }
 
       toast.success('Match created successfully!');
-      onSuccess?.(); // Call onSuccess callback if provided
-      // navigate('/admin'); // Removed as per task to let Admin.tsx handle dialog closure via onSuccess
+      
+      // Reset form state
+      setMatchDetails(initialMatchFormState);
+      setHomeTeam({
+        id: 'home',
+        name: '',
+        formation: '4-4-2',
+        players: []
+      });
+      setAwayTeam({
+        id: 'away',
+        name: '',
+        formation: '4-3-3',
+        players: []
+      });
+      setTrackerAssignments([]);
+      setCurrentStep(1);
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error: any) {
       console.error('Error creating match:', error);
       toast.error(`Failed to create match: ${error.message}`);
@@ -509,7 +526,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
                 </CardHeader>
                 <CardContent>
                   {trackers.length === 0 ? (
-                    <p className="text-muted-foreground">No trackers available</p>
+                    <div className="text-center p-4">
+                      <p className="text-muted-foreground mb-2">No trackers available</p>
+                      <Button onClick={fetchTrackers} variant="outline">
+                        Retry Loading Trackers
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-6">
                       {trackers.map((tracker) => (

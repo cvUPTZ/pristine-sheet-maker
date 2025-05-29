@@ -105,10 +105,11 @@ export type Database = {
           created_at: string
           id: string
           match_id: string
-          player_id: number
+          player_id: number | null
           player_team_id: string
           tracker_id: string | null
           tracker_user_id: string
+          updated_at: string | null
         }
         Insert: {
           assigned_event_types?: string[] | null
@@ -116,10 +117,11 @@ export type Database = {
           created_at?: string
           id?: string
           match_id: string
-          player_id: number
+          player_id?: number | null
           player_team_id: string
           tracker_id?: string | null
           tracker_user_id: string
+          updated_at?: string | null
         }
         Update: {
           assigned_event_types?: string[] | null
@@ -127,10 +129,11 @@ export type Database = {
           created_at?: string
           id?: string
           match_id?: string
-          player_id?: number
+          player_id?: number | null
           player_team_id?: string
           tracker_id?: string | null
           tracker_user_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
