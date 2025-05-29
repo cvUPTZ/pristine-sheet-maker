@@ -114,7 +114,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
     try {
       console.log('Fetching trackers using edge function...');
       
-      const { data, error } = await supabase.functions.invoke('get-users', {
+      const { data, error } = await supabase.functions.invoke('get-all-users', {
         body: { userType: 'tracker' }
       });
 
