@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { generatePlayersForFormation } from '@/utils/formationUtils';
 import { 
@@ -559,67 +561,71 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-6">
-                      {trackers.map((tracker) => (
-                        <div key={tracker.id} className="border rounded-lg p-4">
-                          <h4 className="font-medium mb-3">
-                            {tracker.full_name || tracker.email}
-                          </h4>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <Label className="text-sm font-medium">Event Types</Label>
-                              <div className="grid grid-cols-2 gap-2 mt-2">
-                                {eventTypes.map((eventType) => (
-                                  <div key={eventType} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`${tracker.id}-${eventType}`}
-                                      checked={trackerAssignments
-                                        .find(ta => ta.trackerId === tracker.id)
-                                        ?.eventTypes.includes(eventType) || false}
-                                      onCheckedChange={(checked) => 
-                                        handleTrackerAssignment(tracker.id, eventType, checked as boolean)
-                                      }
-                                    />
-                                    <Label 
-                                      htmlFor={`${tracker.id}-${eventType}`}
-                                      className="text-sm"
-                                    >
-                                      {eventType.replace('_', ' ')}
-                                    </Label>
-                                  </div>
-                                ))}
+                    <ScrollArea className="h-96">
+                      <div className="space-y-4">
+                        {trackers.map((tracker) => (
+                          <div key={tracker.id} className="border rounded-lg p-4">
+                            <h4 className="font-medium mb-3">
+                              {tracker.full_name || tracker.email}
+                            </h4>
+                            
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div>
+                                <Label className="text-sm font-medium">Event Types</Label>
+                                <div className="grid grid-cols-3 gap-1 mt-2">
+                                  {eventTypes.map((eventType) => (
+                                    <div key={eventType} className="flex items-center space-x-1">
+                                      <Checkbox
+                                        id={`${tracker.id}-${eventType}`}
+                                        checked={trackerAssignments
+                                          .find(ta => ta.trackerId === tracker.id)
+                                          ?.eventTypes.includes(eventType) || false}
+                                        onCheckedChange={(checked) => 
+                                          handleTrackerAssignment(tracker.id, eventType, checked as boolean)
+                                        }
+                                      />
+                                      <Label 
+                                        htmlFor={`${tracker.id}-${eventType}`}
+                                        className="text-xs"
+                                      >
+                                        {eventType.replace('_', ' ')}
+                                      </Label>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
 
-                            <div>
-                              <Label className="text-sm font-medium">Players</Label>
-                              <div className="space-y-2 mt-2 max-h-40 overflow-y-auto">
-                                {[...homeTeam.players, ...awayTeam.players].map((player) => (
-                                  <div key={player.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`${tracker.id}-player-${player.id}`}
-                                      checked={trackerAssignments
-                                        .find(ta => ta.trackerId === tracker.id)
-                                        ?.playerIds.includes(player.id) || false}
-                                      onCheckedChange={(checked) => 
-                                        handlePlayerAssignment(tracker.id, player.id, checked as boolean)
-                                      }
-                                    />
-                                    <Label 
-                                      htmlFor={`${tracker.id}-player-${player.id}`}
-                                      className="text-sm"
-                                    >
-                                      {player.name} (#{player.number}) - {player.position}
-                                    </Label>
+                              <div>
+                                <Label className="text-sm font-medium">Players</Label>
+                                <ScrollArea className="h-32 mt-2">
+                                  <div className="space-y-1">
+                                    {[...homeTeam.players, ...awayTeam.players].map((player) => (
+                                      <div key={player.id} className="flex items-center space-x-1">
+                                        <Checkbox
+                                          id={`${tracker.id}-player-${player.id}`}
+                                          checked={trackerAssignments
+                                            .find(ta => ta.trackerId === tracker.id)
+                                            ?.playerIds.includes(player.id) || false}
+                                          onCheckedChange={(checked) => 
+                                            handlePlayerAssignment(tracker.id, player.id, checked as boolean)
+                                          }
+                                        />
+                                        <Label 
+                                          htmlFor={`${tracker.id}-player-${player.id}`}
+                                          className="text-xs"
+                                        >
+                                          {player.name} (#{player.number}) - {player.position}
+                                        </Label>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                </ScrollArea>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   )}
                 </CardContent>
               </Card>
@@ -639,7 +645,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
                     <>
                       <Save className="mr-2 h-4 w-4" />
                       Create Match
-                    </>
+                    </Button>
                   )}
                 </Button>
               </div>
