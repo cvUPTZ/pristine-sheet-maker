@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -10,13 +11,6 @@ import TeamSetupWithFormation from './TeamSetupWithFormation';
 import TrackerAssignment from './match/TrackerAssignment';
 import { Formation, Team } from '@/types';
 import { MatchFormData } from '@/types/matchForm';
-
-interface Player {
-  id: string;
-  name: string;
-  position: string;
-  number: number;
-}
 
 interface CreateMatchFormProps {
   onMatchCreated?: (match: any) => void;
@@ -190,31 +184,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         onMatchCreated(result.data);
       }
 
-      if (isEditMode) {
-        reset();
-        setHomeTeam({
-          id: 'home',
-          name: '',
-          formation: '4-4-2',
-          players: Array.from({ length: 11 }, (_, i) => ({
-            id: i + 1,
-            name: `Player ${i + 1}`,
-            position: 'Forward',
-            number: i + 1
-          }))
-        });
-        setAwayTeam({
-          id: 'away',
-          name: '',
-          formation: '4-3-3',
-          players: Array.from({ length: 11 }, (_, i) => ({
-            id: i + 1,
-            name: `Player ${i + 1}`,
-            position: 'Midfielder',
-            number: i + 1
-          }))
-        });
-        setCreatedMatchId(null);
+      if (!isEditMode) {
+        // After creating a new match, move to tracker assignment tab
+        setActiveTab('trackers');
       }
 
     } catch (error: any) {
@@ -244,21 +216,25 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
               isEditMode={isEditMode}
             />
             
-            {/* Save button prominently displayed on details tab */}
-            <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex justify-between items-center pt-4 border-t bg-gray-50 p-4 rounded-lg">
               <div className="text-sm text-gray-600">
                 {!createdMatchId && !isEditMode && (
-                  <span className="text-amber-600">💡 Save your match to enable tracker assignments</span>
+                  <span className="text-amber-600 flex items-center gap-2">
+                    💡 Click "Save Match" to save your details and continue to team setup
+                  </span>
                 )}
-                {createdMatchId && (
-                  <span className="text-green-600">✅ Match saved! You can now assign trackers.</span>
+                {(createdMatchId || isEditMode) && (
+                  <span className="text-green-600 flex items-center gap-2">
+                    ✅ Match saved! You can now assign trackers.
+                  </span>
                 )}
               </div>
               <div className="flex gap-2">
                 <Button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 font-semibold"
+                  size="lg"
                 >
                   {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
                 </Button>
