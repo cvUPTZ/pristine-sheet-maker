@@ -17,11 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Users, Calendar, UserCheck, Settings, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, UserCheck, Settings, AlertTriangle, Shield } from 'lucide-react'; // Added Shield
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { EventType } from '@/types'; 
 import CreateMatchForm, { MatchFormData } from '@/components/CreateMatchForm'; // Import MatchFormData
+import AccessManagementComponent from '@/components/admin/AccessManagement'; 
 // import { useAuth } from '@/hooks/useAuth'; 
 
 // Define Player interface (or import from @/types if it exists there)
@@ -698,11 +699,12 @@ const Admin: React.FC = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* ... TabsList (unchanged) ... */}
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7"> {/* Adjusted grid-cols to 7 */}
           <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4" />Users</TabsTrigger>
           <TabsTrigger value="matches" className="flex items-center gap-2"><Calendar className="h-4 w-4" />Matches</TabsTrigger>
           <TabsTrigger value="assignments" className="flex items-center gap-2"><UserCheck className="h-4 w-4" />Event Assignments</TabsTrigger>
           <TabsTrigger value="player-assignments" className="flex items-center gap-2"><UserCheck className="h-4 w-4" />Player Assignments</TabsTrigger>
+          <TabsTrigger value="accessManagement" className="flex items-center gap-2"><Shield className="h-4 w-4" />Access Management</TabsTrigger> {/* Added Access Management Tab */}
           <TabsTrigger value="audit" className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />Audit</TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="h-4 w-4" />Settings</TabsTrigger>
         </TabsList>
@@ -852,6 +854,10 @@ const Admin: React.FC = () => {
                 </TableBody>
             </Table></CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="accessManagement" className="mt-6">
+          <AccessManagementComponent />
         </TabsContent>
         
         <TabsContent value="audit" className="mt-6"><Card><CardHeader><CardTitle>Audit Log</CardTitle></CardHeader><CardContent><p>Audit log feature coming soon.</p></CardContent></Card></TabsContent>
