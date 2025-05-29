@@ -28,9 +28,10 @@ const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
+      // Use the user_profiles_with_role view to get users with their roles
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, full_name, created_at')
+        .from('user_profiles_with_role')
+        .select('id, email, role, full_name')
         .order('email');
 
       if (error) throw error;
@@ -40,7 +41,6 @@ const UserManagement: React.FC = () => {
         email: user.email || '',
         role: (user.role || 'user') as UserRole,
         full_name: user.full_name || undefined,
-        created: user.created_at || undefined
       }));
 
       setUsers(typedUsers);
@@ -54,39 +54,18 @@ const UserManagement: React.FC = () => {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
-      // Update role in profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
-
-      if (profileError) throw profileError;
-
-      // Update role in user_roles table
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({ 
-          user_id: userId, 
-          role: newRole 
-        }, { 
-          onConflict: 'user_id,role'
-        });
-
-      if (roleError) {
-        console.warn('Warning updating user_roles:', roleError);
-        // Don't throw error here as the main update was successful
-      }
-
-      // Call the function to update auth metadata
+      // Update the raw_user_meta_data in auth.users using the RPC function
       const { error: functionError } = await supabase.rpc('assign_user_role', {
         _user_id: userId,
         _role: newRole
       });
 
       if (functionError) {
-        console.warn('Warning calling assign_user_role function:', functionError);
+        console.error('Error calling assign_user_role function:', functionError);
+        throw new Error(`Failed to update user role: ${functionError.message}`);
       }
 
+      // Update the local state to reflect the change
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { ...user, role: newRole }
@@ -104,6 +83,7 @@ const UserManagement: React.FC = () => {
     if (!confirm('Are you sure you want to delete this user?')) return;
     
     try {
+      // Delete from profiles table (this should cascade and handle cleanup)
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -155,7 +135,6 @@ const UserManagement: React.FC = () => {
                 <th className="text-left py-2 text-sm font-medium text-gray-500">Name</th>
                 <th className="text-left py-2 text-sm font-medium text-gray-500">Email</th>
                 <th className="text-left py-2 text-sm font-medium text-gray-500">Role</th>
-                <th className="text-left py-2 text-sm font-medium text-gray-500">Created</th>
                 <th className="text-left py-2 text-sm font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
@@ -186,9 +165,6 @@ const UserManagement: React.FC = () => {
                         <SelectItem value="user">User</SelectItem>
                       </SelectContent>
                     </Select>
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">
-                    {user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="py-3">
                     <Button
