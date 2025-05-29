@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +45,7 @@ const MatchManagement: React.FC = () => {
 
       const typedMatches: Match[] = (data || []).map(match => ({
         ...match,
+        name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
         created_at: match.created_at || new Date().toISOString(),
         venue: match.location || undefined,
         home_team_players: parsePlayerData(match.home_team_players),
@@ -141,7 +141,7 @@ const MatchManagement: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-lg">
-                      {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                      {match.name}
                     </CardTitle>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant={getStatusBadgeVariant(match.status)}>
