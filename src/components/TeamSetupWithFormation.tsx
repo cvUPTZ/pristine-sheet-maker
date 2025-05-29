@@ -21,7 +21,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
   onTeamUpdate,
   teamType
 }) => {
-  const [editingPlayer, setEditingPlayer] = useState<number | null>(null);
+  const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
   const [newPlayerName, setNewPlayerName] = useState('');
 
   const handleFormationChange = (formation: Formation) => {
@@ -97,7 +97,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
                 <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
                   {player.number}
                 </Badge>
-                {editingPlayer === player.number ? (
+                {editingPlayer === player.id ? (
                   <Input
                     value={player.name}
                     onChange={(e) => handlePlayerNameChange(player.id, e.target.value)}
@@ -113,7 +113,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
                 ) : (
                   <span
                     className="flex-1 cursor-pointer hover:text-blue-600"
-                    onClick={() => setEditingPlayer(player.number)}
+                    onClick={() => setEditingPlayer(player.id)}
                   >
                     {player.name}
                   </span>

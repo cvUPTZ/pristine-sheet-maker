@@ -76,9 +76,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   timeSegments,
   recordEvent,
   events,
-  fullMatchRoster,
-  assignedPlayers,
-  assignedEventTypesList
+  fullMatchRoster = null,
+  assignedPlayers = null,
+  assignedEventTypesList = null
 }) => {
   const [timerRunning, setTimerRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);

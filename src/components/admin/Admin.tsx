@@ -3,12 +3,35 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/lib/database.types';
-import { Settings, Users, BarChart3, Shield } from 'lucide-react';
-import RealTimeMatchEvents from './RealTimeMatchEvents';
 import AccessManagement from './AccessManagement';
+import RealTimeMatchEvents from './RealTimeMatchEvents';
 
-type Match = Tables<'matches'>;
+interface Match {
+  id: string;
+  name: string | null;
+  status: string;
+  match_date: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  home_team_formation: string | null;
+  away_team_formation: string | null;
+  home_team_score: number | null;
+  away_team_score: number | null;
+  created_at: string;
+  updated_at: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  venue: string | null;
+  referee: string | null;
+  weather_conditions: string | null;
+  temperature: number | null;
+  humidity: number | null;
+  wind_speed: number | null;
+  pitch_conditions: string | null;
+  attendance: number | null;
+  competition: string | null;
+  ball_tracking_data: any;
+}
 
 const Admin: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -23,14 +46,17 @@ const Admin: React.FC = () => {
       const { data, error } = await supabase
         .from('matches')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching matches:', error);
-      } else {
-        setMatches(data || []);
-      }
+      if (error) throw error;
+
+      // Type safe mapping to ensure created_at is never null
+      const typedMatches: Match[] = (data || []).map(match => ({
+        ...match,
+        created_at: match.created_at || new Date().toISOString()
+      }));
+
+      setMatches(typedMatches);
     } catch (error) {
       console.error('Error fetching matches:', error);
     } finally {
@@ -38,148 +64,61 @@ const Admin: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Settings className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading admin dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage matches, users, and system settings</p>
-        </div>
-
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="matches" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Live Matches
-            </TabsTrigger>
-            <TabsTrigger value="access" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Access Control
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Users
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Matches</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{matches.length}</div>
-                  <p className="text-xs text-muted-foreground">Recent matches</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Live Matches</CardTitle>
-                  <Settings className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {matches.filter(m => m.status === 'live').length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Currently active</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Draft Matches</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {matches.filter(m => m.status === 'draft').length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Pending setup</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                  <Shield className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {matches.filter(m => m.status === 'completed').length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Finished matches</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Matches</CardTitle>
-              </CardHeader>
-              <CardContent>
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+      
+      <Tabs defaultValue="access" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="access">Access Management</TabsTrigger>
+          <TabsTrigger value="matches">Match Management</TabsTrigger>
+          <TabsTrigger value="events">Live Events</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="access" className="space-y-4">
+          <AccessManagement />
+        </TabsContent>
+        
+        <TabsContent value="matches" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Match Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p>Loading matches...</p>
+              ) : (
                 <div className="space-y-4">
-                  {matches.slice(0, 5).map((match) => (
-                    <div key={match.id} className="flex items-center justify-between p-4 border rounded">
-                      <div>
-                        <h3 className="font-medium">{match.home_team_name} vs {match.away_team_name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date set'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          match.status === 'live' ? 'bg-green-100 text-green-700' :
-                          match.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {match.status}
-                        </span>
+                  {matches.map((match) => (
+                    <div key={match.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">{match.name || 'Unnamed Match'}</h3>
+                          <p className="text-sm text-gray-600">
+                            {match.home_team_name} vs {match.away_team_name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Status: {match.status} | Date: {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'TBD'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">
+                            {match.home_team_score ?? 0} - {match.away_team_score ?? 0}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="matches">
-            <RealTimeMatchEvents />
-          </TabsContent>
-
-          <TabsContent value="access">
-            <AccessManagement />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">User management features coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="events" className="space-y-4">
+          <RealTimeMatchEvents matchId={matches[0]?.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

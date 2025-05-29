@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
 import MainTabContent from '@/components/match/MainTabContent';
-import PianoRoll from '@/components/match/PianoInput';
+import { PianoInput } from '@/components/match/PianoInput';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EventType, MatchEvent, Player as PlayerType, Team as TeamTypeImport, Statistics, TimeSegmentStatistics } from '@/types';
