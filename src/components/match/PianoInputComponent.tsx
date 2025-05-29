@@ -74,12 +74,42 @@ const PianoInputComponent: React.FC<PianoInputComponentProps> = ({
     // Consider adding toast.success(`Event ${eventTypeKey} recorded for player ${selectedPlayerId}`);
   };
   
-  // Combine players for selection, add team context.
-  // In a more advanced version, this list could be filtered by `assignedPlayers`
-  const allPlayersForSelection = [
-    ...(homeTeamPlayers || []).map(p => ({ ...p, id: String(p.id), teamId: 'home', teamName: homeTeamName })),
-    ...(awayTeamPlayers || []).map(p => ({ ...p, id: String(p.id), teamId: 'away', teamName: awayTeamName }))
-  ];
+  // Filter players for selection based on assignedPlayers prop.
+  const allPlayersForSelection = (() => {
+    if (assignedPlayers && assignedPlayers.length > 0) {
+      return assignedPlayers
+        .map(assignedPlayer => {
+          let fullPlayer: Player | undefined;
+          let teamNameToDisplay = '';
+
+          if (assignedPlayer.teamId === 'home') {
+            fullPlayer = (homeTeamPlayers || []).find(p => String(p.id) === String(assignedPlayer.id));
+            teamNameToDisplay = homeTeamName;
+          } else { // away team
+            fullPlayer = (awayTeamPlayers || []).find(p => String(p.id) === String(assignedPlayer.id));
+            teamNameToDisplay = awayTeamName;
+          }
+
+          if (!fullPlayer && !assignedPlayer.name) { // If fullPlayer not found and no fallback name in assignedPlayer
+            console.warn(`PianoInputComponent: Assigned player ID ${assignedPlayer.id} not found in rosters and has no fallback name.`);
+            return null; // Skip this player if essential details are missing
+          }
+          
+          return {
+            id: String(assignedPlayer.id),
+            // Prioritize fullPlayer.name, then assignedPlayer.name, then a generic ID string
+            name: fullPlayer?.name || assignedPlayer.name || `Player ID ${assignedPlayer.id}`,
+            teamId: assignedPlayer.teamId,
+            teamName: teamNameToDisplay,
+            number: fullPlayer?.jersey_number, // Assuming Player type has jersey_number
+          };
+        })
+        .filter(player => player !== null); // Remove any null entries (players not found)
+    }
+    // If assignedPlayers is null or empty, return an empty list.
+    // This strictly enforces that only assigned players can be selected.
+    return []; 
+  })();
 
   // Filter event types based on assignedEventTypes if provided
   const availableEventTypes = basicEventTypes.filter(et => 
@@ -115,12 +145,17 @@ const PianoInputComponent: React.FC<PianoInputComponentProps> = ({
             <SelectContent>
               {allPlayersForSelection.length > 0 ? (
                 allPlayersForSelection.map((player) => (
-                  <SelectItem key={`${player.teamId}-${player.id}`} value={`${player.id}:${player.teamId}`}>
-                    {player.name} ({player.teamName})
-                  </SelectItem>
+                  // Added a null check for player before rendering SelectItem
+                  player ? (
+                    <SelectItem key={`${player.teamId}-${player.id}`} value={`${player.id}:${player.teamId}`}>
+                      {player.name} ({player.teamName})
+                    </SelectItem>
+                  ) : null
                 ))
               ) : (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No players available.</div>
+                <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                  {assignedPlayers && assignedPlayers.length > 0 ? 'Assigned player details not found in rosters.' : 'No players assigned for tracking.'}
+                </div>
               )}
             </SelectContent>
           </Select>

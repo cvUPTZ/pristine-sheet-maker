@@ -20,12 +20,13 @@ interface TeamType {
   players: Player[];
 }
 
+import { supabase } from '@/integrations/supabase/client'; // Ensure Supabase client is imported
+
 // Placeholder for AssignedPlayerForMatch if not globally defined
 interface AssignedPlayerForMatch {
-  id: string | number;
-  name: string;
-  teamId: 'home' | 'away';
-  teamName: string;
+  id: string | number; // Player's ID
+  name: string;        // Player's name, to be resolved from roster
+  teamId: 'home' | 'away'; // Player's team context
 }
 
 // Placeholder for TimeSegmentStatistics if not globally defined
@@ -92,6 +93,9 @@ const MatchAnalysisV2: React.FC = () => {
   // Placeholder states for assignedPlayerForMatch and assignedEventTypes (needs real fetching logic)
   const [assignedPlayerForMatch, setAssignedPlayerForMatch] = useState<AssignedPlayerForMatch | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false); // Added state
+  const [assignmentError, setAssignmentError] = useState<string | null>(null); // Added state
+
 
   // Update full team data when hook data changes (similar to original MatchAnalysis)
   useEffect(() => {
@@ -111,8 +115,100 @@ const MatchAnalysisV2: React.FC = () => {
         // TODO: Populate players from matchDataFromHook.away_team_players if available
       }));
     }
-    // TODO: Add useEffect to fetch assignedPlayerForMatch and assignedEventTypes
   }, [homeTeamHeaderDataFromHook, awayTeamHeaderDataFromHook]);
+  
+  // useEffect for fetching tracker assignments
+  useEffect(() => {
+    // Ensure homeTeamFull and awayTeamFull are loaded before attempting to map player names if needed
+    if (matchId && user?.id && userRoleFromPermissionsHook === 'tracker' && homeTeamFull.players.length > 0 && awayTeamFull.players.length > 0) {
+      const fetchAssignments = async () => {
+        setIsLoadingAssignments(true);
+        setAssignmentError(null);
+        setAssignedPlayerForMatch(null); // Reset before fetching
+        setAssignedEventTypes([]);      // Reset before fetching
+
+        try {
+          console.log(`[MatchAnalysisV2] Fetching assignments for tracker ${user.id} on match ${matchId}`);
+          const { data: assignmentData, error: assignmentErrorFetch } = await supabase
+            .from('match_tracker_assignments')
+            .select('player_id, player_team_id, assigned_event_types') // player_team_id is crucial
+            .eq('match_id', matchId)
+            .eq('tracker_user_id', user.id) // Ensure this column name is correct for your table
+            .maybeSingle(); // Assuming a tracker has at most one assignment entry per match
+
+          if (assignmentErrorFetch) {
+            if (assignmentErrorFetch.code === 'PGRST116') { // "Not a single row was found"
+              console.log('[MatchAnalysisV2] No specific assignment found for this tracker on this match.');
+              // No specific player assigned, tracker might be assigned to the match generally
+              // or has no specific player assignment. PianoInputComponent will show "No players assigned".
+            } else {
+              throw assignmentErrorFetch;
+            }
+          }
+
+          if (assignmentData) {
+            console.log('[MatchAnalysisV2] Assignment data fetched:', assignmentData);
+            // Set assigned event types
+            if (assignmentData.assigned_event_types && Array.isArray(assignmentData.assigned_event_types)) {
+              setAssignedEventTypes(assignmentData.assigned_event_types);
+            } else {
+              setAssignedEventTypes([]); // Default to empty if not set or not an array
+            }
+
+            // If a specific player is assigned in this entry
+            if (assignmentData.player_id && assignmentData.player_team_id) {
+              const assignedPlayerTeamId = assignmentData.player_team_id as 'home' | 'away';
+              const playerList = assignedPlayerTeamId === 'home' ? homeTeamFull.players : awayTeamFull.players;
+              const foundPlayer = (playerList || []).find(p => String(p.id) === String(assignmentData.player_id));
+
+              if (foundPlayer) {
+                setAssignedPlayerForMatch({
+                  id: String(foundPlayer.id),
+                  name: foundPlayer.name, // Name resolved from the full roster
+                  teamId: assignedPlayerTeamId,
+                });
+              } else {
+                console.warn(`[MatchAnalysisV2] Assigned player ID ${assignmentData.player_id} (team: ${assignedPlayerTeamId}) not found in team rosters.`);
+                // Set a placeholder or leave assignedPlayerForMatch as null
+                // For now, if player not found in roster, treat as no specific player assigned for UI consistency
+                setAssignedPlayerForMatch(null); 
+              }
+            } else {
+              // No specific player assigned in this assignment entry
+              setAssignedPlayerForMatch(null);
+            }
+          } else {
+            // No assignment entry found at all
+            setAssignedPlayerForMatch(null);
+            setAssignedEventTypes([]);
+          }
+
+        } catch (err: any) {
+          console.error('[MatchAnalysisV2] Error fetching tracker assignments:', err);
+          setAssignmentError(`Failed to fetch assignments: ${err.message}`);
+          setAssignedPlayerForMatch(null); // Reset on error
+          setAssignedEventTypes([]);      // Reset on error
+        } finally {
+          setIsLoadingAssignments(false);
+        }
+      };
+
+      fetchAssignments();
+    } else if (userRoleFromPermissionsHook !== 'tracker') {
+      // Clear assignments if user is not a tracker or necessary data isn't loaded
+      setAssignedPlayerForMatch(null);
+      setAssignedEventTypes([]);
+      setIsLoadingAssignments(false);
+      setAssignmentError(null);
+    }
+  }, [
+      matchId, 
+      user?.id, 
+      userRoleFromPermissionsHook, 
+      homeTeamFull, // Dependency for player name lookup
+      awayTeamFull  // Dependency for player name lookup
+      // supabase client is stable, not needed as dep normally
+  ]);
 
 
   // New state variables for PitchView integration

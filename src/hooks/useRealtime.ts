@@ -99,4 +99,3 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
     channelError, // New return value
   };
 };
-
