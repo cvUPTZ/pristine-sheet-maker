@@ -1,96 +1,53 @@
 
-import { Team, Player } from '@/types';
+import { Player } from '@/types';
 
-export type Formation = 
-  | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
-  | 'Unknown';
-
-export const formations: Formation[] = [
-  '4-4-2', '4-3-3', '3-5-2', '4-5-1', '4-2-3-1', '3-4-3', '5-3-2'
-];
-
-export const generatePlayersForFormation = (formation: Formation, teamName: string): Player[] => {
-  const players: Player[] = [];
-  
-  // Generate 11 players for the formation
-  for (let i = 1; i <= 11; i++) {
-    players.push({
-      id: `${teamName.toLowerCase().replace(/\s+/g, '-')}-player-${i}`,
-      name: `${teamName} Player ${i}`,
-      position: i === 1 ? 'Goalkeeper' : 'Outfield',
-      number: i
-    });
-  }
-  
-  return players;
+// Formation configurations with player positions
+export const formations = {
+  '4-4-2': [
+    { id: 1, name: 'GK', position: 'Goalkeeper', x: 5, y: 50, number: 1 },
+    { id: 2, name: 'RB', position: 'Right Back', x: 20, y: 80, number: 2 },
+    { id: 3, name: 'CB1', position: 'Centre Back', x: 20, y: 60, number: 3 },
+    { id: 4, name: 'CB2', position: 'Centre Back', x: 20, y: 40, number: 4 },
+    { id: 5, name: 'LB', position: 'Left Back', x: 20, y: 20, number: 5 },
+    { id: 6, name: 'RM', position: 'Right Midfielder', x: 50, y: 75, number: 6 },
+    { id: 7, name: 'CM1', position: 'Centre Midfielder', x: 50, y: 55, number: 7 },
+    { id: 8, name: 'CM2', position: 'Centre Midfielder', x: 50, y: 45, number: 8 },
+    { id: 9, name: 'LM', position: 'Left Midfielder', x: 50, y: 25, number: 9 },
+    { id: 10, name: 'ST1', position: 'Striker', x: 80, y: 60, number: 10 },
+    { id: 11, name: 'ST2', position: 'Striker', x: 80, y: 40, number: 11 }
+  ],
+  '4-3-3': [
+    { id: 1, name: 'GK', position: 'Goalkeeper', x: 5, y: 50, number: 1 },
+    { id: 2, name: 'RB', position: 'Right Back', x: 20, y: 80, number: 2 },
+    { id: 3, name: 'CB1', position: 'Centre Back', x: 20, y: 60, number: 3 },
+    { id: 4, name: 'CB2', position: 'Centre Back', x: 20, y: 40, number: 4 },
+    { id: 5, name: 'LB', position: 'Left Back', x: 20, y: 20, number: 5 },
+    { id: 6, name: 'CM1', position: 'Centre Midfielder', x: 50, y: 65, number: 6 },
+    { id: 7, name: 'CM2', position: 'Centre Midfielder', x: 50, y: 50, number: 7 },
+    { id: 8, name: 'CM3', position: 'Centre Midfielder', x: 50, y: 35, number: 8 },
+    { id: 9, name: 'RW', position: 'Right Winger', x: 80, y: 75, number: 9 },
+    { id: 10, name: 'ST', position: 'Striker', x: 80, y: 50, number: 10 },
+    { id: 11, name: 'LW', position: 'Left Winger', x: 80, y: 25, number: 11 }
+  ],
+  '3-5-2': [
+    { id: 1, name: 'GK', position: 'Goalkeeper', x: 5, y: 50, number: 1 },
+    { id: 2, name: 'CB1', position: 'Centre Back', x: 20, y: 70, number: 2 },
+    { id: 3, name: 'CB2', position: 'Centre Back', x: 20, y: 50, number: 3 },
+    { id: 4, name: 'CB3', position: 'Centre Back', x: 20, y: 30, number: 4 },
+    { id: 5, name: 'RWB', position: 'Right Wing Back', x: 40, y: 85, number: 5 },
+    { id: 6, name: 'CM1', position: 'Centre Midfielder', x: 50, y: 65, number: 6 },
+    { id: 7, name: 'CM2', position: 'Centre Midfielder', x: 50, y: 50, number: 7 },
+    { id: 8, name: 'CM3', position: 'Centre Midfielder', x: 50, y: 35, number: 8 },
+    { id: 9, name: 'LWB', position: 'Left Wing Back', x: 40, y: 15, number: 9 },
+    { id: 10, name: 'ST1', position: 'Striker', x: 80, y: 60, number: 10 },
+    { id: 11, name: 'ST2', position: 'Striker', x: 80, y: 40, number: 11 }
+  ]
 };
 
-export const createSimulatedTeams = (): { homeTeam: Team; awayTeam: Team } => {
-  const homeTeam: Team = {
-    id: 'home-team',
-    name: 'Home Team',
-    formation: '4-4-2',
-    players: generatePlayersForFormation('4-4-2', 'Home')
-  };
-  
-  const awayTeam: Team = {
-    id: 'away-team', 
-    name: 'Away Team',
-    formation: '4-3-3',
-    players: generatePlayersForFormation('4-3-3', 'Away')
-  };
-  
-  return { homeTeam, awayTeam };
-};
+export function getFormationPlayers(formation: string): Player[] {
+  return formations[formation as keyof typeof formations] || formations['4-4-2'];
+}
 
-export const getFormationPositions = (formation: Formation): Array<{x: number, y: number}> => {
-  // Return basic position layout for formations
-  const positions: Record<Formation, Array<{x: number, y: number}>> = {
-    '4-4-2': [
-      {x: 50, y: 90}, // GK
-      {x: 20, y: 70}, {x: 40, y: 70}, {x: 60, y: 70}, {x: 80, y: 70}, // Defense
-      {x: 20, y: 50}, {x: 40, y: 50}, {x: 60, y: 50}, {x: 80, y: 50}, // Midfield
-      {x: 35, y: 30}, {x: 65, y: 30} // Attack
-    ],
-    '4-3-3': [
-      {x: 50, y: 90}, // GK
-      {x: 20, y: 70}, {x: 40, y: 70}, {x: 60, y: 70}, {x: 80, y: 70}, // Defense
-      {x: 30, y: 50}, {x: 50, y: 50}, {x: 70, y: 50}, // Midfield
-      {x: 25, y: 30}, {x: 50, y: 30}, {x: 75, y: 30} // Attack
-    ],
-    '3-5-2': [
-      {x: 50, y: 90}, // GK
-      {x: 30, y: 70}, {x: 50, y: 70}, {x: 70, y: 70}, // Defense
-      {x: 15, y: 50}, {x: 35, y: 50}, {x: 50, y: 50}, {x: 65, y: 50}, {x: 85, y: 50}, // Midfield
-      {x: 40, y: 30}, {x: 60, y: 30} // Attack
-    ],
-    '4-5-1': [
-      {x: 50, y: 90}, // GK
-      {x: 20, y: 70}, {x: 40, y: 70}, {x: 60, y: 70}, {x: 80, y: 70}, // Defense
-      {x: 15, y: 50}, {x: 35, y: 50}, {x: 50, y: 50}, {x: 65, y: 50}, {x: 85, y: 50}, // Midfield
-      {x: 50, y: 30} // Attack
-    ],
-    '4-2-3-1': [
-      {x: 50, y: 90}, // GK
-      {x: 20, y: 70}, {x: 40, y: 70}, {x: 60, y: 70}, {x: 80, y: 70}, // Defense
-      {x: 35, y: 55}, {x: 65, y: 55}, // Defensive Midfield
-      {x: 25, y: 40}, {x: 50, y: 40}, {x: 75, y: 40}, // Attacking Midfield
-      {x: 50, y: 25} // Attack
-    ],
-    '3-4-3': [
-      {x: 50, y: 90}, // GK
-      {x: 30, y: 70}, {x: 50, y: 70}, {x: 70, y: 70}, // Defense
-      {x: 25, y: 50}, {x: 45, y: 50}, {x: 55, y: 50}, {x: 75, y: 50}, // Midfield
-      {x: 25, y: 30}, {x: 50, y: 30}, {x: 75, y: 30} // Attack
-    ],
-    '5-3-2': [
-      {x: 50, y: 90}, // GK
-      {x: 15, y: 70}, {x: 35, y: 70}, {x: 50, y: 70}, {x: 65, y: 70}, {x: 85, y: 70}, // Defense
-      {x: 30, y: 50}, {x: 50, y: 50}, {x: 70, y: 50}, // Midfield
-      {x: 40, y: 30}, {x: 60, y: 30} // Attack
-    ],
-    'Unknown': Array.from({length: 11}, (_, i) => ({x: 50, y: 90 - (i * 7)}))
-  };
-  
-  return positions[formation] || positions['Unknown'];
-};
+export function getAvailableFormations(): string[] {
+  return Object.keys(formations);
+}

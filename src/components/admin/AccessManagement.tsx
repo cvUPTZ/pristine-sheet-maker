@@ -9,28 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Settings, Shield, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user';
-
-interface RolePermissions {
-  pitchView: boolean;
-  pianoInput: boolean;
-  statistics: boolean;
-  timeline: boolean;
-  analytics: boolean;
-  ballTracking: boolean;
-  liveEvents: boolean;
-}
+import { UserRoleType, RolePermissions } from '@/types';
 
 interface UserProfile {
   id: string;
-  email: string;
-  role: UserRole;
+  email?: string;
+  role: UserRoleType;
   full_name?: string;
   permissions?: RolePermissions;
 }
 
-const defaultPermissions: Record<UserRole, RolePermissions> = {
+const defaultPermissions: Record<UserRoleType, RolePermissions> = {
   admin: {
     pitchView: true,
     pianoInput: true,
@@ -81,8 +70,9 @@ const AccessManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
+      // Fetch users from the user_profiles_with_role view
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles_with_role')
         .select('id, email, role, full_name')
         .order('email');
 
@@ -91,9 +81,9 @@ const AccessManagement: React.FC = () => {
       const typedUsers: UserProfile[] = (data || []).map(user => ({
         ...user,
         email: user.email || '',
-        role: (user.role || 'user') as UserRole,
+        role: (user.role || 'user') as UserRoleType,
         full_name: user.full_name || undefined,
-        permissions: defaultPermissions[user.role as UserRole] || defaultPermissions.user
+        permissions: defaultPermissions[user.role as UserRoleType] || defaultPermissions.user
       }));
 
       setUsers(typedUsers);
@@ -105,14 +95,27 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: UserRole) => {
+  const updateUserRole = async (userId: string, newRole: UserRoleType) => {
     try {
-      const { error } = await supabase
+      // Update role in auth.users raw_user_meta_data
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { role: newRole }
+      });
+
+      if (authError) {
+        console.error('Auth update error:', authError);
+        throw authError;
+      }
+
+      // Also update the profiles table for consistency
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ role: newRole })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) {
+        console.warn('Profile update warning:', profileError);
+      }
 
       setUsers(prev => prev.map(user => 
         user.id === userId 
@@ -127,21 +130,6 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const updatePermissions = async (userId: string, newPermissions: RolePermissions) => {
-    try {
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
-          ? { ...user, permissions: newPermissions }
-          : user
-      ));
-
-      toast.success('Permissions updated successfully');
-    } catch (error) {
-      console.error('Error updating permissions:', error);
-      toast.error('Failed to update permissions');
-    }
-  };
-
   const handleUserSelect = (userId: string) => {
     const user = users.find(u => u.id === userId);
     if (user) {
@@ -150,16 +138,46 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const handlePermissionChange = (permission: keyof RolePermissions, value: boolean) => {
+  const handlePermissionChange = async (permission: keyof RolePermissions, value: boolean) => {
     const newPermissions = { ...permissions, [permission]: value };
     setPermissions(newPermissions);
     
     if (selectedUser) {
-      updatePermissions(selectedUser, newPermissions);
+      try {
+        // Try to update permissions in the database
+        const { error } = await supabase.rpc('update_user_permissions', {
+          user_id_param: selectedUser,
+          permissions_param: newPermissions
+        });
+
+        if (error) {
+          console.warn('Could not save permissions to database:', error);
+          toast.success('Permission updated (local only - database save failed)');
+        } else {
+          toast.success('Permission updated and saved');
+        }
+
+        // Update local state
+        setUsers(prev => prev.map(user => 
+          user.id === selectedUser 
+            ? { ...user, permissions: newPermissions }
+            : user
+        ));
+      } catch (error) {
+        console.warn('Permission update error:', error);
+        toast.success('Permission updated locally');
+        
+        // Still update local state even if database save fails
+        setUsers(prev => prev.map(user => 
+          user.id === selectedUser 
+            ? { ...user, permissions: newPermissions }
+            : user
+        ));
+      }
     }
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
+  const getRoleBadgeColor = (role: UserRoleType) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'tracker': return 'bg-blue-100 text-blue-800';
@@ -205,7 +223,7 @@ const AccessManagement: React.FC = () => {
                 <div className="flex gap-2">
                   <Select
                     value={user.role}
-                    onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
+                    onValueChange={(value: UserRoleType) => updateUserRole(user.id, value)}
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue />
