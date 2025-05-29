@@ -1,120 +1,126 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import MatchHeader from '@/components/match/MatchHeader';
-import MainTabContent from '@/components/match/MainTabContent';
-import { PianoInput } from '@/components/match/PianoInput';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { EventType, MatchEvent, Player as PlayerType, Team as TeamTypeImport, Statistics, TimeSegmentStatistics } from '@/types';
+import { useAuth } from '@/context/AuthContext'; // Assuming this context provides user roles
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import  MatchHeader  from '@/components/match/MatchHeader'; // Your component for the top bar
+import  MainTabContent  from '@/components/match/MainTabContent'; // Your component for tracking mode content
+import  PianoRoll  from '@/components/match/PianoInput'; // Your component for piano roll view
+import { toast } from 'sonner'; // For notifications
+import { Button } from '@/components/ui/button'; // ShadCN Button
+import { EventType, MatchEvent, Player as PlayerType, Team as TeamTypeImport, Statistics, TimeSegmentStatistics } from '@/types'; // Import types, using TeamTypeImport for imported Team
 import useMatchData, {
   TeamHeaderData as HookTeamHeaderData,
-  MatchDataInHook,
+  MatchDataInHook, // Make sure this type correctly defines what useMatchData.match returns
   MatchEvent as HookMatchEvent
-} from '@/hooks/useMatchData';
-import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
-import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
+} from '@/hooks/useMatchData'; // Your custom hook for fetching match data
+import { useMatchCollaboration } from '@/hooks/useMatchCollaboration'; // Import the collaboration hook
+import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents'; // Import RealTimeMatchEvents
 
+// Define or import detailed Player and Team types if MainTabContent or other parts need them
+// These are distinct from the simpler TeamHeaderData provided by the hook for the MatchHeader.
 interface AssignedPlayerForMatch {
-  id: string | number;
+  id: string | number; // Or more specific if player ID type is known
   name: string;
-  teamId: 'home' | 'away';
+  teamId: 'home' | 'away'; // Or string, if team IDs are not strictly 'home'/'away'
   teamName: string;
 }
 
 interface Player {
-  id: number;
+  id: string; // Or number, ensure consistency
   name: string;
   position: string;
   number: number;
+  // Add other relevant player details
 }
 
 interface TeamType {
-  id: string;
   name: string;
   formation: string;
   players: Player[];
+  // Add other relevant team details like logo, coach, etc.
 }
 
 const MatchAnalysis: React.FC = () => {
-  const { matchId } = useParams<{ matchId: string }>();
+  const { matchId } = useParams<{ matchId: string }>(); // Get matchId from URL
   const navigate = useNavigate();
-  const { userRole, user } = useAuth();
+  const { userRole, user } = useAuth(); // Get user role and user object for conditional UI and data fetching
 
-  const DISABLE_COLLABORATION_FEATURE = true; // Set to true to disable
+  // Instantiate useMatchCollaboration hook
+  const { sendEvent: sendCollaborationEvent } = useMatchCollaboration({
+    matchId: matchId, // From useParams
+    userId: user?.id,
+    // teamId is not set at the hook level, but per event
+  });
 
-  let sendCollaborationEvent = (...args: any[]) => { 
-    console.warn('Collaboration feature is disabled. sendEvent called but did nothing.', args); 
-  };
-
-  if (!DISABLE_COLLABORATION_FEATURE) {
-    const collaborationHookResult = useMatchCollaboration({ // Hook is called conditionally
-      matchId: matchId,
-      userId: user?.id,
-    });
-    sendCollaborationEvent = collaborationHookResult.sendEvent;
-  } else {
-    // Log that the feature is disabled if you want to see it in console
-    console.log('[MatchAnalysis] Real-time collaboration feature is currently disabled for testing.');
-  }
-
+  // Fetching core match data, header-specific team data, and events using the custom hook
   const {
-    match: matchDataFromHook,
-    homeTeam: homeTeamHeaderDataFromHook,
-    awayTeam: awayTeamHeaderDataFromHook,
-    events: eventsFromHook,
+    match: matchDataFromHook, // This should be of type MatchDataInHook or similar
+    homeTeam: homeTeamHeaderDataFromHook, // This should be of type HookTeamHeaderData
+    awayTeam: awayTeamHeaderDataFromHook, // This should be of type HookTeamHeaderData
+    events: eventsFromHook, // Array of HookMatchEvent
     isLoading: isLoadingMatchData,
-    error: matchDataError
-  } = useMatchData(matchId);
+    error: matchDataError,
+    refetchMatchData // Optional: if your hook provides a way to manually refetch
+  } = useMatchData(matchId); // Pass the matchId to the hook
 
-  // Logging props and state from useMatchData
-  console.log('[MatchAnalysis] matchId from params:', matchId);
-  console.log('[MatchAnalysis] Hook data: isLoadingMatchData:', isLoadingMatchData, 'matchDataError:', matchDataError, 'matchDataFromHook:', matchDataFromHook, 'homeTeamHeaderDataFromHook:', homeTeamHeaderDataFromHook, 'awayTeamHeaderDataFromHook:', awayTeamHeaderDataFromHook);
+  // Local UI/Interaction States
+  const [mode, setMode] = useState<'piano' | 'tracking'>('piano'); // To toggle between views
 
-  const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
+  // PianoRoll specific states
+  const [pianoSelectedEventType, setPianoSelectedEventType] = useState<EventType | null>(null);
+  const [pianoSelectedTeam, setPianoSelectedTeam] = useState<TeamType | null>(null);
+  const [pianoSelectedPlayer, setPianoSelectedPlayer] = useState<Player | null>(null);
+  const [isPassTrackingMode, setIsPassTrackingMode] = useState<boolean>(false);
+  const [elapsedTime, setElapsedTime] = useState<number>(0); // Placeholder
+
+  // MainTabContent specific states
   const [activeTab, setActiveTab] = useState<string>('pitch');
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [teamPositions, setTeamPositions] = useState<Record<string, Record<string, { x: number; y: number }>>>({});
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null); // Using local Player type
   const [selectedTeamId, setSelectedTeamId] = useState<'home' | 'away'>('home');
   const [ballTrackingPoints, setBallTrackingPoints] = useState<Array<{ x: number; y: number; timestamp: number }>>([]);
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
-  const [playerStats, setPlayerStats] = useState<any>({});
+  const [statistics, setStatistics] = useState<Statistics | null>(null); // Initialize with null or default structure
+  const [playerStats, setPlayerStats] = useState<any>({}); // Define a proper type later if possible
 
+  // State for tracker assignments
   const [assignedPlayerForMatch, setAssignedPlayerForMatch] = useState<AssignedPlayerForMatch | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false);
 
+  // Local state for more detailed team compositions (e.g., for player lists in MainTabContent)
+  // These are typically initialized with defaults or fetched separately if not fully covered by useMatchData
   const [homeTeamFull, setHomeTeamFull] = useState<TeamType>({
-    id: 'home',
     name: 'Home Team',
     formation: '4-3-3',
-    players: Array.from({ length: 11 }, (_, i) => ({ id: i+1, name: `Home Player ${i+1}`, position: 'Forward', number: i+1 }))
+    players: Array.from({ length: 11 }, (_, i) => ({ id: `H${i+1}`, name: `Home Player ${i+1}`, position: 'Forward', number: i+1 }))
   });
   const [awayTeamFull, setAwayTeamFull] = useState<TeamType>({
-    id: 'away',
     name: 'Away Team',
     formation: '4-4-2',
-    players: Array.from({ length: 11 }, (_, i) => ({ id: i+12, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
+    players: Array.from({ length: 11 }, (_, i) => ({ id: `A${i+1}`, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
   });
 
+  // Effect to synchronize local detailed team data if the simpler header data from the hook changes
+  // This is useful if MainTabContent needs to display team names/formations consistent with MatchHeader
   useEffect(() => {
     if (homeTeamHeaderDataFromHook) {
       setHomeTeamFull(prev => ({
         ...prev,
-        name: homeTeamHeaderDataFromHook.name || "Home Team",
-        formation: homeTeamHeaderDataFromHook.formation || prev.formation
+        name: homeTeamHeaderDataFromHook.name || "Home Team", // Fallback
+        formation: homeTeamHeaderDataFromHook.formation || prev.formation // Fallback or keep previous
       }));
     }
     if (awayTeamHeaderDataFromHook) {
       setAwayTeamFull(prev => ({
         ...prev,
-        name: awayTeamHeaderDataFromHook.name || "Away Team",
-        formation: awayTeamHeaderDataFromHook.formation || prev.formation
+        name: awayTeamHeaderDataFromHook.name || "Away Team", // Fallback
+        formation: awayTeamHeaderDataFromHook.formation || prev.formation // Fallback or keep previous
       }));
     }
   }, [homeTeamHeaderDataFromHook, awayTeamHeaderDataFromHook]);
 
+  // Effect to fetch tracker assignments
   useEffect(() => {
     if (matchId && user?.id && userRole === 'tracker') {
       const fetchAssignments = async () => {
@@ -129,22 +135,30 @@ const MatchAnalysis: React.FC = () => {
             .select('assigned_player_id, assigned_event_types')
             .eq('match_id', matchId)
             .eq('tracker_id', user.id)
-            .maybeSingle();
+            .maybeSingle(); // Fetches a single row or null if not found
 
           if (error) {
+            // PGRST116 means no rows found, which is not necessarily an error for assignments
             if (error.code === 'PGRST116') {
+              // No assignment found for this tracker and match
               console.log('No assignment found for this tracker on this match.');
+              // setAssignedPlayerForMatch(null) and setAssignedEventTypes([]) already done
             } else {
-              throw error;
+              throw error; // Re-throw other errors
             }
           }
 
           if (data) {
+            // Simplified transformation: Assumes assigned_player_id is the player's name or a usable ID.
+            // A more robust solution would fetch player details from a 'players' table
+            // or expect more detailed info stored in match_tracker_assignments.
             const playerInfo: AssignedPlayerForMatch = {
               id: data.assigned_player_id || 'unknown-player',
-              name: String(data.assigned_player_id) || 'Unknown Player',
-              teamId: 'home',
-              teamName: homeTeamFull?.name || 'Home Team'
+              name: data.assigned_player_id || 'Unknown Player', // Placeholder name
+              // Team association would ideally come from player data or the assignment itself.
+              // For now, using a placeholder. This needs to be improved later.
+              teamId: 'home', // Placeholder
+              teamName: homeTeamFull?.name || 'Home Team' // Placeholder, or derive from context
             };
             setAssignedPlayerForMatch(playerInfo);
             setAssignedEventTypes(data.assigned_event_types || []);
@@ -159,30 +173,34 @@ const MatchAnalysis: React.FC = () => {
 
       fetchAssignments();
     } else {
+      // Not a tracker or missing IDs, so clear any previous assignment state
       setAssignedPlayerForMatch(null);
       setAssignedEventTypes([]);
       setIsLoadingAssignments(false);
     }
-  }, [matchId, user?.id, userRole, homeTeamFull?.name]);
+  }, [matchId, user?.id, userRole, supabase, homeTeamFull?.name]); // homeTeamFull?.name is a temporary dep for placeholder
 
-  const timeSegments = useMemo((): TimeSegmentStatistics[] => {
+  // Derived data for MainTabContent
+  const timeSegments = useMemo(():: TimeSegmentStatistics[] => {
+    // Placeholder logic: This should eventually process eventsFromHook to create segments.
+    // For now, returning an empty array or a mock segment.
     if (!eventsFromHook || eventsFromHook.length === 0) return [];
-    
-    const segmentDuration = 15 * 60 * 1000;
+    // Example: Group events into 15-minute segments (very basic)
+    // This is a simplified example. Actual segmentation might be more complex.
+    const segmentDuration = 15 * 60 * 1000; // 15 minutes in milliseconds
     const segments: TimeSegmentStatistics[] = [];
-    
-    if (matchDataFromHook?.created_at) {
-        let segmentStart = new Date(matchDataFromHook.created_at).getTime();
+    // Assuming events are sorted by timestamp
+    // This is a naive implementation, real segmentation would be more robust
+    // and calculate actual statistics per segment.
+    if (matchDataFromHook?.start_time) {
+        let segmentStart = new Date(matchDataFromHook.start_time).getTime();
         let segmentEnd = segmentStart + segmentDuration;
         let currentSegment = 1;
-        const endTime = new Date().getTime();
-        
-        while(segmentEnd < endTime) {
+        while(segmentEnd < (new Date(matchDataFromHook.end_time || Date.now()).getTime() + segmentDuration)) { // Ensure last segment is captured
              segments.push({
-                startTime: segmentStart,
-                endTime: segmentEnd,
-                timeSegment: `${currentSegment * 15} min`,
-                events: []
+                segment: `${currentSegment * 15} min`,
+                duration: segmentDuration / 1000, // duration in seconds
+                stats: { shots: 0, goals: 0, possession: 0 }, // Placeholder stats
              });
              segmentStart = segmentEnd;
              segmentEnd += segmentDuration;
@@ -190,39 +208,137 @@ const MatchAnalysis: React.FC = () => {
         }
     }
     return segments;
-  }, [eventsFromHook, matchDataFromHook?.created_at]);
+  }, [eventsFromHook, matchDataFromHook?.start_time, matchDataFromHook?.end_time]);
 
+  // UI Action Handlers
+  const handleToggleTracking = () => {
+    // toast.info(`Tracking mode toggled. (Placeholder)`);
+    setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking');
+  };
+
+  const handleSave = () => {
+    console.log('MatchHeader Save button clicked. Data saving logic to be implemented here.');
+    toast.info('Save functionality is under development. Match data not yet saved.');
+  };
+
+  // PianoRoll Handlers
+  const handlePianoEventAdd = (event: MatchEvent) => { // MatchEvent from @/types
+    console.log('Piano Event Added, sending via useMatchCollaboration:', event);
+    
+    const { 
+      id, status, clientId, user_id, optimisticCreationTime, // Fields to omit for sendCollaborationEvent
+      matchId: eventMatchId, // PianoInput might have a placeholder matchId
+      ...restOfEvent 
+    } = event;
+
+    if (!matchId) {
+        console.error("Match ID is missing from URL, cannot record piano event via collaboration.");
+        toast.error("Error: Match ID is missing for piano event.");
+        return;
+    }
+    if (!user?.id && !restOfEvent.user_id) { // Check if user_id can be derived
+        console.error("User ID is missing, cannot record piano event via collaboration.");
+        toast.error("Error: User ID is missing for piano event.");
+        return;
+    }
+
+    sendCollaborationEvent({
+      ...restOfEvent,
+      matchId: matchId, // Prioritize current matchId from useParams
+      // user_id from restOfEvent if available, otherwise hook might use its own userId
+    });
+    toast.success(`Piano event ${event.type} recorded.`);
+  };
+  const handlePianoEventTypeSelect = (eventType: EventType) => { setPianoSelectedEventType(eventType); };
+  const handlePianoTeamSelect = (team: TeamType) => { setPianoSelectedTeam(team); setPianoSelectedPlayer(null); }; // Using local TeamType
+  const handlePianoPlayerSelect = (player: Player) => { setPianoSelectedPlayer(player); }; // Using local Player type
+
+  // MainTabContent Handlers
+  const handlePlayerSelectInAnalysis = (player: Player) => { setSelectedPlayer(player); }; // Using local Player type
+  const handleSetSelectedTeamInAnalysis = (teamId: 'home' | 'away') => { setSelectedTeamId(teamId); setSelectedPlayer(null); };
+  const handlePitchClickInAnalysis = (coordinates: { x: number; y: number }) => { console.log('Pitch clicked:', coordinates); };
+  const handleAddBallTrackingPointInAnalysis = (point: { x: number; y: number }) => { setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }]); };
+  const handleRecordEventInAnalysis = (
+    eventType: EventType, 
+    playerId: string,     
+    teamIdStr: 'home' | 'away', 
+    coordinates?: { x: number; y: number }
+  ) => {
+    if (!matchId) {
+      console.error("Match ID is missing, cannot record event.");
+      toast.error("Error: Match ID is missing.");
+      return;
+    }
+    if (!user?.id) {
+      console.error("User ID is missing, cannot record event.");
+      toast.error("Error: User ID is missing.");
+      return;
+    }
+    if (!homeTeamFull?.id || !awayTeamFull?.id) {
+      console.error("Team IDs are not loaded, cannot determine actual team ID for event.");
+      toast.error("Error: Team information incomplete.");
+      return;
+    }
+
+    const actualTeamId = teamIdStr === 'home' ? homeTeamFull.id : awayTeamFull.id;
+
+    const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
+      matchId: matchId,
+      teamId: actualTeamId, 
+      playerId: playerId, 
+      type: eventType,
+      timestamp: Date.now(), 
+      coordinates: coordinates || { x: 0, y: 0 }, 
+    };
+
+    console.log('Sending event via useMatchCollaboration:', eventData);
+    sendCollaborationEvent(eventData); 
+
+    toast.success(`Event ${eventType} recorded for player ${playerId}.`);
+  };
+  const handleUndoInAnalysis = () => { console.log('Undo action triggered from MainTabContent'); };
+  const handleSaveInAnalysis = () => { console.log('Save action triggered from MainTabContent'); };
+  const handleSetStatisticsInAnalysis = (stats: Statistics) => { setStatistics(stats); };
+
+
+  // Memoized transformation of events for components like a timeline (if different from raw events)
+  // This timelineEvents is different from timeSegments. timeSegments is for stats over periods.
+  const timelineEvents = useMemo(() => {
+    if (!eventsFromHook || !Array.isArray(eventsFromHook)) return []; // Guard against undefined/non-array
+    return eventsFromHook.map(event => ({
+      time: event.timestamp, // Assuming timestamp is a key property
+      label: event.event_type, // Assuming event_type is a key property
+      // Potentially add more transformed properties specific to the timeline component
+      // e.g., color, icon based on event_type
+    }));
+  }, [eventsFromHook]);
+
+
+  // --- Render Logic ---
+
+  // 1. Loading State
   if (isLoadingMatchData) {
     return (
       <div className="container mx-auto p-4 text-center flex justify-center items-center h-screen">
         <p className="text-xl">Loading match details...</p>
+        {/* You could add a spinner component here */}
       </div>
     );
   }
 
+  // 2. Error State or Missing Essential Data
+  // This guard is crucial to prevent rendering with undefined data that child components might expect
   if (matchDataError || !matchDataFromHook || !homeTeamHeaderDataFromHook || !awayTeamHeaderDataFromHook) {
-    // Log which condition(s) are true
-    console.log('[MatchAnalysis] Displaying error/unavailable message. Conditions:');
-    console.log('[MatchAnalysis] - matchDataError:', matchDataError);
-    console.log('[MatchAnalysis] - !matchDataFromHook:', !matchDataFromHook);
-    console.log('[MatchAnalysis] - !homeTeamHeaderDataFromHook:', !homeTeamHeaderDataFromHook);
-    console.log('[MatchAnalysis] - !awayTeamHeaderDataFromHook:', !awayTeamHeaderDataFromHook);
-
-    let message: string;
+    let message = 'Match not found or there was an issue loading its data.';
     if (matchDataError) {
-      // Prioritize the error message from the hook
-      const errorMessage = typeof matchDataError === 'string' ? matchDataError : ((matchDataError as Error)?.message);
-      message = `Error: ${errorMessage || 'An unknown error occurred while fetching match data.'}`;
+      // Attempt to get a more specific error message
+      message = typeof matchDataError === 'string' ? matchDataError : ((matchDataError as Error)?.message || 'An error occurred.');
     } else if (!matchDataFromHook) {
-      message = 'Match data could not be loaded. The core match information is missing.';
+      message = 'Core match data is missing. Please try again or contact support.';
     } else if (!homeTeamHeaderDataFromHook) {
-      message = 'Home team data could not be loaded. Please check match configuration.';
+      message = 'Home team details are missing. Please try again or contact support.';
     } else if (!awayTeamHeaderDataFromHook) {
-      message = 'Away team data could not be loaded. Please check match configuration.';
-    } else {
-      // This case should ideally not be reached if one ofthe previous conditions is true,
-      // but it serves as a fallback.
-      message = 'Match data is currently unavailable. Please try again later or contact support if the issue persists.';
+      message = 'Away team details are missing. Please try again or contact support.';
     }
 
     return (
@@ -230,48 +346,51 @@ const MatchAnalysis: React.FC = () => {
         <p className="text-red-600 text-lg mb-4">{message}</p>
         <div className="flex gap-2">
           <Button onClick={() => navigate('/')} variant="outline">Go Home</Button>
+          {matchId && typeof refetchMatchData === 'function' && (
+            <Button onClick={() => refetchMatchData(matchId)}>Try Reloading Data</Button>
+          )}
         </div>
       </div>
     );
   }
 
+  // 3. Successful Data Load: Render the main analysis UI
+  // At this point, matchDataFromHook, homeTeamHeaderDataFromHook, and awayTeamHeaderDataFromHook
+  // are guaranteed to be defined. Their internal properties (like .name) should also be guaranteed
+  // by the useMatchData hook (i.e., the hook should provide defaults if the source is sparse).
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <MatchHeader
-        name={matchDataFromHook.name || 'Unnamed Match'}
-        status={matchDataFromHook.status}
-        homeTeam={homeTeamHeaderDataFromHook}
-        awayTeam={awayTeamHeaderDataFromHook}
+        matchName={matchDataFromHook.name} // Expects string
+        matchStatus={matchDataFromHook.status} // Expects string
+        homeTeam={homeTeamHeaderDataFromHook} // Expects HookTeamHeaderData (with .name, .logo, .formation as strings)
+        awayTeam={awayTeamHeaderDataFromHook} // Expects HookTeamHeaderData
         mode={mode}
-        setMode={setMode}
-        onToggleTracking={() => setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking')}
-        onSave={() => {
-          console.log('MatchHeader Save button clicked. Data saving logic to be implemented here.');
-          toast.info('Save functionality is under development. Match data not yet saved.');
-        }}
+        setMode={setMode} // Pass setter if MatchHeader directly controls mode
+        onToggleTracking={handleToggleTracking} // Pass handler
+        onSave={handleSave} // Pass handler
+        // Add any other props MatchHeader needs, like userRole for conditional buttons
         userRole={userRole}
       />
 
-      <div className="flex-grow overflow-auto p-2 md:p-4">
+      {/* Conditional rendering based on the selected mode */}
+      <div className="flex-grow overflow-auto p-2 md:p-4"> {/* Added overflow-auto for content scroll */}
         {mode === 'piano' && (
-          <PianoInput
-            fullMatchRoster={null}
-            assignedEventTypes={null}
-            assignedPlayers={null}
-            onEventRecord={(eventType, player, details) => {
-              if (player) {
-                const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
-                  matchId: matchId || '',
-                  teamId: player.team_context === 'home' ? 'home' : 'away',
-                  playerId: Number(player.id),
-                  type: eventType.key as EventType,
-                  timestamp: Date.now(),
-                  coordinates: { x: 0, y: 0 },
-                };
-                sendCollaborationEvent(eventData);
-                toast.success(`Piano event ${eventType.key} recorded.`);
-              }
-            }}
+          <PianoRoll
+            events={eventsFromHook || []} // Pass events, ensure it's an array
+            homeTeam={homeTeamFull}
+            awayTeam={awayTeamFull}
+            onEventAdd={handlePianoEventAdd}
+            elapsedTime={elapsedTime}
+            selectedEventType={pianoSelectedEventType}
+            onEventTypeSelect={handlePianoEventTypeSelect}
+            selectedTeam={pianoSelectedTeam}
+            onTeamSelect={handlePianoTeamSelect}
+            selectedPlayer={pianoSelectedPlayer}
+            onPlayerSelect={handlePianoPlayerSelect}
+            isPassTrackingMode={isPassTrackingMode}
+            // duration={matchDataFromHook.duration || 3600} // Example: default to 60 mins if duration isn't in hook data
+            // onEventClick={(event) => console.log('PianoRoll Event clicked:', event)}
           />
         )}
 
@@ -282,47 +401,31 @@ const MatchAnalysis: React.FC = () => {
             assignedPlayerForMatch={assignedPlayerForMatch}
             assignedEventTypes={assignedEventTypes}
             
+            // Updated props with new state and handlers
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            homeTeam={homeTeamFull}
-            awayTeam={awayTeamFull}
-            selectedPlayer={selectedPlayer}
+            homeTeam={homeTeamFull} // Using local TeamType
+            awayTeam={awayTeamFull} // Using local TeamType
+            teamPositions={teamPositions}
+            selectedPlayer={selectedPlayer} // Using local Player type
             selectedTeam={selectedTeamId}
-            setSelectedTeam={(teamId: 'home' | 'away') => {
-              setSelectedTeamId(teamId);
-              setSelectedPlayer(null);
-            }}
-            handlePlayerSelect={(player: Player) => setSelectedPlayer(player)}
+            setSelectedTeam={handleSetSelectedTeamInAnalysis}
+            handlePlayerSelect={handlePlayerSelectInAnalysis}
             ballTrackingPoints={ballTrackingPoints}
-            handlePitchClick={(coordinates: { x: number; y: number }) => console.log('Pitch clicked:', coordinates)}
-            addBallTrackingPoint={(point: { x: number; y: number }) => setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }])}
+            handlePitchClick={handlePitchClickInAnalysis}
+            addBallTrackingPoint={handleAddBallTrackingPointInAnalysis}
             statistics={statistics}
-            setStatistics={(stats: Statistics) => setStatistics(stats)}
+            setStatistics={handleSetStatisticsInAnalysis}
             playerStats={playerStats}
-            handleUndo={() => console.log('Undo action triggered from MainTabContent')}
-            handleSave={() => console.log('Save action triggered from MainTabContent')}
+            handleUndo={handleUndoInAnalysis}
+            handleSave={handleSaveInAnalysis} // This is for MainTabContent's own save logic
             timeSegments={timeSegments}
-            recordEvent={(eventType: EventType, playerId: string | number, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
-              if (!matchId || !user?.id) {
-                toast.error("Error: Missing match or user information.");
-                return;
-              }
-              const actualTeamId = teamIdStr;
-              const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
-                matchId: matchId,
-                teamId: actualTeamId,
-                playerId: Number(playerId),
-                type: eventType,
-                timestamp: Date.now(),
-                coordinates: coordinates || { x: 0, y: 0 },
-              };
-              sendCollaborationEvent(eventData);
-              toast.success(`Event ${eventType} recorded for player ${playerId}.`);
-            }}
+            recordEvent={handleRecordEventInAnalysis}
             events={eventsFromHook || []}
           />
         )}
 
+        {/* Fallback for any other unhandled modes (optional) */}
         {mode !== 'piano' && mode !== 'tracking' && (
           <div className="text-center p-10">
             <p className="text-muted-foreground">
@@ -333,8 +436,9 @@ const MatchAnalysis: React.FC = () => {
         )}
       </div>
 
+      {/* Add the new section for RealTimeMatchEvents */}
       {userRole === 'admin' && matchId && (
-        <div className="p-2 md:p-4">
+        <div className="p-2 md:p-4"> {/* Optional wrapper for spacing */}
           <RealTimeMatchEvents matchId={matchId} />
         </div>
       )}
@@ -343,3 +447,12 @@ const MatchAnalysis: React.FC = () => {
 };
 
 export default MatchAnalysis;
+
+// Ensure local Player and TeamType are compatible with imported PlayerType and TeamTypeImport
+// For now, we assume they are compatible or can be adjusted later.
+// The types Player and TeamType defined in this file are used for local state (e.g. selectedPlayer),
+// while PlayerType (for individual players) and TeamTypeImport (for team structures) are imported from '@/types'.
+// MainTabContent props like homeTeam/awayTeam might expect TeamTypeImport.
+// For now, homeTeamFull/awayTeamFull (local TeamType) are passed; this might need adjustment
+// if MainTabContent strictly requires TeamTypeImport and their structures are incompatible.
+// Similarly, selectedPlayer (local Player) is passed; ensure compatible with MainTabContent's expected PlayerType.
