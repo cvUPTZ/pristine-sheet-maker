@@ -7,7 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { RequireAuth } from "./components/RequireAuth";
 import Dashboard from "./pages/Dashboard";
-import MatchAnalysis from "./pages/MatchAnalysis";
+// import MatchAnalysis from "./pages/MatchAnalysis"; // Old component
+import MatchAnalysisV2 from "./pages/MatchAnalysisV2"; // New component
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
 import Auth from "./pages/Auth";
@@ -101,7 +102,7 @@ const AppContent = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
-        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysis /></RequireAuth>} />
+        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
         <Route path="/statistics" element={<RequireAuth requiredRoles={['admin']}><Statistics /></RequireAuth>} />
