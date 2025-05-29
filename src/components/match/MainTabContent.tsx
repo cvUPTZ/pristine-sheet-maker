@@ -1,49 +1,58 @@
-
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import PitchView from '@/components/match/PitchView';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Play, Pause, RotateCcw, Save, Undo } from 'lucide-react';
+import PitchView from './PitchView';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
-import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
-import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
-import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
-import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
-import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { PianoInput } from '@/components/match/PianoInput';
+import { PianoInput } from './PianoInput';
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
-import VideoAnalyzer from '@/components/VideoAnalyzer';
+import TimeSegmentChart from '@/components/visualizations/TimeSegmentChart';
 import DedicatedTrackerUI from '@/components/match/DedicatedTrackerUI';
-import { Statistics, TimeSegmentStatistics, Team, Player, EventType, MatchEvent } from '@/types';
+import { Team, Player, MatchEvent, EventType, Statistics, TimeSegmentStatistics } from '@/types';
+
+interface AssignedPlayerForMatch {
+  id: string | number;
+  name: string;
+  teamId: 'home' | 'away';
+  teamName: string;
+}
 
 interface MainTabContentProps {
+  matchId: string;
+  userRole: string;
+  assignedPlayerForMatch?: AssignedPlayerForMatch | null;
+  assignedEventTypes?: string[];
+  
   activeTab: string;
   setActiveTab: (tab: string) => void;
   homeTeam: Team;
   awayTeam: Team;
-  teamPositions: Record<string, Record<number, { x: number; y: number }>>;
+  teamPositions: Record<string, Record<string, { x: number; y: number }>>;
   selectedPlayer: Player | null;
   selectedTeam: 'home' | 'away';
   setSelectedTeam: (team: 'home' | 'away') => void;
   handlePlayerSelect: (player: Player) => void;
   ballTrackingPoints: Array<{ x: number; y: number; timestamp: number }>;
-  mode: 'piano' | 'tracking';
   handlePitchClick: (coordinates: { x: number; y: number }) => void;
   addBallTrackingPoint: (point: { x: number; y: number }) => void;
-  statistics: Statistics;
+  statistics: Statistics | null;
   setStatistics: (stats: Statistics) => void;
   playerStats: any;
   handleUndo: () => void;
   handleSave: () => void;
   timeSegments: TimeSegmentStatistics[];
-  recordEvent: (eventType: EventType, playerId: number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
-  assignedPlayerForMatch: { id: number; name: string; teamId: 'home' | 'away'; teamName: string } | null;
-  assignedEventTypes: string[];
-  userRole: string | null;
-  matchId: string;
+  recordEvent: (eventType: EventType, playerId: string, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
+  events: MatchEvent[];
 }
 
 const MainTabContent: React.FC<MainTabContentProps> = ({
+  matchId,
+  userRole,
+  assignedPlayerForMatch,
+  assignedEventTypes = [],
+  
   activeTab,
   setActiveTab,
   homeTeam,
@@ -54,7 +63,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   setSelectedTeam,
   handlePlayerSelect,
   ballTrackingPoints,
-  mode,
   handlePitchClick,
   addBallTrackingPoint,
   statistics,
@@ -64,217 +72,207 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   handleSave,
   timeSegments,
   recordEvent,
-  assignedPlayerForMatch,
-  assignedEventTypes,
-  userRole,
-  matchId
+  events
 }) => {
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
-  const toggleEventType = (eventType: string) => {
-    setSelectedEventTypes(prev =>
-      prev.includes(eventType)
-        ? prev.filter(type => type !== eventType)
-        : [...prev, eventType]
-    );
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  const handleTimerToggle = () => {
+    setTimerRunning(!timerRunning);
   };
 
-  const filteredTimeSegments = useMemo(() => {
-    if (selectedEventTypes.length === 0) return timeSegments;
-    return timeSegments.map(segment => ({
-      ...segment,
-      events: segment.events?.filter((event: any) => selectedEventTypes.includes(event.type)) || []
-    }));
-  }, [timeSegments, selectedEventTypes]);
-
-  // Get player positions for heatmap - convert the nested structure to flat
-  const allPlayerPositions = useMemo(() => {
-    const positions: Record<number, { x: number; y: number }> = {};
-    Object.values(teamPositions).forEach(teamPos => {
-      Object.entries(teamPos).forEach(([playerId, pos]) => {
-        positions[parseInt(playerId)] = pos;
-      });
-    });
-    return positions;
-  }, [teamPositions]);
-  
-  const [currentSelectedEventType, setCurrentSelectedEventType] = useState<EventType | null>(null);
-  const [currentSelectedTeamForPiano, setCurrentSelectedTeamForPiano] = useState<Team | null>(null);
-  const [isPianoPassTrackingMode, setIsPianoPassTrackingMode] = useState<boolean>(false);
-
-  const handlePianoEventTypeSelect = (eventType: EventType) => {
-    setCurrentSelectedEventType(eventType);
+  const handleTimerReset = () => {
+    setElapsedTime(0);
+    setTimerRunning(false);
   };
-  const handlePianoTeamSelect = (team: Team) => {
-    setCurrentSelectedTeamForPiano(team);
-  };
-  const handlePianoPlayerSelect = (player: Player) => {
-    handlePlayerSelect(player); 
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="w-full">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value)} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="pitch">Pitch</TabsTrigger>
-          <TabsTrigger value="stats">Stats</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="piano">Piano</TabsTrigger>
+    <div className="space-y-4">
+      {/* Timer and Action Controls */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center justify-between">
+            <span>Match Timer</span>
+            <div className="text-2xl font-mono">
+              {formatTime(elapsedTime)}
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <div className="flex gap-2">
+            <Button
+              onClick={handleTimerToggle}
+              variant={timerRunning ? "destructive" : "default"}
+              size="sm"
+            >
+              {timerRunning ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+              {timerRunning ? 'Pause' : 'Start'}
+            </Button>
+            <Button onClick={handleTimerReset} variant="outline" size="sm">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+            <Button onClick={handleSave} variant="secondary" size="sm">
+              <Save className="w-4 h-4 mr-2" />
+              Save
+            </Button>
+            <Button onClick={handleUndo} variant="outline" size="sm">
+              <Undo className="w-4 h-4 mr-2" />
+              Undo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dedicated Tracker UI for tracker role */}
+      {userRole === 'tracker' && assignedPlayerForMatch && (
+        <DedicatedTrackerUI
+          assignedPlayerForMatch={assignedPlayerForMatch}
+          recordEvent={recordEvent}
+          assignedEventTypes={assignedEventTypes}
+          matchId={matchId}
+        />
+      )}
+
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="pitch">Pitch View</TabsTrigger>
+          <TabsTrigger value="piano">Piano Roll</TabsTrigger>
+          <TabsTrigger value="statistics">Statistics</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="video">Video</TabsTrigger>
-          <TabsTrigger value="fast-track">Fast Track</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <div className="mt-6">
-          <TabsContent value="pitch" className="space-y-4">
-            <Card>
-              <CardContent className="p-6">
-                <PitchView
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                  teamPositions={allPlayerPositions}
-                  selectedPlayer={selectedPlayer}
-                  selectedTeam={selectedTeam}
-                  setSelectedTeam={setSelectedTeam}
-                  handlePlayerSelect={handlePlayerSelect}
-                  ballTrackingPoints={ballTrackingPoints}
-                  mode={mode}
-                  handlePitchClick={handlePitchClick}
-                  addBallTrackingPoint={addBallTrackingPoint}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <TabsContent value="pitch" className="space-y-4">
+          <PitchView
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            selectedPlayer={selectedPlayer}
+            selectedTeam={selectedTeam}
+            setSelectedTeam={setSelectedTeam}
+            handlePlayerSelect={handlePlayerSelect}
+            ballTrackingPoints={ballTrackingPoints}
+            handlePitchClick={handlePitchClick}
+            addBallTrackingPoint={addBallTrackingPoint}
+            recordEvent={recordEvent}
+            events={events}
+          />
+        </TabsContent>
 
-          <TabsContent value="stats" className="space-y-4">
-            <StatisticsDisplay 
+        <TabsContent value="piano" className="space-y-4">
+          <PianoInput
+            events={events}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            onEventAdd={(event: MatchEvent) => {
+              console.log('Piano event added:', event);
+            }}
+            elapsedTime={elapsedTime}
+            selectedEventType={null}
+            onEventTypeSelect={() => {}}
+            selectedTeam={null}
+            onTeamSelect={() => {}}
+            selectedPlayer={null}
+            onPlayerSelect={() => {}}
+            isPassTrackingMode={false}
+          />
+        </TabsContent>
+
+        <TabsContent value="statistics" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <StatisticsDisplay
               statistics={statistics}
               homeTeamName={homeTeam.name}
               awayTeamName={awayTeam.name}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Match Statistics Visualizer</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <MatchStatsVisualizer 
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                    ballTrackingPoints={ballTrackingPoints}
-                    timeSegments={timeSegments}
-                  />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Team Performance Over Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <TeamTimeSegmentCharts 
-                    timeSegments={timeSegments}
-                    homeTeamName={homeTeam.name}
-                    awayTeamName={awayTeam.name}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="details" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Player Heatmap</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <PlayerHeatmap 
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                    teamPositions={allPlayerPositions}
-                    selectedTeam={selectedTeam}
-                    onSelectTeam={setSelectedTeam}
-                  />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ball Flow Visualization</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BallFlowVisualization 
-                    ballTrackingPoints={ballTrackingPoints}
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-            
-            <DetailedStatsTable 
-              statistics={statistics}
+            <DetailedStatsTable
+              statistics={statistics || {
+                home: { passes: 0, shots: 0, tackles: 0, fouls: 0, possession: 50 },
+                away: { passes: 0, shots: 0, tackles: 0, fouls: 0, possession: 50 },
+                possession: { home: 50, away: 50 },
+                shots: {
+                  home: { onTarget: 0, offTarget: 0 },
+                  away: { onTarget: 0, offTarget: 0 }
+                },
+                passes: {
+                  home: { successful: 0, attempted: 0 },
+                  away: { successful: 0, attempted: 0 }
+                },
+                ballsPlayed: { home: 0, away: 0 },
+                ballsLost: { home: 0, away: 0 },
+                duels: {
+                  home: { won: 0, lost: 0, aerial: 0 },
+                  away: { won: 0, lost: 0, aerial: 0 }
+                },
+                cards: {
+                  home: { yellow: 0, red: 0 },
+                  away: { yellow: 0, red: 0 }
+                },
+                crosses: {
+                  home: { total: 0, successful: 0 },
+                  away: { total: 0, successful: 0 }
+                },
+                dribbles: {
+                  home: { successful: 0, attempted: 0 },
+                  away: { successful: 0, attempted: 0 }
+                },
+                corners: { home: 0, away: 0 },
+                offsides: { home: 0, away: 0 },
+                freeKicks: { home: 0, away: 0 }
+              }}
               homeTeamName={homeTeam.name}
               awayTeamName={awayTeam.name}
             />
-          </TabsContent>
+          </div>
+        </TabsContent>
 
-          <TabsContent value="piano" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Piano Input Interface</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PianoInput
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                  onEventAdd={(event: MatchEvent) => {
-                    recordEvent(event.type, event.playerId, event.teamId, event.coordinates);
-                  }}
-                  elapsedTime={0}
-                  selectedEventType={currentSelectedEventType}
-                  onEventTypeSelect={handlePianoEventTypeSelect}
-                  selectedTeam={currentSelectedTeamForPiano}
-                  onTeamSelect={handlePianoTeamSelect}
-                  selectedPlayer={selectedPlayer}
-                  onPlayerSelect={handlePianoPlayerSelect}
-                  isPassTrackingMode={isPianoPassTrackingMode}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <TabsContent value="timeline" className="space-y-4">
+          <MatchEventsTimeline
+            events={events.map(event => ({
+              time: event.timestamp,
+              label: event.type,
+            }))}
+          />
+        </TabsContent>
 
-          <TabsContent value="timeline" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Match Events Timeline</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MatchEventsTimeline 
-                  events={timeSegments.flatMap(segment => segment.events || [])}
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="video" className="space-y-4">
-            <VideoAnalyzer />
-          </TabsContent>
-
-          <TabsContent value="fast-track" className="space-y-4">
-            {assignedPlayerForMatch && (
-              <DedicatedTrackerUI
-                assignedPlayerForMatch={assignedPlayerForMatch}
-                recordEvent={recordEvent}
-                assignedEventTypes={assignedEventTypes}
-                matchId={matchId}
+        <TabsContent value="analytics" className="space-y-4">
+          {timeSegments.length > 0 ? (
+            <div className="grid gap-4">
+              <TimeSegmentChart
+                timeSegments={timeSegments}
+                homeTeamName={homeTeam.name}
+                awayTeamName={awayTeam.name}
+                dataKey="possession"
+                title="Possession Over Time"
+                description="Ball possession percentage by time segment"
+                chartType="area"
               />
-            )}
-          </TabsContent>
-        </div>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground">No analytics data available yet</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   );

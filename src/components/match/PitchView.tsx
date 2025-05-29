@@ -1,143 +1,118 @@
 
-import React, { useRef, useEffect, useState } from 'react';
-import FootballPitch from '@/components/FootballPitch';
-import PlayerMarker from '@/components/PlayerMarker';
-import BallTracker from '@/components/BallTracker';
-import { Player, BallTrackingPoint, EventType } from '@/types';
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getPlayerPositions } from '@/utils/formationUtils';
-import { useCurrentBreakpoint } from '@/hooks/use-mobile';
+import FootballPitch from '@/components/FootballPitch';
+import { Team, Player, MatchEvent, EventType } from '@/types';
 
 interface PitchViewProps {
-  homeTeam: {
-    name: string;
-    players: Player[];
-    formation?: string;
-  };
-  awayTeam: {
-    name: string;
-    players: Player[];
-    formation?: string;
-  };
-  teamPositions: Record<string, { x: number; y: number }>;
+  homeTeam: Team;
+  awayTeam: Team;
   selectedPlayer: Player | null;
   selectedTeam: 'home' | 'away';
   setSelectedTeam: (team: 'home' | 'away') => void;
   handlePlayerSelect: (player: Player) => void;
-  handleEventSelect?: (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => void;
-  ballTrackingPoints: BallTrackingPoint[];
-  mode: 'piano' | 'tracking';
+  ballTrackingPoints: Array<{ x: number; y: number; timestamp: number }>;
   handlePitchClick: (coordinates: { x: number; y: number }) => void;
-  addBallTrackingPoint: (point: BallTrackingPoint) => void;
-  potentialPasser?: Player | null;
+  addBallTrackingPoint: (point: { x: number; y: number }) => void;
+  recordEvent: (eventType: EventType, playerId: string, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
+  events: MatchEvent[];
 }
 
 const PitchView: React.FC<PitchViewProps> = ({
   homeTeam,
   awayTeam,
-  teamPositions,
   selectedPlayer,
   selectedTeam,
   setSelectedTeam,
   handlePlayerSelect,
-  handleEventSelect,
   ballTrackingPoints,
-  mode,
   handlePitchClick,
   addBallTrackingPoint,
-  potentialPasser = null
+  recordEvent,
+  events
 }) => {
-  const homePositions = getPlayerPositions(homeTeam, true);
-  const awayPositions = getPlayerPositions(awayTeam, false);
+  // Create team objects with required id property
+  const homeTeamWithId = {
+    ...homeTeam,
+    id: homeTeam.id || 'home-team'
+  };
   
-  const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const currentBreakpoint = useCurrentBreakpoint();
-  
-  const allowCircularMenu = mode === 'piano' || mode === 'tracking';
-  
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.clientWidth;
-        setContainerSize({
-          width,
-          height: currentBreakpoint === 'xs' || currentBreakpoint === 'sm' 
-            ? width * 0.7
-            : width * 0.75
-        });
-      }
-    };
-    
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    
-    return () => {
-      window.removeEventListener('resize', updateSize);
-    };
-  }, [currentBreakpoint]);
-  
+  const awayTeamWithId = {
+    ...awayTeam,
+    id: awayTeam.id || 'away-team'
+  };
+
   return (
-    <div className="mb-4 relative" ref={containerRef}>
-      {mode === 'tracking' && (
-        <div className="absolute top-2 left-2 z-10">
-          <Badge variant="outline" className="bg-white/70 backdrop-blur-sm">
-            Ball Tracking Active
-          </Badge>
-        </div>
-      )}
-      
-      <FootballPitch 
-        onClick={handlePitchClick} 
-        className={`w-full ${currentBreakpoint === 'xs' || currentBreakpoint === 'sm' ? 'min-h-[50vh]' : 'min-h-[60vh]'}`}
-      >
-        {homeTeam.players.map((player) => (
-          <PlayerMarker
-            key={`home-${player.id}`}
-            player={player}
-            teamColor="#1A365D"
-            position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
-            onClick={() => {
-              setSelectedTeam('home');
-              handlePlayerSelect(player);
-            }}
-            onEventSelect={handleEventSelect}
-            selected={selectedPlayer?.id === player.id && selectedTeam === 'home'}
-            allowCircularMenu={allowCircularMenu}
-            isPotentialPasser={potentialPasser?.id === player.id}
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <Card className="flex-1">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold">Team Selection</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant={selectedTeam === 'home' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedTeam('home')}
+                >
+                  {homeTeam.name}
+                </Button>
+                <Button
+                  variant={selectedTeam === 'away' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedTeam('away')}
+                >
+                  {awayTeam.name}
+                </Button>
+              </div>
+            </div>
+            
+            {selectedPlayer && (
+              <div className="mb-4">
+                <h4 className="font-medium mb-2">Selected Player</h4>
+                <Badge variant="secondary">
+                  {selectedPlayer.name} (#{selectedPlayer.number})
+                </Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <FootballPitch
+            homeTeam={homeTeamWithId}
+            awayTeam={awayTeamWithId}
+            ballTrackingPoints={ballTrackingPoints}
+            onPitchClick={handlePitchClick}
+            selectedPlayer={selectedPlayer}
+            selectedTeam={selectedTeam}
+            onPlayerSelect={handlePlayerSelect}
           />
-        ))}
-        
-        {awayTeam.players.map((player) => (
-          <PlayerMarker
-            key={`away-${player.id}`}
-            player={player}
-            teamColor="#D3212C"
-            position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
-            onClick={() => {
-              setSelectedTeam('away');
-              handlePlayerSelect(player);
-            }}
-            onEventSelect={handleEventSelect}
-            selected={selectedPlayer?.id === player.id && selectedTeam === 'away'}
-            allowCircularMenu={allowCircularMenu}
-            isPotentialPasser={potentialPasser?.id === player.id}
-          />
-        ))}
-        
-        <BallTracker 
-          trackingPoints={ballTrackingPoints} 
-          isActive={mode === 'tracking'} 
-          onAddPoint={addBallTrackingPoint} 
-        />
-      </FootballPitch>
-      
-      {selectedPlayer && (
-        <div className="mt-2 p-2 bg-gray-100 rounded-md shadow-sm text-xs sm:text-sm">
-          <p className="font-medium truncate">Selected: {selectedPlayer.name} (#{selectedPlayer.number}) - {selectedTeam === 'home' ? homeTeam.name : awayTeam.name}</p>
-        </div>
+        </CardContent>
+      </Card>
+
+      {events.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <h4 className="font-medium mb-2">Recent Events</h4>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {events.slice(-5).map((event) => (
+                <div key={event.id} className="text-sm">
+                  <Badge variant="outline" className="mr-2">
+                    {event.type}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {new Date(event.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
