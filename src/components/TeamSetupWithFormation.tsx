@@ -44,7 +44,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
   const addPlayer = () => {
     if (newPlayerName.trim()) {
       const newPlayer: Player = {
-        id: (team.players.length + 1).toString(),
+        id: `player-${Date.now()}`,
         name: newPlayerName.trim(),
         position: 'Outfield',
         number: team.players.length + 1

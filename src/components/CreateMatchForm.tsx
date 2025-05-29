@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   Calendar, 
@@ -21,24 +23,15 @@ import {
   Upload,
   Save,
   Play,
-  FileText
+  FileText,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
+import { Team, Player } from '@/types';
+import { MatchFormData, TrackerAssignment } from '@/types/matchForm';
+import TeamSetupWithFormation from './TeamSetupWithFormation';
 
-interface MatchFormState {
-  name: string;
-  status: string;
-  matchType: string;
-  matchDate: string;
-  location: string;
-  competition: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  homeTeamScore: number | null;
-  awayTeamScore: number | null;
-  notes: string;
-}
-
-const initialMatchFormState: MatchFormState = {
+const initialMatchFormState: MatchFormData = {
   name: '',
   status: 'draft',
   matchType: 'friendly',
@@ -52,10 +45,60 @@ const initialMatchFormState: MatchFormState = {
   notes: '',
 };
 
+interface TrackerProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
 const CreateMatchForm: React.FC = () => {
-  const [matchDetails, setMatchDetails] = useState<MatchFormState>(initialMatchFormState);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [matchDetails, setMatchDetails] = useState<MatchFormData>(initialMatchFormState);
+  const [homeTeam, setHomeTeam] = useState<Team>({
+    id: 'home',
+    name: '',
+    formation: '4-4-2',
+    players: []
+  });
+  const [awayTeam, setAwayTeam] = useState<Team>({
+    id: 'away',
+    name: '',
+    formation: '4-3-3',
+    players: []
+  });
+  const [trackers, setTrackers] = useState<TrackerProfile[]>([]);
+  const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
+
+  const eventTypes = [
+    'goal', 'assist', 'yellow_card', 'red_card', 'substitution', 
+    'foul', 'offside', 'corner', 'free_kick', 'penalty', 'pass', 'shot'
+  ];
+
+  useEffect(() => {
+    fetchTrackers();
+  }, []);
+
+  useEffect(() => {
+    setHomeTeam(prev => ({ ...prev, name: matchDetails.homeTeamName }));
+    setAwayTeam(prev => ({ ...prev, name: matchDetails.awayTeamName }));
+  }, [matchDetails.homeTeamName, matchDetails.awayTeamName]);
+
+  const fetchTrackers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'tracker');
+
+      if (error) throw error;
+      setTrackers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching trackers:', error);
+      toast.error('Failed to load trackers');
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -80,12 +123,77 @@ const CreateMatchForm: React.FC = () => {
     }));
   };
 
+  const handleHomeTeamUpdate = (team: Team) => {
+    setHomeTeam(team);
+  };
+
+  const handleAwayTeamUpdate = (team: Team) => {
+    setAwayTeam(team);
+  };
+
+  const handleTrackerAssignment = (trackerId: string, eventType: string, checked: boolean) => {
+    setTrackerAssignments(prev => {
+      const existing = prev.find(ta => ta.trackerId === trackerId);
+      if (existing) {
+        return prev.map(ta => 
+          ta.trackerId === trackerId 
+            ? {
+                ...ta,
+                eventTypes: checked 
+                  ? [...ta.eventTypes, eventType]
+                  : ta.eventTypes.filter(et => et !== eventType)
+              }
+            : ta
+        );
+      } else if (checked) {
+        return [...prev, { trackerId, eventTypes: [eventType], playerIds: [] }];
+      }
+      return prev;
+    });
+  };
+
+  const handlePlayerAssignment = (trackerId: string, playerId: string, checked: boolean) => {
+    setTrackerAssignments(prev => {
+      const existing = prev.find(ta => ta.trackerId === trackerId);
+      if (existing) {
+        return prev.map(ta => 
+          ta.trackerId === trackerId 
+            ? {
+                ...ta,
+                playerIds: checked 
+                  ? [...ta.playerIds, playerId]
+                  : ta.playerIds.filter(pid => pid !== playerId)
+              }
+            : ta
+        );
+      } else if (checked) {
+        return [...prev, { trackerId, eventTypes: [], playerIds: [playerId] }];
+      }
+      return prev;
+    });
+  };
+
+  const nextStep = () => {
+    if (currentStep === 1) {
+      if (!matchDetails.name || !matchDetails.homeTeamName || !matchDetails.awayTeamName) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+    }
+    setCurrentStep(2);
+  };
+
+  const prevStep = () => {
+    setCurrentStep(1);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
     try {
-      const { data, error } = await supabase
+      // Create the match
+      const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert([
           {
@@ -99,20 +207,60 @@ const CreateMatchForm: React.FC = () => {
             away_team_name: matchDetails.awayTeamName,
             home_team_score: matchDetails.homeTeamScore,
             away_team_score: matchDetails.awayTeamScore,
+            home_team_formation: homeTeam.formation,
+            away_team_formation: awayTeam.formation,
+            home_team_players: homeTeam.players,
+            away_team_players: awayTeam.players,
             notes: matchDetails.notes,
           },
-        ]);
+        ])
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Error creating match:', error);
-        toast.error(`Failed to create match: ${error.message}`);
-      } else {
-        toast.success('Match created successfully!');
-        navigate('/admin');
+      if (matchError) {
+        throw matchError;
       }
+
+      // Create tracker assignments
+      for (const assignment of trackerAssignments) {
+        if (assignment.eventTypes.length > 0 || assignment.playerIds.length > 0) {
+          const { error: assignmentError } = await supabase
+            .from('match_tracker_assignments')
+            .insert({
+              match_id: matchData.id,
+              tracker_user_id: assignment.trackerId,
+              assigned_event_types: assignment.eventTypes,
+              assigned_player_ids: assignment.playerIds,
+            });
+
+          if (assignmentError) {
+            console.error('Error creating tracker assignment:', assignmentError);
+          }
+        }
+      }
+
+      // Send notifications to assigned trackers
+      for (const assignment of trackerAssignments) {
+        if (assignment.eventTypes.length > 0 || assignment.playerIds.length > 0) {
+          const { error: notificationError } = await supabase
+            .from('match_notifications')
+            .insert({
+              match_id: matchData.id,
+              tracker_id: assignment.trackerId,
+              message: `You have been assigned to track events for match: ${matchDetails.name}`,
+            });
+
+          if (notificationError) {
+            console.error('Error sending notification:', notificationError);
+          }
+        }
+      }
+
+      toast.success('Match created successfully!');
+      navigate('/admin');
     } catch (error: any) {
-      console.error('Unexpected error creating match:', error);
-      toast.error(`Unexpected error: ${error.message}`);
+      console.error('Error creating match:', error);
+      toast.error(`Failed to create match: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -122,164 +270,282 @@ const CreateMatchForm: React.FC = () => {
     <div className="container mx-auto p-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Create New Match</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            Create New Match - Step {currentStep} of 2
+          </CardTitle>
           <Badge variant="secondary">Admin</Badge>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Match Name</Label>
-              <Input
-                type="text"
-                id="name"
-                name="name"
-                value={matchDetails.name}
-                onChange={handleChange}
-                placeholder="Enter match name"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {currentStep === 1 && (
+            <form className="space-y-4">
               <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={matchDetails.status}
-                  onValueChange={(value) => handleSelectChange(value, 'status')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="live">Live</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="postponed">Postponed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="matchType">Match Type</Label>
-                <Select
-                  value={matchDetails.matchType}
-                  onValueChange={(value) => handleSelectChange(value, 'matchType')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select match type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="friendly">Friendly</SelectItem>
-                    <SelectItem value="league">League</SelectItem>
-                    <SelectItem value="cup">Cup</SelectItem>
-                    <SelectItem value="tournament">Tournament</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="matchDate">Match Date</Label>
-              <Input
-                type="date"
-                id="matchDate"
-                name="matchDate"
-                value={matchDetails.matchDate}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="location">Location</Label>
-              <Input
-                type="text"
-                id="location"
-                name="location"
-                value={matchDetails.location}
-                onChange={handleChange}
-                placeholder="Enter location"
-              />
-            </div>
-            <div>
-              <Label htmlFor="competition">Competition</Label>
-              <Input
-                type="text"
-                id="competition"
-                name="competition"
-                value={matchDetails.competition}
-                onChange={handleChange}
-                placeholder="Enter competition"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="homeTeamName">Home Team Name</Label>
+                <Label htmlFor="name">Match Name *</Label>
                 <Input
                   type="text"
-                  id="homeTeamName"
-                  name="homeTeamName"
-                  value={matchDetails.homeTeamName}
+                  id="name"
+                  name="name"
+                  value={matchDetails.name}
                   onChange={handleChange}
-                  placeholder="Enter home team name"
+                  placeholder="Enter match name"
+                  required
                 />
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={matchDetails.status}
+                    onValueChange={(value) => handleSelectChange(value, 'status')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="postponed">Postponed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="matchType">Match Type</Label>
+                  <Select
+                    value={matchDetails.matchType}
+                    onValueChange={(value) => handleSelectChange(value, 'matchType')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select match type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="friendly">Friendly</SelectItem>
+                      <SelectItem value="league">League</SelectItem>
+                      <SelectItem value="cup">Cup</SelectItem>
+                      <SelectItem value="tournament">Tournament</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
-                <Label htmlFor="awayTeamName">Away Team Name</Label>
+                <Label htmlFor="matchDate">Match Date</Label>
+                <Input
+                  type="date"
+                  id="matchDate"
+                  name="matchDate"
+                  value={matchDetails.matchDate}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="location">Location</Label>
                 <Input
                   type="text"
-                  id="awayTeamName"
-                  name="awayTeamName"
-                  value={matchDetails.awayTeamName}
+                  id="location"
+                  name="location"
+                  value={matchDetails.location}
                   onChange={handleChange}
-                  placeholder="Enter away team name"
+                  placeholder="Enter location"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               <div>
-                <Label htmlFor="homeTeamScore">Home Team Score</Label>
+                <Label htmlFor="competition">Competition</Label>
                 <Input
-                  type="number"
-                  id="homeTeamScore"
-                  name="homeTeamScore"
-                  value={matchDetails.homeTeamScore === null ? '' : matchDetails.homeTeamScore.toString()}
-                  onChange={(e) => handleNumberChange(e, 'homeTeamScore')}
-                  placeholder="Enter home team score"
+                  type="text"
+                  id="competition"
+                  name="competition"
+                  value={matchDetails.competition}
+                  onChange={handleChange}
+                  placeholder="Enter competition"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="homeTeamName">Home Team Name *</Label>
+                  <Input
+                    type="text"
+                    id="homeTeamName"
+                    name="homeTeamName"
+                    value={matchDetails.homeTeamName}
+                    onChange={handleChange}
+                    placeholder="Enter home team name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="awayTeamName">Away Team Name *</Label>
+                  <Input
+                    type="text"
+                    id="awayTeamName"
+                    name="awayTeamName"
+                    value={matchDetails.awayTeamName}
+                    onChange={handleChange}
+                    placeholder="Enter away team name"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="homeTeamScore">Home Team Score</Label>
+                  <Input
+                    type="number"
+                    id="homeTeamScore"
+                    name="homeTeamScore"
+                    value={matchDetails.homeTeamScore === null ? '' : matchDetails.homeTeamScore.toString()}
+                    onChange={(e) => handleNumberChange(e, 'homeTeamScore')}
+                    placeholder="Enter home team score"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="awayTeamScore">Away Team Score</Label>
+                  <Input
+                    type="number"
+                    id="awayTeamScore"
+                    name="awayTeamScore"
+                    value={matchDetails.awayTeamScore === null ? '' : matchDetails.awayTeamScore.toString()}
+                    onChange={(e) => handleNumberChange(e, 'awayTeamScore')}
+                    placeholder="Enter away team score"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label htmlFor="awayTeamScore">Away Team Score</Label>
-                <Input
-                  type="number"
-                  id="awayTeamScore"
-                  name="awayTeamScore"
-                  value={matchDetails.awayTeamScore === null ? '' : matchDetails.awayTeamScore.toString()}
-                  onChange={(e) => handleNumberChange(e, 'awayTeamScore')}
-                  placeholder="Enter away team score"
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={matchDetails.notes}
+                  onChange={handleChange}
+                  placeholder="Enter match notes"
                 />
               </div>
+
+              <div className="flex justify-end">
+                <Button type="button" onClick={nextStep}>
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Next: Team Setup
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <TeamSetupWithFormation 
+                  team={homeTeam}
+                  onTeamUpdate={handleHomeTeamUpdate}
+                  teamType="home"
+                />
+                <TeamSetupWithFormation 
+                  team={awayTeam}
+                  onTeamUpdate={handleAwayTeamUpdate}
+                  teamType="away"
+                />
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tracker Assignments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {trackers.length === 0 ? (
+                    <p className="text-muted-foreground">No trackers available</p>
+                  ) : (
+                    <div className="space-y-6">
+                      {trackers.map((tracker) => (
+                        <div key={tracker.id} className="border rounded-lg p-4">
+                          <h4 className="font-medium mb-3">
+                            {tracker.full_name || tracker.email}
+                          </h4>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-sm font-medium">Event Types</Label>
+                              <div className="grid grid-cols-2 gap-2 mt-2">
+                                {eventTypes.map((eventType) => (
+                                  <div key={eventType} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`${tracker.id}-${eventType}`}
+                                      checked={trackerAssignments
+                                        .find(ta => ta.trackerId === tracker.id)
+                                        ?.eventTypes.includes(eventType) || false}
+                                      onCheckedChange={(checked) => 
+                                        handleTrackerAssignment(tracker.id, eventType, checked as boolean)
+                                      }
+                                    />
+                                    <Label 
+                                      htmlFor={`${tracker.id}-${eventType}`}
+                                      className="text-sm"
+                                    >
+                                      {eventType.replace('_', ' ')}
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label className="text-sm font-medium">Players</Label>
+                              <div className="space-y-2 mt-2 max-h-40 overflow-y-auto">
+                                {[...homeTeam.players, ...awayTeam.players].map((player) => (
+                                  <div key={player.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`${tracker.id}-player-${player.id}`}
+                                      checked={trackerAssignments
+                                        .find(ta => ta.trackerId === tracker.id)
+                                        ?.playerIds.includes(player.id) || false}
+                                      onCheckedChange={(checked) => 
+                                        handlePlayerAssignment(tracker.id, player.id, checked as boolean)
+                                      }
+                                    />
+                                    <Label 
+                                      htmlFor={`${tracker.id}-player-${player.id}`}
+                                      className="text-sm"
+                                    >
+                                      {player.name} (#{player.number})
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button disabled={isSaving} onClick={handleSubmit}>
+                  {isSaving ? (
+                    <>
+                      <Play className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Create Match
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                name="notes"
-                value={matchDetails.notes}
-                onChange={handleChange}
-                placeholder="Enter match notes"
-              />
-            </div>
-            <Button disabled={isSaving} type="submit">
-              {isSaving ? (
-                <>
-                  <Play className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Create Match
-                </>
-              )}
-            </Button>
-          </form>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -287,3 +553,4 @@ const CreateMatchForm: React.FC = () => {
 };
 
 export default CreateMatchForm;
+export type { MatchFormData };

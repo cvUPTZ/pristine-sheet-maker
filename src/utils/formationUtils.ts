@@ -15,7 +15,7 @@ export const generatePlayersForFormation = (formation: Formation, teamName: stri
   // Generate 11 players for the formation
   for (let i = 1; i <= 11; i++) {
     players.push({
-      id: i.toString(),
+      id: `${teamName.toLowerCase().replace(/\s+/g, '-')}-player-${i}`,
       name: `${teamName} Player ${i}`,
       position: i === 1 ? 'Goalkeeper' : 'Outfield',
       number: i
