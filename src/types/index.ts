@@ -6,6 +6,7 @@ export interface Player {
   number: number;
   jersey_number: number;
   player_name: string;
+  [key: string]: any; // Add index signature for Json compatibility
 }
 
 export interface Team {
@@ -21,6 +22,7 @@ export interface BallTrackingPoint {
   timestamp: number;
   teamId?: string;
   playerId?: number;
+  [key: string]: any; // Add index signature for Json compatibility
 }
 
 export interface MatchEvent {
@@ -49,6 +51,8 @@ export interface TimelineEvent {
 
 export interface TimeSegmentStatistics {
   segment: string;
+  timeSegment?: string;
+  startTime?: string;
   home: {
     possession: number;
     shots: number;
@@ -86,6 +90,7 @@ export interface Statistics {
     crosses?: {
       successful: number;
       attempted: number;
+      total?: number;
     };
   };
   away: {
@@ -110,6 +115,7 @@ export interface Statistics {
     crosses?: {
       successful: number;
       attempted: number;
+      total?: number;
     };
   };
   possession: {
@@ -131,6 +137,7 @@ export interface Statistics {
   fouls: number;
   yellowCards: number;
   redCards: number;
+  cards?: number;
   passes: {
     home: {
       successful: number;
@@ -167,12 +174,15 @@ export interface Statistics {
     home: {
       successful: number;
       attempted: number;
+      total?: number;
     };
     away: {
       successful: number;
       attempted: number;
+      total?: number;
     };
   };
+  [key: string]: any; // Add index signature for Json compatibility
 }
 
 export interface Match {
@@ -219,6 +229,11 @@ export interface PlayerNode {
   jersey_number?: number;
   team?: 'home' | 'away';
   count?: number;
+}
+
+export interface FlowPlayerNode extends PlayerNode {
+  team: 'home' | 'away';
+  count: number;
 }
 
 export interface MatchFormData {

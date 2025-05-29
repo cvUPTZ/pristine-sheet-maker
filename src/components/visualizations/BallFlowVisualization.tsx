@@ -1,328 +1,226 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { Player, BallTrackingPoint, Team, PlayerNode } from '@/types';
+import { BallTrackingPoint, Team, FlowPlayerNode } from '@/types';
 
 interface BallFlowVisualizationProps {
   ballTrackingPoints: BallTrackingPoint[];
   homeTeam: Team;
   awayTeam: Team;
-  width?: number;
-  height?: number;
-}
-
-interface BallFlow {
-  source: number;
-  target: number;
-  value: number;
-  sourceTeam: 'home' | 'away';
-  targetTeam: 'home' | 'away';
-}
-
-interface FlowPlayerNode extends PlayerNode {
-  team: 'home' | 'away';
-  count: number;
 }
 
 const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
   ballTrackingPoints,
   homeTeam,
-  awayTeam,
-  width = 800,
-  height = 600
+  awayTeam
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  
-  const handleNodeDrag = (event: any, d: FlowPlayerNode) => {
-    d.fx = event.x;
-    d.fy = event.y;
-  };
-
-  const handleNodeDragEnd = (event: any, d: FlowPlayerNode) => {
-    d.fx = null;
-    d.fy = null;
-  };
-
-  const handleNodeDragStart = (event: any, d: FlowPlayerNode) => {
-    d.fx = d.x;
-    d.fy = d.y;
-  };
 
   useEffect(() => {
-    if (!svgRef.current || ballTrackingPoints.length < 2) return;
-    
+    if (!ballTrackingPoints.length || !svgRef.current) return;
+
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove(); // Clear previous visualization
+    svg.selectAll("*").remove();
+
+    const width = 600;
+    const height = 400;
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+    svg.attr("width", width).attr("height", height);
+
+    const g = svg.append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    // Create scales
+    const xScale = d3.scaleLinear()
+      .domain([0, 1])
+      .range([0, innerWidth]);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, 1])
+      .range([innerHeight, 0]);
+
+    // Create nodes and links from ball tracking data
+    const nodes: FlowPlayerNode[] = [];
+    const links: any[] = [];
+
+    // Process ball tracking points to create flow data
+    const playerBallTouches: { [key: number]: number } = {};
     
-    // Prepare data
-    const playerMap = new Map<number, FlowPlayerNode>();
-    
-    // Add all players to the map
+    ballTrackingPoints.forEach((point, index) => {
+      if (point.playerId !== undefined) {
+        playerBallTouches[point.playerId] = (playerBallTouches[point.playerId] || 0) + 1;
+        
+        if (index > 0 && ballTrackingPoints[index - 1].playerId !== undefined) {
+          const sourceId = ballTrackingPoints[index - 1].playerId!;
+          const targetId = point.playerId;
+          
+          if (sourceId !== targetId) {
+            const existingLink = links.find(l => l.source === sourceId && l.target === targetId);
+            if (existingLink) {
+              existingLink.value++;
+            } else {
+              links.push({ source: sourceId, target: targetId, value: 1 });
+            }
+          }
+        }
+      }
+    });
+
+    // Create nodes for home team
     homeTeam.players.forEach(player => {
-      playerMap.set(player.id, {
-        id: player.id,
-        name: player.name,
-        team: 'home',
-        count: 0
-      });
-    });
-    
-    awayTeam.players.forEach(player => {
-      playerMap.set(player.id, {
-        id: player.id,
-        name: player.name,
-        team: 'away',
-        count: 0
-      });
-    });
-    
-    // Count ball possession for each player
-    const flows: BallFlow[] = [];
-    const flowMap = new Map<string, number>();
-    
-    // Process ball tracking points to create flows
-    for (let i = 0; i < ballTrackingPoints.length - 1; i++) {
-      const current = ballTrackingPoints[i];
-      const next = ballTrackingPoints[i + 1];
-      
-      if (
-        current.playerId && 
-        next.playerId && 
-        current.playerId !== next.playerId &&
-        current.teamId && 
-        next.teamId
-      ) {
-        const sourceTeam = current.teamId === homeTeam.id ? 'home' : 'away';
-        const targetTeam = next.teamId === homeTeam.id ? 'home' : 'away';
-        
-        const flowKey = `${current.playerId}-${next.playerId}`;
-        const value = (flowMap.get(flowKey) || 0) + 1;
-        flowMap.set(flowKey, value);
-        
-        // Update player counts
-        if (playerMap.has(current.playerId)) {
-          const player = playerMap.get(current.playerId)!;
-          player.count += 1;
-        }
-        
-        if (playerMap.has(next.playerId)) {
-          const player = playerMap.get(next.playerId)!;
-          player.count += 1;
-        }
-        
-        flows.push({
-          source: current.playerId,
-          target: next.playerId,
-          value,
-          sourceTeam,
-          targetTeam
+      const count = playerBallTouches[player.id] || 0;
+      if (count > 0) {
+        nodes.push({
+          id: player.id,
+          name: player.player_name || player.name,
+          position: player.position,
+          team: 'home',
+          count: count
         });
       }
-    }
-    
-    // Create nodes array from player map
-    const nodes = Array.from(playerMap.values())
-      .filter(player => player.count > 0) // Only include players who have touched the ball
-      .sort((a, b) => a.team === b.team ? 0 : a.team === 'home' ? -1 : 1); // Sort by team
-    
-    // Create D3 force simulation
-    const simulation = d3.forceSimulation()
-      .force('link', d3.forceLink().id((d: any) => d.id).distance(100))
-      .force('charge', d3.forceManyBody().strength(-300))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(30));
-    
-    // Create links with flow data
-    const links = svg.append('g')
-      .selectAll('path')
-      .data(flows)
-      .enter()
-      .append('path')
-      .attr('class', 'flow-path')
-      .attr('stroke', d => {
-        if (d.sourceTeam === 'home' && d.targetTeam === 'home') {
-          return '#1A365D'; // Home to home
-        } else if (d.sourceTeam === 'away' && d.targetTeam === 'away') {
-          return '#D3212C'; // Away to away
-        } else {
-          return '#FFD700'; // Cross-team (interceptions)
-        }
-      })
-      .attr('stroke-opacity', 0.7)
-      .attr('stroke-width', d => Math.sqrt(d.value) * 2)
-      .attr('fill', 'none');
-    
-    // Create interactive tooltips
-    const tooltip = d3.select('body')
-      .append('div')
-      .attr('class', 'tooltip')
-      .style('position', 'absolute')
-      .style('background', 'rgba(0, 0, 0, 0.8)')
-      .style('color', 'white')
-      .style('padding', '8px')
-      .style('border-radius', '4px')
-      .style('pointer-events', 'none')
-      .style('opacity', 0)
-      .style('z-index', 1000);
-    
-    // Create nodes
-    const nodeElements = svg.append('g')
-      .selectAll('g')
-      .data(nodes)
-      .enter()
-      .append('g')
-      .attr('class', 'player-node')
-      .call(d3.drag<SVGGElement, FlowPlayerNode>()
-        .on('start', handleNodeDragStart)
-        .on('drag', handleNodeDrag)
-        .on('end', handleNodeDragEnd)
-      );
-    
-    // Add colored circles for each team
-    nodeElements
-      .append('circle')
-      .attr('r', d => Math.max(15, Math.min(40, 10 + d.count * 3)))
-      .attr('fill', d => d.team === 'home' ? '#1A365D' : '#D3212C')
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
-      .on('mouseover', (event, d) => {
-        tooltip.transition()
-          .duration(200)
-          .style('opacity', .9);
-        
-        // Get incoming and outgoing flows
-        const outgoing = flows.filter(flow => flow.source === d.id);
-        const incoming = flows.filter(flow => flow.target === d.id);
-        
-        tooltip.html(`
-          <strong>${d.name} (${d.team === 'home' ? homeTeam.name : awayTeam.name})</strong><br/>
-          Ball touches: ${d.count}<br/>
-          Passed to: ${outgoing.length} players<br/>
-          Received from: ${incoming.length} players
-        `)
-        .style('left', (event.pageX + 10) + 'px')
-        .style('top', (event.pageY - 28) + 'px');
-        
-        // Highlight connected paths
-        links
-          .attr('stroke-opacity', flow => 
-            flow.source === d.id || flow.target === d.id ? 1 : 0.1
-          )
-          .attr('stroke-width', flow => 
-            flow.source === d.id || flow.target === d.id ? Math.sqrt(flow.value) * 3 : Math.sqrt(flow.value) * 1
-          );
-      })
-      .on('mouseout', () => {
-        tooltip.transition()
-          .duration(500)
-          .style('opacity', 0);
-        
-        links
-          .attr('stroke-opacity', 0.7)
-          .attr('stroke-width', d => Math.sqrt(d.value) * 2);
-      });
-    
-    // Add player number text
-    nodeElements
-      .append('text')
-      .text(d => {
-        const player = [...homeTeam.players, ...awayTeam.players].find(p => p.id === d.id);
-        return player ? player.jersey_number : '';
-      })
-      .attr('text-anchor', 'middle')
-      .attr('dy', '.3em')
-      .attr('fill', 'white')
-      .attr('font-weight', 'bold')
-      .attr('font-size', '12px');
-    
-    // Add player name text (visible on hover)
-    nodeElements
-      .append('title')
-      .text(d => `${d.name} (${d.team === 'home' ? homeTeam.name : awayTeam.name})`);
-    
-    // Update function for simulation
-    simulation.nodes(nodes as any).on('tick', () => {
-      links.attr('d', (d: any) => {
-        const source = nodes.find(n => n.id === d.source) as any;
-        const target = nodes.find(n => n.id === d.target) as any;
-        
-        if (!source || !target) return '';
-        
-        const dx = target.x - source.x;
-        const dy = target.y - source.y;
-        const dr = Math.sqrt(dx * dx + dy * dy) * 2; // Curve radius
-        
-        // Create a curved path
-        return `M${source.x},${source.y}A${dr},${dr} 0 0,1 ${target.x},${target.y}`;
-      });
-      
-      nodeElements.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
     });
-    
+
+    // Create nodes for away team
+    awayTeam.players.forEach(player => {
+      const count = playerBallTouches[player.id] || 0;
+      if (count > 0) {
+        nodes.push({
+          id: player.id,
+          name: player.player_name || player.name,
+          position: player.position,
+          team: 'away',
+          count: count
+        });
+      }
+    });
+
+    if (nodes.length === 0) {
+      g.append("text")
+        .attr("x", innerWidth / 2)
+        .attr("y", innerHeight / 2)
+        .attr("text-anchor", "middle")
+        .text("No ball flow data available");
+      return;
+    }
+
+    // Create force simulation
+    const simulation = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id((d: any) => d.id).distance(80))
+      .force("charge", d3.forceManyBody().strength(-200))
+      .force("center", d3.forceCenter(innerWidth / 2, innerHeight / 2))
+      .force("x", d3.forceX().x((d: any) => d.team === 'home' ? innerWidth * 0.25 : innerWidth * 0.75).strength(0.3))
+      .force("y", d3.forceY().y(innerHeight / 2).strength(0.1));
+
+    // Create links
+    const link = g.append("g")
+      .attr("class", "links")
+      .selectAll("line")
+      .data(links)
+      .enter().append("line")
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", (d: any) => Math.sqrt(d.value) * 2);
+
+    // Create nodes
+    const node = g.append("g")
+      .attr("class", "nodes")
+      .selectAll("g")
+      .data(nodes)
+      .enter().append("g")
+      .attr("class", "node");
+
+    node.append("circle")
+      .attr("r", (d: any) => Math.sqrt(d.count) * 3 + 5)
+      .attr("fill", (d: any) => d.team === 'home' ? "#3b82f6" : "#ef4444")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2);
+
+    node.append("text")
+      .attr("dy", ".35em")
+      .attr("text-anchor", "middle")
+      .attr("font-size", "10px")
+      .attr("fill", "white")
+      .text((d: any) => d.name.substring(0, 3));
+
+    // Add labels with ball touches
+    node.append("text")
+      .attr("dy", "1.5em")
+      .attr("text-anchor", "middle")
+      .attr("font-size", "8px")
+      .attr("fill", "#333")
+      .text((d: any) => `${d.count} touches`);
+
+    // Update positions on tick
+    simulation.on("tick", () => {
+      link
+        .attr("x1", (d: any) => d.source.x)
+        .attr("y1", (d: any) => d.source.y)
+        .attr("x2", (d: any) => d.target.x)
+        .attr("y2", (d: any) => d.target.y);
+
+      node.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+    });
+
+    // Add drag behavior
+    const drag = d3.drag<SVGGElement, FlowPlayerNode>()
+      .on("start", (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on("drag", (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on("end", (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      });
+
+    node.call(drag);
+
     // Add legend
-    const legend = svg.append('g')
-      .attr('class', 'legend')
-      .attr('transform', 'translate(20, 20)');
-    
-    legend.append('rect')
-      .attr('width', 15)
-      .attr('height', 15)
-      .attr('fill', '#1A365D');
-    
-    legend.append('text')
-      .attr('x', 20)
-      .attr('y', 12)
-      .text(homeTeam.name)
-      .attr('font-size', '12px');
-    
-    legend.append('rect')
-      .attr('width', 15)
-      .attr('height', 15)
-      .attr('fill', '#D3212C')
-      .attr('transform', 'translate(0, 20)');
-    
-    legend.append('text')
-      .attr('x', 20)
-      .attr('y', 32)
-      .text(awayTeam.name)
-      .attr('font-size', '12px');
-    
-    legend.append('path')
-      .attr('d', 'M0,60 L30,60')
-      .attr('stroke', '#FFD700')
-      .attr('stroke-width', 3);
-    
-    legend.append('text')
-      .attr('x', 35)
-      .attr('y', 65)
-      .text('Interception')
-      .attr('font-size', '12px');
-    
-    return () => {
-      simulation.stop();
-      tooltip.remove();
-    };
-  }, [ballTrackingPoints, homeTeam, awayTeam, width, height]);
-  
+    const legend = svg.append("g")
+      .attr("class", "legend")
+      .attr("transform", `translate(${width - 100}, 20)`);
+
+    legend.append("circle")
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("r", 8)
+      .attr("fill", "#3b82f6");
+
+    legend.append("text")
+      .attr("x", 15)
+      .attr("y", 0)
+      .attr("dy", ".35em")
+      .attr("font-size", "12px")
+      .text("Home Team");
+
+    legend.append("circle")
+      .attr("cx", 0)
+      .attr("cy", 20)
+      .attr("r", 8)
+      .attr("fill", "#ef4444");
+
+    legend.append("text")
+      .attr("x", 15)
+      .attr("y", 20)
+      .attr("dy", ".35em")
+      .attr("font-size", "12px")
+      .text("Away Team");
+
+  }, [ballTrackingPoints, homeTeam, awayTeam]);
+
   return (
-    <div className="ball-flow-visualization-container">
-      <div className="p-4 bg-white rounded-md shadow overflow-hidden">
-        <h3 className="text-lg font-medium mb-4">Ball Flow Visualization</h3>
-        <div className="border rounded-md">
-          <svg 
-            ref={svgRef} 
-            width={width} 
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
-            className="w-full bg-gray-50"
-            style={{ minHeight: '500px' }}
-          />
-        </div>
-        <div className="mt-3 text-xs text-muted-foreground">
-          <p>This visualization shows ball movement between players. Circle size represents ball possession frequency.</p>
-          <p>Drag nodes to rearrange. Hover for detailed player stats. Lines show passes (thicker = more passes).</p>
-        </div>
-      </div>
+    <div className="w-full">
+      <h3 className="text-lg font-semibold mb-4">Ball Flow Visualization</h3>
+      <svg ref={svgRef} className="border rounded-lg"></svg>
     </div>
   );
 };

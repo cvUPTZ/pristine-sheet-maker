@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import AccessManagement from './AccessManagement';
 import RealTimeMatchEvents from './RealTimeMatchEvents';
+import UserManagement from './UserManagement';
 
 interface Match {
   id: string;
@@ -66,17 +67,32 @@ const Admin: React.FC = () => {
 
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6 max-w-7xl">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Admin Dashboard</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Admin Panel</h1>
       
-      <Tabs defaultValue="access" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
-          <TabsTrigger value="access" className="text-xs sm:text-sm">Access Management</TabsTrigger>
-          <TabsTrigger value="matches" className="text-xs sm:text-sm">Match Management</TabsTrigger>
-          <TabsTrigger value="events" className="text-xs sm:text-sm">Live Events</TabsTrigger>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 h-auto sm:h-10 gap-1 sm:gap-0">
+          <TabsTrigger value="users" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="matches" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Matches
+          </TabsTrigger>
+          <TabsTrigger value="events" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Event Assignments
+          </TabsTrigger>
+          <TabsTrigger value="players" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Player Assignments
+          </TabsTrigger>
+          <TabsTrigger value="access" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Access Management
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs sm:text-sm px-2 py-2 sm:py-1.5">
+            Audit
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="access" className="space-y-4 mt-4">
-          <AccessManagement />
+        <TabsContent value="users" className="space-y-4 mt-4">
+          <UserManagement />
         </TabsContent>
         
         <TabsContent value="matches" className="space-y-4 mt-4">
@@ -125,9 +141,42 @@ const Admin: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="events" className="space-y-4 mt-4">
-          <RealTimeMatchEvents matchId={matches[0]?.id} />
+          <Card>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Event Assignments</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              <p className="text-center py-8 text-gray-500">Event assignment management coming soon</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="players" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Player Assignments</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              <p className="text-center py-8 text-gray-500">Player assignment management coming soon</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="access" className="space-y-4 mt-4">
+          <AccessManagement />
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Audit</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              <p className="text-center py-8 text-gray-500">Audit logs coming soon</p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
