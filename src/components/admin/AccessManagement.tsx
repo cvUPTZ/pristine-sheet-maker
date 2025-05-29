@@ -92,6 +92,7 @@ const AccessManagement: React.FC = () => {
         ...user,
         email: user.email || '',
         role: (user.role || 'user') as UserRole,
+        full_name: user.full_name || undefined,
         permissions: defaultPermissions[user.role as UserRole] || defaultPermissions.user
       }));
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,11 @@ interface AssignedPlayerForMatch {
   name: string;
   teamId: 'home' | 'away';
   teamName: string;
+}
+
+interface TimelineEvent {
+  time: number;
+  label: string;
 }
 
 interface MainTabContentProps {
@@ -123,9 +129,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
   const availableTabs = getAvailableTabs();
 
   // Convert events to simple timeline format
-  const timelineEvents = events.map(event => ({
+  const timelineEvents: TimelineEvent[] = events.map(event => ({
     time: event.timestamp || 0,
-    label: event.event_type || event.type || 'Unknown',
+    label: event.type || event.event_type || 'Unknown',
   }));
 
   return (
