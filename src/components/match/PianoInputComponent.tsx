@@ -170,3 +170,4 @@ const PianoInputComponent: React.FC<PianoInputComponentProps> = ({
 };
 
 export default PianoInputComponent;
+
