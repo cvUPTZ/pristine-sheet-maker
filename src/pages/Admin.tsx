@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -110,6 +111,16 @@ const Admin: React.FC = () => {
   const [selectedMatchIdForAssignment, setSelectedMatchIdForAssignment] = useState<string | null>(null);
   const [selectedPlayerForAssignment, setSelectedPlayerForAssignment] = useState<{ playerId: number; playerTeamId: 'home' | 'away'; } | null>(null);
   const [selectedTrackerIdForAssignment, setSelectedTrackerIdForAssignment] = useState<string | null>(null);
+  const [assignAllEventTypes, setAssignAllEventTypes] = useState(true);
+  const [selectedEventTypesForCreate, setSelectedEventTypesForCreate] = useState<string[]>([]);
+
+  // State for Edit Player-Tracker Assignment Dialog
+  const [isEditPlayerAssignmentDialogOpen, setIsEditPlayerAssignmentDialogOpen] = useState(false);
+  const [editingPlayerAssignment, setEditingPlayerAssignment] = useState<UIDisplayedPlayerTrackerAssignment | null>(null);
+  const [editSelectedPlayerIdAndTeam, setEditSelectedPlayerIdAndTeam] = useState<string>('');
+  const [editSelectedTrackerId, setEditSelectedTrackerId] = useState<string>('');
+  const [editAssignAllEventTypes, setEditAssignAllEventTypes] = useState<boolean>(true);
+  const [editSelectedEventTypes, setEditSelectedEventTypes] = useState<string[]>([]);
 
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -307,6 +318,22 @@ const Admin: React.FC = () => {
     setSelectedEventTypeForAssignment(null);
   };
 
+  const resetCreatePlayerAssignmentForm = () => {
+    setSelectedMatchIdForAssignment(null);
+    setSelectedPlayerForAssignment(null);
+    setSelectedTrackerIdForAssignment(null);
+    setAssignAllEventTypes(true);
+    setSelectedEventTypesForCreate([]);
+  };
+
+  const resetEditPlayerAssignmentForm = () => {
+    setEditingPlayerAssignment(null);
+    setEditSelectedPlayerIdAndTeam('');
+    setEditSelectedTrackerId('');
+    setEditAssignAllEventTypes(true);
+    setEditSelectedEventTypes([]);
+  };
+
   const handleCreateEventAssignment = async () => {
     if (!selectedUserIdForEventAssignment || !selectedEventTypeForAssignment) {
       toast.error('Please select a user and an event type.');
@@ -354,8 +381,13 @@ const Admin: React.FC = () => {
       toast.error('Please select a match, player, and tracker.');
       return;
     }
+
+    let assigned_event_types_payload: string[] | null = null;
+    if (!assignAllEventTypes) {
+      assigned_event_types_payload = selectedEventTypesForCreate;
+    }
+
     try {
-      // ... (rest of handleCreatePlayerAssignment logic - unchanged)
       const { data: newAssignmentData, error } = await supabase
         .from('match_tracker_assignments')
         .insert({
@@ -363,8 +395,9 @@ const Admin: React.FC = () => {
           tracker_user_id: selectedTrackerIdForAssignment,
           player_id: selectedPlayerForAssignment.playerId,
           player_team_id: selectedPlayerForAssignment.playerTeamId,
+          assigned_event_types: assigned_event_types_payload,
         })
-        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at')
+        .select('id, match_id, tracker_user_id, player_id, player_team_id, created_at, assigned_event_types')
         .single();
       if (error || !newAssignmentData) throw error || new Error("No data returned from player assignment creation");
       const match = matches.find(m => m.id === newAssignmentData.match_id);
@@ -388,16 +421,116 @@ const Admin: React.FC = () => {
         trackerUser_id: newAssignmentData.tracker_user_id,
         trackerName: tracker?.full_name || tracker?.email || 'Unknown Tracker',
         created_at: newAssignmentData.created_at,
+        assigned_event_types: newAssignmentData.assigned_event_types,
       };
       setPlayerTrackerAssignments(prev => [newlyConstructedAssignment, ...prev].sort((a,b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
       toast.success('Player-tracker assignment created successfully.');
-      setSelectedMatchIdForAssignment(null);
-      setSelectedPlayerForAssignment(null);
-      setSelectedTrackerIdForAssignment(null);
+      resetCreatePlayerAssignmentForm();
       setIsCreateAssignmentDialogOpen(false);
     } catch (e: any) {
       console.error('Error creating player assignment:', e);
       toast.error(`Failed to create assignment: ${e.message}`);
+    }
+  };
+
+  const handleUpdatePlayerAssignment = async () => {
+    if (!editingPlayerAssignment) {
+      toast.error("No assignment selected for editing.");
+      return;
+    }
+
+    let playerIdToUpdate: number | null = null;
+    let playerTeamIdToUpdate: 'home' | 'away' | null = null;
+
+    if (editSelectedPlayerIdAndTeam) {
+      const parts = editSelectedPlayerIdAndTeam.split(':');
+      if (parts.length === 2) {
+        playerIdToUpdate = parseInt(parts[0], 10);
+        playerTeamIdToUpdate = parts[1] as 'home' | 'away';
+      } else {
+        toast.error("Invalid player selection format.");
+        return;
+      }
+    }
+
+    if (playerIdToUpdate === null || playerTeamIdToUpdate === null) {
+        // This case implies unassigning the player, or an invalid state.
+        // For now, we'll allow it if your DB schema supports NULL player_id for an assignment.
+        // If a player must always be assigned, you should add a validation error here.
+        // console.warn("Player ID or Team ID is null. This might unassign the player.");
+    }
+    
+    const updatePayload: any = {
+      tracker_user_id: editSelectedTrackerId || null, // Ensure tracker can be unassigned if needed, or validate
+      player_id: playerIdToUpdate,
+      player_team_id: playerTeamIdToUpdate,
+      assigned_event_types: editAssignAllEventTypes ? null : editSelectedEventTypes,
+    };
+
+    try {
+      const { data: updatedAssignmentData, error } = await supabase
+        .from('match_tracker_assignments')
+        .update(updatePayload)
+        .eq('id', editingPlayerAssignment.id)
+        .select() // Fetches all columns
+        .single();
+
+      if (error) throw error;
+
+      if (updatedAssignmentData) {
+        // For a more robust update without needing full fetchData, we'd map updatedAssignmentData
+        // back to UIDisplayedPlayerTrackerAssignment. This involves finding match name, player name, tracker name.
+        // For simplicity as per considerations, calling fetchData() is a safe fallback if direct mapping is complex.
+        // However, let's try to update locally if possible or if names are not changing.
+        // If only tracker or event types change, names might remain the same.
+        // If player changes, playerName and playerTeamName need re-evaluation.
+        
+        // Optimistic update (simple, might need enhancement if names change):
+        const match = matches.find(m => m.id === updatedAssignmentData.match_id);
+        const tracker = users.find(u => u.id === updatedAssignmentData.tracker_user_id);
+        let playerName = 'Unknown Player';
+        let playerTeamName = 'Unknown Team';
+
+        if (match && updatedAssignmentData.player_id && updatedAssignmentData.player_team_id) {
+            const playerList = updatedAssignmentData.player_team_id === 'home' ? match.home_team_players : match.away_team_players;
+            const player = Array.isArray(playerList) ? playerList.find(p => p.id === Number(updatedAssignmentData.player_id)) : undefined;
+            if (player) playerName = player.name;
+            playerTeamName = updatedAssignmentData.player_team_id === 'home' ? match.home_team_name : match.away_team_name;
+        } else if (match) { // Player unassigned or match-level
+            playerName = "N/A (Match Assignment)";
+            playerTeamName = "N/A";
+        }
+
+
+        const fullyUpdatedUIDisplayAssignment: UIDisplayedPlayerTrackerAssignment = {
+          id: updatedAssignmentData.id.toString(),
+          matchId: updatedAssignmentData.match_id,
+          matchName: match?.name || match?.description || (match ? `${match.home_team_name} vs ${match.away_team_name}` : 'Unknown Match'),
+          playerId: Number(updatedAssignmentData.player_id) || 0, // Ensure number, or handle null if player can be unassigned
+          playerName: playerName,
+          playerTeamId: updatedAssignmentData.player_team_id as 'home' | 'away' || 'home', // Default if null, or adjust type
+          playerTeamName: playerTeamName,
+          trackerUser_id: updatedAssignmentData.tracker_user_id,
+          trackerName: tracker?.full_name || tracker?.email || 'Unknown Tracker',
+          created_at: updatedAssignmentData.created_at, // This might be updated_at by db, or created_at if not changed
+          assigned_event_types: updatedAssignmentData.assigned_event_types,
+        };
+        
+        setPlayerTrackerAssignments(prev =>
+          prev.map(a => (a.id === editingPlayerAssignment.id ? fullyUpdatedUIDisplayAssignment : a))
+        );
+        // Alternative: Call fetchData() for simplicity if the above mapping is too complex or error-prone
+        // fetchData(); 
+        
+        setIsEditPlayerAssignmentDialogOpen(false);
+        resetEditPlayerAssignmentForm();
+        toast.success('Player-tracker assignment updated successfully.');
+      } else {
+        toast.error('Failed to update assignment: No data returned.');
+      }
+    } catch (e: any) {
+      console.error('Error updating player assignment:', e);
+      toast.error(`Failed to update assignment: ${e.message}`);
     }
   };
 
@@ -691,7 +824,29 @@ const Admin: React.FC = () => {
                           : 'All Types'}
                       </TableCell>
                       <TableCell>{assignment.created_at ? new Date(assignment.created_at).toLocaleDateString() : 'N/A'}</TableCell>
-                      <TableCell><Button variant="destructive" size="sm" onClick={() => handleDeletePlayerAssignment(assignment.id)}>Delete</Button></TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mr-2"
+                          onClick={() => {
+                            setEditingPlayerAssignment(assignment);
+                            setEditSelectedPlayerIdAndTeam(assignment.playerId && assignment.playerTeamId ? `${assignment.playerId}:${assignment.playerTeamId}` : '');
+                            setEditSelectedTrackerId(assignment.trackerUser_id || '');
+                            if (assignment.assigned_event_types === null || assignment.assigned_event_types?.length === 0) {
+                              setEditAssignAllEventTypes(true);
+                              setEditSelectedEventTypes([]);
+                            } else {
+                              setEditAssignAllEventTypes(false);
+                              setEditSelectedEventTypes(assignment.assigned_event_types || []);
+                            }
+                            setIsEditPlayerAssignmentDialogOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeletePlayerAssignment(assignment.id)}>Delete</Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -722,7 +877,12 @@ const Admin: React.FC = () => {
       </Dialog>
 
       {/* Create Player-Tracker Assignment Dialog (largely unchanged) */}
-      <Dialog open={isCreateAssignmentDialogOpen} onOpenChange={setIsCreateAssignmentDialogOpen}>
+      <Dialog open={isCreateAssignmentDialogOpen} onOpenChange={(open) => {
+        setIsCreateAssignmentDialogOpen(open);
+        if (!open) {
+          resetCreatePlayerAssignmentForm();
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle>Create Player-Tracker Assignment</DialogTitle><DialogDescription>Assign a player from a specific match to a tracker.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
             <div><Label htmlFor="assign-match">Select Match</Label>
@@ -777,8 +937,44 @@ const Admin: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Event Types</Label>
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id="assign-all-events"
+                  checked={assignAllEventTypes}
+                  onCheckedChange={(checked) => setAssignAllEventTypes(checked as boolean)}
+                />
+                <Label htmlFor="assign-all-events" className="font-medium">
+                  Assign all event types
+                </Label>
+              </div>
+              {!assignAllEventTypes && (
+                <div className="mt-2 p-2 border rounded-md max-h-48 overflow-y-auto space-y-1">
+                  <Label className="text-sm text-muted-foreground">Select specific event types:</Label>
+                  {availableEventTypes.map((eventType) => (
+                    <div key={eventType} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`create-assign-${eventType}`}
+                        checked={selectedEventTypesForCreate.includes(eventType)}
+                        onCheckedChange={(checked) => {
+                          setSelectedEventTypesForCreate(prev =>
+                            checked
+                              ? [...prev, eventType]
+                              : prev.filter(et => et !== eventType)
+                          );
+                        }}
+                      />
+                      <Label htmlFor={`create-assign-${eventType}`} className="text-sm font-normal">
+                        {eventType.charAt(0).toUpperCase() + eventType.slice(1)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setIsCreateAssignmentDialogOpen(false)}>Cancel</Button><Button onClick={handleCreatePlayerAssignment}>Create</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => { setIsCreateAssignmentDialogOpen(false); resetCreatePlayerAssignmentForm(); }}>Cancel</Button><Button onClick={handleCreatePlayerAssignment}>Create</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -810,6 +1006,110 @@ const Admin: React.FC = () => {
                             }} 
                             onSuccess={handleEditMatchSuccess} 
                           />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Player-Tracker Assignment Dialog */}
+      <Dialog open={isEditPlayerAssignmentDialogOpen} onOpenChange={(open) => {
+        setIsEditPlayerAssignmentDialogOpen(open);
+        if (!open) {
+          resetEditPlayerAssignmentForm();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Player-Tracker Assignment</DialogTitle>
+            <DialogDescription>Modify the player, tracker, or assigned event types.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Match</Label>
+              <p className="text-sm font-medium py-2 px-3 bg-muted rounded-md">{editingPlayerAssignment?.matchName || 'N/A'}</p>
+            </div>
+            <div>
+              <Label htmlFor="edit-assign-player">Player</Label>
+              <Select
+                value={editSelectedPlayerIdAndTeam}
+                onValueChange={setEditSelectedPlayerIdAndTeam}
+                disabled={!editingPlayerAssignment?.matchId}
+              >
+                <SelectTrigger id="edit-assign-player"><SelectValue placeholder="Select a player" /></SelectTrigger>
+                <SelectContent>
+                  {editingPlayerAssignment?.matchId && (() => {
+                    const currentMatch = matches.find(m => m.id === editingPlayerAssignment.matchId);
+                    if (!currentMatch) return <div className="px-2 py-1.5 text-sm text-muted-foreground">Match not found.</div>;
+                    
+                    const players: React.ReactNode[] = [];
+                    (Array.isArray(currentMatch.home_team_players) ? currentMatch.home_team_players : []).forEach(p => {
+                      if (p && p.id !== undefined && p.id !== null && p.name) {
+                        players.push(<SelectItem key={`home-${p.id}`} value={`${p.id}:home`}>{p.name} ({currentMatch.home_team_name} - Home)</SelectItem>);
+                      }
+                    });
+                    (Array.isArray(currentMatch.away_team_players) ? currentMatch.away_team_players : []).forEach(p => {
+                       if (p && p.id !== undefined && p.id !== null && p.name) {
+                        players.push(<SelectItem key={`away-${p.id}`} value={`${p.id}:away`}>{p.name} ({currentMatch.away_team_name} - Away)</SelectItem>);
+                       }
+                    });
+                     // Option to unassign player, if applicable to your logic
+                    // players.push(<SelectItem key="unassign-player" value="">Unassign Player</SelectItem>);
+                    return players.length ? players : <div className="px-2 py-1.5 text-sm text-muted-foreground">No players in this match.</div>;
+                  })()}
+                  {!editingPlayerAssignment?.matchId && <div className="px-2 py-1.5 text-sm text-muted-foreground">Select a match first (should be pre-filled).</div>}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-assign-tracker">Tracker</Label>
+              <Select value={editSelectedTrackerId} onValueChange={setEditSelectedTrackerId}>
+                <SelectTrigger id="edit-assign-tracker"><SelectValue placeholder="Select a tracker" /></SelectTrigger>
+                <SelectContent>
+                  {validTrackersForSelection.map((tracker) => (
+                    <SelectItem key={tracker.id} value={tracker.id}>{tracker.full_name || tracker.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Event Types</Label>
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id="edit-assign-all-events"
+                  checked={editAssignAllEventTypes}
+                  onCheckedChange={(checked) => setEditAssignAllEventTypes(checked as boolean)}
+                />
+                <Label htmlFor="edit-assign-all-events" className="font-medium">
+                  Assign all event types
+                </Label>
+              </div>
+              {!editAssignAllEventTypes && (
+                <div className="mt-2 p-2 border rounded-md max-h-48 overflow-y-auto space-y-1">
+                  <Label className="text-sm text-muted-foreground">Select specific event types:</Label>
+                  {availableEventTypes.map((eventType) => (
+                    <div key={eventType} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-assign-${eventType}`}
+                        checked={editSelectedEventTypes.includes(eventType)}
+                        onCheckedChange={(checked) => {
+                          setEditSelectedEventTypes(prev =>
+                            checked
+                              ? [...prev, eventType]
+                              : prev.filter(et => et !== eventType)
+                          );
+                        }}
+                      />
+                      <Label htmlFor={`edit-assign-${eventType}`} className="text-sm font-normal">
+                        {eventType.charAt(0).toUpperCase() + eventType.slice(1)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditPlayerAssignmentDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdatePlayerAssignment}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
