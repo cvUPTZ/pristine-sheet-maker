@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { Database } from "@/lib/database.types"; // Assuming this path is correct
+import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from "react";
-import { RealTimeMatchEvents } from "./RealTimeMatchEvents"; // Import the new component
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
-import { Badge } from "@/components/ui/badge"; // Import Badge component
+import { RealTimeMatchEvents } from "./RealTimeMatchEvents";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 // Define interfaces for our data
 interface Match {
@@ -46,7 +45,6 @@ interface AggregatedPlayerStat {
 }
 
 export default function AdminPage() {
-  const supabase = createClientComponentClient<Database>();
   const [matches, setMatches] = useState<Match[]>([]);
   const [playerRosters, setPlayerRosters] = useState<MatchRosterPlayer[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);

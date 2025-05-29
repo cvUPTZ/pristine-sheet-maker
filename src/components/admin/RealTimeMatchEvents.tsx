@@ -1,11 +1,11 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { createClientComponentClient, RealtimeChannel } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/lib/database.types';
-import { DisplayableMatchEvent, MatchEventPayload, MatchRosterPlayer, EventType } from '@/app/trackers/types'; // Assuming types are in this path
+import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { DisplayableMatchEvent, MatchEventPayload, MatchRosterPlayer, EventType } from '@/components/match/types';
 
-// Assuming ALL_SYSTEM_EVENT_TYPES is available, e.g. imported or defined here
 const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
     { key: 'pass', label: 'Pass' },
     { key: 'shot', label: 'Shot' },
@@ -15,16 +15,13 @@ const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
     { key: 'offside', label: 'Offside' },
     { key: 'corner', label: 'Corner Kick' },
     { key: 'sub', label: 'Substitution' },
-    // ... add all other possible event types here
 ];
-
 
 interface RealTimeMatchEventsProps {
   matchId: string | null;
 }
 
 export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
-  const supabase = createClientComponentClient<Database>();
   const [events, setEvents] = useState<DisplayableMatchEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(false);
@@ -32,7 +29,7 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
 
   const eventTypeMap = useMemo(() => 
     new Map(ALL_SYSTEM_EVENT_TYPES.map(et => [et.key, et.label])), 
-  [ALL_SYSTEM_EVENT_TYPES]);
+  []);
 
   const formatEvent = useCallback((event: MatchEventPayload): DisplayableMatchEvent => {
     const player = event.player_roster_id ? matchPlayers.get(event.player_roster_id) : null;
@@ -41,8 +38,8 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
       event_type_label: eventTypeMap.get(event.event_type_key) || event.event_type_key,
       player_name: player?.player_name || null,
       player_jersey_number: player?.jersey_number || null,
-      team_context: player?.team_context || event.team_context || null, // Prioritize player's team context
-      is_new: false, // Will be set to true for new real-time events
+      team_context: player?.team_context || event.team_context || null,
+      is_new: false,
     };
   }, [matchPlayers, eventTypeMap]);
 
@@ -68,7 +65,7 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
 
         if (playersError) throw playersError;
         if (isMounted) {
-          const playersMap = new Map(playersData.map(p => [p.id, p as MatchRosterPlayer]));
+          const playersMap = new Map(playersData.map((p: MatchRosterPlayer) => [p.id, p as MatchRosterPlayer]));
           setMatchPlayers(playersMap);
         
           // Fetch initial events after players are fetched and map is ready
@@ -77,13 +74,12 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
             .select('*')
             .eq('match_id', matchId)
             .order('created_at', { ascending: false })
-            .limit(20); // Load last 20 events initially
+            .limit(20);
 
           if (initialEventsError) throw initialEventsError;
           
           if (isMounted) {
-             // Need to pass the freshly created playersMap to formatEvent for initial load
-            const formattedInitialEvents = initialEventsData.map(event => {
+            const formattedInitialEvents = (initialEventsData || []).map((event: any) => {
                  const player = event.player_roster_id ? playersMap.get(event.player_roster_id) : null;
                  return {
                     ...event,
@@ -94,7 +90,7 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
                     is_new: false,
                  } as DisplayableMatchEvent;
             });
-            setEvents(formattedInitialEvents.reverse()); // Reverse to show oldest first from limit, new ones prepend on top
+            setEvents(formattedInitialEvents.reverse());
           }
         }
       } catch (err: any) {
@@ -107,7 +103,7 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
 
     fetchInitialData();
     return () => { isMounted = false; };
-  }, [matchId, supabase, eventTypeMap]); // Removed formatEvent from deps as it depends on matchPlayers which is set inside
+  }, [matchId, eventTypeMap]);
 
   // Real-time subscription
   useEffect(() => {
@@ -120,23 +116,22 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
       .on<MatchEventPayload>(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'match_events', filter: `match_id=eq.${matchId}` },
-        (payload) => {
+        (payload: any) => {
           console.log('New event received:', payload.new);
           const formattedNewEvent = formatEvent({ ...payload.new as MatchEventPayload });
           setEvents((prevEvents) => [
             { ...formattedNewEvent, is_new: true },
-            ...prevEvents.map(e => ({...e, is_new: false})) // Reset previous new flags
-          ].slice(0, 50)); // Keep a max of 50 events in the feed
+            ...prevEvents.map(e => ({...e, is_new: false}))
+          ].slice(0, 50));
 
-          // Optional: Visual cue timer
           setTimeout(() => {
             setEvents(currentEvents => 
               currentEvents.map(e => e.id === formattedNewEvent.id ? {...e, is_new: false} : e)
             );
-          }, 3000); // Highlight for 3 seconds
+          }, 3000);
         }
       )
-      .subscribe((status, err) => {
+      .subscribe((status: any, err: any) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to match_events for match ${matchId}`);
           setError(null);
@@ -146,15 +141,15 @@ export function RealTimeMatchEvents({ matchId }: RealTimeMatchEventsProps) {
         }
       });
       
-    channel = subscription; // Store the channel reference
+    channel = subscription;
 
     return () => {
       if (channel) {
         console.log(`Unsubscribing from match_events for match ${matchId}`);
-        supabase.removeChannel(channel).catch(err => console.error("Error removing channel", err));
+        supabase.removeChannel(channel).catch((err: any) => console.error("Error removing channel", err));
       }
     };
-  }, [matchId, supabase, formatEvent]);
+  }, [matchId, formatEvent]);
 
   if (!matchId) {
     return <div className="p-4 text-center text-gray-500">Please select a match to view live events.</div>;

@@ -1,68 +1,52 @@
+
 import React from 'react';
 import {
-  ArrowRightLeft,
-  Crosshair,
-  ShieldAlert,
-  Goal as GoalNetIcon, // Alias to avoid conflict with a potential 'Goal' event type label if used differently
-  ShieldCheck,
+  Play,
+  Target,
+  User,
+  AlertTriangle,
   Flag,
-  CornerRightUp,
-  Replace,
-  HelpCircle, // Default icon
-  Icon as LucideIcon, // Generic Icon type
+  CornerDownRight,
+  Trophy,
+  Shield,
+  Square,
+  Plus,
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
-import { EventType } from './types'; // Assuming EventType might be needed, though key is enough
 
 interface IconProps {
   size?: number;
   className?: string;
 }
 
-// Default properties for the icons
-const defaultIconProps: IconProps = {
-  size: 32, // Corresponds to w-8 h-8, as requested
-  className: 'inline-block', // Adjust as needed for layout within buttons
-};
+export function getEventTypeIcon(eventType: string, props: IconProps = {}): React.ReactElement {
+  const { size = 24, className = '' } = props;
+  const iconProps = { size, className };
 
-export function getEventTypeIcon(
-  eventKey: string,
-  props?: IconProps
-): JSX.Element {
-  const iconProps = { ...defaultIconProps, ...props };
-
-  switch (eventKey) {
+  switch (eventType.toLowerCase()) {
     case 'pass':
-      return <ArrowRightLeft {...iconProps} />;
+      return <ArrowRight {...iconProps} />;
     case 'shot':
-      return <Crosshair {...iconProps} />;
+      return <Target {...iconProps} />;
     case 'foul':
-      return <ShieldAlert {...iconProps} />;
+      return <AlertTriangle {...iconProps} />;
     case 'goal':
-      return <GoalNetIcon {...iconProps} />; // Using the aliased GoalNetIcon
+      return <Trophy {...iconProps} />;
     case 'save':
-      return <ShieldCheck {...iconProps} />;
+      return <Shield {...iconProps} />;
     case 'offside':
       return <Flag {...iconProps} />;
     case 'corner':
-      return <CornerRightUp {...iconProps} />;
+      return <CornerDownRight {...iconProps} />;
     case 'sub':
-      return <Replace {...iconProps} />;
+    case 'substitution':
+      return <RotateCcw {...iconProps} />;
+    case 'tackle':
+      return <User {...iconProps} />;
+    case 'cross':
+      return <Plus {...iconProps} />;
     default:
-      return <HelpCircle {...iconProps} />;
+      return <Play {...iconProps} />;
   }
-}
-
-// Example of how to potentially extend to return the component itself for more flexibility
-export function getEventTypeIconComponent(eventKey: string): LucideIcon {
-    switch (eventKey) {
-        case 'pass': return ArrowRightLeft;
-        case 'shot': return Crosshair;
-        case 'foul': return ShieldAlert;
-        case 'goal': return GoalNetIcon;
-        case 'save': return ShieldCheck;
-        case 'offside': return Flag;
-        case 'corner': return CornerRightUp;
-        case 'sub': return Replace;
-        default: return HelpCircle;
-    }
 }

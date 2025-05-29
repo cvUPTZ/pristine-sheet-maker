@@ -2,29 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/lib/database.types';
-import { EventType, Player } from '@/types';
-
-// Define types for the tracker interface
-interface PlayerForPianoInput {
-  id: string;
-  player_name: string;
-  jersey_number: number;
-  team_context: string;
-}
-
-interface AssignedPlayers {
-  home: PlayerForPianoInput[];
-  away: PlayerForPianoInput[];
-}
-
-interface MatchRosterPlayer {
-  id: string;
-  player_name: string;
-  jersey_number: number;
-  team_context: string;
-}
+import { supabase } from '@/integrations/supabase/client';
+import { EventType, PlayerForPianoInput, AssignedPlayers, MatchRosterPlayer } from '@/components/match/types';
 
 interface EventTypeConfig {
   key: string;
@@ -48,8 +27,6 @@ interface TrackerInterfaceProps {
 }
 
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
-  const supabase = createClientComponentClient<Database>();
-
   const [assignedEventTypes, setAssignedEventTypes] = useState<EventTypeConfig[] | null>(null);
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
@@ -69,7 +46,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       setError(null);
 
       try {
-        // Fetch all players for the match
         const { data: allMatchPlayersData, error: allMatchPlayersError } = await supabase
           .from('match_rosters')
           .select('id, player_name, jersey_number, team_context')
@@ -81,7 +57,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         }
 
         const currentFullRoster: AssignedPlayers = { home: [], away: [] };
-        (allMatchPlayersData as MatchRosterPlayer[])?.forEach(player => {
+        (allMatchPlayersData as MatchRosterPlayer[])?.forEach((player: MatchRosterPlayer) => {
           const pScoped: PlayerForPianoInput = {
             id: player.id,
             player_name: player.player_name,
@@ -96,7 +72,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         });
         setFullMatchRoster(currentFullRoster);
 
-        // Fetch Event Type Assignments
         const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
           .from('user_event_assignments')
           .select('event_type')
@@ -107,7 +82,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           setAssignedEventTypes([]);
         } else {
           const processedEventTypes: EventTypeConfig[] = eventAssignmentsData
-            ? eventAssignmentsData.map(assignment => {
+            ? eventAssignmentsData.map((assignment: any) => {
                 const foundConfig = ALL_EVENT_TYPES_CONFIG.find(et => et.key === assignment.event_type);
                 return foundConfig || { key: assignment.event_type, label: assignment.event_type };
               })
@@ -115,7 +90,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           setAssignedEventTypes(processedEventTypes);
         }
         
-        // Fetch Player Assignments
         const { data: playerAssignmentIdsData, error: playerAssignmentIdsError } = await supabase
           .from('match_tracker_assignments')
           .select('player_id')
@@ -127,7 +101,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           console.error('Error fetching player assignment IDs:', playerAssignmentIdsError);
           setAssignedPlayers({ home: [], away: [] });
         } else if (playerAssignmentIdsData && playerAssignmentIdsData.length > 0) {
-          const playerIds = playerAssignmentIdsData.map(pa => pa.player_id?.toString()).filter(id => id !== null) as string[];
+          const playerIds = playerAssignmentIdsData.map((pa: any) => pa.player_id?.toString()).filter((id: any) => id !== null) as string[];
 
           if (playerIds.length > 0 && currentFullRoster) {
             const assignedHomePlayers = currentFullRoster.home.filter(p => playerIds.includes(p.id));
@@ -152,7 +126,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     }
 
     fetchAssignments();
-  }, [trackerUserId, matchId, supabase]);
+  }, [trackerUserId, matchId]);
 
   const handleEventRecord = (eventType: EventTypeConfig, player?: PlayerForPianoInput, details?: Record<string, any>) => {
     console.log('Event Recorded:', {

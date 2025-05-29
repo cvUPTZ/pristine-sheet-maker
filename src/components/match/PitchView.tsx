@@ -19,7 +19,7 @@ interface PitchViewProps {
     players: Player[];
     formation?: string;
   };
-  teamPositions: Record<number, { x: number; y: number }>;
+  teamPositions: Record<string, { x: number; y: number }>;
   selectedPlayer: Player | null;
   selectedTeam: 'home' | 'away';
   setSelectedTeam: (team: 'home' | 'away') => void;
@@ -29,7 +29,7 @@ interface PitchViewProps {
   mode: 'piano' | 'tracking';
   handlePitchClick: (coordinates: { x: number; y: number }) => void;
   addBallTrackingPoint: (point: BallTrackingPoint) => void;
-  potentialPasser?: Player | null; // Added from Pitch.tsx
+  potentialPasser?: Player | null;
 }
 
 const PitchView: React.FC<PitchViewProps> = ({
@@ -45,34 +45,28 @@ const PitchView: React.FC<PitchViewProps> = ({
   mode,
   handlePitchClick,
   addBallTrackingPoint,
-  potentialPasser = null // Added default
+  potentialPasser = null
 }) => {
-  // Generate separate position maps for home and away teams
   const homePositions = getPlayerPositions(homeTeam, true);
   const awayPositions = getPlayerPositions(awayTeam, false);
   
-  // Combine with any provided positions from props (for custom positioning)
   const combinedPositions = { ...homePositions, ...awayPositions, ...teamPositions };
   
-  // Reference to the container for responsive sizing
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const currentBreakpoint = useCurrentBreakpoint();
   
-  // Determine if circular menu should be allowed based on mode
   const allowCircularMenu = mode === 'piano' || mode === 'tracking';
   
-  // Update container size on mount and window resize
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
         setContainerSize({
           width,
-          // On mobile devices, make height proportional but with a smaller footprint
           height: currentBreakpoint === 'xs' || currentBreakpoint === 'sm' 
-            ? width * 0.7  // Slightly shorter on mobile
-            : width * 0.75 // Standard aspect ratio
+            ? width * 0.7
+            : width * 0.75
         });
       }
     };
@@ -99,12 +93,11 @@ const PitchView: React.FC<PitchViewProps> = ({
         onClick={handlePitchClick} 
         className={`w-full ${currentBreakpoint === 'xs' || currentBreakpoint === 'sm' ? 'min-h-[50vh]' : 'min-h-[60vh]'}`}
       >
-        {/* Home team players */}
         {homeTeam.players.map((player) => (
           <PlayerMarker
             key={`home-${player.id}`}
             player={player}
-            teamColor="#1A365D" // Home team color
+            teamColor="#1A365D"
             position={combinedPositions[player.id] || { x: 0.5, y: 0.9 }}
             onClick={() => {
               setSelectedTeam('home');
@@ -117,12 +110,11 @@ const PitchView: React.FC<PitchViewProps> = ({
           />
         ))}
         
-        {/* Away team players */}
         {awayTeam.players.map((player) => (
           <PlayerMarker
             key={`away-${player.id}`}
             player={player}
-            teamColor="#D3212C" // Away team color
+            teamColor="#D3212C"
             position={combinedPositions[player.id] || { x: 0.5, y: 0.1 }}
             onClick={() => {
               setSelectedTeam('away');
@@ -135,7 +127,6 @@ const PitchView: React.FC<PitchViewProps> = ({
           />
         ))}
         
-        {/* Ball tracking */}
         <BallTracker 
           trackingPoints={ballTrackingPoints} 
           isActive={mode === 'tracking'} 

@@ -10,7 +10,7 @@ import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import PianoInput from '@/components/match/PianoInput';
+import { PianoInput } from '@/components/match/PianoInput';
 import MatchEventsTimeline from '@/components/MatchEventsTimeline';
 import VideoAnalyzer from '@/components/VideoAnalyzer';
 import DedicatedTrackerUI from '@/components/match/DedicatedTrackerUI';
