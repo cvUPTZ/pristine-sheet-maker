@@ -430,17 +430,7 @@ const MatchAnalysisV2: React.FC = () => {
             <p>No permissions loaded.</p>
           )}
         </div>
-        <div className="mt-6 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900">
-          <h2 className="text-xl font-semibold mb-2">Match Data (for V2 debug):</h2>
-          <pre className="text-sm overflow-x-auto">
-            {JSON.stringify({
-              match: matchDataFromHook, // Display full match data for now
-              // homeTeam: homeTeamHeaderDataFromHook, // Already in MatchHeader props, not needed here
-              // awayTeam: awayTeamHeaderDataFromHook, // Already in MatchHeader props, not needed here
-              eventsCount: eventsFromHook?.length || 0,
-            }, null, 2)}
-          </pre>
-        </div>
+        {/* Match Data (for V2 debug) section removed */}
       </div>
       {/* End temporary display */}
 
