@@ -2,13 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from '@/types';
-import { TrackerUser } from '@/types/matchForm';
+import { TrackerUser, NotificationSettings } from '@/types/matchForm';
+import { User, Mail, Bell } from 'lucide-react';
 
 interface TrackerAssignmentProps {
   matchId?: string;
@@ -33,6 +36,12 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [existingAssignments, setExistingAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    sendOnAssignment: true,
+    sendOnMatchStart: false,
+    sendOnMatchEnd: false,
+    customMessage: ''
+  });
 
   useEffect(() => {
     fetchTrackers();
@@ -100,6 +109,30 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
     return 'away';
   };
 
+  const sendNotification = async (trackerId: string, message: string) => {
+    if (!matchId) return;
+
+    try {
+      const { error } = await supabase
+        .from('match_notifications')
+        .insert({
+          match_id: matchId,
+          tracker_id: trackerId,
+          message: message,
+          is_read: false
+        });
+
+      if (error) {
+        console.error('Error sending notification:', error);
+        toast.error('Failed to send notification');
+      } else {
+        console.log('Notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
+
   const assignTracker = async () => {
     if (!selectedTracker || !matchId) {
       toast.error('Please select a tracker and ensure match is saved');
@@ -147,7 +180,17 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
         }
       }
 
-      toast.success('Tracker assigned successfully!');
+      // Send notification if enabled
+      if (notificationSettings.sendOnAssignment) {
+        const selectedTrackerInfo = trackers.find(t => t.id === selectedTracker);
+        const message = notificationSettings.customMessage || 
+          `You have been assigned to track ${homeTeam.name} vs ${awayTeam.name}`;
+        
+        await sendNotification(selectedTracker, message);
+        toast.success('Tracker assigned and notified successfully!');
+      } else {
+        toast.success('Tracker assigned successfully!');
+      }
       
       // Reset form and refresh assignments
       setSelectedTracker('');
@@ -187,100 +230,215 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Tracker Selection Cards */}
       <Card>
         <CardHeader>
-          <CardTitle>Assign Tracker</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Select Tracker
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Select Tracker</Label>
-            <Select value={selectedTracker} onValueChange={setSelectedTracker}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a tracker" />
-              </SelectTrigger>
-              <SelectContent>
-                {trackers.map((tracker) => (
-                  <SelectItem key={tracker.id} value={tracker.id}>
-                    {tracker.full_name} ({tracker.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Event Types</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {EVENT_TYPES.map((eventType) => (
-                <div key={eventType} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={eventType}
-                    checked={selectedEventTypes.includes(eventType)}
-                    onCheckedChange={(checked) => 
-                      handleEventTypeChange(eventType, checked as boolean)
-                    }
-                  />
-                  <Label htmlFor={eventType} className="text-sm capitalize">
-                    {eventType}
-                  </Label>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {trackers.map((tracker) => (
+              <div
+                key={tracker.id}
+                className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                  selectedTracker === tracker.id 
+                    ? 'border-blue-500 bg-blue-50 shadow-md' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => setSelectedTracker(tracker.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-sm">{tracker.full_name}</h3>
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {tracker.email}
+                    </p>
+                  </div>
+                  {selectedTracker === tracker.id && (
+                    <Badge variant="secondary" className="text-xs">
+                      Selected
+                    </Badge>
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
+          </div>
+          
+          {trackers.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <User className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <p>No trackers available</p>
             </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Assign Players</Label>
-            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded p-2">
-              <div className="text-xs font-medium text-gray-500 mb-2">Home Team: {homeTeam.name}</div>
-              {homeTeam.players.map((player) => (
-                <div key={`home-${player.id}`} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`home-${player.id}`}
-                    checked={selectedPlayers.includes(player.id.toString())}
-                    onCheckedChange={(checked) => 
-                      handlePlayerChange(player.id.toString(), checked as boolean)
-                    }
-                  />
-                  <Label htmlFor={`home-${player.id}`} className="text-sm">
-                    #{player.number} {player.name}
-                  </Label>
-                </div>
-              ))}
-              
-              <div className="text-xs font-medium text-gray-500 mb-2 mt-4">Away Team: {awayTeam.name}</div>
-              {awayTeam.players.map((player) => (
-                <div key={`away-${player.id}`} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`away-${player.id}`}
-                    checked={selectedPlayers.includes(player.id.toString())}
-                    onCheckedChange={(checked) => 
-                      handlePlayerChange(player.id.toString(), checked as boolean)
-                    }
-                  />
-                  <Label htmlFor={`away-${player.id}`} className="text-sm">
-                    #{player.number} {player.name}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Button 
-            onClick={assignTracker} 
-            disabled={loading || !selectedTracker || !matchId}
-            className="w-full"
-          >
-            {loading ? 'Assigning...' : 'Assign Tracker'}
-          </Button>
-
-          {!matchId && (
-            <p className="text-sm text-amber-600">
-              Save the match first to enable tracker assignments
-            </p>
           )}
         </CardContent>
       </Card>
 
+      {/* Assignment Details */}
+      {selectedTracker && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Assignment Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Event Types</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {EVENT_TYPES.map((eventType) => (
+                  <div key={eventType} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={eventType}
+                      checked={selectedEventTypes.includes(eventType)}
+                      onCheckedChange={(checked) => 
+                        handleEventTypeChange(eventType, checked as boolean)
+                      }
+                    />
+                    <Label htmlFor={eventType} className="text-sm capitalize">
+                      {eventType}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Assign Players</Label>
+              <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded p-2">
+                <div className="text-xs font-medium text-gray-500 mb-2">Home Team: {homeTeam.name}</div>
+                {homeTeam.players.map((player) => (
+                  <div key={`home-${player.id}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`home-${player.id}`}
+                      checked={selectedPlayers.includes(player.id.toString())}
+                      onCheckedChange={(checked) => 
+                        handlePlayerChange(player.id.toString(), checked as boolean)
+                      }
+                    />
+                    <Label htmlFor={`home-${player.id}`} className="text-sm">
+                      #{player.number} {player.name}
+                    </Label>
+                  </div>
+                ))}
+                
+                <div className="text-xs font-medium text-gray-500 mb-2 mt-4">Away Team: {awayTeam.name}</div>
+                {awayTeam.players.map((player) => (
+                  <div key={`away-${player.id}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`away-${player.id}`}
+                      checked={selectedPlayers.includes(player.id.toString())}
+                      onCheckedChange={(checked) => 
+                        handlePlayerChange(player.id.toString(), checked as boolean)
+                      }
+                    />
+                    <Label htmlFor={`away-${player.id}`} className="text-sm">
+                      #{player.number} {player.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notification Settings */}
+      {selectedTracker && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Notification Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendOnAssignment"
+                checked={notificationSettings.sendOnAssignment}
+                onCheckedChange={(checked) => 
+                  setNotificationSettings(prev => ({ ...prev, sendOnAssignment: checked as boolean }))
+                }
+              />
+              <Label htmlFor="sendOnAssignment" className="text-sm">
+                Send notification when tracker is assigned
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendOnMatchStart"
+                checked={notificationSettings.sendOnMatchStart}
+                onCheckedChange={(checked) => 
+                  setNotificationSettings(prev => ({ ...prev, sendOnMatchStart: checked as boolean }))
+                }
+              />
+              <Label htmlFor="sendOnMatchStart" className="text-sm">
+                Send notification when match starts
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendOnMatchEnd"
+                checked={notificationSettings.sendOnMatchEnd}
+                onCheckedChange={(checked) => 
+                  setNotificationSettings(prev => ({ ...prev, sendOnMatchEnd: checked as boolean }))
+                }
+              />
+              <Label htmlFor="sendOnMatchEnd" className="text-sm">
+                Send notification when match ends
+              </Label>
+            </div>
+
+            {notificationSettings.sendOnAssignment && (
+              <div>
+                <Label htmlFor="customMessage" className="text-sm font-medium mb-1 block">
+                  Custom Message (Optional)
+                </Label>
+                <Textarea
+                  id="customMessage"
+                  placeholder="Enter a custom message for the tracker..."
+                  value={notificationSettings.customMessage}
+                  onChange={(e) => 
+                    setNotificationSettings(prev => ({ ...prev, customMessage: e.target.value }))
+                  }
+                  rows={3}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Assign Button */}
+      {selectedTracker && (
+        <Button 
+          onClick={assignTracker} 
+          disabled={loading || !selectedTracker || !matchId}
+          className="w-full"
+          size="lg"
+        >
+          {loading ? 'Assigning...' : 'Assign Tracker & Send Notification'}
+        </Button>
+      )}
+
+      {!matchId && (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-amber-600">
+              Save the match first to enable tracker assignments
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Current Assignments */}
       {existingAssignments.length > 0 && (
         <Card>
           <CardHeader>
@@ -293,14 +451,19 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
                 const player = allPlayers.find(p => p.id === assignment.player_id);
                 
                 return (
-                  <div key={assignment.id} className="flex items-center justify-between p-2 border rounded">
-                    <div className="text-sm">
-                      <span className="font-medium">{tracker?.full_name || 'Unknown Tracker'}</span>
-                      {player && (
-                        <span className="text-gray-600 ml-2">
-                          → #{player.number} {player.name} ({assignment.player_team_id})
-                        </span>
-                      )}
+                  <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{tracker?.full_name || 'Unknown Tracker'}</p>
+                        {player && (
+                          <p className="text-xs text-gray-600">
+                            → #{player.number} {player.name} ({assignment.player_team_id})
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <Button
                       onClick={() => removeAssignment(assignment.id)}

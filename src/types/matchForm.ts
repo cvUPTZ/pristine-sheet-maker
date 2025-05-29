@@ -22,3 +22,10 @@ export interface TrackerUser {
   full_name: string;
   email: string;
 }
+
+export interface NotificationSettings {
+  sendOnAssignment: boolean;
+  sendOnMatchStart: boolean;
+  sendOnMatchEnd: boolean;
+  customMessage?: string;
+}
