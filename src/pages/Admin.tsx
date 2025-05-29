@@ -135,7 +135,7 @@ const Admin: React.FC = () => {
 
     try {
       // Updated to use 'get-users' which returns actual emails and full_name correctly
-      const { data: usersFunctionResponse, error: usersError } = await supabase.functions.invoke('get-users', { method: 'GET' });
+      const { data: usersFunctionResponse, error: usersError } = await supabase.functions.invoke('get-all-users', { method: 'GET' });
       
       if (usersError) {
         let errorMessage = usersError.message;
