@@ -174,16 +174,16 @@ const AccessManagement: React.FC = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
             User Management
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-4 sm:p-6 pt-0">
+          <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto">
             {users.map((user) => (
               <div
                 key={user.id}
@@ -192,12 +192,14 @@ const AccessManagement: React.FC = () => {
                 }`}
                 onClick={() => handleUserSelect(user.id)}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-medium">{user.full_name || user.email}</p>
-                    <p className="text-sm text-gray-600">{user.email}</p>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm sm:text-base truncate">
+                      {user.full_name || user.email}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
                   </div>
-                  <Badge className={getRoleBadgeColor(user.role)}>
+                  <Badge className={`${getRoleBadgeColor(user.role)} text-xs flex-shrink-0`}>
                     {user.role}
                   </Badge>
                 </div>
@@ -207,7 +209,7 @@ const AccessManagement: React.FC = () => {
                     value={user.role}
                     onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
                   >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-full sm:w-32 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -225,22 +227,22 @@ const AccessManagement: React.FC = () => {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
             Access Permissions
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0">
           {selectedUser ? (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-96 overflow-y-auto">
               {Object.entries(permissions).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor={key} className="capitalize">
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor={key} className="capitalize text-sm sm:text-base">
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       {getPermissionDescription(key as keyof RolePermissions)}
                     </p>
                   </div>
@@ -250,14 +252,15 @@ const AccessManagement: React.FC = () => {
                     onCheckedChange={(checked) => 
                       handlePermissionChange(key as keyof RolePermissions, checked)
                     }
+                    className="flex-shrink-0"
                   />
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Select a user to view and edit permissions</p>
+              <Eye className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">Select a user to view and edit permissions</p>
             </div>
           )}
         </CardContent>
