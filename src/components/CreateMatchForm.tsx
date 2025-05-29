@@ -100,17 +100,24 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, i
         notes: initialData.notes || '',
       });
 
+      const homeFormation = initialData.home_team_formation;
+      const awayFormation = initialData.away_team_formation;
+
       setHomeTeam({
         id: 'home',
         name: initialData.home_team_name || '',
-        formation: (initialData.home_team_formation as Formation) || '4-4-2',
+        formation: (homeFormation && ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2'].includes(homeFormation)) 
+          ? homeFormation as Formation 
+          : '4-4-2',
         players: initialData.home_team_players || []
       });
 
       setAwayTeam({
         id: 'away',
         name: initialData.away_team_name || '',
-        formation: (initialData.away_team_formation as Formation) || '4-3-3',
+        formation: (awayFormation && ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2'].includes(awayFormation)) 
+          ? awayFormation as Formation 
+          : '4-3-3',
         players: initialData.away_team_players || []
       });
     }
