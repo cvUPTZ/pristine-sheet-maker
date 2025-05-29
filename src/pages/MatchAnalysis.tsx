@@ -56,6 +56,10 @@ const MatchAnalysis: React.FC = () => {
     error: matchDataError
   } = useMatchData(matchId);
 
+  // Logging props and state from useMatchData
+  console.log('[MatchAnalysis] matchId from params:', matchId);
+  console.log('[MatchAnalysis] Hook data: isLoadingMatchData:', isLoadingMatchData, 'matchDataError:', matchDataError, 'matchDataFromHook:', matchDataFromHook, 'homeTeamHeaderDataFromHook:', homeTeamHeaderDataFromHook, 'awayTeamHeaderDataFromHook:', awayTeamHeaderDataFromHook);
+
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
   const [activeTab, setActiveTab] = useState<string>('pitch');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -185,15 +189,28 @@ const MatchAnalysis: React.FC = () => {
   }
 
   if (matchDataError || !matchDataFromHook || !homeTeamHeaderDataFromHook || !awayTeamHeaderDataFromHook) {
-    let message = 'Match not found or there was an issue loading its data.';
+    // Log which condition(s) are true
+    console.log('[MatchAnalysis] Displaying error/unavailable message. Conditions:');
+    console.log('[MatchAnalysis] - matchDataError:', matchDataError);
+    console.log('[MatchAnalysis] - !matchDataFromHook:', !matchDataFromHook);
+    console.log('[MatchAnalysis] - !homeTeamHeaderDataFromHook:', !homeTeamHeaderDataFromHook);
+    console.log('[MatchAnalysis] - !awayTeamHeaderDataFromHook:', !awayTeamHeaderDataFromHook);
+
+    let message: string;
     if (matchDataError) {
-      message = typeof matchDataError === 'string' ? matchDataError : ((matchDataError as Error)?.message || 'An error occurred.');
+      // Prioritize the error message from the hook
+      const errorMessage = typeof matchDataError === 'string' ? matchDataError : ((matchDataError as Error)?.message);
+      message = `Error: ${errorMessage || 'An unknown error occurred while fetching match data.'}`;
     } else if (!matchDataFromHook) {
-      message = 'Core match data is missing. Please try again or contact support.';
+      message = 'Match data could not be loaded. The core match information is missing.';
     } else if (!homeTeamHeaderDataFromHook) {
-      message = 'Home team details are missing. Please try again or contact support.';
+      message = 'Home team data could not be loaded. Please check match configuration.';
     } else if (!awayTeamHeaderDataFromHook) {
-      message = 'Away team details are missing. Please try again or contact support.';
+      message = 'Away team data could not be loaded. Please check match configuration.';
+    } else {
+      // This case should ideally not be reached if one ofthe previous conditions is true,
+      // but it serves as a fallback.
+      message = 'Match data is currently unavailable. Please try again later or contact support if the issue persists.';
     }
 
     return (
