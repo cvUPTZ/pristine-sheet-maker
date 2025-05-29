@@ -1,8 +1,15 @@
+
 export interface Statistics {
   possession?: { home: number; away: number };
-  shots?: { home: number; away: number };
+  shots?: { 
+    home: { onTarget: number; offTarget: number; total: number }; 
+    away: { onTarget: number; offTarget: number; total: number }; 
+  };
   shotsOnTarget?: { home: number; away: number };
-  passes?: { home: number; away: number };
+  passes?: { 
+    home: { successful: number; attempted: number }; 
+    away: { successful: number; attempted: number }; 
+  };
   fouls?: { home: number; away: number };
   yellowCards?: { home: number; away: number };
   redCards?: { home: number; away: number };
@@ -24,6 +31,14 @@ export interface Player {
   number: number;
   jersey_number: number;
   position: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  players: Player[];
+  formation?: string;
+  color?: string;
 }
 
 export interface BallTrackingPoint {
@@ -105,4 +120,42 @@ export interface PlayerAssignment {
     full_name: string;
     email: string;
   };
+}
+
+// Add missing types
+export type EventType = 
+  | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'
+  | 'assist' | 'yellowCard' | 'redCard' | 'substitution' | 'card'
+  | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'interception'
+  | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'cross'
+  | 'clearance' | 'block' | 'save' | 'ownGoal' | 'freeKick' | 'throwIn'
+  | 'goalKick' | 'aerialDuel' | 'groundDuel';
+
+export interface MatchEvent {
+  id: string;
+  type: EventType;
+  timestamp: number;
+  team: 'home' | 'away';
+  player?: Player;
+  coordinates?: { x: number; y: number };
+  description?: string;
+}
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2';
+
+export interface NotificationSettings {
+  trackerAssigned: boolean;
+  matchStarts: boolean;
+  matchEnds: boolean;
+  customMessage?: string;
+}
+
+export interface TrackerAssignmentDetails {
+  eventCategories: string[];
+  specificEvents: string[];
+  assignedPlayers: {
+    home: number[];
+    away: number[];
+  };
+  notificationSettings: NotificationSettings;
 }

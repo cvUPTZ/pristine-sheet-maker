@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Minus, Users, Bell } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Plus, Minus, Users, Bell, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Player, MatchFormData, User } from '@/types';
+import { Player, MatchFormData, User, TrackerAssignmentDetails } from '@/types';
+import { EVENT_TYPE_CATEGORIES } from '@/constants/eventTypes';
 import FormationSelector from '@/components/FormationSelector';
 
 interface CreateMatchFormProps {
@@ -25,6 +26,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
   const [loading, setLoading] = useState(false);
   const [trackers, setTrackers] = useState<User[]>([]);
   const [selectedTrackers, setSelectedTrackers] = useState<string[]>([]);
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [assignmentDetails, setAssignmentDetails] = useState<TrackerAssignmentDetails>({
+    eventCategories: [],
+    specificEvents: [],
+    assignedPlayers: { home: [], away: [] },
+    notificationSettings: {
+      trackerAssigned: true,
+      matchStarts: false,
+      matchEnds: false
+    }
+  });
 
   const [formData, setFormData] = useState<MatchFormData>({
     name: '',
@@ -53,7 +65,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         .eq('role', 'tracker');
 
       if (error) throw error;
-      setTrackers(data || []);
+      
+      // Filter out null values and ensure proper typing
+      const validTrackers = (data || [])
+        .filter(tracker => tracker.email && tracker.full_name)
+        .map(tracker => ({
+          id: tracker.id,
+          email: tracker.email!,
+          full_name: tracker.full_name!,
+          role: tracker.role as 'admin' | 'user' | 'tracker' | 'teacher'
+        }));
+      
+      setTrackers(validTrackers);
     } catch (error) {
       console.error('Error fetching trackers:', error);
       toast.error('Failed to fetch trackers');
@@ -132,6 +155,66 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         ? prev.filter(id => id !== trackerId)
         : [...prev, trackerId]
     );
+  };
+
+  const toggleCategory = (categoryKey: string) => {
+    setOpenCategories(prev => 
+      prev.includes(categoryKey) 
+        ? prev.filter(key => key !== categoryKey)
+        : [...prev, categoryKey]
+    );
+  };
+
+  const handleCategoryToggle = (categoryKey: string, checked: boolean) => {
+    const category = EVENT_TYPE_CATEGORIES.find(cat => cat.key === categoryKey);
+    if (!category) return;
+
+    const categoryEventKeys = category.events.map(event => event.key);
+    
+    if (checked) {
+      setAssignmentDetails(prev => ({
+        ...prev,
+        eventCategories: [...prev.eventCategories, categoryKey],
+        specificEvents: [...new Set([...prev.specificEvents, ...categoryEventKeys])]
+      }));
+    } else {
+      setAssignmentDetails(prev => ({
+        ...prev,
+        eventCategories: prev.eventCategories.filter(key => key !== categoryKey),
+        specificEvents: prev.specificEvents.filter(key => !categoryEventKeys.includes(key))
+      }));
+    }
+  };
+
+  const handleEventTypeChange = (eventKey: string, checked: boolean) => {
+    setAssignmentDetails(prev => ({
+      ...prev,
+      specificEvents: checked 
+        ? [...prev.specificEvents, eventKey]
+        : prev.specificEvents.filter(key => key !== eventKey)
+    }));
+  };
+
+  const handlePlayerToggle = (team: 'home' | 'away', playerId: number, checked: boolean) => {
+    setAssignmentDetails(prev => ({
+      ...prev,
+      assignedPlayers: {
+        ...prev.assignedPlayers,
+        [team]: checked 
+          ? [...prev.assignedPlayers[team], playerId]
+          : prev.assignedPlayers[team].filter(id => id !== playerId)
+      }
+    }));
+  };
+
+  const handleNotificationSettingChange = (setting: keyof typeof assignmentDetails.notificationSettings, value: boolean) => {
+    setAssignmentDetails(prev => ({
+      ...prev,
+      notificationSettings: {
+        ...prev.notificationSettings,
+        [setting]: value
+      }
+    }));
   };
 
   const sendNotificationToTrackers = async (matchId: string) => {
@@ -214,6 +297,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         awayTeamPlayers: []
       });
       setSelectedTrackers([]);
+      setAssignmentDetails({
+        eventCategories: [],
+        specificEvents: [],
+        assignedPlayers: { home: [], away: [] },
+        notificationSettings: {
+          trackerAssigned: true,
+          matchStarts: false,
+          matchEnds: false
+        }
+      });
       setCurrentStep('details');
 
     } catch (error) {
@@ -414,38 +507,222 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             </div>
           </TabsContent>
 
-          <TabsContent value="trackers" className="space-y-4 mt-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Bell className="h-5 w-5" />
-              <h3 className="text-lg font-semibold">Select Trackers for Notifications</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {trackers.map((tracker) => (
-                <div key={tracker.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                  <Checkbox
-                    id={tracker.id}
-                    checked={selectedTrackers.includes(tracker.id)}
-                    onCheckedChange={() => handleTrackerToggle(tracker.id)}
-                  />
-                  <div className="flex-1">
-                    <label htmlFor={tracker.id} className="text-sm font-medium cursor-pointer">
-                      {tracker.full_name}
-                    </label>
-                    <p className="text-xs text-gray-500">{tracker.email}</p>
+          <TabsContent value="trackers" className="space-y-6 mt-6">
+            <div className="space-y-6">
+              {/* Tracker Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Select Trackers
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {trackers.map((tracker) => (
+                      <div key={tracker.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                        <Checkbox
+                          id={tracker.id}
+                          checked={selectedTrackers.includes(tracker.id)}
+                          onCheckedChange={() => handleTrackerToggle(tracker.id)}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor={tracker.id} className="text-sm font-medium cursor-pointer">
+                            {tracker.full_name}
+                          </label>
+                          <p className="text-xs text-gray-500">{tracker.email}</p>
+                        </div>
+                        <Badge variant="secondary">{tracker.role}</Badge>
+                      </div>
+                    ))}
                   </div>
-                  <Badge variant="secondary">{tracker.role}</Badge>
-                </div>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
 
-            {selectedTrackers.length > 0 && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  {selectedTrackers.length} tracker(s) will be notified when the match is created.
-                </p>
-              </div>
-            )}
+              {/* Assignment Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assignment Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Event Categories & Types */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Event Categories & Types</h3>
+                    
+                    {EVENT_TYPE_CATEGORIES.map((category) => {
+                      const isOpen = openCategories.includes(category.key);
+                      const isSelected = assignmentDetails.eventCategories.includes(category.key);
+                      
+                      return (
+                        <div key={category.key} className="border rounded-lg">
+                          <Collapsible
+                            open={isOpen}
+                            onOpenChange={() => toggleCategory(category.key)}
+                          >
+                            <CollapsibleTrigger className="w-full">
+                              <div className="flex items-center justify-between p-4 hover:bg-muted/50">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => handleCategoryToggle(category.key, !!checked)}
+                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                  />
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: category.color }}
+                                  />
+                                  <div className="text-left">
+                                    <h4 className="font-medium">{category.label}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      Events related to ball movement and possession
+                                    </p>
+                                  </div>
+                                </div>
+                                {isOpen ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </div>
+                            </CollapsibleTrigger>
+                            
+                            <CollapsibleContent>
+                              <div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">
+                                {category.events.map((event) => (
+                                  <div key={event.key} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`event-${event.key}`}
+                                      checked={assignmentDetails.specificEvents.includes(event.key)}
+                                      onCheckedChange={(checked) => handleEventTypeChange(event.key, !!checked)}
+                                    />
+                                    <label
+                                      htmlFor={`event-${event.key}`}
+                                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                      {event.label}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <Separator />
+
+                  {/* Assign Players */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Assign Players</h3>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Home Team */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Home Team:</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {(formData.homeTeamPlayers || []).map((player) => (
+                            <div key={`home-${player.id}`} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`home-player-${player.id}`}
+                                checked={assignmentDetails.assignedPlayers.home.includes(player.id)}
+                                onCheckedChange={(checked) => handlePlayerToggle('home', player.id, !!checked)}
+                              />
+                              <label
+                                htmlFor={`home-player-${player.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                #{player.jersey_number} {player.player_name}
+                              </label>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Away Team */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Away Team:</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {(formData.awayTeamPlayers || []).map((player) => (
+                            <div key={`away-${player.id}`} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`away-player-${player.id}`}
+                                checked={assignmentDetails.assignedPlayers.away.includes(player.id)}
+                                onCheckedChange={(checked) => handlePlayerToggle('away', player.id, !!checked)}
+                              />
+                              <label
+                                htmlFor={`away-player-${player.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                #{player.jersey_number} {player.player_name}
+                              </label>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Notification Settings */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-5 w-5" />
+                      <h3 className="font-semibold">Notification Settings</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="notify-assigned"
+                          checked={assignmentDetails.notificationSettings.trackerAssigned}
+                          onCheckedChange={(checked) => handleNotificationSettingChange('trackerAssigned', !!checked)}
+                        />
+                        <label htmlFor="notify-assigned" className="text-sm">
+                          Send notification when tracker is assigned
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="notify-starts"
+                          checked={assignmentDetails.notificationSettings.matchStarts}
+                          onCheckedChange={(checked) => handleNotificationSettingChange('matchStarts', !!checked)}
+                        />
+                        <label htmlFor="notify-starts" className="text-sm">
+                          Send notification when match starts
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="notify-ends"
+                          checked={assignmentDetails.notificationSettings.matchEnds}
+                          onCheckedChange={(checked) => handleNotificationSettingChange('matchEnds', !!checked)}
+                        />
+                        <label htmlFor="notify-ends" className="text-sm">
+                          Send notification when match ends
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedTrackers.length > 0 && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    {selectedTrackers.length} tracker(s) will be notified with the specified assignment details.
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
