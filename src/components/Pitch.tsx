@@ -54,7 +54,7 @@ const Pitch: React.FC<PitchProps> = ({
   const collaboration = useMatchCollaboration({ 
     matchId: matchId, 
     userId: user?.id || 'anonymous',
-    teamId: selectedTeam === 'home' ? homeTeam.id : awayTeam.id 
+    teamId: selectedTeam
   });
 
   const { users = [], recordEvent = () => {} } = collaboration || {};
@@ -147,6 +147,9 @@ const Pitch: React.FC<PitchProps> = ({
           coordinates
         );
       }
+      
+      // Call the onEventRecord with correct parameters
+      onEventRecord(eventType, player.id, playerTeamId, coordinates);
       
       if (['pass', 'shot', 'goal'].includes(eventType)) {
         onTrackBallMovement(coordinates);

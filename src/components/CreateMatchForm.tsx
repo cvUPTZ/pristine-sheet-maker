@@ -39,7 +39,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       id: i + 1,
       name: `Player ${i + 1}`,
       position: 'Forward',
-      number: i + 1
+      number: i + 1,
+      jersey_number: i + 1,
+      player_name: `Player ${i + 1}`
     }))
   });
   
@@ -51,7 +53,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       id: i + 1,
       name: `Player ${i + 1}`,
       position: 'Midfielder',
-      number: i + 1
+      number: i + 1,
+      jersey_number: i + 1,
+      player_name: `Player ${i + 1}`
     }))
   });
 
@@ -65,7 +69,14 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       description: '',
       homeTeamScore: '0',
       awayTeamScore: '0',
-      notes: ''
+      notes: '',
+      matchDate: '',
+      location: '',
+      competition: '',
+      homeTeamFormation: '4-4-2',
+      awayTeamFormation: '4-3-3',
+      homeTeamPlayers: [],
+      awayTeamPlayers: []
     }
   });
 
@@ -84,6 +95,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         homeTeamScore: (initialData.home_team_score || 0).toString(),
         awayTeamScore: (initialData.away_team_score || 0).toString(),
         notes: initialData.notes || '',
+        matchDate: initialData.match_date || '',
+        location: initialData.location || '',
+        competition: initialData.competition || '',
+        homeTeamFormation: initialData.home_team_formation || '4-4-2',
+        awayTeamFormation: initialData.away_team_formation || '4-3-3',
+        homeTeamPlayers: initialData.home_team_players || [],
+        awayTeamPlayers: initialData.away_team_players || []
       });
 
       const homeFormation = initialData.home_team_formation;

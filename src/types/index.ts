@@ -9,8 +9,9 @@ export interface Player {
 }
 
 export interface Team {
+  id?: string;
   name: string;
-  formation: string;
+  formation: Formation;
   players: Player[];
 }
 
@@ -18,6 +19,7 @@ export interface BallTrackingPoint {
   x: number;
   y: number;
   timestamp: number;
+  teamId?: 'home' | 'away';
 }
 
 export interface MatchEvent {
@@ -47,34 +49,77 @@ export interface TimelineEvent {
 export interface Statistics {
   home: {
     possession: number;
-    shots: number;
+    shots: {
+      onTarget: number;
+      offTarget: number;
+    };
     shotsOnTarget: number;
     corners: number;
     fouls: number;
     yellowCards: number;
     redCards: number;
+    passes: {
+      successful: number;
+      attempted: number;
+    };
   };
   away: {
     possession: number;
-    shots: number;
+    shots: {
+      onTarget: number;
+      offTarget: number;
+    };
     shotsOnTarget: number;
     corners: number;
     fouls: number;
     yellowCards: number;
     redCards: number;
+    passes: {
+      successful: number;
+      attempted: number;
+    };
   };
-  possession: number;
-  shots: number;
+  possession: {
+    home: number;
+    away: number;
+  };
+  shots: {
+    home: {
+      onTarget: number;
+      offTarget: number;
+    };
+    away: {
+      onTarget: number;
+      offTarget: number;
+    };
+  };
   shotsOnTarget: number;
   corners: number;
   fouls: number;
   yellowCards: number;
   redCards: number;
-  passes: number;
+  passes: {
+    home: {
+      successful: number;
+      attempted: number;
+    };
+    away: {
+      successful: number;
+      attempted: number;
+    };
+  };
   saves: number;
   goals: number;
   substitutions: number;
   offsides: number;
+  ballsPlayed: {
+    home: number;
+    away: number;
+  };
+  ballsLost: {
+    home: number;
+    away: number;
+  };
 }
 
 export interface Match {
@@ -122,3 +167,38 @@ export interface PlayerNode {
 }
 
 export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3';
+
+export type EventType = 
+  | 'pass' 
+  | 'shot' 
+  | 'tackle' 
+  | 'foul' 
+  | 'corner' 
+  | 'offside' 
+  | 'goal' 
+  | 'assist' 
+  | 'yellowCard' 
+  | 'redCard' 
+  | 'substitution' 
+  | 'card' 
+  | 'penalty' 
+  | 'free-kick' 
+  | 'goal-kick' 
+  | 'throw-in' 
+  | 'interception' 
+  | 'possession' 
+  | 'ballLost' 
+  | 'ballRecovered' 
+  | 'dribble' 
+  | 'cross' 
+  | 'clearance' 
+  | 'block' 
+  | 'save' 
+  | 'ownGoal' 
+  | 'freeKick' 
+  | 'throwIn' 
+  | 'goalKick' 
+  | 'aerialDuel' 
+  | 'groundDuel';

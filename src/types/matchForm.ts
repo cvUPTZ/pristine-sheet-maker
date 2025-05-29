@@ -13,6 +13,11 @@ export interface MatchFormData {
   matchDate: string;
   location: string;
   competition: string;
+  status: string;
+  matchType: string;
+  homeTeamScore: string;
+  awayTeamScore: string;
+  notes: string;
 }
 
 export interface EventTypeCategory {
