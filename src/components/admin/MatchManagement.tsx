@@ -44,11 +44,12 @@ const MatchManagement: React.FC = () => {
 
       const typedMatches: Match[] = (data || []).map(match => ({
         ...match,
-        name: match.name || 'Untitled Match', // Ensure name is never null
-        venue: match.location, // Map location to venue for compatibility
+        name: match.name || 'Untitled Match',
+        venue: match.location,
         created_at: match.created_at || new Date().toISOString(),
         home_team_players: match.home_team_players || [],
-        away_team_players: match.away_team_players || []
+        away_team_players: match.away_team_players || [],
+        match_date: match.match_date // Keep as nullable
       }));
 
       setMatches(typedMatches);
@@ -101,7 +102,10 @@ const MatchManagement: React.FC = () => {
             <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
             Match Management
           </CardTitle>
-          <Button className="bg-gray-900 text-white hover:bg-gray-800">
+          <Button 
+            className="bg-gray-900 text-white hover:bg-gray-800"
+            onClick={() => window.location.href = '/create-match'}
+          >
             Create New Match
           </Button>
         </div>
@@ -150,7 +154,11 @@ const MatchManagement: React.FC = () => {
               )}
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.location.href = `/edit-match/${match.id}`}
+                >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>

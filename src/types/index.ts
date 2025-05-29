@@ -57,10 +57,13 @@ export interface FlowPlayerNode {
   y: number;
   count: number;
   team: 'home' | 'away';
+  fx?: number;
+  fy?: number;
 }
 
 export interface TimeSegmentStatistics {
   timeSegment: string;
+  startTime: number;
   homeStats: Statistics;
   awayStats: Statistics;
 }
@@ -127,7 +130,7 @@ export interface Match {
   id: string;
   name: string;
   status: string;
-  match_date: string;
+  match_date: string | null;
   home_team_name: string;
   away_team_name: string;
   home_team_formation: string | null;
