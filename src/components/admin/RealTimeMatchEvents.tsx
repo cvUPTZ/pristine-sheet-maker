@@ -3,39 +3,25 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Clock, Activity } from 'lucide-react';
+
+interface MatchEvent {
+  id: string;
+  event_type: string;
+  player_id: number | null;
+  team: string | null;
+  timestamp: number | null;
+  created_at: string;
+  created_by: string;
+}
 
 interface Match {
   id: string;
   name: string | null;
   status: string;
-  match_date: string | null;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation: string | null;
-  away_team_formation: string | null;
-  home_team_score: number | null;
-  away_team_score: number | null;
-  created_at: string;
-  updated_at: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  venue: string | null;
-  referee: string | null;
-  weather_conditions: string | null;
-  temperature: number | null;
-  humidity: number | null;
-  wind_speed: number | null;
-  pitch_conditions: string | null;
-  attendance: number | null;
-  competition: string | null;
-  ball_tracking_data: any;
-}
-
-interface MatchRosterPlayer {
-  id: string;
-  player_name: string;
-  jersey_number: number;
-  team_context: 'home' | 'away';
 }
 
 interface RealTimeMatchEventsProps {
@@ -43,10 +29,9 @@ interface RealTimeMatchEventsProps {
 }
 
 const RealTimeMatchEvents: React.FC<RealTimeMatchEventsProps> = ({ matchId }) => {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string>(matchId || '');
-  const [roster, setRoster] = useState<Map<string, MatchRosterPlayer>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,31 +40,28 @@ const RealTimeMatchEvents: React.FC<RealTimeMatchEventsProps> = ({ matchId }) =>
 
   useEffect(() => {
     if (selectedMatchId) {
-      fetchMatchRoster();
       fetchEvents();
       subscribeToEvents();
     }
-
-    return () => {
-      supabase.removeAllChannels();
-    };
   }, [selectedMatchId]);
 
   const fetchMatches = async () => {
     try {
       const { data, error } = await supabase
         .from('matches')
-        .select('*')
+        .select(`
+          id,
+          name,
+          status,
+          home_team_name,
+          away_team_name
+        `)
+        .eq('status', 'live')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Type safe mapping to ensure created_at is never null
-      const typedMatches: Match[] = (data || []).map(match => ({
-        ...match,
-        created_at: match.created_at || new Date().toISOString()
-      }));
-
+      const typedMatches: Match[] = data || [];
       setMatches(typedMatches);
       
       if (!selectedMatchId && typedMatches.length > 0) {
@@ -92,48 +74,19 @@ const RealTimeMatchEvents: React.FC<RealTimeMatchEventsProps> = ({ matchId }) =>
     }
   };
 
-  const fetchMatchRoster = async () => {
-    if (!selectedMatchId) return;
-
-    try {
-      // Since match_rosters table doesn't exist, we'll create mock roster data
-      const mockRoster = new Map<string, MatchRosterPlayer>();
-      
-      // Add some mock players for demonstration
-      for (let i = 1; i <= 11; i++) {
-        mockRoster.set(`home_${i}`, {
-          id: `home_${i}`,
-          player_name: `Home Player ${i}`,
-          jersey_number: i,
-          team_context: 'home'
-        });
-        
-        mockRoster.set(`away_${i}`, {
-          id: `away_${i}`,
-          player_name: `Away Player ${i}`,
-          jersey_number: i,
-          team_context: 'away'
-        });
-      }
-      
-      setRoster(mockRoster);
-    } catch (error) {
-      console.error('Error fetching match roster:', error);
-    }
-  };
-
   const fetchEvents = async () => {
     if (!selectedMatchId) return;
-
+    
     try {
       const { data, error } = await supabase
         .from('match_events')
         .select('*')
         .eq('match_id', selectedMatchId)
-        .order('timestamp', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
+
       setEvents(data || []);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -141,132 +94,122 @@ const RealTimeMatchEvents: React.FC<RealTimeMatchEventsProps> = ({ matchId }) =>
   };
 
   const subscribeToEvents = () => {
-    const channel = supabase
-      .channel(`match_events_${selectedMatchId}`)
+    if (!selectedMatchId) return;
+
+    const subscription = supabase
+      .channel(`match-events-${selectedMatchId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'match_events',
           filter: `match_id=eq.${selectedMatchId}`,
         },
-        (payload: any) => {
-          if (payload.eventType === 'INSERT') {
-            setEvents(prev => [payload.new, ...prev]);
-          }
+        (payload) => {
+          setEvents(prev => [payload.new as MatchEvent, ...prev]);
         }
       )
-      .subscribe((status: any, err: any) => {
-        if (err) {
-          console.error('Subscription error:', err);
-        }
-      });
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
     };
   };
 
-  const getPlayerInfo = (playerId: string) => {
-    return roster.get(playerId) || { player_name: 'Unknown Player', jersey_number: 0, team_context: 'home' };
-  };
-
-  const formatTimestamp = (timestamp: number) => {
+  const formatTimestamp = (timestamp: number | null) => {
+    if (!timestamp) return '--:--';
     const date = new Date(timestamp);
     return date.toLocaleTimeString();
   };
 
-  const handleMatchSelect = (matchId: string) => {
-    setSelectedMatchId(matchId);
-    setEvents([]);
+  const getEventColor = (eventType: string) => {
+    switch (eventType.toLowerCase()) {
+      case 'goal': return 'bg-green-100 text-green-800';
+      case 'card': return 'bg-yellow-100 text-yellow-800';
+      case 'foul': return 'bg-red-100 text-red-800';
+      case 'pass': return 'bg-blue-100 text-blue-800';
+      case 'shot': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p>Loading real-time events...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!matches.length) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p>No matches available</p>
-        </CardContent>
-      </Card>
-    );
+    return <div className="p-4">Loading live events...</div>;
   }
 
   return (
-    <div className="space-y-4">
-      {/* Match Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Match</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <select
-            value={selectedMatchId}
-            onChange={(e) => handleMatchSelect(e.target.value)}
-            className="w-full p-2 border rounded"
-          >
-            {matches.map((match) => (
-              <option key={match.id} value={match.id}>
-                {match.name || `${match.home_team_name} vs ${match.away_team_name}`} - {match.status}
-              </option>
-            ))}
-          </select>
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="h-5 w-5" />
+          Real-time Match Events
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {matches.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No live matches found</p>
+        ) : (
+          <div className="space-y-4">
+            {/* Match Selector */}
+            <div className="flex gap-2 flex-wrap">
+              {matches.map((match) => (
+                <button
+                  key={match.id}
+                  onClick={() => setSelectedMatchId(match.id)}
+                  className={`px-3 py-2 rounded text-sm transition-colors ${
+                    selectedMatchId === match.id
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                >
+                  {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                </button>
+              ))}
+            </div>
 
-      {/* Real-time Events */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Match Events</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {events.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No events recorded yet</p>
-            ) : (
-              events.map((event, index) => {
-                const playerInfo = getPlayerInfo(event.player_id || '');
-                return (
-                  <div key={index} className="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-gray-50 rounded">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline">{event.event_type}</Badge>
-                        <Badge variant={playerInfo.team_context === 'home' ? 'default' : 'secondary'}>
-                          {playerInfo.team_context === 'home' ? 'Home' : 'Away'}
+            {/* Events List */}
+            <ScrollArea className="h-96">
+              <div className="space-y-2">
+                {events.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No events recorded yet</p>
+                ) : (
+                  events.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge className={getEventColor(event.event_type)}>
+                          {event.event_type}
                         </Badge>
+                        <div>
+                          <p className="font-medium">
+                            Player {event.player_id || 'Unknown'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Team: {event.team || 'Unknown'}
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-medium">
-                        {playerInfo.player_name} #{playerInfo.jersey_number}
-                      </p>
-                      {event.coordinates && (
-                        <p className="text-sm text-gray-600">
-                          Position: ({Math.round(event.coordinates.x)}, {Math.round(event.coordinates.y)})
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <Clock className="h-4 w-4" />
+                          {formatTimestamp(event.timestamp)}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {new Date(event.created_at).toLocaleTimeString()}
                         </p>
-                      )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-mono">
-                        {formatTimestamp(event.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                  ))
+                )}
+              </div>
+            </ScrollArea>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

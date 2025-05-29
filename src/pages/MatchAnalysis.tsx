@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -64,7 +63,7 @@ const MatchAnalysis: React.FC = () => {
   // Local UI/Interaction States
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
 
-  // PianoRoll specific states
+  // PianoInput specific states
   const [pianoSelectedEventType, setPianoSelectedEventType] = useState<EventType | null>(null);
   const [pianoSelectedTeam, setPianoSelectedTeam] = useState<TeamType | null>(null);
   const [pianoSelectedPlayer, setPianoSelectedPlayer] = useState<Player | null>(null);
@@ -73,7 +72,6 @@ const MatchAnalysis: React.FC = () => {
 
   // MainTabContent specific states
   const [activeTab, setActiveTab] = useState<string>('pitch');
-  const [teamPositions, setTeamPositions] = useState<Record<string, Record<string, { x: number; y: number }>>>({});
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<'home' | 'away'>('home');
   const [ballTrackingPoints, setBallTrackingPoints] = useState<Array<{ x: number; y: number; timestamp: number }>>([]);
@@ -202,7 +200,7 @@ const MatchAnalysis: React.FC = () => {
     toast.info('Save functionality is under development. Match data not yet saved.');
   };
 
-  // PianoRoll Handlers
+  // PianoInput Handlers
   const handlePianoEventAdd = (event: MatchEvent) => {
     console.log('Piano Event Added, sending via useMatchCollaboration:', event);
     
@@ -336,26 +334,34 @@ const MatchAnalysis: React.FC = () => {
         awayTeam={awayTeamHeaderDataFromHook}
         mode={mode}
         setMode={setMode}
-        onToggleTracking={handleToggleTracking}
-        onSave={handleSave}
+        onToggleTracking={() => setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking')}
+        onSave={() => {
+          console.log('MatchHeader Save button clicked. Data saving logic to be implemented here.');
+          toast.info('Save functionality is under development. Match data not yet saved.');
+        }}
         userRole={userRole}
       />
 
       <div className="flex-grow overflow-auto p-2 md:p-4">
         {mode === 'piano' && (
-          <PianoRoll
-            events={eventsFromHook || []}
-            homeTeam={homeTeamFull}
-            awayTeam={awayTeamFull}
-            onEventAdd={handlePianoEventAdd}
-            elapsedTime={elapsedTime}
-            selectedEventType={pianoSelectedEventType}
-            onEventTypeSelect={handlePianoEventTypeSelect}
-            selectedTeam={pianoSelectedTeam}
-            onTeamSelect={handlePianoTeamSelect}
-            selectedPlayer={pianoSelectedPlayer}
-            onPlayerSelect={handlePianoPlayerSelect}
-            isPassTrackingMode={isPassTrackingMode}
+          <PianoInput
+            fullMatchRoster={null}
+            assignedEventTypes={null}
+            assignedPlayers={null}
+            onEventRecord={(eventType, player, details) => {
+              if (player) {
+                const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
+                  matchId: matchId || '',
+                  teamId: player.team_context === 'home' ? homeTeamFull.id || '' : awayTeamFull.id || '',
+                  playerId: player.id.toString(),
+                  type: eventType.key as EventType,
+                  timestamp: Date.now(),
+                  coordinates: { x: 0, y: 0 },
+                };
+                sendCollaborationEvent(eventData);
+                toast.success(`Piano event ${eventType.key} recorded.`);
+              }
+            }}
           />
         )}
 
@@ -370,21 +376,39 @@ const MatchAnalysis: React.FC = () => {
             setActiveTab={setActiveTab}
             homeTeam={homeTeamFull}
             awayTeam={awayTeamFull}
-            teamPositions={teamPositions}
             selectedPlayer={selectedPlayer}
             selectedTeam={selectedTeamId}
-            setSelectedTeam={handleSetSelectedTeamInAnalysis}
-            handlePlayerSelect={handlePlayerSelectInAnalysis}
+            setSelectedTeam={(teamId: 'home' | 'away') => {
+              setSelectedTeamId(teamId);
+              setSelectedPlayer(null);
+            }}
+            handlePlayerSelect={(player: Player) => setSelectedPlayer(player)}
             ballTrackingPoints={ballTrackingPoints}
-            handlePitchClick={handlePitchClickInAnalysis}
-            addBallTrackingPoint={handleAddBallTrackingPointInAnalysis}
+            handlePitchClick={(coordinates: { x: number; y: number }) => console.log('Pitch clicked:', coordinates)}
+            addBallTrackingPoint={(point: { x: number; y: number }) => setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }])}
             statistics={statistics}
-            setStatistics={handleSetStatisticsInAnalysis}
+            setStatistics={(stats: Statistics) => setStatistics(stats)}
             playerStats={playerStats}
-            handleUndo={handleUndoInAnalysis}
-            handleSave={handleSaveInAnalysis}
+            handleUndo={() => console.log('Undo action triggered from MainTabContent')}
+            handleSave={() => console.log('Save action triggered from MainTabContent')}
             timeSegments={timeSegments}
-            recordEvent={handleRecordEventInAnalysis}
+            recordEvent={(eventType: EventType, playerId: string, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
+              if (!matchId || !user?.id) {
+                toast.error("Error: Missing match or user information.");
+                return;
+              }
+              const actualTeamId = teamIdStr === 'home' ? homeTeamFull.id : awayTeamFull.id;
+              const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
+                matchId: matchId,
+                teamId: actualTeamId || '',
+                playerId: playerId,
+                type: eventType,
+                timestamp: Date.now(),
+                coordinates: coordinates || { x: 0, y: 0 },
+              };
+              sendCollaborationEvent(eventData);
+              toast.success(`Event ${eventType} recorded for player ${playerId}.`);
+            }}
             events={eventsFromHook || []}
           />
         )}

@@ -19,18 +19,6 @@ interface Match {
   away_team_score: number | null;
   created_at: string;
   updated_at: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  venue: string | null;
-  referee: string | null;
-  weather_conditions: string | null;
-  temperature: number | null;
-  humidity: number | null;
-  wind_speed: number | null;
-  pitch_conditions: string | null;
-  attendance: number | null;
-  competition: string | null;
-  ball_tracking_data: any;
 }
 
 const Admin: React.FC = () => {
@@ -45,12 +33,24 @@ const Admin: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('matches')
-        .select('*')
+        .select(`
+          id,
+          name,
+          status,
+          match_date,
+          home_team_name,
+          away_team_name,
+          home_team_formation,
+          away_team_formation,
+          home_team_score,
+          away_team_score,
+          created_at,
+          updated_at
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Type safe mapping to ensure created_at is never null
       const typedMatches: Match[] = (data || []).map(match => ({
         ...match,
         created_at: match.created_at || new Date().toISOString()
