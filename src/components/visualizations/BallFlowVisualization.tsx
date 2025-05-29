@@ -51,12 +51,12 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
     const playerBallTouches: { [key: number]: number } = {};
     
     ballTrackingPoints.forEach((point, index) => {
-      if (point.playerId !== undefined) {
-        playerBallTouches[point.playerId] = (playerBallTouches[point.playerId] || 0) + 1;
+      if (point.player_id !== undefined) {
+        playerBallTouches[point.player_id] = (playerBallTouches[point.player_id] || 0) + 1;
         
-        if (index > 0 && ballTrackingPoints[index - 1].playerId !== undefined) {
-          const sourceId = ballTrackingPoints[index - 1].playerId!;
-          const targetId = point.playerId;
+        if (index > 0 && ballTrackingPoints[index - 1].player_id !== undefined) {
+          const sourceId = ballTrackingPoints[index - 1].player_id!;
+          const targetId = point.player_id;
           
           if (sourceId !== targetId) {
             const existingLink = links.find(l => l.source === sourceId && l.target === targetId);
@@ -77,9 +77,10 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
         nodes.push({
           id: player.id,
           name: player.player_name || player.name,
-          position: player.position,
-          team: 'home',
-          count: count
+          x: 0,
+          y: 0,
+          count: count,
+          team: 'home'
         });
       }
     });
@@ -91,9 +92,10 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
         nodes.push({
           id: player.id,
           name: player.player_name || player.name,
-          position: player.position,
-          team: 'away',
-          count: count
+          x: 0,
+          y: 0,
+          count: count,
+          team: 'away'
         });
       }
     });
@@ -178,8 +180,8 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
       })
       .on("end", (event, d) => {
         if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        d.fx = undefined;
+        d.fy = undefined;
       });
 
     node.call(drag);

@@ -15,8 +15,14 @@ export interface Statistics {
   redCards?: { home: number; away: number };
   corners?: { home: number; away: number };
   offsides?: { home: number; away: number };
-  duels?: { home: number; away: number };
-  crosses?: { home: number; away: number };
+  duels?: { 
+    home: { won: number; total: number }; 
+    away: { won: number; total: number }; 
+  };
+  crosses?: { 
+    home: { total: number; successful: number }; 
+    away: { total: number; successful: number }; 
+  };
   dribbles?: { home: number; away: number };
   ballsPlayed?: { home: number; away: number };
   ballsLost?: { home: number; away: number };
@@ -57,13 +63,14 @@ export interface FlowPlayerNode {
   y: number;
   count: number;
   team: 'home' | 'away';
-  fx?: number;
-  fy?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 export interface TimeSegmentStatistics {
   timeSegment: string;
   startTime: number;
+  endTime: number;
   homeStats: Statistics;
   awayStats: Statistics;
 }
@@ -137,8 +144,8 @@ export interface Match {
   away_team_formation: string | null;
   home_team_score: number | null;
   away_team_score: number | null;
-  home_team_players: any[];
-  away_team_players: any[];
+  home_team_players: Player[];
+  away_team_players: Player[];
   venue?: string;
   location?: string;
   competition?: string;
@@ -163,6 +170,11 @@ export interface MatchEvent {
   player?: Player;
   coordinates?: { x: number; y: number };
   description?: string;
+  match_id?: string;
+  event_type?: string;
+  player_id?: number;
+  created_at?: string;
+  created_by?: string;
 }
 
 export interface TimelineEvent {
@@ -195,9 +207,7 @@ export interface TrackerAssignmentDetails {
 }
 
 export interface PlayerStatsTableProps {
-  events: MatchEvent[];
-  homeTeam: Team;
-  awayTeam: Team;
+  stats: { name: string; value: number | string }[];
 }
 
 export interface MatchEventsTimelineProps {

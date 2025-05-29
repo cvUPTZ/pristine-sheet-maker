@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -57,9 +58,20 @@ const MatchAnalysisV2: React.FC = () => {
         formation: matchData.away_team_formation || '4-3-3'
       });
 
-      // Construct full match roster
-      const homePlayers = matchData.home_team_players || [];
-      const awayPlayers = matchData.away_team_players || [];
+      // Parse player data safely
+      const parsePlayerData = (data: any): PlayerForPianoInput[] => {
+        if (typeof data === 'string') {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return [];
+          }
+        }
+        return Array.isArray(data) ? data : [];
+      };
+
+      const homePlayers = parsePlayerData(matchData.home_team_players);
+      const awayPlayers = parsePlayerData(matchData.away_team_players);
       setFullMatchRoster({ home: homePlayers, away: awayPlayers });
 
     } catch (error: any) {
@@ -102,8 +114,10 @@ const MatchAnalysisV2: React.FC = () => {
       }
 
       // Aggregate assigned event types
-      const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types)));
-      const assignedEventTypesData: EventType[] = eventTypes.map(key => ({ key, label: key }));
+      const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types || [])));
+      const assignedEventTypesData: EventType[] = eventTypes
+        .filter(key => key)
+        .map(key => ({ key, label: key }));
       setAssignedEventTypes(assignedEventTypesData);
 
       // Aggregate assigned players
@@ -112,12 +126,12 @@ const MatchAnalysisV2: React.FC = () => {
 
       data.forEach(assignment => {
         if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => p.id === assignment.player_id);
+          const player = fullMatchRoster?.home?.find(p => String(p.id) === String(assignment.player_id));
           if (player && !homePlayers.some(p => p.id === player.id)) {
             homePlayers.push(player);
           }
         } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => p.id === assignment.player_id);
+          const player = fullMatchRoster?.away?.find(p => String(p.id) === String(assignment.player_id));
           if (player && !awayPlayers.some(p => p.id === player.id)) {
             awayPlayers.push(player);
           }
@@ -173,9 +187,10 @@ const MatchAnalysisV2: React.FC = () => {
         match_id: matchId || '',
         event_type: eventType.key,
         timestamp: Date.now(),
-        player_id: player?.id || null,
+        player_id: player ? Number(player.id) : null,
         team: player ? (assignedPlayers?.home?.some(p => p.id === player.id) ? 'home' : 'away') : null,
         coordinates: details?.coordinates || null,
+        created_by: 'user'
       };
 
       const { data, error } = await supabase

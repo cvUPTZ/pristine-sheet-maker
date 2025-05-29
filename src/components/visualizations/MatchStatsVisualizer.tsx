@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -109,9 +110,11 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
             <TabsContent value="player">
               <div className="space-y-6 overflow-x-auto" id="visualization-container">
                 <PlayerStatsTable
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                  events={events}
+                  stats={[
+                    { name: 'Total Events', value: events.length },
+                    { name: 'Home Team Events', value: events.filter(e => e.team === 'home').length },
+                    { name: 'Away Team Events', value: events.filter(e => e.team === 'away').length }
+                  ]}
                 />
               </div>
             </TabsContent>

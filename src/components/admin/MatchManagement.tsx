@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Users, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Match } from '@/types';
+import { Match, Player } from '@/types';
 
 const MatchManagement: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -42,15 +42,29 @@ const MatchManagement: React.FC = () => {
 
       if (error) throw error;
 
-      const typedMatches: Match[] = (data || []).map(match => ({
-        ...match,
-        name: match.name || 'Untitled Match',
-        venue: match.location,
-        created_at: match.created_at || new Date().toISOString(),
-        home_team_players: match.home_team_players || [],
-        away_team_players: match.away_team_players || [],
-        match_date: match.match_date // Keep as nullable
-      }));
+      const typedMatches: Match[] = (data || []).map(match => {
+        // Parse JSON data safely
+        const parsePlayerData = (data: any): Player[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
+
+        return {
+          ...match,
+          name: match.name || 'Untitled Match',
+          venue: match.location,
+          created_at: match.created_at || new Date().toISOString(),
+          home_team_players: parsePlayerData(match.home_team_players),
+          away_team_players: parsePlayerData(match.away_team_players),
+          match_date: match.match_date
+        };
+      });
 
       setMatches(typedMatches);
     } catch (error) {
@@ -90,6 +104,14 @@ const MatchManagement: React.FC = () => {
     }
   };
 
+  const handleCreateMatch = () => {
+    window.location.href = '/create-match';
+  };
+
+  const handleEditMatch = (matchId: string) => {
+    window.location.href = `/edit-match/${matchId}`;
+  };
+
   if (loading) {
     return <div className="p-4">Loading matches...</div>;
   }
@@ -104,7 +126,7 @@ const MatchManagement: React.FC = () => {
           </CardTitle>
           <Button 
             className="bg-gray-900 text-white hover:bg-gray-800"
-            onClick={() => window.location.href = '/create-match'}
+            onClick={handleCreateMatch}
           >
             Create New Match
           </Button>
@@ -157,7 +179,7 @@ const MatchManagement: React.FC = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.location.href = `/edit-match/${match.id}`}
+                  onClick={() => handleEditMatch(match.id)}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
