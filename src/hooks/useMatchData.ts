@@ -68,6 +68,8 @@ const useMatchData = (matchId: string | undefined) => {
     setEvents([]);
 
     try {
+      console.log('Fetching match data for ID:', matchId);
+      
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .select('*')
@@ -83,6 +85,8 @@ const useMatchData = (matchId: string | undefined) => {
         throw new Error('Match not found.');
       }
 
+      console.log('Match data fetched successfully:', matchData);
+
       setMatch(matchData as MatchDataInHook);
 
       const homeFormation = (matchData.home_team_formation || '4-4-2') as Formation;
@@ -97,6 +101,8 @@ const useMatchData = (matchId: string | undefined) => {
         formation: awayFormation,
       });
 
+      console.log('Fetching match events for match ID:', matchId);
+
       const { data: eventsData, error: eventsError } = await supabase
         .from('match_events')
         .select('*')
@@ -107,10 +113,23 @@ const useMatchData = (matchId: string | undefined) => {
         console.error('Error fetching match events:', eventsError);
         setEvents([]);
       } else {
-        const formattedEvents: MatchEvent[] = (eventsData || []).map(event => ({
-          ...event,
-          event_data: event.event_data || {},
-        }));
+        console.log('Events data fetched:', eventsData);
+        const formattedEvents: MatchEvent[] = (eventsData || [])
+          .filter(event => event.timestamp !== null)
+          .map(event => ({
+            id: event.id,
+            match_id: event.match_id,
+            timestamp: event.timestamp || 0,
+            event_type: event.event_type,
+            event_data: event.event_data || {},
+            created_at: event.created_at,
+            tracker_id: event.tracker_id,
+            team_id: event.team_id,
+            player_id: event.player_id,
+            team: event.team,
+            coordinates: event.coordinates,
+            created_by: event.created_by,
+          }));
         setEvents(formattedEvents);
       }
 
