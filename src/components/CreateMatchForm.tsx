@@ -23,18 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-<<<<<<< HEAD
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "@/lib/database.types"; // Assurez-vous que ce chemin est correct
-=======
-import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
-import { Label } from "@/components/ui/label"; // Added Label
-import { createClient } from "@supabase/supabase-js";
-
 import { Database } from "@/lib/database.types";
->>>>>>> da0fd7a34dfbb3503a1abd6127c9ae931aee525a
 
 // --- Supabase Client Initialization for Vite ---
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -438,7 +430,6 @@ export default function CreateMatchForm({
                 </FormItem>
               )}
             />
-            {/* ... autres champs de l'étape 1 ... */}
             <FormField
               control={form.control}
               name="description"
