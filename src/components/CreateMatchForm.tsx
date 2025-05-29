@@ -100,8 +100,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         status: initialData.status || 'draft',
         matchType: initialData.match_type || 'regular',
         description: initialData.description || '',
-        homeTeamScore: initialData.home_team_score?.toString() || '0',
-        awayTeamScore: initialData.away_team_score?.toString() || '0',
+        homeTeamScore: (initialData.home_team_score || 0).toString(),
+        awayTeamScore: (initialData.away_team_score || 0).toString(),
         notes: initialData.notes || '',
       });
 
@@ -161,8 +161,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         away_team_name: data.awayTeamName,
         home_team_formation: homeTeam.formation,
         away_team_formation: awayTeam.formation,
-        home_team_players: homeTeam.players,
-        away_team_players: awayTeam.players,
+        home_team_players: JSON.stringify(homeTeam.players),
+        away_team_players: JSON.stringify(awayTeam.players),
         status: data.status,
         match_type: data.matchType,
         description: data.description,
@@ -314,6 +314,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 {...register('homeTeamScore')}
                 placeholder="0"
                 min="0"
+                value={watch('homeTeamScore') || '0'}
               />
             </div>
 
@@ -325,6 +326,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 {...register('awayTeamScore')}
                 placeholder="0"
                 min="0"
+                value={watch('awayTeamScore') || '0'}
               />
             </div>
           </div>

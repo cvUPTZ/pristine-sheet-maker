@@ -123,10 +123,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
 
   const availableTabs = getAvailableTabs();
 
-  // Convert events to timeline format
+  // Convert events to simple timeline format with proper structure
   const timelineEvents = events.map(event => ({
     time: event.timestamp,
-    label: event.type,
+    label: event.event_type,
   }));
 
   return (
