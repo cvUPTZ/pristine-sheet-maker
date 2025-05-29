@@ -1,337 +1,257 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MatchBasicDetails from './match/MatchBasicDetails';
-import TeamSetupWithFormation from './TeamSetupWithFormation';
-import TrackerAssignment from './match/TrackerAssignment';
-import { Formation, Team } from '@/types';
-import { MatchFormData } from '@/types/matchForm';
+import { Team, Player, MatchFormData } from '@/types/index';
+import TrackerAssignment from '@/components/match/TrackerAssignment';
 
-interface CreateMatchFormProps {
-  onMatchCreated?: (match: any) => void;
-  onSuccess?: () => void;
-  isEditMode?: boolean;
-  initialData?: any;
-}
+export type { MatchFormData };
 
-export { MatchFormData } from '@/types/matchForm';
+const createMatchSchema = z.object({
+  name: z.string().min(1, 'Match name is required'),
+  description: z.string().optional(),
+  homeTeamName: z.string().min(1, 'Home team name is required'),
+  awayTeamName: z.string().min(1, 'Away team name is required'),
+  homeTeamPlayers: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    position: z.string(),
+    number: z.number()
+  })).optional(),
+  awayTeamPlayers: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    position: z.string(),
+    number: z.number()
+  })).optional(),
+  venue: z.string().optional(),
+  competition: z.string().optional(),
+});
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ 
-  onMatchCreated, 
-  onSuccess,
-  isEditMode = false,
-  initialData
-}) => {
-  const { user } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
+const CreateMatchForm: React.FC = () => {
+  const { toast } = useToast();
+  const [homeTeam, setHomeTeam] = useState<Team>({ 
+    name: '', 
+    formation: '4-4-2', 
+    players: [] as Player[]
+  });
+  const [awayTeam, setAwayTeam] = useState<Team>({ 
+    name: '', 
+    formation: '4-3-3', 
+    players: [] as Player[]
+  });
   const [createdMatchId, setCreatedMatchId] = useState<string | null>(null);
-  
-  const [homeTeam, setHomeTeam] = useState<Team>({
-    id: 'home',
-    name: '',
-    formation: '4-4-2',
-    players: Array.from({ length: 11 }, (_, i) => ({
-      id: i + 1,
-      name: `Player ${i + 1}`,
-      position: 'Forward',
-      number: i + 1,
-      jersey_number: i + 1,
-      player_name: `Player ${i + 1}`
-    }))
-  });
-  
-  const [awayTeam, setAwayTeam] = useState<Team>({
-    id: 'away',
-    name: '',
-    formation: '4-3-3',
-    players: Array.from({ length: 11 }, (_, i) => ({
-      id: i + 1,
-      name: `Player ${i + 1}`,
-      position: 'Midfielder',
-      number: i + 1,
-      jersey_number: i + 1,
-      player_name: `Player ${i + 1}`
-    }))
-  });
+  const [showTrackerAssignment, setShowTrackerAssignment] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<MatchFormData>({
+  const defaultPlayers: Player[] = Array.from({ length: 11 }, (_, i) => ({
+    id: i + 1,
+    player_name: `Player ${i + 1}`,
+    position: 'Forward',
+    jersey_number: i + 1,
+  }));
+
+  const awayDefaultPlayers: Player[] = Array.from({ length: 11 }, (_, i) => ({
+    id: i + 12,
+    player_name: `Player ${i + 12}`,
+    position: 'Forward',
+    jersey_number: i + 1,
+  }));
+
+  const form = useForm<MatchFormData>({
+    resolver: zodResolver(createMatchSchema),
     defaultValues: {
       name: '',
+      description: '',
       homeTeamName: '',
       awayTeamName: '',
-      status: 'draft',
-      matchType: 'regular',
-      description: '',
-      homeTeamScore: '0',
-      awayTeamScore: '0',
-      notes: '',
-      matchDate: '',
-      location: '',
+      homeTeamPlayers: defaultPlayers,
+      awayTeamPlayers: awayDefaultPlayers,
+      venue: '',
       competition: '',
-      homeTeamFormation: '4-4-2',
-      awayTeamFormation: '4-3-3',
-      homeTeamPlayers: [],
-      awayTeamPlayers: []
-    }
+    },
   });
 
-  useEffect(() => {
-    if (isEditMode && initialData) {
-      console.log('Loading initial data for edit:', initialData);
-      setCreatedMatchId(initialData.id);
-      
-      reset({
-        name: initialData.name || '',
-        homeTeamName: initialData.home_team_name || '',
-        awayTeamName: initialData.away_team_name || '',
-        status: initialData.status || 'draft',
-        matchType: initialData.match_type || 'regular',
-        description: initialData.description || '',
-        homeTeamScore: (initialData.home_team_score || 0).toString(),
-        awayTeamScore: (initialData.away_team_score || 0).toString(),
-        notes: initialData.notes || '',
-        matchDate: initialData.match_date || '',
-        location: initialData.location || '',
-        competition: initialData.competition || '',
-        homeTeamFormation: initialData.home_team_formation || '4-4-2',
-        awayTeamFormation: initialData.away_team_formation || '4-3-3',
-        homeTeamPlayers: initialData.home_team_players || [],
-        awayTeamPlayers: initialData.away_team_players || []
+  const onSubmit = async (data: MatchFormData) => {
+    try {
+      form.reset({
+        name: '',
+        description: '',
+        homeTeamName: '',
+        awayTeamName: '',
+        homeTeamPlayers: defaultPlayers,
+        awayTeamPlayers: awayDefaultPlayers,
+        venue: '',
+        competition: '',
       });
 
-      const homeFormation = initialData.home_team_formation;
-      const awayFormation = initialData.away_team_formation;
-
       setHomeTeam({
-        id: 'home',
-        name: initialData.home_team_name || '',
-        formation: (homeFormation && ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2'].includes(homeFormation)) 
-          ? homeFormation as Formation 
-          : '4-4-2',
-        players: initialData.home_team_players || []
+        name: data.homeTeamName,
+        formation: '4-4-2',
+        players: data.homeTeamPlayers || defaultPlayers,
       });
 
       setAwayTeam({
-        id: 'away',
-        name: initialData.away_team_name || '',
-        formation: (awayFormation && ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2'].includes(awayFormation)) 
-          ? awayFormation as Formation 
-          : '4-3-3',
-        players: initialData.away_team_players || []
+        name: data.awayTeamName,
+        formation: '4-3-3',
+        players: data.awayTeamPlayers || awayDefaultPlayers,
       });
-    }
-  }, [isEditMode, initialData, reset]);
 
-  useEffect(() => {
-    const subscription = watch((value, { name }) => {
-      if (name === 'homeTeamName') {
-        setHomeTeam(prev => ({ ...prev, name: value.homeTeamName || '' }));
-      }
-      if (name === 'awayTeamName') {
-        setAwayTeam(prev => ({ ...prev, name: value.awayTeamName || '' }));
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [watch]);
-
-  const onSubmit = async (data: MatchFormData) => {
-    if (!user?.id) {
-      toast.error('You must be logged in to create a match');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
       const matchData = {
         name: data.name,
+        description: data.description,
         home_team_name: data.homeTeamName,
         away_team_name: data.awayTeamName,
-        home_team_formation: homeTeam.formation,
-        away_team_formation: awayTeam.formation,
-        home_team_players: JSON.stringify(homeTeam.players),
-        away_team_players: JSON.stringify(awayTeam.players),
-        status: data.status,
-        match_type: data.matchType,
-        description: data.description,
-        home_team_score: parseInt(data.homeTeamScore) || 0,
-        away_team_score: parseInt(data.awayTeamScore) || 0,
-        notes: data.notes,
-        created_by: user.id,
-        match_date: new Date().toISOString()
+        home_team_formation: '4-4-2',
+        away_team_formation: '4-3-3',
+        home_team_players: data.homeTeamPlayers || defaultPlayers,
+        away_team_players: data.awayTeamPlayers || awayDefaultPlayers,
+        venue: data.venue,
+        competition: data.competition,
       };
 
-      let result;
-      if (isEditMode && initialData?.id) {
-        const { data: updatedMatch, error } = await supabase
-          .from('matches')
-          .update(matchData)
-          .eq('id', initialData.id)
-          .select()
-          .single();
+      const { data: matchResult, error } = await supabase
+        .from('matches')
+        .insert([matchData])
+        .select()
+        .single();
 
-        result = { data: updatedMatch, error };
-      } else {
-        const { data: newMatch, error } = await supabase
-          .from('matches')
-          .insert(matchData)
-          .select()
-          .single();
-
-        result = { data: newMatch, error };
-        if (result.data) {
-          setCreatedMatchId(result.data.id);
-        }
-      }
-
-      if (result.error) {
-        console.error('Error saving match:', result.error);
-        toast.error(`Failed to ${isEditMode ? 'update' : 'create'} match: ${result.error.message}`);
+      if (error) {
+        console.error('Error creating match:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to create match. Please try again.',
+          variant: 'destructive',
+        });
         return;
       }
 
-      toast.success(`Match ${isEditMode ? 'updated' : 'saved'} successfully!`);
-      
-      if (isEditMode && onSuccess) {
-        onSuccess();
-      } else if (!isEditMode && onMatchCreated && result.data) {
-        onMatchCreated(result.data);
-      }
+      setCreatedMatchId(matchResult.id);
+      setShowTrackerAssignment(true);
 
-      if (!isEditMode) {
-        // After creating a new match, move to tracker assignment tab
-        setActiveTab('trackers');
-      }
-
-    } catch (error: any) {
-      console.error('Error in onSubmit:', error);
-      toast.error(`An unexpected error occurred: ${error.message}`);
-    } finally {
-      setIsSubmitting(false);
+      toast({
+        title: 'Success',
+        description: 'Match created successfully!',
+      });
+    } catch (error) {
+      console.error('Error creating match:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
-  return (
-    <div className="max-w-5xl mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">Match Details</TabsTrigger>
-            <TabsTrigger value="teams">Team Setup</TabsTrigger>
-            <TabsTrigger value="trackers">Tracker Assignment</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="details" className="space-y-4">
-            <MatchBasicDetails
-              register={register}
-              errors={errors}
-              setValue={setValue}
-              watch={watch}
-              isEditMode={isEditMode}
-            />
-            
-            <div className="flex justify-between items-center pt-4 border-t bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600">
-                {!createdMatchId && !isEditMode && (
-                  <span className="text-amber-600 flex items-center gap-2">
-                    💡 Click "Save Match" to save your details and continue to team setup
-                  </span>
-                )}
-                {(createdMatchId || isEditMode) && (
-                  <span className="text-green-600 flex items-center gap-2">
-                    ✅ Match saved! You can now assign trackers.
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 font-semibold"
-                  size="lg"
-                >
-                  {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={() => setActiveTab('teams')}
-                  variant="outline"
-                >
-                  Next: Teams →
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="teams" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TeamSetupWithFormation
-                team={homeTeam}
-                onTeamUpdate={setHomeTeam}
-                teamType="home"
-              />
-              <TeamSetupWithFormation
-                team={awayTeam}
-                onTeamUpdate={setAwayTeam}
-                teamType="away"
-              />
-            </div>
-            
-            <div className="flex justify-between pt-4 border-t">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={() => setActiveTab('details')}
-              >
-                ← Previous
-              </Button>
-              
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={() => setActiveTab('trackers')}
-                  variant="outline"
-                  disabled={!createdMatchId && !isEditMode}
-                >
-                  Next: Trackers →
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
+  if (showTrackerAssignment && createdMatchId) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle>Assign Trackers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TrackerAssignment
+            matchId={createdMatchId}
+            homeTeamPlayers={homeTeam.players}
+            awayTeamPlayers={awayTeam.players}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
-          <TabsContent value="trackers" className="space-y-4">
-            <TrackerAssignment
-              matchId={createdMatchId || initialData?.id}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              isEditMode={isEditMode}
-            />
-            
-            <div className="flex justify-between pt-4 border-t">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={() => setActiveTab('teams')}
-              >
-                ← Previous
-              </Button>
-              
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
-              </Button>
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Create New Match</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Match Name</Label>
+              <Input
+                id="name"
+                {...form.register('name')}
+                placeholder="Enter match name"
+              />
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+              )}
             </div>
-          </TabsContent>
-        </Tabs>
-      </form>
-    </div>
+
+            <div>
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Input
+                id="description"
+                {...form.register('description')}
+                placeholder="Enter match description"
+              />
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="homeTeamName">Home Team</Label>
+                <Input
+                  id="homeTeamName"
+                  {...form.register('homeTeamName')}
+                  placeholder="Home team name"
+                />
+                {form.formState.errors.homeTeamName && (
+                  <p className="text-sm text-red-500">{form.formState.errors.homeTeamName.message}</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="awayTeamName">Away Team</Label>
+                <Input
+                  id="awayTeamName"
+                  {...form.register('awayTeamName')}
+                  placeholder="Away team name"
+                />
+                {form.formState.errors.awayTeamName && (
+                  <p className="text-sm text-red-500">{form.formState.errors.awayTeamName.message}</p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="venue">Venue (Optional)</Label>
+                <Input
+                  id="venue"
+                  {...form.register('venue')}
+                  placeholder="Match venue"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="competition">Competition (Optional)</Label>
+                <Input
+                  id="competition"
+                  {...form.register('competition')}
+                  placeholder="Competition name"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full">
+            Create Match
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

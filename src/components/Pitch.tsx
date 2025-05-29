@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Team, Player, EventType, BallTrackingPoint } from '@/types';
 import PitchView from './match/PitchView';
@@ -104,7 +105,7 @@ const Pitch: React.FC<PitchProps> = ({
           onRecordPass(potentialPasser, player, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
           toast({
             title: "Pass Recorded",
-            description: `Pass from ${potentialPasser.name} to ${player.name}`,
+            description: `Pass from ${potentialPasser.player_name} to ${player.player_name}`,
           });
         }
         
@@ -117,7 +118,7 @@ const Pitch: React.FC<PitchProps> = ({
     }
   };
   
-  const handleEventSelect = (eventType: EventType, player: Player, coordinates: { x: number; y: number }) => {
+  const handleEventSelect = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
     const now = Date.now();
     
     if (now - lastEventTime < 400 || processingEvent) {
@@ -132,24 +133,27 @@ const Pitch: React.FC<PitchProps> = ({
     setProcessingEvent(true);
     setLastEventTime(now);
     
-    onSelectPlayer(player);
+    // Find the player object for selection
+    const allPlayers = [...homeTeam.players, ...awayTeam.players];
+    const player = allPlayers.find(p => p.id === playerId);
+    if (player) {
+      onSelectPlayer(player);
+    }
     
     if (eventType) {
-      console.log("Event selected:", eventType, "by player:", player.name, "at", coordinates);
-      
-      const playerTeamId: 'home' | 'away' = homeTeam.players.some(p => p.id === player.id) ? 'home' : 'away';
+      console.log("Event selected:", eventType, "by player:", playerId, "at", coordinates);
       
       if (matchId) {
         recordEvent(
           eventType, 
-          player.id, 
-          playerTeamId,
+          playerId, 
+          teamId,
           coordinates
         );
       }
       
       // Call the onEventRecord with correct parameters
-      onEventRecord(eventType, player.id, playerTeamId, coordinates);
+      onEventRecord(eventType, playerId, teamId, coordinates);
       
       if (['pass', 'shot', 'goal'].includes(eventType)) {
         onTrackBallMovement(coordinates);

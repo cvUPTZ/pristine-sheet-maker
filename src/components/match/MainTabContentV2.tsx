@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { FootballPitch } from '@/components/FootballPitch';
+import FootballPitch from '@/components/FootballPitch';
 import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
 import { PianoInput } from '@/components/match/PianoInput';
 import { EventType } from '@/types/matchForm';
@@ -82,7 +83,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       matchId: event.match_id,
       type: event.event_type,
       timestamp: event.timestamp,
-      playerId: event.player_id || '',
+      playerId: event.player_id ? String(event.player_id) : '',
       teamId: (event.team as 'home' | 'away') || 'home',
       coordinates: event.coordinates
     }));
