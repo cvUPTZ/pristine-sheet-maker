@@ -9,6 +9,8 @@ import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents'; // Imp
 import MainTabContentV2 from '@/components/match/MainTabContentV2'; // Import MainTabContentV2
 import PianoInputComponent from '@/components/match/PianoInputComponent'; // Import PianoInputComponent
 import { Player, MatchEvent as GlobalMatchEvent, EventType as GlobalEventType } from '@/types'; // Import Player and other types
+import { useMatchCollaboration } from '@/hooks/useMatchCollaboration'; // Import useMatchCollaboration
+import { toast } from 'sonner'; // Import toast
 
 // Placeholder for TeamType if not globally defined, ensure it matches what PitchView/MainTabContentV2 expect
 interface TeamType {
@@ -143,18 +145,41 @@ const MatchAnalysisV2: React.FC = () => {
   };
 
   // Feature flag for collaboration
-  const DISABLE_COLLABORATION_FEATURE = true; 
+  const DISABLE_COLLABORATION_FEATURE = false; // Re-enable collaboration feature
+  
+  // Initialize sendCollaborationEvent and collaborationError
   let sendCollaborationEvent = (...args: any[]) => { 
-    console.warn('[MatchAnalysisV2] Collaboration feature is disabled. sendEvent called but did nothing.', args); 
+    // Default dummy function if collaboration is disabled or not yet initialized
+    console.warn('[MatchAnalysisV2] sendCollaborationEvent called but collaboration is not active.', args); 
   };
+  let collaborationError: Error | null = null;
 
-  if (!DISABLE_COLLABORATION_FEATURE) {
-    // const collaborationHookResult = useMatchCollaboration({ matchId: matchId, userId: user?.id });
-    // sendCollaborationEvent = collaborationHookResult.sendEvent;
-     console.log('[MatchAnalysisV2] Collaboration feature would be active if useMatchCollaboration hook was fully integrated.');
-  } else {
-    console.log('[MatchAnalysisV2] Real-time collaboration feature is currently disabled.');
+  if (!matchId && !DISABLE_COLLABORATION_FEATURE) {
+    console.warn('[MatchAnalysisV2] matchId is undefined, collaboration hook will be disabled.');
+    // collaborationError = new Error("Match ID is missing, collaboration disabled."); // Optionally set error
+  } else if (matchId && !DISABLE_COLLABORATION_FEATURE) {
+    const collaborationHookResult = useMatchCollaboration({ // Hook is called conditionally based on matchId
+      matchId: matchId,
+      userId: user?.id,
+    });
+    sendCollaborationEvent = collaborationHookResult.sendEvent;
+    collaborationError = collaborationHookResult.collaborationError;
+  } else if (DISABLE_COLLABORATION_FEATURE) {
+    console.log('[MatchAnalysisV2] Real-time collaboration feature is currently disabled by flag.');
   }
+
+  // Effect to display collaboration errors
+  useEffect(() => {
+    if (collaborationError) {
+      console.error('[MatchAnalysisV2] Collaboration Error:', collaborationError);
+      toast.error(
+        `Real-time collaboration issue: ${collaborationError.message || 'Connection error'}`,
+        {
+          duration: 5000, // Show for 5 seconds
+        }
+      );
+    }
+  }, [collaborationError]);
 
 
   const recordEventForPitchView = (
