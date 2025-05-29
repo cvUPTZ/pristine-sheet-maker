@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import CreateMatch from "./pages/CreateMatch";
 import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
 import Header from "./components/Header";
@@ -107,6 +108,7 @@ const AppContent = () => {
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
         <Route path="/statistics" element={<RequireAuth requiredRoles={['admin']}><Statistics /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
+        <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route 
           path="/admin/profiles" 
           element={
