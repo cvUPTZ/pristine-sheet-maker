@@ -62,17 +62,19 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
   const fetchTrackers = async () => {
     try {
+      // Use user_profiles_with_role view to get tracker users
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles_with_role')
         .select('id, email, full_name, role')
-        .eq('role', 'tracker');
+        .eq('role', 'tracker')
+        .order('full_name');
 
       if (error) throw error;
       
       const validTrackers = (data || [])
-        .filter(tracker => tracker.email && tracker.full_name)
+        .filter(tracker => tracker.id && tracker.email && tracker.full_name)
         .map(tracker => ({
-          id: tracker.id,
+          id: tracker.id!,
           email: tracker.email!,
           full_name: tracker.full_name!,
           role: tracker.role as 'admin' | 'user' | 'tracker' | 'teacher'
