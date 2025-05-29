@@ -1,15 +1,13 @@
 
 export interface MatchFormData {
   name: string;
-  status: 'draft' | 'upcoming' | 'live' | 'completed' | 'postponed' | 'cancelled';
-  matchType: string;
-  matchDate: string;
-  location: string;
-  competition: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  homeTeamScore: number | null;
-  awayTeamScore: number | null;
+  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
+  match_type: string;
+  home_team_name: string;
+  away_team_name: string;
+  home_team_score: string;
+  away_team_score: string;
+  description: string;
   notes: string;
 }
 

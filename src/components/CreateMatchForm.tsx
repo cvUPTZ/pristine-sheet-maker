@@ -1,14 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import MatchBasicDetails from './match/MatchBasicDetails';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
 import { Formation, MatchFormData } from '@/types';
 
@@ -41,6 +39,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
+  
   const [homeTeam, setHomeTeam] = useState<Team>({
     name: '',
     formation: '4-4-2',
@@ -51,6 +51,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       number: i + 1
     }))
   });
+  
   const [awayTeam, setAwayTeam] = useState<Team>({
     name: '',
     formation: '4-3-3',
@@ -65,13 +66,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<MatchFormData>({
     defaultValues: {
       name: '',
-      homeTeamName: '',
-      awayTeamName: '',
+      home_team_name: '',
+      away_team_name: '',
       status: 'draft',
-      matchType: 'regular',
+      match_type: 'regular',
       description: '',
-      homeTeamScore: '0',
-      awayTeamScore: '0',
+      home_team_score: '0',
+      away_team_score: '0',
       notes: ''
     }
   });
@@ -82,13 +83,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       
       reset({
         name: initialData.name || '',
-        homeTeamName: initialData.home_team_name || '',
-        awayTeamName: initialData.away_team_name || '',
+        home_team_name: initialData.home_team_name || '',
+        away_team_name: initialData.away_team_name || '',
         status: initialData.status || 'draft',
-        matchType: initialData.match_type || 'regular',
+        match_type: initialData.match_type || 'regular',
         description: initialData.description || '',
-        homeTeamScore: (initialData.home_team_score || 0).toString(),
-        awayTeamScore: (initialData.away_team_score || 0).toString(),
+        home_team_score: (initialData.home_team_score || 0).toString(),
+        away_team_score: (initialData.away_team_score || 0).toString(),
         notes: initialData.notes || '',
       });
 
@@ -114,6 +115,19 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       });
     }
   }, [isEditMode, initialData, reset]);
+
+  // Update team names when form values change
+  useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name === 'home_team_name') {
+        setHomeTeam(prev => ({ ...prev, name: value.home_team_name || '' }));
+      }
+      if (name === 'away_team_name') {
+        setAwayTeam(prev => ({ ...prev, name: value.away_team_name || '' }));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
 
   const handleFormationChange = (teamType: 'home' | 'away', formation: Formation) => {
     if (teamType === 'home') {
@@ -144,17 +158,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     try {
       const matchData = {
         name: data.name,
-        home_team_name: data.homeTeamName,
-        away_team_name: data.awayTeamName,
+        home_team_name: data.home_team_name,
+        away_team_name: data.away_team_name,
         home_team_formation: homeTeam.formation,
         away_team_formation: awayTeam.formation,
         home_team_players: JSON.stringify(homeTeam.players),
         away_team_players: JSON.stringify(awayTeam.players),
         status: data.status,
-        match_type: data.matchType,
+        match_type: data.match_type,
         description: data.description,
-        home_team_score: parseInt(data.homeTeamScore) || 0,
-        away_team_score: parseInt(data.awayTeamScore) || 0,
+        home_team_score: parseInt(data.home_team_score) || 0,
+        away_team_score: parseInt(data.away_team_score) || 0,
         notes: data.notes,
         created_by: user.id,
         match_date: new Date().toISOString()
@@ -227,145 +241,63 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{isEditMode ? 'Edit Match' : 'Create New Match'}</CardTitle>
-          <CardDescription>
-            {isEditMode ? 'Update match details and team information' : 'Set up a new football match with team details and formations'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="name">Match Name</Label>
-            <Input
-              id="name"
-              {...register('name', { required: 'Match name is required' })}
-              placeholder="Enter match name"
+    <div className="max-w-4xl mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Match Details</TabsTrigger>
+            <TabsTrigger value="teams">Team Setup</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details" className="space-y-4">
+            <MatchBasicDetails
+              register={register}
+              errors={errors}
+              setValue={setValue}
+              watch={watch}
+              isEditMode={isEditMode}
             />
-            {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="homeTeamName">Home Team</Label>
-              <Input
-                id="homeTeamName"
-                {...register('homeTeamName', { required: 'Home team name is required' })}
-                placeholder="Enter home team name"
-                onChange={(e) => {
-                  setValue('homeTeamName', e.target.value);
-                  setHomeTeam(prev => ({ ...prev, name: e.target.value }));
-                }}
-              />
-              {errors.homeTeamName && <p className="text-red-500 text-sm">{errors.homeTeamName.message}</p>}
-            </div>
-
-            <div>
-              <Label htmlFor="awayTeamName">Away Team</Label>
-              <Input
-                id="awayTeamName"
-                {...register('awayTeamName', { required: 'Away team name is required' })}
-                placeholder="Enter away team name"
-                onChange={(e) => {
-                  setValue('awayTeamName', e.target.value);
-                  setAwayTeam(prev => ({ ...prev, name: e.target.value }));
-                }}
-              />
-              {errors.awayTeamName && <p className="text-red-500 text-sm">{errors.awayTeamName.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select onValueChange={(value) => setValue('status', value as any)} defaultValue={watch('status')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="homeTeamScore">Home Score</Label>
-              <Input
-                id="homeTeamScore"
-                type="number"
-                {...register('homeTeamScore')}
-                placeholder="0"
-                min="0"
-                value={watch('homeTeamScore') || '0'}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="awayTeamScore">Away Score</Label>
-              <Input
-                id="awayTeamScore"
-                type="number"
-                {...register('awayTeamScore')}
-                placeholder="0"
-                min="0"
-                value={watch('awayTeamScore') || '0'}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="matchType">Match Type</Label>
-            <Select onValueChange={(value) => setValue('matchType', value)} defaultValue={watch('matchType')}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select match type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="regular">Regular</SelectItem>
-                <SelectItem value="friendly">Friendly</SelectItem>
-                <SelectItem value="tournament">Tournament</SelectItem>
-                <SelectItem value="league">League</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              {...register('description')}
-              placeholder="Enter match description (optional)"
-              rows={3}
+          </TabsContent>
+          
+          <TabsContent value="teams" className="space-y-4">
+            <TeamSetupWithFormation
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              onFormationChange={handleFormationChange}
+              onPlayerChange={handlePlayerChange}
             />
-          </div>
+          </TabsContent>
+        </Tabs>
 
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              {...register('notes')}
-              placeholder="Additional notes (optional)"
-              rows={2}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <TeamSetupWithFormation
-        homeTeam={homeTeam}
-        awayTeam={awayTeam}
-        onFormationChange={handleFormationChange}
-        onPlayerChange={handlePlayerChange}
-      />
-
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
-      </Button>
-    </form>
+        <div className="flex justify-between pt-4">
+          {activeTab === 'teams' && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={() => setActiveTab('details')}
+            >
+              Previous
+            </Button>
+          )}
+          
+          {activeTab === 'details' && (
+            <Button 
+              type="button" 
+              onClick={() => setActiveTab('teams')}
+              className="ml-auto"
+            >
+              Next: Team Setup
+            </Button>
+          )}
+          
+          {activeTab === 'teams' && (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
+            </Button>
+          )}
+        </div>
+      </form>
+    </div>
   );
 };
 
