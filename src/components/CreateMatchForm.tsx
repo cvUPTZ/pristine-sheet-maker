@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -55,28 +54,66 @@ interface TrackerProfile {
 
 interface CreateMatchFormProps {
   onSuccess?: () => void;
+  matchId?: string;
+  initialData?: any;
 }
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess, matchId, initialData }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [matchDetails, setMatchDetails] = useState<MatchFormData>(initialMatchFormState);
+  const [matchDetails, setMatchDetails] = useState<MatchFormData>(initialData || initialMatchFormState);
   const [homeTeam, setHomeTeam] = useState<Team>({
     id: 'home',
-    name: '',
-    formation: '4-4-2' as Formation,
-    players: []
+    name: initialData?.homeTeamName || '',
+    formation: (initialData?.home_team_formation || '4-4-2') as Formation,
+    players: initialData?.home_team_players || []
   });
   const [awayTeam, setAwayTeam] = useState<Team>({
     id: 'away',
-    name: '',
-    formation: '4-3-3' as Formation,
-    players: []
+    name: initialData?.awayTeamName || '',
+    formation: (initialData?.away_team_formation || '4-3-3') as Formation,
+    players: initialData?.away_team_players || []
   });
   const [trackers, setTrackers] = useState<TrackerProfile[]>([]);
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingTrackers, setIsLoadingTrackers] = useState(false);
   const navigate = useNavigate();
+  const isEditMode = !!matchId;
+
+  // Load initial data for edit mode
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      console.log('Loading initial data for edit mode:', initialData);
+      
+      setMatchDetails({
+        name: initialData.name || '',
+        status: initialData.status || 'draft',
+        matchType: initialData.match_type || 'friendly',
+        matchDate: initialData.match_date ? new Date(initialData.match_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        location: initialData.location || '',
+        competition: initialData.competition || '',
+        homeTeamName: initialData.home_team_name || '',
+        awayTeamName: initialData.away_team_name || '',
+        homeTeamScore: initialData.home_team_score,
+        awayTeamScore: initialData.away_team_score,
+        notes: initialData.notes || '',
+      });
+
+      setHomeTeam({
+        id: 'home',
+        name: initialData.home_team_name || '',
+        formation: (initialData.home_team_formation || '4-4-2') as Formation,
+        players: initialData.home_team_players || []
+      });
+
+      setAwayTeam({
+        id: 'away',
+        name: initialData.away_team_name || '',
+        formation: (initialData.away_team_formation || '4-3-3') as Formation,
+        players: initialData.away_team_players || []
+      });
+    }
+  }, [isEditMode, initialData]);
 
   const handleLoadBothTeamsPlayers = () => {
     if (!homeTeam.formation || !awayTeam.formation) {
@@ -241,105 +278,120 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
     setIsSaving(true);
 
     try {
-      // Create the match
-      const { data: matchData, error: matchError } = await supabase
-        .from('matches')
-        .insert([
-          {
-            name: matchDetails.name,
-            status: matchDetails.status,
-            match_type: matchDetails.matchType,
-            match_date: matchDetails.matchDate,
-            location: matchDetails.location,
-            competition: matchDetails.competition,
-            home_team_name: matchDetails.homeTeamName,
-            away_team_name: matchDetails.awayTeamName,
-            home_team_score: matchDetails.homeTeamScore,
-            away_team_score: matchDetails.awayTeamScore,
-            home_team_formation: homeTeam.formation,
-            away_team_formation: awayTeam.formation,
-            home_team_players: homeTeam.players,
-            away_team_players: awayTeam.players,
-            notes: matchDetails.notes,
-          },
-        ])
-        .select()
-        .single();
+      const matchData = {
+        name: matchDetails.name,
+        status: matchDetails.status,
+        match_type: matchDetails.matchType,
+        match_date: matchDetails.matchDate,
+        location: matchDetails.location,
+        competition: matchDetails.competition,
+        home_team_name: matchDetails.homeTeamName,
+        away_team_name: matchDetails.awayTeamName,
+        home_team_score: matchDetails.homeTeamScore,
+        away_team_score: matchDetails.awayTeamScore,
+        home_team_formation: homeTeam.formation,
+        away_team_formation: awayTeam.formation,
+        home_team_players: homeTeam.players,
+        away_team_players: awayTeam.players,
+        notes: matchDetails.notes,
+      };
 
-      if (matchError) {
-        throw matchError;
+      let result;
+      if (isEditMode) {
+        // Update existing match
+        const { data, error } = await supabase
+          .from('matches')
+          .update(matchData)
+          .eq('id', matchId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        result = data;
+        toast.success('Match updated successfully!');
+      } else {
+        // Create new match
+        const { data, error } = await supabase
+          .from('matches')
+          .insert([matchData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
+        toast.success('Match created successfully!');
       }
 
-      // Create tracker assignments - only create if both event types and players are assigned
-      for (const assignment of trackerAssignments) {
-        if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
-          // Create separate assignments for each player
-          for (const playerId of assignment.playerIds) {
-            // Find if the player is in home or away team
-            const isHomePlayer = homeTeam.players.some(p => p.id === playerId);
-            const playerTeamId = isHomePlayer ? 'home' : 'away';
-            
-            const { error: assignmentError } = await supabase
-              .from('match_tracker_assignments')
+      // Handle tracker assignments for new matches
+      if (!isEditMode) {
+        for (const assignment of trackerAssignments) {
+          if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
+            for (const playerId of assignment.playerIds) {
+              const isHomePlayer = homeTeam.players.some(p => p.id === playerId);
+              const playerTeamId = isHomePlayer ? 'home' : 'away';
+              
+              const { error: assignmentError } = await supabase
+                .from('match_tracker_assignments')
+                .insert({
+                  match_id: result.id,
+                  tracker_user_id: assignment.trackerId,
+                  assigned_event_types: assignment.eventTypes,
+                  player_id: parseInt(playerId),
+                  player_team_id: playerTeamId
+                });
+
+              if (assignmentError) {
+                console.error('Error creating tracker assignment:', assignmentError);
+              }
+            }
+          }
+        }
+
+        // Send notifications to assigned trackers
+        for (const assignment of trackerAssignments) {
+          if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
+            const { error: notificationError } = await supabase
+              .from('match_notifications')
               .insert({
-                match_id: matchData.id,
-                tracker_user_id: assignment.trackerId,
-                assigned_event_types: assignment.eventTypes,
-                player_id: parseInt(playerId),
-                player_team_id: playerTeamId
+                match_id: result.id,
+                tracker_id: assignment.trackerId,
+                message: `You have been assigned to track events for match: ${matchDetails.name}`,
               });
 
-            if (assignmentError) {
-              console.error('Error creating tracker assignment:', assignmentError);
+            if (notificationError) {
+              console.error('Error sending notification:', notificationError);
+              toast.error(`Failed to send notification to tracker ${assignment.trackerId}: ${notificationError.message}`);
             }
           }
         }
       }
-
-      // Send notifications to assigned trackers
-      for (const assignment of trackerAssignments) {
-        if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
-          const { error: notificationError } = await supabase
-            .from('match_notifications')
-            .insert({
-              match_id: matchData.id,
-              tracker_id: assignment.trackerId,
-              message: `You have been assigned to track events for match: ${matchDetails.name}`,
-            });
-
-          if (notificationError) {
-            console.error('Error sending notification:', notificationError);
-            toast.error(`Failed to send notification to tracker ${assignment.trackerId}: ${notificationError.message}`);
-          }
-        }
-      }
-
-      toast.success('Match created successfully!');
       
-      // Reset form state
-      setMatchDetails(initialMatchFormState);
-      setHomeTeam({
-        id: 'home',
-        name: '',
-        formation: '4-4-2' as Formation,
-        players: []
-      });
-      setAwayTeam({
-        id: 'away',
-        name: '',
-        formation: '4-3-3' as Formation,
-        players: []
-      });
-      setTrackerAssignments([]);
-      setCurrentStep(1);
+      // Reset form state only for new matches
+      if (!isEditMode) {
+        setMatchDetails(initialMatchFormState);
+        setHomeTeam({
+          id: 'home',
+          name: '',
+          formation: '4-4-2' as Formation,
+          players: []
+        });
+        setAwayTeam({
+          id: 'away',
+          name: '',
+          formation: '4-3-3' as Formation,
+          players: []
+        });
+        setTrackerAssignments([]);
+        setCurrentStep(1);
+      }
       
       // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
-      console.error('Error creating match:', error);
-      toast.error(`Failed to create match: ${error.message}`);
+      console.error('Error saving match:', error);
+      toast.error(`Failed to save match: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -350,7 +402,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">
-            Create New Match - Step {currentStep} of 2
+            {isEditMode ? 'Edit Match' : 'Create New Match'} - Step {currentStep} of 2
           </CardTitle>
           <Badge variant="secondary">Admin</Badge>
         </CardHeader>
@@ -541,94 +593,97 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
                 </Button>
               </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Tracker Assignments</CardTitle>
-                  <Button onClick={fetchTrackers} variant="outline" size="sm" disabled={isLoadingTrackers}>
-                    {isLoadingTrackers ? 'Loading...' : 'Refresh Trackers'}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingTrackers ? (
-                    <div className="text-center p-4">
-                      <p className="text-muted-foreground">Loading trackers...</p>
-                    </div>
-                  ) : trackers.length === 0 ? (
-                    <div className="text-center p-4">
-                      <p className="text-muted-foreground mb-2">No trackers available</p>
-                      <Button onClick={fetchTrackers} variant="outline">
-                        Retry Loading Trackers
-                      </Button>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-96">
-                      <div className="space-y-4">
-                        {trackers.map((tracker) => (
-                          <div key={tracker.id} className="border rounded-lg p-4">
-                            <h4 className="font-medium mb-3">
-                              {tracker.full_name || tracker.email}
-                            </h4>
-                            
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                              <div>
-                                <Label className="text-sm font-medium">Event Types</Label>
-                                <div className="grid grid-cols-3 gap-1 mt-2">
-                                  {eventTypes.map((eventType) => (
-                                    <div key={eventType} className="flex items-center space-x-1">
-                                      <Checkbox
-                                        id={`${tracker.id}-${eventType}`}
-                                        checked={trackerAssignments
-                                          .find(ta => ta.trackerId === tracker.id)
-                                          ?.eventTypes.includes(eventType) || false}
-                                        onCheckedChange={(checked) => 
-                                          handleTrackerAssignment(tracker.id, eventType, checked as boolean)
-                                        }
-                                      />
-                                      <Label 
-                                        htmlFor={`${tracker.id}-${eventType}`}
-                                        className="text-xs"
-                                      >
-                                        {eventType.replace('_', ' ')}
-                                      </Label>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div>
-                                <Label className="text-sm font-medium">Players</Label>
-                                <ScrollArea className="h-32 mt-2">
-                                  <div className="space-y-1">
-                                    {[...homeTeam.players, ...awayTeam.players].map((player) => (
-                                      <div key={player.id} className="flex items-center space-x-1">
+              {/* Only show tracker assignments for new matches */}
+              {!isEditMode && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Tracker Assignments</CardTitle>
+                    <Button onClick={fetchTrackers} variant="outline" size="sm" disabled={isLoadingTrackers}>
+                      {isLoadingTrackers ? 'Loading...' : 'Refresh Trackers'}
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingTrackers ? (
+                      <div className="text-center p-4">
+                        <p className="text-muted-foreground">Loading trackers...</p>
+                      </div>
+                    ) : trackers.length === 0 ? (
+                      <div className="text-center p-4">
+                        <p className="text-muted-foreground mb-2">No trackers available</p>
+                        <Button onClick={fetchTrackers} variant="outline">
+                          Retry Loading Trackers
+                        </Button>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-80">
+                        <div className="space-y-4">
+                          {trackers.map((tracker) => (
+                            <div key={tracker.id} className="border rounded-lg p-4">
+                              <h4 className="font-medium mb-3">
+                                {tracker.full_name || tracker.email}
+                              </h4>
+                              
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-sm font-medium">Event Types</Label>
+                                  <div className="grid grid-cols-3 gap-1 mt-2">
+                                    {eventTypes.map((eventType) => (
+                                      <div key={eventType} className="flex items-center space-x-1">
                                         <Checkbox
-                                          id={`${tracker.id}-player-${player.id}`}
+                                          id={`${tracker.id}-${eventType}`}
                                           checked={trackerAssignments
                                             .find(ta => ta.trackerId === tracker.id)
-                                            ?.playerIds.includes(player.id) || false}
+                                            ?.eventTypes.includes(eventType) || false}
                                           onCheckedChange={(checked) => 
-                                            handlePlayerAssignment(tracker.id, player.id, checked as boolean)
+                                            handleTrackerAssignment(tracker.id, eventType, checked as boolean)
                                           }
                                         />
                                         <Label 
-                                          htmlFor={`${tracker.id}-player-${player.id}`}
+                                          htmlFor={`${tracker.id}-${eventType}`}
                                           className="text-xs"
                                         >
-                                          {player.name} (#{player.number}) - {player.position}
+                                          {eventType.replace('_', ' ')}
                                         </Label>
                                       </div>
                                     ))}
                                   </div>
-                                </ScrollArea>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm font-medium">Players</Label>
+                                  <ScrollArea className="h-32 mt-2">
+                                    <div className="space-y-1">
+                                      {[...homeTeam.players, ...awayTeam.players].map((player) => (
+                                        <div key={player.id} className="flex items-center space-x-1">
+                                          <Checkbox
+                                            id={`${tracker.id}-player-${player.id}`}
+                                            checked={trackerAssignments
+                                              .find(ta => ta.trackerId === tracker.id)
+                                              ?.playerIds.includes(player.id) || false}
+                                            onCheckedChange={(checked) => 
+                                              handlePlayerAssignment(tracker.id, player.id, checked as boolean)
+                                            }
+                                          />
+                                          <Label 
+                                            htmlFor={`${tracker.id}-player-${player.id}`}
+                                            className="text-xs"
+                                          >
+                                            {player.name} (#{player.number}) - {player.position}
+                                          </Label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="flex justify-between">
                 <Button type="button" variant="outline" onClick={prevStep}>
@@ -639,13 +694,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
                   {isSaving ? (
                     <>
                       <Play className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      {isEditMode ? 'Updating...' : 'Creating...'}
                     </>
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Create Match
-                    </Button>
+                      {isEditMode ? 'Update Match' : 'Create Match'}
+                    </>
                   )}
                 </Button>
               </div>
