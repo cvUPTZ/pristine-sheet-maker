@@ -16,3 +16,9 @@ export interface TrackerAssignment {
   eventTypes: string[];
   playerIds: string[];
 }
+
+export interface TrackerUser {
+  id: string;
+  full_name: string;
+  email: string;
+}

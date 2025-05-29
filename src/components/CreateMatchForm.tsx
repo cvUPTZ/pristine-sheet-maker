@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MatchBasicDetails from './match/MatchBasicDetails';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
+import TrackerAssignment from './match/TrackerAssignment';
 import { Formation, Team } from '@/types';
 import { MatchFormData } from '@/types/matchForm';
 
@@ -34,6 +34,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [createdMatchId, setCreatedMatchId] = useState<string | null>(null);
   
   const [homeTeam, setHomeTeam] = useState<Team>({
     id: 'home',
@@ -76,6 +77,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   useEffect(() => {
     if (isEditMode && initialData) {
       console.log('Loading initial data for edit:', initialData);
+      setCreatedMatchId(initialData.id);
       
       reset({
         name: initialData.name || '',
@@ -112,7 +114,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     }
   }, [isEditMode, initialData, reset]);
 
-  // Update team names when form values change
   useEffect(() => {
     const subscription = watch((value, { name }) => {
       if (name === 'homeTeamName') {
@@ -170,6 +171,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
           .single();
 
         result = { data: newMatch, error };
+        if (result.data) {
+          setCreatedMatchId(result.data.id);
+        }
       }
 
       if (result.error) {
@@ -210,6 +214,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
             number: i + 1
           }))
         });
+        setCreatedMatchId(null);
       }
 
     } catch (error: any) {
@@ -224,9 +229,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     <div className="max-w-5xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details">Match Details</TabsTrigger>
             <TabsTrigger value="teams">Team Setup</TabsTrigger>
+            <TabsTrigger value="trackers">Tracker Assignment</TabsTrigger>
           </TabsList>
           
           <TabsContent value="details" className="space-y-4">
@@ -253,14 +259,26 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
               />
             </div>
           </TabsContent>
+
+          <TabsContent value="trackers" className="space-y-4">
+            <TrackerAssignment
+              matchId={createdMatchId || initialData?.id}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              isEditMode={isEditMode}
+            />
+          </TabsContent>
         </Tabs>
 
         <div className="flex justify-between pt-4 border-t">
-          {activeTab === 'teams' && (
+          {(activeTab === 'teams' || activeTab === 'trackers') && (
             <Button 
               type="button" 
               variant="outline"
-              onClick={() => setActiveTab('details')}
+              onClick={() => {
+                if (activeTab === 'teams') setActiveTab('details');
+                if (activeTab === 'trackers') setActiveTab('teams');
+              }}
             >
               Previous
             </Button>
@@ -277,7 +295,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
           )}
           
           {activeTab === 'teams' && (
-            <Button type="submit" disabled={isSubmitting}>
+            <div className="flex gap-2 ml-auto">
+              <Button 
+                type="button" 
+                onClick={() => setActiveTab('trackers')}
+                variant="outline"
+              >
+                Next: Trackers
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
+              </Button>
+            </div>
+          )}
+
+          {activeTab === 'trackers' && (
+            <Button type="submit" disabled={isSubmitting} className="ml-auto">
               {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
             </Button>
           )}
