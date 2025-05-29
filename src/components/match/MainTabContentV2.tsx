@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +33,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   const { toast } = useToast();
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<MatchEvent | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away' | null>(null);
+  const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
 
   const fetchEvents = useCallback(async () => {
     if (!matchId) {
@@ -169,6 +171,32 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         variant: "destructive",
       });
     }
+  };
+
+  const handlePlayerSelect = (player: any, team: 'home' | 'away') => {
+    setSelectedPlayer(player);
+    setSelectedTeam(team);
+  };
+
+  const handleEventAdd = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => {
+    // Convert playerId to number if it's a string
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) || 0 : playerId;
+    
+    const newEvent: MatchEvent = {
+      id: Date.now().toString(),
+      type: eventType.key,
+      playerId: playerIdNum,
+      playerName: selectedPlayer?.name || `Player ${playerIdNum}`,
+      team: teamId,
+      timestamp: Date.now(),
+      coordinates,
+      minute: Math.floor((Date.now() - (match.match_date ? new Date(match.match_date).getTime() : Date.now())) / 60000)
+    };
+
+    onEventRecord(eventType, selectedPlayer, { coordinates });
+    setSelectedPlayer(null);
+    setSelectedEventType(null);
+    setSelectedTeam(null);
   };
 
   return (

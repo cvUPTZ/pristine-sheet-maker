@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,13 +12,17 @@ interface MatchStatsVisualizerProps {
   awayTeam: Team;
   ballTrackingPoints: BallTrackingPoint[];
   timeSegments: TimeSegmentStatistics[];
+  events: any[];
+  ballTrackingData: any[];
 }
 
 const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
   homeTeam,
   awayTeam,
   ballTrackingPoints,
-  timeSegments
+  timeSegments,
+  events,
+  ballTrackingData
 }) => {
   const isMobile = useBreakpoint('md');
   const isSmall = useBreakpoint('sm');
@@ -106,9 +109,9 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
             <TabsContent value="player">
               <div className="space-y-6 overflow-x-auto" id="visualization-container">
                 <PlayerStatsTable
-                  ballTrackingPoints={ballTrackingPoints}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
+                  events={events}
                 />
               </div>
             </TabsContent>
@@ -116,11 +119,9 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
             <TabsContent value="flow">
               <div id="visualization-container" className="flex justify-center">
                 <BallFlowVisualization
-                  ballTrackingPoints={ballTrackingPoints}
+                  ballTrackingPoints={ballTrackingData}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
-                  width={flowDimensions.width}
-                  height={flowDimensions.height}
                 />
               </div>
             </TabsContent>

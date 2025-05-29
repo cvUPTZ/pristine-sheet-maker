@@ -15,7 +15,9 @@ interface TeamSetupProps {
 const defaultPlayer = (id: number): Player => ({
   id,
   name: `Player ${id}`,
+  player_name: `Player ${id}`,
   number: id,
+  jersey_number: id,
   position: 'Not Set',
 });
 

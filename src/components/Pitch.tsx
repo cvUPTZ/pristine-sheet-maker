@@ -1,204 +1,225 @@
-
 import React, { useState, useEffect } from 'react';
-import { Team, Player, EventType, BallTrackingPoint } from '@/types';
-import PitchView from './match/PitchView';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
-import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
+import { Stage, Layer, Rect, Text, Circle, Line } from 'react-konva';
+import { EventType, Player, Team } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from "@/lib/utils"
 
 interface PitchProps {
-  matchId?: string;
   homeTeam: Team;
   awayTeam: Team;
-  teamPositions: Record<number, { x: number; y: number }>;
-  onTeamPositionsChange: (positions: Record<number, { x: number; y: number }>) => void;
-  selectedPlayer: Player | null;
-  onSelectPlayer: (player: Player | null) => void;
-  selectedTeam: 'home' | 'away';
-  onSelectTeam: (team: 'home' | 'away') => void;
-  ballTrackingMode: boolean;
-  onTrackBallMovement: (coordinates: { x: number; y: number }) => void;
-  isPassTrackingModeActive?: boolean; 
-  potentialPasser?: Player | null;    
-  setPotentialPasser?: (player: Player | null) => void; 
-  onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
-  ballTrackingPoints: BallTrackingPoint[];
-  onEventRecord: (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
+  events: any[];
+  onEventAdd: (eventType: EventType, playerId: number, team: 'home' | 'away', coordinates: { x: number; y: number }) => void;
+  ballPosition?: { x: number; y: number };
+  onBallPositionChange?: (x: number, y: number) => void;
+  showPlayerNames?: boolean;
+  showEventHistory?: boolean;
 }
 
-const Pitch: React.FC<PitchProps> = ({
-  matchId,
-  homeTeam,
-  awayTeam,
-  teamPositions,
-  onTeamPositionsChange,
-  selectedPlayer,
-  onSelectPlayer,
-  selectedTeam,
-  onSelectTeam,
-  ballTrackingMode,
-  onTrackBallMovement,
-  isPassTrackingModeActive = false,
-  potentialPasser = null,
-  setPotentialPasser = () => {},
-  onRecordPass,
-  ballTrackingPoints,
-  onEventRecord
+const Pitch: React.FC<PitchProps> = ({ 
+  homeTeam, 
+  awayTeam, 
+  events, 
+  onEventAdd,
+  ballPosition,
+  onBallPositionChange,
+  showPlayerNames = true,
+  showEventHistory = true 
 }) => {
-  const { toast } = useToast();
-  const [lastEventTime, setLastEventTime] = useState(0);
-  const [processingEvent, setProcessingEvent] = useState(false);
-  const { user, userRole } = useAuth();
-  
-  const collaboration = useMatchCollaboration({ 
-    matchId: matchId, 
-    userId: user?.id || 'anonymous',
-    teamId: selectedTeam
-  });
+  const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away' | null>(null);
+  const [pitchWidth, setPitchWidth] = useState(800);
+  const [pitchHeight, setPitchHeight] = useState(600);
 
-  const { users = [], recordEvent = () => {} } = collaboration || {};
+  useEffect(() => {
+    const handleResize = () => {
+      // Adjust pitch dimensions based on window size
+      setPitchWidth(Math.min(window.innerWidth - 50, 800));
+      setPitchHeight(Math.min(window.innerHeight - 200, 600));
+    };
 
-  const handlePitchClick = (coordinates: { x: number; y: number }) => {
-    const now = Date.now();
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const handlePitchClick = (event: React.MouseEvent<SVGElement>) => {
+    if (!selectedEventType || !selectedPlayer) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+    const coordinates = { x, y };
+
+    // Convert player ID to number if it's a string
+    const playerId = typeof selectedPlayer.id === 'string' ? parseInt(selectedPlayer.id) : selectedPlayer.id;
+
+    onEventAdd(selectedEventType, playerId, selectedTeam, coordinates);
     
-    if (now - lastEventTime < 300) {
-      return;
-    }
-    
-    setLastEventTime(now);
-    
-    if (ballTrackingMode) {
-      onTrackBallMovement(coordinates);
-    } else {
-      onSelectPlayer(null);
-    }
+    setSelectedPlayer(null);
+    setSelectedEventType(null);
+    setSelectedTeam(null);
   };
 
-  const handlePlayerSelect = (player: Player) => {
-    const now = Date.now();
-    if (now - lastEventTime < 300) {
-      return;
-    }
-    setLastEventTime(now);
+  const renderPlayers = (team: Team, teamType: 'home' | 'away') => {
+    const teamColor = teamType === 'home' ? 'green' : 'red';
 
-    if (isPassTrackingModeActive) {
-      if (!potentialPasser) {
-        setPotentialPasser(player);
-        onSelectPlayer(player);
-      } else {
-        if (potentialPasser.id === player.id) {
-          setPotentialPasser(null);
-          onSelectPlayer(null);
-          return;
-        }
+    return team.players?.map((player, index) => {
+      const x = 10 + (index % 5) * 15;
+      const y = 10 + Math.floor(index / 5) * 15;
 
-        const passerTeamIdStr: 'home' | 'away' = homeTeam.players.some(p => p.id === potentialPasser.id) ? 'home' : 'away';
-        const receiverTeamIdStr: 'home' | 'away' = homeTeam.players.some(p => p.id === player.id) ? 'home' : 
-                                                 awayTeam.players.some(p => p.id === player.id) ? 'away' : passerTeamIdStr;
-
-        const passerCoords = teamPositions[potentialPasser.id] || { x: 0.5, y: 0.5 };
-        const receiverCoords = teamPositions[player.id] || { x: 0.5, y: 0.5 };
-
-        if (onRecordPass) {
-          onRecordPass(potentialPasser, player, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
-          toast({
-            title: "Pass Recorded",
-            description: `Pass from ${potentialPasser.player_name} to ${player.player_name}`,
-          });
-        }
-        
-        onTrackBallMovement(receiverCoords); 
-        onSelectPlayer(player);
-        setPotentialPasser(null);
-      }
-    } else {
-      onSelectPlayer(player);
-    }
+      return (
+        <Circle
+          key={`${teamType}-${player.id}`}
+          x={(teamType === 'home' ? x : 100 - x) * (pitchWidth / 100)}
+          y={y * (pitchHeight / 100)}
+          radius={10}
+          fill={teamColor}
+          stroke="black"
+          strokeWidth={1}
+          onClick={() => {
+            setSelectedPlayer(player);
+            setSelectedTeam(teamType);
+          }}
+          style={{ cursor: 'pointer' }}
+        />
+      );
+    });
   };
-  
-  const handleEventSelect = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => {
-    const now = Date.now();
-    
-    if (now - lastEventTime < 400 || processingEvent) {
-      return;
-    }
-    
-    if (userRole !== 'admin' && userRole !== 'tracker') {
-      console.log("No permission to record events - current role:", userRole);
-      return;
-    }
-    
-    setProcessingEvent(true);
-    setLastEventTime(now);
-    
-    // Find the player object for selection
-    const allPlayers = [...homeTeam.players, ...awayTeam.players];
-    const playerIdAsNumber = typeof playerId === 'string' ? parseInt(playerId) : playerId;
-    const player = allPlayers.find(p => p.id === playerIdAsNumber);
-    if (player) {
-      onSelectPlayer(player);
-    }
-    
-    if (eventType) {
-      console.log("Event selected:", eventType, "by player:", playerId, "at", coordinates);
-      
-      if (matchId) {
-        recordEvent(
-          eventType, 
-          playerId, 
-          teamId,
-          coordinates
-        );
-      }
-      
-      // Call the onEventRecord with correct parameters
-      onEventRecord(eventType, playerId, teamId, coordinates);
-      
-      if (['pass', 'shot', 'goal'].includes(eventType) && coordinates) {
-        onTrackBallMovement(coordinates);
-      }
-      
-      setTimeout(() => {
-        setProcessingEvent(false);
-      }, 300);
-    }
+
+  const renderPlayerLabels = (team: Team, teamType: 'home' | 'away') => {
+    if (!showPlayerNames) return null;
+
+    return team.players?.map((player, index) => {
+      const x = 10 + (index % 5) * 15;
+      const y = 10 + Math.floor(index / 5) * 15;
+
+      return (
+        <Text
+          key={`${teamType}-${player.id}-label`}
+          x={(teamType === 'home' ? x : 100 - x) * (pitchWidth / 100) - 20}
+          y={y * (pitchHeight / 100) + 15}
+          text={player.name}
+          fontSize={12}
+          fill="black"
+          align="center"
+        />
+      );
+    });
   };
 
   return (
-    <div className="relative">
-      {matchId && users && (
-        <div className="absolute top-2 right-2 z-30 flex items-center space-x-2 bg-white/80 backdrop-blur-sm rounded-md px-2 py-1 shadow-sm">
-          <div className="text-xs font-medium">Collaborators:</div>
-          <div className="flex -space-x-2">
-            {users.filter((u: any) => u.online).map((collaborator: any) => (
-              <Avatar key={collaborator.id} className="h-6 w-6 border-2 border-white">
-                <AvatarFallback className="text-[10px]">
-                  {collaborator.name?.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {users.filter((u: any) => u.online).length} online
-          </Badge>
-        </div>
-      )}
+    <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex-1">
+        <Card>
+          <CardContent>
+            <Stage width={pitchWidth} height={pitchHeight} style={{ border: '1px solid gray' }}>
+              <Layer>
+                <Rect
+                  x={0}
+                  y={0}
+                  width={pitchWidth}
+                  height={pitchHeight}
+                  fill="#69b469"
+                  onClick={handlePitchClick}
+                />
+                {/* Center Line */}
+                <Line
+                  points={[pitchWidth / 2, 0, pitchWidth / 2, pitchHeight]}
+                  stroke="white"
+                  strokeWidth={2}
+                />
+                {/* Center Circle */}
+                <Circle
+                  x={pitchWidth / 2}
+                  y={pitchHeight / 2}
+                  radius={pitchWidth * 0.08}
+                  stroke="white"
+                  strokeWidth={2}
+                />
+                {/* Home Team Players */}
+                {renderPlayers(homeTeam, 'home')}
+                {renderPlayerLabels(homeTeam, 'home')}
+                {/* Away Team Players */}
+                {renderPlayers(awayTeam, 'away')}
+                {renderPlayerLabels(awayTeam, 'away')}
+                {/* Ball */}
+                {ballPosition && (
+                  <Circle
+                    x={ballPosition.x * (pitchWidth / 100)}
+                    y={ballPosition.y * (pitchHeight / 100)}
+                    radius={5}
+                    fill="black"
+                  />
+                )}
+              </Layer>
+            </Stage>
+          </CardContent>
+        </Card>
+      </div>
 
-      <PitchView
-        homeTeam={homeTeam}
-        awayTeam={awayTeam}
-        selectedPlayer={selectedPlayer}
-        selectedTeam={selectedTeam}
-        setSelectedTeam={onSelectTeam}
-        handlePlayerSelect={handlePlayerSelect}
-        ballTrackingPoints={ballTrackingPoints}
-        handlePitchClick={handlePitchClick}
-        addBallTrackingPoint={onTrackBallMovement}
-        recordEvent={handleEventSelect}
-        events={[]}
-      />
+      <div className="w-full md:w-80">
+        <Card>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Event Type</Label>
+              <Select onValueChange={(value) => setSelectedEventType(JSON.parse(value))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select event" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={JSON.stringify({ key: 'pass', label: 'Pass' })}>Pass</SelectItem>
+                  <SelectItem value={JSON.stringify({ key: 'tackle', label: 'Tackle' })}>Tackle</SelectItem>
+                  <SelectItem value={JSON.stringify({ key: 'shot', label: 'Shot' })}>Shot</SelectItem>
+                  <SelectItem value={JSON.stringify({ key: 'foul', label: 'Foul' })}>Foul</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Team</Label>
+              <RadioGroup onValueChange={(value) => setSelectedTeam(value as 'home' | 'away')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="home" id="r1" className="peer h-4 w-4 shrink-0 rounded-full border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
+                  <Label htmlFor="r1">Home</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="away" id="r2" className="peer h-4 w-4 shrink-0 rounded-full border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
+                  <Label htmlFor="r2">Away</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </CardContent>
+        </Card>
+
+        {showEventHistory && (
+          <Card className="mt-4">
+            <CardContent className="space-y-2">
+              <Label>Event History</Label>
+              <ScrollArea className="h-[200px] w-full rounded-md border">
+                <div className="p-2">
+                  {events.map((event, index) => (
+                    <div key={index} className="py-1">
+                      <Badge variant="secondary">
+                        {event.type} - {event.team} - {event.playerId}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };

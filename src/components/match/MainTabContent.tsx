@@ -1,223 +1,225 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
-import FootballPitch from '@/components/FootballPitch';
-import { useMatchState } from '@/hooks/useMatchState';
-import { useBreakpoint } from '@/hooks/use-mobile';
-import { BallFlowVisualization } from '@/components/visualizations/BallFlowVisualization';
-import { PlayerStatsTable } from '@/components/visualizations/PlayerStatsTable';
-import { MatchEvent, TimelineEvent } from '@/types/index';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Play, Square, RotateCcw } from 'lucide-react';
+import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
+import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
+import MatchEventsTimeline from '@/components/MatchEventsTimeline';
+import { Match, Team, MatchEvent, Statistics, BallTrackingPoint, TimelineEvent } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface MainTabContentProps {
-  matchId: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  homeTeamFormation: string;
-  awayTeamFormation: string;
-  homeTeamPlayers: any[];
-  awayTeamPlayers: any[];
-  onEventRecord: (event: any) => void;
+  match: Match;
+  homeTeam: Team;
+  awayTeam: Team;
+  events: MatchEvent[];
+  statistics: Statistics;
+  ballTrackingData: BallTrackingPoint[];
+  timerValue: number;
+  timerStatus: 'running' | 'stopped' | 'paused';
+  onTimerStart: () => void;
+  onTimerStop: () => void;
+  onTimerReset: () => void;
+  onEventDelete: (eventId: string) => Promise<void>;
 }
 
-const MainTabContent: React.FC<MainTabContentProps> = ({ 
-  matchId,
-  homeTeamName,
-  awayTeamName,
-  homeTeamFormation,
-  awayTeamFormation,
-  homeTeamPlayers,
-  awayTeamPlayers,
-  onEventRecord
+const MainTabContent: React.FC<MainTabContentProps> = ({
+  match,
+  homeTeam,
+  awayTeam,
+  events,
+  statistics,
+  ballTrackingData,
+  timerValue,
+  timerStatus,
+  onTimerStart,
+  onTimerStop,
+  onTimerReset,
+  onEventDelete
 }) => {
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
-  const [ballTrackingData, setBallTrackingData] = useState<any[]>([]);
-  const { match, fetchMatch } = useMatchState(matchId);
-  const isMobile = useBreakpoint('md');
+  const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | null>(null);
 
-  useEffect(() => {
-    fetchMatch();
-  }, [fetchMatch]);
-
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await fetch(`/api/match/${matchId}/events`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setEvents(data);
-      } catch (error) {
-        console.error("Could not fetch events:", error);
-      }
-    };
-
-    fetchEvents();
-  }, [matchId]);
-
-  const handleEventClick = (event: TimelineEvent) => {
-    setSelectedEvent(event);
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEventDelete = async (eventId: string) => {
-    try {
-      const response = await fetch(`/api/match/${matchId}/events/${eventId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-      setSelectedEvent(null);
-    } catch (error) {
-      console.error("Could not delete event:", error);
-    }
+  const handleTimelineEventClick = (event: TimelineEvent) => {
+    setSelectedTimelineEvent(event);
   };
-
-  const handleBallTrackingData = (data: any) => {
-    setBallTrackingData(data);
-  };
-
-  // Convert TimelineEvent to MatchEvent format
-  const convertTimelineToMatchEvents = (timelineEvents: TimelineEvent[]): MatchEvent[] => {
-    return timelineEvents.map(event => ({
-      id: event.id,
-      matchId: event.matchId,
-      type: event.type,
-      timestamp: event.timestamp,
-      playerId: event.playerId,
-      teamId: event.teamId,
-      coordinates: event.coordinates
-    }));
-  };
-
-  const homeTeamStats = [
-    { name: 'Possession', value: match?.statistics?.home?.possession },
-    { name: 'Shots', value: match?.statistics?.home?.shots },
-    { name: 'Shots on Target', value: match?.statistics?.home?.shotsOnTarget },
-    { name: 'Corners', value: match?.statistics?.home?.corners },
-    { name: 'Fouls', value: match?.statistics?.home?.fouls },
-    { name: 'Yellow Cards', value: match?.statistics?.home?.yellowCards },
-    { name: 'Red Cards', value: match?.statistics?.home?.redCards },
-  ];
-
-  const awayTeamStats = [
-    { name: 'Possession', value: match?.statistics?.away?.possession },
-    { name: 'Shots', value: match?.statistics?.away?.shots },
-    { name: 'Shots on Target', value: match?.statistics?.away?.shotsOnTarget },
-    { name: 'Corners', value: match?.statistics?.away?.corners },
-    { name: 'Fouls', value: match?.statistics?.away?.fouls },
-    { name: 'Yellow Cards', value: match?.statistics?.away?.yellowCards },
-    { name: 'Red Cards', value: match?.statistics?.away?.redCards },
-  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Match Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium">Home Team</p>
-                <p className="text-base">{homeTeamName}</p>
-                <p className="text-sm text-gray-500">Formation: {homeTeamFormation}</p>
+    <div className="space-y-6">
+      {/* Timer and Match Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>Match Timer</span>
+            <div className="flex items-center gap-4">
+              <div className="text-3xl font-mono font-bold">
+                {formatTime(timerValue)}
               </div>
-              <div>
-                <p className="text-sm font-medium">Away Team</p>
-                <p className="text-base">{awayTeamName}</p>
-                <p className="text-sm text-gray-500">Formation: {awayTeamFormation}</p>
-              </div>
+              <Badge variant={timerStatus === 'running' ? 'default' : 'secondary'}>
+                {timerStatus}
+              </Badge>
             </div>
-            <Separator className="my-4" />
-            <h4 className="text-md font-semibold mb-2">Ball Tracking Data</h4>
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    try {
-                      const jsonData = JSON.parse(event.target?.result as string);
-                      handleBallTrackingData(jsonData);
-                    } catch (error) {
-                      console.error("Error parsing JSON:", error);
-                    }
-                  };
-                  reader.readAsText(file);
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Button
+              onClick={timerStatus === 'running' ? onTimerStop : onTimerStart}
+              variant={timerStatus === 'running' ? 'destructive' : 'default'}
+            >
+              {timerStatus === 'running' ? (
+                <>
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Start
+                </>
+              )}
+            </Button>
+            <Button onClick={onTimerReset} variant="outline">
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Team Statistics</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-md font-semibold mb-2">{homeTeamName} Stats</h4>
-                <PlayerStatsTable stats={homeTeamStats} />
-              </div>
-              <div>
-                <h4 className="text-md font-semibold mb-2">{awayTeamName} Stats</h4>
-                <PlayerStatsTable stats={awayTeamStats} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Match Content Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="stats">Statistics</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Ball Flow Visualization</h3>
-            <BallFlowVisualization
-              homePlayers={homeTeamPlayers}
-              awayPlayers={awayTeamPlayers}
-            />
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="space-y-6">
-        <Card className="h-[500px]">
-          <CardContent className="p-4">
-            <FootballPitch
-              homeTeam={{ name: homeTeamName, formation: homeTeamFormation, players: homeTeamPlayers }}
-              awayTeam={{ name: awayTeamName, formation: awayTeamFormation, players: awayTeamPlayers }}
-              ballTrackingPoints={ballTrackingData}
-              onPitchClick={() => { }}
-              selectedPlayer={null}
-              selectedTeam="home"
-              onPlayerSelect={() => { }}
-              events={convertTimelineToMatchEvents(events)}
-            />
-          </CardContent>
-        </Card>
-        
-        <MatchEventsTimeline 
-          events={convertTimelineToMatchEvents(events)} 
-          onEventClick={handleEventClick}
-          onEventDelete={handleEventDelete}
-        />
-        
-        {selectedEvent && (
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ball Flow Visualization</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BallFlowVisualization
+                  ballTrackingPoints={ballTrackingData}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Player Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PlayerStatsTable
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                  events={events}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="timeline" className="space-y-4">
           <Card>
-            <CardContent className="p-4">
-              <h3 className="text-lg font-semibold mb-2">Selected Event</h3>
-              <p>Type: {selectedEvent.type}</p>
-              <p>Timestamp: {new Date(selectedEvent.timestamp).toLocaleString()}</p>
-              {selectedEvent.playerId && <p>Player ID: {selectedEvent.playerId}</p>}
-              {selectedEvent.teamId && <p>Team: {selectedEvent.teamId}</p>}
+            <CardHeader>
+              <CardTitle>Match Events Timeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MatchEventsTimeline
+                events={events}
+                onEventDelete={onEventDelete}
+              />
             </CardContent>
           </Card>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="stats" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Possession</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>{homeTeam.name}</span>
+                    <span>{statistics.possession?.home || 0}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{awayTeam.name}</span>
+                    <span>{statistics.possession?.away || 0}%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Shots</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>{homeTeam.name}</span>
+                    <span>{statistics.shots?.home || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{awayTeam.name}</span>
+                    <span>{statistics.shots?.away || 0}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Passes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>{homeTeam.name}</span>
+                    <span>{statistics.passes?.home || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{awayTeam.name}</span>
+                    <span>{statistics.passes?.away || 0}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-gray-500 py-8">
+                Advanced analytics features coming soon...
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

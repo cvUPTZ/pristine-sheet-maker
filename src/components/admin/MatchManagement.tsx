@@ -66,7 +66,14 @@ const MatchManagement: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMatches(data || []);
+      
+      // Transform data to match our interface
+      const transformedMatches = (data || []).map(match => ({
+        ...match,
+        venue: match.venue || 'N/A'
+      }));
+      
+      setMatches(transformedMatches);
     } catch (error) {
       console.error('Error fetching matches:', error);
       toast.error('Failed to fetch matches');

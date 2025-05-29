@@ -43,7 +43,7 @@ interface User {
 const PlayerAssignments: React.FC = () => {
   const [assignments, setAssignments] = useState<PlayerAssignment[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [trackers, setTrackers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [selectedTracker, setSelectedTracker] = useState<string>('');
@@ -51,52 +51,86 @@ const PlayerAssignments: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
 
   useEffect(() => {
-    fetchData();
+    fetchAssignments();
   }, []);
 
-  const fetchData = async () => {
+  const fetchAssignments = async () => {
     try {
-      // Fetch assignments with match and tracker data
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('match_tracker_assignments')
-        .select(`
-          *,
-          matches:match_id (
-            name,
-            home_team_name,
-            away_team_name
-          ),
-          profiles:tracker_user_id (
-            email,
-            full_name
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const [assignmentsResponse, matchesResponse, usersResponse] = await Promise.all([
+        supabase
+          .from('match_tracker_assignments')
+          .select(`
+            id,
+            match_id,
+            tracker_user_id,
+            player_id,
+            player_team_id,
+            assigned_event_types,
+            created_at,
+            matches:match_id (
+              name,
+              home_team_name,
+              away_team_name
+            ),
+            profiles:tracker_user_id (
+              full_name,
+              email
+            )
+          `),
+        supabase
+          .from('matches')
+          .select('id, name, home_team_name, away_team_name, home_team_players, away_team_players'),
+        supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('role', 'tracker')
+      ]);
 
-      if (assignmentsError) throw assignmentsError;
+      if (assignmentsResponse.error) throw assignmentsResponse.error;
+      if (matchesResponse.error) throw matchesResponse.error;
+      if (usersResponse.error) throw usersResponse.error;
 
-      // Fetch matches
-      const { data: matchesData, error: matchesError } = await supabase
-        .from('matches')
-        .select('id, name, home_team_name, away_team_name, home_team_players, away_team_players')
-        .order('created_at', { ascending: false });
+      // Transform assignments
+      const transformedAssignments = (assignmentsResponse.data || [])
+        .filter(assignment => assignment.player_id !== null)
+        .map(assignment => ({
+          id: assignment.id,
+          match_id: assignment.match_id,
+          tracker_user_id: assignment.tracker_user_id,
+          player_id: assignment.player_id!,
+          player_team_id: assignment.player_team_id,
+          assigned_event_types: assignment.assigned_event_types || [],
+          created_at: assignment.created_at,
+          matches: assignment.matches,
+          profiles: assignment.profiles
+        }));
 
-      if (matchesError) throw matchesError;
+      // Transform matches
+      const transformedMatches = (matchesResponse.data || []).map(match => ({
+        id: match.id,
+        name: match.name || undefined,
+        home_team_name: match.home_team_name,
+        away_team_name: match.away_team_name,
+        home_team_players: match.home_team_players,
+        away_team_players: match.away_team_players
+      }));
 
-      // Fetch trackers
-      const { data: trackersData, error: trackersError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name')
-        .eq('role', 'tracker');
+      // Transform users
+      const transformedUsers = (usersResponse.data || [])
+        .filter(user => user.email && user.full_name)
+        .map(user => ({
+          id: user.id,
+          email: user.email!,
+          full_name: user.full_name!,
+          role: 'tracker' as const
+        }));
 
-      if (trackersError) throw trackersError;
-
-      setAssignments(assignmentsData || []);
-      setMatches(matchesData || []);
-      setTrackers(trackersData || []);
+      setAssignments(transformedAssignments);
+      setMatches(transformedMatches);
+      setUsers(transformedUsers);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to fetch player assignments');
+      console.error('Error fetching assignments:', error);
+      toast.error('Failed to fetch assignments');
     } finally {
       setLoading(false);
     }
@@ -125,7 +159,7 @@ const PlayerAssignments: React.FC = () => {
       setSelectedTracker('');
       setSelectedPlayer('');
       setSelectedTeam('home');
-      await fetchData();
+      await fetchAssignments();
     } catch (error) {
       console.error('Error creating assignment:', error);
       toast.error('Failed to create player assignment');
@@ -144,7 +178,7 @@ const PlayerAssignments: React.FC = () => {
       if (error) throw error;
 
       toast.success('Player assignment deleted successfully');
-      await fetchData();
+      await fetchAssignments();
     } catch (error) {
       console.error('Error deleting assignment:', error);
       toast.error('Failed to delete player assignment');
@@ -159,15 +193,16 @@ const PlayerAssignments: React.FC = () => {
     return Array.isArray(teamPlayers) ? teamPlayers : [];
   };
 
-  const getPlayerName = (playerId: number, teamId: string, matchId: string) => {
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return `Player ${playerId}`;
-
-    const teamPlayers = teamId === 'home' ? match.home_team_players : match.away_team_players;
-    const players = Array.isArray(teamPlayers) ? players : [];
-    const player = players.find(p => p.id === playerId);
-    
-    return player?.player_name || player?.name || `Player ${playerId}`;
+  const getPlayerName = (match: any, playerId: number, teamId: string) => {
+    try {
+      const playersData = teamId === 'home' ? match.home_team_players : match.away_team_players;
+      const players: any[] = typeof playersData === 'string' ? JSON.parse(playersData) : playersData || [];
+      const player = players.find((p: any) => p.id === playerId || p.jersey_number === playerId);
+      return player ? (player.name || player.player_name || `Player ${playerId}`) : `Player ${playerId}`;
+    } catch (error) {
+      console.error('Error parsing player data:', error);
+      return `Player ${playerId}`;
+    }
   };
 
   if (loading) {
@@ -213,9 +248,9 @@ const PlayerAssignments: React.FC = () => {
                     <SelectValue placeholder="Select tracker" />
                   </SelectTrigger>
                   <SelectContent>
-                    {trackers.map(tracker => (
-                      <SelectItem key={tracker.id} value={tracker.id}>
-                        {tracker.full_name || tracker.email}
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || user.email}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -276,7 +311,7 @@ const PlayerAssignments: React.FC = () => {
                           {assignment.tracker?.full_name || assignment.tracker?.email || 'Unknown Tracker'}
                         </span>
                         <Badge variant="outline">
-                          {getPlayerName(assignment.player_id, assignment.player_team_id, assignment.match_id)}
+                          {getPlayerName(assignment.match, assignment.player_id, assignment.player_team_id)}
                         </Badge>
                         <Badge className={assignment.player_team_id === 'home' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}>
                           {assignment.player_team_id === 'home' ? 'Home' : 'Away'}

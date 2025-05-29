@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -190,17 +189,10 @@ const AuditLogs: React.FC = () => {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
+                      {dateRange.from && dateRange.to ? (
+                        `${format(dateRange.from, "PPP")} - ${format(dateRange.to, "PPP")}`
                       ) : (
-                        <span>Pick a date</span>
+                        <span>Pick a date range</span>
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -208,8 +200,8 @@ const AuditLogs: React.FC = () => {
                     <Calendar
                       mode="range"
                       defaultMonth={dateRange.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
+                      selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
+                      onSelect={(range) => setDateRange(range || {})}
                       numberOfMonths={2}
                     />
                   </PopoverContent>
