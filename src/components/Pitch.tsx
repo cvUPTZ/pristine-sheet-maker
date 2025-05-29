@@ -135,7 +135,8 @@ const Pitch: React.FC<PitchProps> = ({
     
     // Find the player object for selection
     const allPlayers = [...homeTeam.players, ...awayTeam.players];
-    const player = allPlayers.find(p => p.id === Number(playerId));
+    const playerIdAsNumber = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+    const player = allPlayers.find(p => p.id === playerIdAsNumber);
     if (player) {
       onSelectPlayer(player);
     }

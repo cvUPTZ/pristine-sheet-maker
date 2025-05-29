@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,9 +32,9 @@ const Matches = () => {
   });
   const navigate = useNavigate();
 
-  const { data: matchesData, isLoading, isError, error } = useQuery(
-    ['matches'],
-    async () => {
+  const { data: matchesData, isLoading, isError, error } = useQuery({
+    queryKey: ['matches'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('matches')
         .select('*')
@@ -45,7 +46,7 @@ const Matches = () => {
 
       return data;
     }
-  );
+  });
 
   useEffect(() => {
     if (matchesData) {
@@ -116,7 +117,7 @@ const Matches = () => {
   }
 
   if (isError) {
-    return <div>Error fetching matches: {error.message}</div>;
+    return <div>Error fetching matches: {error?.message}</div>;
   }
 
   return (
