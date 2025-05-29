@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -25,14 +24,14 @@ interface AssignedPlayerForMatch {
 }
 
 interface Player {
-  id: string;
+  id: number;
   name: string;
   position: string;
   number: number;
 }
 
 interface TeamType {
-  id?: string;
+  id: string;
   name: string;
   formation: string;
   players: Player[];
@@ -71,14 +70,16 @@ const MatchAnalysis: React.FC = () => {
   const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false);
 
   const [homeTeamFull, setHomeTeamFull] = useState<TeamType>({
+    id: 'home',
     name: 'Home Team',
     formation: '4-3-3',
-    players: Array.from({ length: 11 }, (_, i) => ({ id: `H${i+1}`, name: `Home Player ${i+1}`, position: 'Forward', number: i+1 }))
+    players: Array.from({ length: 11 }, (_, i) => ({ id: i+1, name: `Home Player ${i+1}`, position: 'Forward', number: i+1 }))
   });
   const [awayTeamFull, setAwayTeamFull] = useState<TeamType>({
+    id: 'away',
     name: 'Away Team',
     formation: '4-4-2',
-    players: Array.from({ length: 11 }, (_, i) => ({ id: `A${i+1}`, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
+    players: Array.from({ length: 11 }, (_, i) => ({ id: i+12, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
   });
 
   useEffect(() => {
@@ -162,9 +163,10 @@ const MatchAnalysis: React.FC = () => {
         
         while(segmentEnd < endTime) {
              segments.push({
-                segment: `${currentSegment * 15} min`,
-                duration: segmentDuration / 1000,
-                stats: { shots: 0, goals: 0, possession: 0 },
+                startTime: segmentStart,
+                endTime: segmentEnd,
+                timeSegment: `${currentSegment * 15} min`,
+                events: []
              });
              segmentStart = segmentEnd;
              segmentEnd += segmentDuration;
@@ -207,8 +209,8 @@ const MatchAnalysis: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <MatchHeader
-        matchName={matchDataFromHook.name || 'Unnamed Match'}
-        matchStatus={matchDataFromHook.status}
+        name={matchDataFromHook.name || 'Unnamed Match'}
+        status={matchDataFromHook.status}
         homeTeam={homeTeamHeaderDataFromHook}
         awayTeam={awayTeamHeaderDataFromHook}
         mode={mode}
@@ -231,8 +233,8 @@ const MatchAnalysis: React.FC = () => {
               if (player) {
                 const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
                   matchId: matchId || '',
-                  teamId: player.team_context === 'home' ? homeTeamFull.id || '' : awayTeamFull.id || '',
-                  playerId: String(player.id),
+                  teamId: player.team_context === 'home' ? 'home' : 'away',
+                  playerId: Number(player.id),
                   type: eventType.key as EventType,
                   timestamp: Date.now(),
                   coordinates: { x: 0, y: 0 },
@@ -276,11 +278,11 @@ const MatchAnalysis: React.FC = () => {
                 toast.error("Error: Missing match or user information.");
                 return;
               }
-              const actualTeamId = teamIdStr === 'home' ? homeTeamFull.id : awayTeamFull.id;
+              const actualTeamId = teamIdStr;
               const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
                 matchId: matchId,
-                teamId: actualTeamId || '',
-                playerId: String(playerId),
+                teamId: actualTeamId,
+                playerId: Number(playerId),
                 type: eventType,
                 timestamp: Date.now(),
                 coordinates: coordinates || { x: 0, y: 0 },

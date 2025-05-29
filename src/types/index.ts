@@ -197,3 +197,16 @@ export type EventType =
   | 'goalKick' | 'aerialDuel' | 'groundDuel';
 
 export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+
+// Export form data interface
+export interface MatchFormData {
+  name: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
+  matchType: string;
+  description: string;
+  homeTeamScore: string;
+  awayTeamScore: string;
+  notes: string;
+}

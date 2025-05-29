@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +44,7 @@ interface MainTabContentProps {
   handleSave: () => void;
   timeSegments: TimeSegmentStatistics[];
   recordEvent: (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
-  events: MatchEvent[];
+  events: any[];
   fullMatchRoster?: AssignedPlayers | null;
   assignedPlayers?: AssignedPlayers | null;
   assignedEventTypesList?: PianoEventType[] | null;
@@ -123,10 +122,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
 
   const availableTabs = getAvailableTabs();
 
-  // Convert events to simple timeline format with proper structure
+  // Convert events to simple timeline format
   const timelineEvents = events.map(event => ({
-    time: event.timestamp,
-    label: event.event_type,
+    time: event.timestamp || 0,
+    label: event.event_type || event.type || 'Unknown',
   }));
 
   return (

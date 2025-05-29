@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
-import { Formation } from '@/types';
+import { Formation, MatchFormData } from '@/types';
 
 interface Player {
   id: string;
@@ -25,18 +24,6 @@ interface Team {
   name: string;
   formation: Formation;
   players: Player[];
-}
-
-interface MatchFormData {
-  name: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
-  matchType: string;
-  description: string;
-  homeTeamScore: string;
-  awayTeamScore: string;
-  notes: string;
 }
 
 interface CreateMatchFormProps {
@@ -383,3 +370,4 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 };
 
 export default CreateMatchForm;
+export type { MatchFormData };
