@@ -181,7 +181,7 @@ const MatchAnalysis: React.FC = () => {
   }, [matchId, user?.id, userRole, supabase, homeTeamFull?.name]); // homeTeamFull?.name is a temporary dep for placeholder
 
   // Derived data for MainTabContent
-  const timeSegments = useMemo(():: TimeSegmentStatistics[] => {
+  const timeSegments = useMemo((): TimeSegmentStatistics[] => {
     // Placeholder logic: This should eventually process eventsFromHook to create segments.
     // For now, returning an empty array or a mock segment.
     if (!eventsFromHook || eventsFromHook.length === 0) return [];
