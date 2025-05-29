@@ -11,7 +11,7 @@ export interface MatchFormData {
   homeTeamFormation: string;
   awayTeamFormation: string;
   matchDate: string;
-  location: string;
+  location: string; // Changed from venue to location
   competition: string;
   status: string;
   matchType: string;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ interface UserProfile {
   email: string;
   role: UserRole;
   full_name?: string;
-  created?: string;
 }
 
 const UserManagement: React.FC = () => {
@@ -36,12 +34,14 @@ const UserManagement: React.FC = () => {
 
       if (error) throw error;
 
-      const typedUsers: UserProfile[] = (data || []).map(user => ({
-        ...user,
-        email: user.email || '',
-        role: (user.role || 'user') as UserRole,
-        full_name: user.full_name || undefined,
-      }));
+      const typedUsers: UserProfile[] = (data || [])
+        .filter(user => user.id) // Filter out null IDs
+        .map(user => ({
+          id: user.id!,
+          email: user.email || '',
+          role: (user.role || 'user') as UserRole,
+          full_name: user.full_name || undefined,
+        }));
 
       setUsers(typedUsers);
     } catch (error) {

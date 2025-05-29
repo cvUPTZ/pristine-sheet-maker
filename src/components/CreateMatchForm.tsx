@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +46,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     description: '',
     homeTeamName: '',
     awayTeamName: '',
-    venue: '',
+    location: '', // Changed from venue to location
     competition: '',
     matchDate: '',
     homeTeamFormation: '4-4-2',
@@ -262,7 +261,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         away_team_formation: formData.awayTeamFormation,
         home_team_players: JSON.stringify(formData.homeTeamPlayers || []),
         away_team_players: JSON.stringify(formData.awayTeamPlayers || []),
-        venue: formData.venue,
+        location: formData.location, // Use location instead of venue
         competition: formData.competition,
         match_date: formData.matchDate,
         status: 'scheduled'
@@ -290,7 +289,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         description: '',
         homeTeamName: '',
         awayTeamName: '',
-        venue: '',
+        location: '', // Changed from venue to location
         competition: '',
         matchDate: '',
         homeTeamFormation: '4-4-2',
@@ -441,12 +440,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label htmlFor="venue" className="text-sm">Venue</Label>
+                <Label htmlFor="location" className="text-sm">Location</Label>
                 <Input
-                  id="venue"
-                  value={formData.venue || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, venue: e.target.value }))}
-                  placeholder="Enter venue"
+                  id="location"
+                  value={formData.location || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Enter location"
                   className="text-sm"
                 />
               </div>
