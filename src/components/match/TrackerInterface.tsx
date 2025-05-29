@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { EventType, PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
+import { PianoInput } from './PianoInput';
 
 interface EventTypeConfig {
   key: string;
@@ -27,7 +28,7 @@ interface TrackerInterfaceProps {
 }
 
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
-  const [assignedEventTypes, setAssignedEventTypes] = useState<EventTypeConfig[] | null>(null);
+  const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[] | null>(null);
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
 
@@ -46,7 +47,9 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       setError(null);
 
       try {
-        // Since match_rosters table doesn't exist, we'll work with match data
+        console.log('TrackerInterface - Fetching assignments for:', { trackerUserId, matchId });
+
+        // Fetch match data for full roster
         const { data: matchData, error: matchError } = await supabase
           .from('matches')
           .select('home_team_players, away_team_players')
@@ -82,7 +85,9 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           }))
         };
         setFullMatchRoster(currentFullRoster);
+        console.log('TrackerInterface - Full match roster:', currentFullRoster);
 
+        // Fetch assigned event types
         const { data: eventAssignmentsData, error: eventAssignmentsError } = await supabase
           .from('user_event_assignments')
           .select('event_type')
@@ -92,15 +97,17 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           console.error('Error fetching event type assignments:', eventAssignmentsError);
           setAssignedEventTypes([]);
         } else {
-          const processedEventTypes: EventTypeConfig[] = eventAssignmentsData
+          const processedEventTypes: EventType[] = eventAssignmentsData
             ? eventAssignmentsData.map((assignment: any) => {
                 const foundConfig = ALL_EVENT_TYPES_CONFIG.find(et => et.key === assignment.event_type);
-                return foundConfig || { key: assignment.event_type, label: assignment.event_type };
+                return foundConfig ? { key: foundConfig.key, label: foundConfig.label } : { key: assignment.event_type, label: assignment.event_type };
               })
             : [];
           setAssignedEventTypes(processedEventTypes);
+          console.log('TrackerInterface - Assigned event types:', processedEventTypes);
         }
         
+        // Fetch assigned player IDs
         const { data: playerAssignmentIdsData, error: playerAssignmentIdsError } = await supabase
           .from('match_tracker_assignments')
           .select('player_id')
@@ -113,15 +120,19 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           setAssignedPlayers({ home: [], away: [] });
         } else if (playerAssignmentIdsData && playerAssignmentIdsData.length > 0) {
           const playerIds = playerAssignmentIdsData.map((pa: any) => pa.player_id?.toString()).filter((id: any) => id !== null) as string[];
+          console.log('TrackerInterface - Assigned player IDs:', playerIds);
 
           if (playerIds.length > 0 && currentFullRoster) {
-            const assignedHomePlayers = currentFullRoster.home.filter(p => playerIds.includes(p.id));
-            const assignedAwayPlayers = currentFullRoster.away.filter(p => playerIds.includes(p.id));
-            setAssignedPlayers({ home: assignedHomePlayers, away: assignedAwayPlayers });
+            const assignedHomePlayers = currentFullRoster.home.filter(p => playerIds.includes(p.id.toString()));
+            const assignedAwayPlayers = currentFullRoster.away.filter(p => playerIds.includes(p.id.toString()));
+            const assignedPlayersData = { home: assignedHomePlayers, away: assignedAwayPlayers };
+            setAssignedPlayers(assignedPlayersData);
+            console.log('TrackerInterface - Assigned players:', assignedPlayersData);
           } else {
              setAssignedPlayers({ home: [], away: [] });
           }
         } else {
+          console.log('TrackerInterface - No player assignments found');
           setAssignedPlayers({ home: [], away: [] });
         }
 
@@ -139,7 +150,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     fetchAssignments();
   }, [trackerUserId, matchId]);
 
-  const handleEventRecord = (eventType: EventTypeConfig, player?: PlayerForPianoInput, details?: Record<string, any>) => {
+  const handleEventRecord = (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
     console.log('Event Recorded:', {
       trackerUserId,
       matchId,
@@ -158,10 +169,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   if (error) {
     return <div className="p-4 text-red-600">Error loading assignments: {error}</div>;
   }
-  
-  if (!fullMatchRoster && !loading) {
-     return <div className="p-4 text-orange-600">Match roster data is unavailable. Cannot initialize tracker.</div>;
-  }
 
   return (
     <div className="container mx-auto p-4">
@@ -169,48 +176,12 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       <p className="text-sm text-gray-600 mb-1">Tracker: {trackerUserId}</p>
       <p className="text-sm text-gray-600 mb-4">Match: {matchId}</p>
       
-      <div className="space-y-4">
-        <div className="p-4 border rounded">
-          <h3 className="font-semibold mb-2">Assigned Event Types</h3>
-          {assignedEventTypes && assignedEventTypes.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {assignedEventTypes.map(eventType => (
-                <span key={eventType.key} className="px-2 py-1 bg-blue-100 rounded text-sm">
-                  {eventType.label}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500">No event types assigned</p>
-          )}
-        </div>
-
-        <div className="p-4 border rounded">
-          <h3 className="font-semibold mb-2">Assigned Players</h3>
-          {assignedPlayers && (assignedPlayers.home.length > 0 || assignedPlayers.away.length > 0) ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium mb-2">Home Team</h4>
-                {assignedPlayers.home.map(player => (
-                  <div key={player.id} className="p-2 bg-green-50 rounded mb-1">
-                    #{player.jersey_number} {player.player_name}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Away Team</h4>
-                {assignedPlayers.away.map(player => (
-                  <div key={player.id} className="p-2 bg-blue-50 rounded mb-1">
-                    #{player.jersey_number} {player.player_name}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500">No players assigned</p>
-          )}
-        </div>
-      </div>
+      <PianoInput
+        fullMatchRoster={fullMatchRoster}
+        assignedEventTypes={assignedEventTypes}
+        assignedPlayers={assignedPlayers}
+        onEventRecord={handleEventRecord}
+      />
     </div>
   );
 }

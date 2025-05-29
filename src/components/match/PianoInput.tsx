@@ -33,33 +33,65 @@ export function PianoInput({
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
   const [activeTeamContext, setActiveTeamContext] = useState<'home' | 'away' | null>(null);
 
+  // Log the assignments for debugging
+  console.log('PianoInput - assignedEventTypes:', assignedEventTypes);
+  console.log('PianoInput - assignedPlayers:', assignedPlayers);
+  console.log('PianoInput - fullMatchRoster:', fullMatchRoster);
+
   const displayableEventTypes = useMemo(() => {
-    if (assignedEventTypes === null) {
-      return ALL_SYSTEM_EVENT_TYPES;
+    // If assignedEventTypes is null or empty, show nothing for trackers
+    if (!assignedEventTypes || assignedEventTypes.length === 0) {
+      console.log('No assigned event types - showing empty list');
+      return [];
     }
-    return ALL_SYSTEM_EVENT_TYPES.filter((sysEt: EventType) =>
+    
+    // Filter system event types based on assignments
+    const filtered = ALL_SYSTEM_EVENT_TYPES.filter((sysEt: EventType) =>
       assignedEventTypes.some((assignedEt: EventType) => assignedEt.key === sysEt.key)
     );
+    
+    console.log('Filtered event types:', filtered);
+    return filtered;
   }, [assignedEventTypes]);
 
   const displayableHomePlayers = useMemo(() => {
-    if (!fullMatchRoster) return [];
-    if (assignedPlayers === null) {
-      return fullMatchRoster.home;
+    if (!fullMatchRoster) {
+      console.log('No full roster - returning empty home players');
+      return [];
     }
-    return fullMatchRoster.home.filter((rosterPlayer: PlayerForPianoInput) =>
-      assignedPlayers.home.some((assignedP: PlayerForPianoInput) => assignedP.id === rosterPlayer.id)
+    
+    // If assignedPlayers is null or empty, show nothing for trackers
+    if (!assignedPlayers || (!assignedPlayers.home && !assignedPlayers.away)) {
+      console.log('No assigned players - showing empty home list');
+      return [];
+    }
+    
+    const filtered = fullMatchRoster.home.filter((rosterPlayer: PlayerForPianoInput) =>
+      assignedPlayers.home?.some((assignedP: PlayerForPianoInput) => assignedP.id === rosterPlayer.id)
     );
+    
+    console.log('Filtered home players:', filtered);
+    return filtered;
   }, [fullMatchRoster, assignedPlayers]);
 
   const displayableAwayPlayers = useMemo(() => {
-    if (!fullMatchRoster) return [];
-    if (assignedPlayers === null) {
-      return fullMatchRoster.away;
+    if (!fullMatchRoster) {
+      console.log('No full roster - returning empty away players');
+      return [];
     }
-    return fullMatchRoster.away.filter((rosterPlayer: PlayerForPianoInput) =>
-      assignedPlayers.away.some((assignedP: PlayerForPianoInput) => assignedP.id === rosterPlayer.id)
+    
+    // If assignedPlayers is null or empty, show nothing for trackers
+    if (!assignedPlayers || (!assignedPlayers.home && !assignedPlayers.away)) {
+      console.log('No assigned players - showing empty away list');
+      return [];
+    }
+    
+    const filtered = fullMatchRoster.away.filter((rosterPlayer: PlayerForPianoInput) =>
+      assignedPlayers.away?.some((assignedP: PlayerForPianoInput) => assignedP.id === rosterPlayer.id)
     );
+    
+    console.log('Filtered away players:', filtered);
+    return filtered;
   }, [fullMatchRoster, assignedPlayers]);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
@@ -146,6 +178,22 @@ export function PianoInput({
   if (!fullMatchRoster) {
     return <div className="p-4 text-center text-gray-500">Loading match data or match data unavailable...</div>;
   }
+
+  // Show message if no assignments
+  if (displayableEventTypes.length === 0 && displayableHomePlayers.length === 0 && displayableAwayPlayers.length === 0) {
+    return (
+      <div className="p-6 border rounded-lg bg-gradient-to-br from-gray-50 to-white shadow-lg">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Event Piano Input</h2>
+        <div className="text-center py-8">
+          <div className="text-gray-500 mb-4">
+            <p className="font-medium text-lg">No assignments found</p>
+            <p className="text-sm">You haven't been assigned any event types or players for this match.</p>
+            <p className="text-sm mt-2">Please contact an admin to get proper assignments.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   const showPlayerSelection = selectedEventType && (displayableHomePlayers.length > 0 || displayableAwayPlayers.length > 0);
 
@@ -157,7 +205,7 @@ export function PianoInput({
         <h3 className="text-xl font-semibold mb-4 text-gray-700">
           1. Select Event Type {selectedEventType && <span className="text-blue-600 font-normal">(Selected: {selectedEventType.label})</span>}
         </h3>
-        {displayableEventTypes.length === 0 && <p className="text-sm text-gray-500 mb-4">No event types assigned or available.</p>}
+        {displayableEventTypes.length === 0 && <p className="text-sm text-gray-500 mb-4">No event types assigned.</p>}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {displayableEventTypes.map((et: EventType) => (
             <button
@@ -193,7 +241,7 @@ export function PianoInput({
             <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
               <h4 className="text-lg font-semibold mb-3 flex items-center text-green-800">
                 🏠 Home Team 
-                {selectedEventType && !activeTeamContext && (
+                {selectedEventType && !activeTeamContext && displayableHomePlayers.length > 0 && (
                   <button 
                     onClick={() => setActiveTeamContext('home')} 
                     className="ml-3 text-xs bg-green-500 text-white px-2 py-1 rounded-md hover:bg-green-600 transition-colors"
@@ -208,7 +256,7 @@ export function PianoInput({
                 )}
               </h4>
               {displayableHomePlayers.length === 0 && (
-                <p className="text-sm text-gray-500 italic">No home players assigned or available for this match.</p>
+                <p className="text-sm text-gray-500 italic">No home players assigned for this tracker.</p>
               )}
               <div className="grid gap-2 max-h-80 overflow-y-auto">
                 {displayableHomePlayers.map((player: PlayerForPianoInput) => (
@@ -233,7 +281,7 @@ export function PianoInput({
             <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
               <h4 className="text-lg font-semibold mb-3 flex items-center text-red-800">
                 ✈️ Away Team
-                {selectedEventType && !activeTeamContext && (
+                {selectedEventType && !activeTeamContext && displayableAwayPlayers.length > 0 && (
                   <button 
                     onClick={() => setActiveTeamContext('away')} 
                     className="ml-3 text-xs bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600 transition-colors"
@@ -248,7 +296,7 @@ export function PianoInput({
                 )}
               </h4>
               {displayableAwayPlayers.length === 0 && (
-                <p className="text-sm text-gray-500 italic">No away players assigned or available for this match.</p>
+                <p className="text-sm text-gray-500 italic">No away players assigned for this tracker.</p>
               )}
               <div className="grid gap-2 max-h-80 overflow-y-auto">
                 {displayableAwayPlayers.map((player: PlayerForPianoInput) => (
@@ -274,14 +322,14 @@ export function PianoInput({
       )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-        {!selectedEventType && (
+        {!selectedEventType && displayableEventTypes.length > 0 && (
           <div className="text-gray-600">
             <p className="font-medium mb-1">🎹 Piano Mode Instructions</p>
             <p className="text-sm">Select an event type to begin. Use keyboard shortcuts for faster input (e.g., P for Pass, S for Shot, then H/A for team, then jersey number).</p>
           </div>
         )}
         {selectedEventType && !showPlayerSelection && (
-          <p className="text-yellow-700 font-medium">⚠️ No players available for selection for the current assignment or match roster.</p>
+          <p className="text-yellow-700 font-medium">⚠️ No players assigned for this tracker.</p>
         )}
         {selectedEventType && !activeTeamContext && showPlayerSelection && (
           <div className="text-gray-600">
