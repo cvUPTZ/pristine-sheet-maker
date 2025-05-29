@@ -70,8 +70,9 @@ const AccessManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
+      // Fetch users from the user_profiles_with_role view
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles_with_role')
         .select('id, email, role, full_name')
         .order('email');
 
@@ -96,14 +97,25 @@ const AccessManagement: React.FC = () => {
 
   const updateUserRole = async (userId: string, newRole: UserRoleType) => {
     try {
-      const { error } = await supabase
+      // Update role in auth.users raw_user_meta_data
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { role: newRole }
+      });
+
+      if (authError) {
+        console.error('Auth update error:', authError);
+        throw authError;
+      }
+
+      // Also update the profiles table for consistency
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          role: newRole
-        })
+        .update({ role: newRole })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) {
+        console.warn('Profile update warning:', profileError);
+      }
 
       setUsers(prev => prev.map(user => 
         user.id === userId 
@@ -126,18 +138,42 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const handlePermissionChange = (permission: keyof RolePermissions, value: boolean) => {
+  const handlePermissionChange = async (permission: keyof RolePermissions, value: boolean) => {
     const newPermissions = { ...permissions, [permission]: value };
     setPermissions(newPermissions);
     
-    // For now, just update local state since database column doesn't exist yet
     if (selectedUser) {
-      setUsers(prev => prev.map(user => 
-        user.id === selectedUser 
-          ? { ...user, permissions: newPermissions }
-          : user
-      ));
-      toast.success('Permission updated (local only - database schema needs migration)');
+      try {
+        // Try to update permissions in the database
+        const { error } = await supabase.rpc('update_user_permissions', {
+          user_id_param: selectedUser,
+          permissions_param: newPermissions
+        });
+
+        if (error) {
+          console.warn('Could not save permissions to database:', error);
+          toast.success('Permission updated (local only - database save failed)');
+        } else {
+          toast.success('Permission updated and saved');
+        }
+
+        // Update local state
+        setUsers(prev => prev.map(user => 
+          user.id === selectedUser 
+            ? { ...user, permissions: newPermissions }
+            : user
+        ));
+      } catch (error) {
+        console.warn('Permission update error:', error);
+        toast.success('Permission updated locally');
+        
+        // Still update local state even if database save fails
+        setUsers(prev => prev.map(user => 
+          user.id === selectedUser 
+            ? { ...user, permissions: newPermissions }
+            : user
+        ));
+      }
     }
   };
 

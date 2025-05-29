@@ -7,6 +7,10 @@ export interface MatchFormData {
   away_team_name: string;
   status: 'draft' | 'scheduled' | 'live' | 'completed';
   description: string;
+  home_team_score?: number;
+  away_team_score?: number;
+  notes?: string;
+  match_date?: string;
 }
 
 export interface Formation {
@@ -18,4 +22,10 @@ export interface Formation {
     y: number;
     position: string;
   }>;
+}
+
+export interface FormationOption {
+  value: string;
+  label: string;
+  formation: Formation;
 }
