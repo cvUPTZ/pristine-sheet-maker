@@ -182,7 +182,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         return;
       }
 
-      toast.success(`Match ${isEditMode ? 'updated' : 'created'} successfully!`);
+      toast.success(`Match ${isEditMode ? 'updated' : 'saved'} successfully!`);
       
       if (isEditMode && onSuccess) {
         onSuccess();
@@ -190,7 +190,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
         onMatchCreated(result.data);
       }
 
-      if (!isEditMode) {
+      if (isEditMode) {
         reset();
         setHomeTeam({
           id: 'home',
@@ -243,6 +243,34 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
               watch={watch}
               isEditMode={isEditMode}
             />
+            
+            {/* Save button prominently displayed on details tab */}
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-gray-600">
+                {!createdMatchId && !isEditMode && (
+                  <span className="text-amber-600">💡 Save your match to enable tracker assignments</span>
+                )}
+                {createdMatchId && (
+                  <span className="text-green-600">✅ Match saved! You can now assign trackers.</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => setActiveTab('teams')}
+                  variant="outline"
+                >
+                  Next: Teams →
+                </Button>
+              </div>
+            </div>
           </TabsContent>
           
           <TabsContent value="teams" className="space-y-4">
@@ -258,6 +286,30 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
                 teamType="away"
               />
             </div>
+            
+            <div className="flex justify-between pt-4 border-t">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setActiveTab('details')}
+              >
+                ← Previous
+              </Button>
+              
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => setActiveTab('trackers')}
+                  variant="outline"
+                  disabled={!createdMatchId && !isEditMode}
+                >
+                  Next: Trackers →
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="trackers" className="space-y-4">
@@ -267,54 +319,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
               awayTeam={awayTeam}
               isEditMode={isEditMode}
             />
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex justify-between pt-4 border-t">
-          {(activeTab === 'teams' || activeTab === 'trackers') && (
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={() => {
-                if (activeTab === 'teams') setActiveTab('details');
-                if (activeTab === 'trackers') setActiveTab('teams');
-              }}
-            >
-              Previous
-            </Button>
-          )}
-          
-          {activeTab === 'details' && (
-            <Button 
-              type="button" 
-              onClick={() => setActiveTab('teams')}
-              className="ml-auto"
-            >
-              Next: Team Setup
-            </Button>
-          )}
-          
-          {activeTab === 'teams' && (
-            <div className="flex gap-2 ml-auto">
+            
+            <div className="flex justify-between pt-4 border-t">
               <Button 
                 type="button" 
-                onClick={() => setActiveTab('trackers')}
                 variant="outline"
+                onClick={() => setActiveTab('teams')}
               >
-                Next: Trackers
+                ← Previous
               </Button>
+              
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
+                {isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Match' : 'Save Match')}
               </Button>
             </div>
-          )}
-
-          {activeTab === 'trackers' && (
-            <Button type="submit" disabled={isSubmitting} className="ml-auto">
-              {isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
-            </Button>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </form>
     </div>
   );
