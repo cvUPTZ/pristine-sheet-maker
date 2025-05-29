@@ -114,19 +114,23 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     }
   };
 
-  // For tracker role, show only assigned tabs
   const getAvailableTabs = () => {
     if (userRole === 'tracker') {
-      return ['piano']; // Trackers only get piano input
+      return ['piano'];
     }
     return ['pitch', 'piano', 'statistics', 'timeline', 'analytics'];
   };
 
   const availableTabs = getAvailableTabs();
 
+  // Convert events to timeline format
+  const timelineEvents = events.map(event => ({
+    time: event.timestamp,
+    label: event.type,
+  }));
+
   return (
     <div className="space-y-4">
-      {/* Timer and Action Controls - Only for admin */}
       {userRole === 'admin' && (
         <Card>
           <CardHeader className="pb-2">
@@ -164,7 +168,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         </Card>
       )}
 
-      {/* Dedicated Tracker UI for tracker role */}
       {userRole === 'tracker' && assignedPlayerForMatch && (
         <DedicatedTrackerUI
           assignedPlayerForMatch={assignedPlayerForMatch}
@@ -174,7 +177,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         />
       )}
 
-      {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)` }}>
           {availableTabs.includes('pitch') && <TabsTrigger value="pitch">Pitch View</TabsTrigger>}
@@ -266,10 +268,7 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         {availableTabs.includes('timeline') && (
           <TabsContent value="timeline" className="space-y-4">
             <MatchEventsTimeline
-              events={events.map(event => ({
-                time: event.timestamp,
-                label: event.type,
-              }))}
+              events={timelineEvents}
             />
           </TabsContent>
         )}

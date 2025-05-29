@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -16,7 +17,6 @@ import useMatchData, {
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
 
-// Define detailed Player and Team types for local state
 interface AssignedPlayerForMatch {
   id: string | number;
   name: string;
@@ -43,34 +43,21 @@ const MatchAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
 
-  // Instantiate useMatchCollaboration hook
   const { sendEvent: sendCollaborationEvent } = useMatchCollaboration({
     matchId: matchId,
     userId: user?.id,
   });
 
-  // Fetching core match data using the custom hook
   const {
     match: matchDataFromHook,
     homeTeam: homeTeamHeaderDataFromHook,
     awayTeam: awayTeamHeaderDataFromHook,
     events: eventsFromHook,
     isLoading: isLoadingMatchData,
-    error: matchDataError,
-    refetchMatchData
+    error: matchDataError
   } = useMatchData(matchId);
 
-  // Local UI/Interaction States
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-
-  // PianoInput specific states
-  const [pianoSelectedEventType, setPianoSelectedEventType] = useState<EventType | null>(null);
-  const [pianoSelectedTeam, setPianoSelectedTeam] = useState<TeamType | null>(null);
-  const [pianoSelectedPlayer, setPianoSelectedPlayer] = useState<Player | null>(null);
-  const [isPassTrackingMode, setIsPassTrackingMode] = useState<boolean>(false);
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
-
-  // MainTabContent specific states
   const [activeTab, setActiveTab] = useState<string>('pitch');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<'home' | 'away'>('home');
@@ -78,13 +65,11 @@ const MatchAnalysis: React.FC = () => {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [playerStats, setPlayerStats] = useState<any>({});
 
-  // State for tracker assignments
   const [assignedPlayerForMatch, setAssignedPlayerForMatch] = useState<AssignedPlayerForMatch | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false);
 
-  // Local state for more detailed team compositions
   const [homeTeamFull, setHomeTeamFull] = useState<TeamType>({
     name: 'Home Team',
     formation: '4-3-3',
@@ -96,7 +81,6 @@ const MatchAnalysis: React.FC = () => {
     players: Array.from({ length: 11 }, (_, i) => ({ id: `A${i+1}`, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
   });
 
-  // Effect to synchronize local detailed team data
   useEffect(() => {
     if (homeTeamHeaderDataFromHook) {
       setHomeTeamFull(prev => ({
@@ -114,7 +98,6 @@ const MatchAnalysis: React.FC = () => {
     }
   }, [homeTeamHeaderDataFromHook, awayTeamHeaderDataFromHook]);
 
-  // Effect to fetch tracker assignments
   useEffect(() => {
     if (matchId && user?.id && userRole === 'tracker') {
       const fetchAssignments = async () => {
@@ -142,7 +125,7 @@ const MatchAnalysis: React.FC = () => {
           if (data) {
             const playerInfo: AssignedPlayerForMatch = {
               id: data.assigned_player_id || 'unknown-player',
-              name: data.assigned_player_id || 'Unknown Player',
+              name: String(data.assigned_player_id) || 'Unknown Player',
               teamId: 'home',
               teamName: homeTeamFull?.name || 'Home Team'
             };
@@ -163,20 +146,21 @@ const MatchAnalysis: React.FC = () => {
       setAssignedEventTypes([]);
       setIsLoadingAssignments(false);
     }
-  }, [matchId, user?.id, userRole, supabase, homeTeamFull?.name]);
+  }, [matchId, user?.id, userRole, homeTeamFull?.name]);
 
-  // Derived data for MainTabContent
   const timeSegments = useMemo((): TimeSegmentStatistics[] => {
     if (!eventsFromHook || eventsFromHook.length === 0) return [];
     
-    const segmentDuration = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const segmentDuration = 15 * 60 * 1000;
     const segments: TimeSegmentStatistics[] = [];
     
-    if (matchDataFromHook?.start_time) {
-        let segmentStart = new Date(matchDataFromHook.start_time).getTime();
+    if (matchDataFromHook?.created_at) {
+        let segmentStart = new Date(matchDataFromHook.created_at).getTime();
         let segmentEnd = segmentStart + segmentDuration;
         let currentSegment = 1;
-        while(segmentEnd < (new Date(matchDataFromHook.end_time || Date.now()).getTime() + segmentDuration)) {
+        const endTime = new Date().getTime();
+        
+        while(segmentEnd < endTime) {
              segments.push({
                 segment: `${currentSegment * 15} min`,
                 duration: segmentDuration / 1000,
@@ -188,108 +172,8 @@ const MatchAnalysis: React.FC = () => {
         }
     }
     return segments;
-  }, [eventsFromHook, matchDataFromHook?.start_time, matchDataFromHook?.end_time]);
+  }, [eventsFromHook, matchDataFromHook?.created_at]);
 
-  // UI Action Handlers
-  const handleToggleTracking = () => {
-    setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking');
-  };
-
-  const handleSave = () => {
-    console.log('MatchHeader Save button clicked. Data saving logic to be implemented here.');
-    toast.info('Save functionality is under development. Match data not yet saved.');
-  };
-
-  // PianoInput Handlers
-  const handlePianoEventAdd = (event: MatchEvent) => {
-    console.log('Piano Event Added, sending via useMatchCollaboration:', event);
-    
-    const { 
-      id, status, clientId, user_id, optimisticCreationTime,
-      matchId: eventMatchId,
-      ...restOfEvent 
-    } = event;
-
-    if (!matchId) {
-        console.error("Match ID is missing from URL, cannot record piano event via collaboration.");
-        toast.error("Error: Match ID is missing for piano event.");
-        return;
-    }
-    if (!user?.id && !restOfEvent.user_id) {
-        console.error("User ID is missing, cannot record piano event via collaboration.");
-        toast.error("Error: User ID is missing for piano event.");
-        return;
-    }
-
-    sendCollaborationEvent({
-      ...restOfEvent,
-      matchId: matchId,
-    });
-    toast.success(`Piano event ${event.type} recorded.`);
-  };
-  
-  const handlePianoEventTypeSelect = (eventType: EventType) => { setPianoSelectedEventType(eventType); };
-  const handlePianoTeamSelect = (team: TeamType) => { setPianoSelectedTeam(team); setPianoSelectedPlayer(null); };
-  const handlePianoPlayerSelect = (player: Player) => { setPianoSelectedPlayer(player); };
-
-  // MainTabContent Handlers
-  const handlePlayerSelectInAnalysis = (player: Player) => { setSelectedPlayer(player); };
-  const handleSetSelectedTeamInAnalysis = (teamId: 'home' | 'away') => { setSelectedTeamId(teamId); setSelectedPlayer(null); };
-  const handlePitchClickInAnalysis = (coordinates: { x: number; y: number }) => { console.log('Pitch clicked:', coordinates); };
-  const handleAddBallTrackingPointInAnalysis = (point: { x: number; y: number }) => { setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }]); };
-  const handleRecordEventInAnalysis = (
-    eventType: EventType, 
-    playerId: string,     
-    teamIdStr: 'home' | 'away', 
-    coordinates?: { x: number; y: number }
-  ) => {
-    if (!matchId) {
-      console.error("Match ID is missing, cannot record event.");
-      toast.error("Error: Match ID is missing.");
-      return;
-    }
-    if (!user?.id) {
-      console.error("User ID is missing, cannot record event.");
-      toast.error("Error: User ID is missing.");
-      return;
-    }
-    if (!homeTeamFull?.id || !awayTeamFull?.id) {
-      console.error("Team IDs are not loaded, cannot determine actual team ID for event.");
-      toast.error("Error: Team information incomplete.");
-      return;
-    }
-
-    const actualTeamId = teamIdStr === 'home' ? homeTeamFull.id : awayTeamFull.id;
-
-    const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
-      matchId: matchId,
-      teamId: actualTeamId || '', 
-      playerId: playerId, 
-      type: eventType,
-      timestamp: Date.now(), 
-      coordinates: coordinates || { x: 0, y: 0 }, 
-    };
-
-    console.log('Sending event via useMatchCollaboration:', eventData);
-    sendCollaborationEvent(eventData); 
-
-    toast.success(`Event ${eventType} recorded for player ${playerId}.`);
-  };
-  
-  const handleUndoInAnalysis = () => { console.log('Undo action triggered from MainTabContent'); };
-  const handleSaveInAnalysis = () => { console.log('Save action triggered from MainTabContent'); };
-  const handleSetStatisticsInAnalysis = (stats: Statistics) => { setStatistics(stats); };
-
-  // Memoized transformation of events for timeline
-  const timelineEvents = useMemo(() => {
-    if (!eventsFromHook || !Array.isArray(eventsFromHook)) return [];
-    return eventsFromHook.map(event => ({
-      time: event.timestamp,
-      label: event.event_type,
-    }));
-  }, [eventsFromHook]);
-
-  // Loading State
   if (isLoadingMatchData) {
     return (
       <div className="container mx-auto p-4 text-center flex justify-center items-center h-screen">
@@ -298,7 +182,6 @@ const MatchAnalysis: React.FC = () => {
     );
   }
 
-  // Error State or Missing Essential Data
   if (matchDataError || !matchDataFromHook || !homeTeamHeaderDataFromHook || !awayTeamHeaderDataFromHook) {
     let message = 'Match not found or there was an issue loading its data.';
     if (matchDataError) {
@@ -316,19 +199,15 @@ const MatchAnalysis: React.FC = () => {
         <p className="text-red-600 text-lg mb-4">{message}</p>
         <div className="flex gap-2">
           <Button onClick={() => navigate('/')} variant="outline">Go Home</Button>
-          {matchId && typeof refetchMatchData === 'function' && (
-            <Button onClick={() => refetchMatchData(matchId)}>Try Reloading Data</Button>
-          )}
         </div>
       </div>
     );
   }
 
-  // Successful Data Load: Render the main analysis UI
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <MatchHeader
-        matchName={matchDataFromHook.name}
+        matchName={matchDataFromHook.name || 'Unnamed Match'}
         matchStatus={matchDataFromHook.status}
         homeTeam={homeTeamHeaderDataFromHook}
         awayTeam={awayTeamHeaderDataFromHook}
@@ -353,7 +232,7 @@ const MatchAnalysis: React.FC = () => {
                 const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
                   matchId: matchId || '',
                   teamId: player.team_context === 'home' ? homeTeamFull.id || '' : awayTeamFull.id || '',
-                  playerId: player.id.toString(),
+                  playerId: String(player.id),
                   type: eventType.key as EventType,
                   timestamp: Date.now(),
                   coordinates: { x: 0, y: 0 },
@@ -392,7 +271,7 @@ const MatchAnalysis: React.FC = () => {
             handleUndo={() => console.log('Undo action triggered from MainTabContent')}
             handleSave={() => console.log('Save action triggered from MainTabContent')}
             timeSegments={timeSegments}
-            recordEvent={(eventType: EventType, playerId: string, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
+            recordEvent={(eventType: EventType, playerId: string | number, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
               if (!matchId || !user?.id) {
                 toast.error("Error: Missing match or user information.");
                 return;
@@ -401,7 +280,7 @@ const MatchAnalysis: React.FC = () => {
               const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
                 matchId: matchId,
                 teamId: actualTeamId || '',
-                playerId: playerId,
+                playerId: String(playerId),
                 type: eventType,
                 timestamp: Date.now(),
                 coordinates: coordinates || { x: 0, y: 0 },

@@ -71,7 +71,6 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Formation Selection */}
         <div className="space-y-2">
           <Label htmlFor={`formation-${teamType}`}>Formation</Label>
           <Select value={team.formation} onValueChange={handleFormationChange}>
@@ -88,7 +87,6 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
           </Select>
         </div>
 
-        {/* Players List */}
         <div className="space-y-2">
           <Label>Players ({team.players.length})</Label>
           <div className="max-h-64 overflow-y-auto space-y-2">
@@ -131,7 +129,6 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
           </div>
         </div>
 
-        {/* Add New Player */}
         <div className="flex gap-2">
           <Input
             placeholder="Add new player..."

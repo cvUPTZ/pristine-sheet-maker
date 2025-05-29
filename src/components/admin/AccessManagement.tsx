@@ -90,6 +90,7 @@ const AccessManagement: React.FC = () => {
 
       const typedUsers: UserProfile[] = (data || []).map(user => ({
         ...user,
+        email: user.email || '',
         role: (user.role || 'user') as UserRole,
         permissions: defaultPermissions[user.role as UserRole] || defaultPermissions.user
       }));
@@ -127,8 +128,6 @@ const AccessManagement: React.FC = () => {
 
   const updatePermissions = async (userId: string, newPermissions: RolePermissions) => {
     try {
-      // For now, we'll just update the local state
-      // In a real implementation, you'd store permissions in the database
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { ...user, permissions: newPermissions }
@@ -175,7 +174,6 @@ const AccessManagement: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Users List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -225,7 +223,6 @@ const AccessManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Permissions Panel */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

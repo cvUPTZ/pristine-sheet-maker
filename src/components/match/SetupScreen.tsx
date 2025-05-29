@@ -14,7 +14,7 @@ interface SetupScreenProps {
   awayTeam: Team | null;
   updateTeams: (home: Team, away: Team) => void;
   completeSetup: (home: Team, away: Team) => void;
-  matchId?: string; // Optional matchId for when loading existing match
+  matchId?: string;
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({
@@ -24,7 +24,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   completeSetup,
   matchId
 }) => {
-  // Create default empty teams to prevent null issues
   const safeHomeTeam = homeTeam || {
     id: 'home',
     name: 'Home Team',
@@ -39,12 +38,15 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     players: []
   };
 
-  const handleTeamsChange = (teams: { home: Team; away: Team }) => {
-    updateTeams(teams.home, teams.away);
+  const handleHomeTeamUpdate = (team: Team) => {
+    updateTeams(team, safeAwayTeam);
+  };
+
+  const handleAwayTeamUpdate = (team: Team) => {
+    updateTeams(safeHomeTeam, team);
   };
 
   const handleStartMatch = () => {
-    // Validation check before starting the match
     if (!safeHomeTeam.players?.length || !safeAwayTeam.players?.length) {
       toast.error("Each team must have at least one player.");
       return;
@@ -55,11 +57,9 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
     
-    // All validation passed
     completeSetup(safeHomeTeam, safeAwayTeam);
   };
   
-  // Function to create and use simulated teams for testing
   const loadSimulatedTeams = () => {
     const { homeTeam: simulatedHome, awayTeam: simulatedAway } = createSimulatedTeams();
     updateTeams(simulatedHome, simulatedAway);
@@ -83,19 +83,32 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
         
         <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <TeamSetupWithFormation 
-            teams={{ home: safeHomeTeam, away: safeAwayTeam }}
-            onTeamsChange={handleTeamsChange}
-            onConfirm={handleStartMatch}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+            <TeamSetupWithFormation 
+              team={safeHomeTeam}
+              onTeamUpdate={handleHomeTeamUpdate}
+              teamType="home"
+            />
+            <TeamSetupWithFormation 
+              team={safeAwayTeam}
+              onTeamUpdate={handleAwayTeamUpdate}
+              teamType="away"
+            />
+          </div>
           
-          <div className="px-6 pb-6 pt-0 flex justify-center">
+          <div className="px-6 pb-6 pt-0 flex justify-center gap-4">
             <Button 
               variant="outline" 
               onClick={loadSimulatedTeams}
               className="w-full md:w-auto"
             >
               Load Simulated Teams
+            </Button>
+            <Button 
+              onClick={handleStartMatch}
+              className="w-full md:w-auto"
+            >
+              Start Match
             </Button>
           </div>
         </Card>
