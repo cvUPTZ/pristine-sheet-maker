@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { generatePlayersForFormation } from '@/utils/formationUtils';
 import { 
   Calendar, 
   MapPin, 
@@ -29,6 +30,9 @@ import {
 import { Team, Player } from '@/types';
 import { MatchFormData, TrackerAssignment } from '@/types/matchForm';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
+// Button is already imported via lucide-react, but if a specific Button component from ui/button is needed, ensure it's aliased or imported directly.
+// For this task, assuming the existing Button or a new import from '@/components/ui/button' will be used.
+// import { Button } from '@/components/ui/button'; // Already imported, or ensure it's the correct one.
 
 const initialMatchFormState: MatchFormData = {
   name: '',
@@ -69,6 +73,26 @@ const CreateMatchForm: React.FC = () => {
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
+
+  const handleLoadBothTeamsPlayers = () => {
+    if (!homeTeam.formation || !awayTeam.formation) {
+      toast.error('Please select formations for both teams first.');
+      return;
+    }
+    if (!matchDetails.homeTeamName || !matchDetails.awayTeamName) {
+      toast.error('Please enter team names for both teams first.');
+      return;
+    }
+
+    // Use matchDetails.homeTeamName and matchDetails.awayTeamName as they are the source of truth for team names
+    const generatedHomePlayers = generatePlayersForFormation(homeTeam.formation, matchDetails.homeTeamName);
+    const generatedAwayPlayers = generatePlayersForFormation(awayTeam.formation, matchDetails.awayTeamName);
+
+    setHomeTeam(prev => ({ ...prev, players: generatedHomePlayers }));
+    setAwayTeam(prev => ({ ...prev, players: generatedAwayPlayers }));
+
+    toast.success('Player lists for both teams have been loaded/updated!');
+  };
 
   const eventTypes = [
     'goal', 'assist', 'yellow_card', 'red_card', 'substitution', 
@@ -459,6 +483,16 @@ const CreateMatchForm: React.FC = () => {
                   onTeamUpdate={handleAwayTeamUpdate}
                   teamType="away"
                 />
+              </div>
+
+              <div className="my-4 flex justify-center">
+                <Button
+                  type="button"
+                  onClick={handleLoadBothTeamsPlayers}
+                  disabled={!homeTeam.formation || !awayTeam.formation || !matchDetails.homeTeamName || !matchDetails.awayTeamName}
+                >
+                  Load/Reload Players for Both Teams
+                </Button>
               </div>
 
               <Card>
