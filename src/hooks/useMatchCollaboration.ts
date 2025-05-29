@@ -38,6 +38,7 @@ export const useMatchCollaboration = ({
       events: [],
       lastReceivedEvent: null,
       users: [],
+      collaborationError: null, // Add default error state for early return
     };
   }
 
@@ -54,6 +55,7 @@ export const useMatchCollaboration = ({
     onlineUsers,
     isOnline: realtimeIsOnline,
     pushEvent,
+    channelError, // Receive channelError
   } = useRealtime({ // This hook will only be called if matchId is valid due to the check above.
     channelName: `match:${matchId}`, // matchId is guaranteed to be valid here
     onEventReceived: (event) => {
@@ -175,5 +177,6 @@ export const useMatchCollaboration = ({
     events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
     users: onlineUsers,
+    collaborationError: channelError, // Return channelError as collaborationError
   };
 };
