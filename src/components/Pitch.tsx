@@ -98,8 +98,8 @@ const Pitch: React.FC<PitchProps> = ({
         const receiverTeamIdStr: 'home' | 'away' = homeTeam.players.some(p => p.id === player.id) ? 'home' : 
                                                  awayTeam.players.some(p => p.id === player.id) ? 'away' : passerTeamIdStr;
 
-        const passerCoords = teamPositions[Number(potentialPasser.id)] || { x: 0.5, y: 0.5 };
-        const receiverCoords = teamPositions[Number(player.id)] || { x: 0.5, y: 0.5 };
+        const passerCoords = teamPositions[potentialPasser.id] || { x: 0.5, y: 0.5 };
+        const receiverCoords = teamPositions[player.id] || { x: 0.5, y: 0.5 };
 
         if (onRecordPass) {
           onRecordPass(potentialPasser, player, passerTeamIdStr, receiverTeamIdStr, passerCoords, receiverCoords);
@@ -118,7 +118,7 @@ const Pitch: React.FC<PitchProps> = ({
     }
   };
   
-  const handleEventSelect = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates: { x: number; y: number }) => {
+  const handleEventSelect = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => {
     const now = Date.now();
     
     if (now - lastEventTime < 400 || processingEvent) {
@@ -135,7 +135,7 @@ const Pitch: React.FC<PitchProps> = ({
     
     // Find the player object for selection
     const allPlayers = [...homeTeam.players, ...awayTeam.players];
-    const player = allPlayers.find(p => p.id === playerId);
+    const player = allPlayers.find(p => p.id === Number(playerId));
     if (player) {
       onSelectPlayer(player);
     }
@@ -155,7 +155,7 @@ const Pitch: React.FC<PitchProps> = ({
       // Call the onEventRecord with correct parameters
       onEventRecord(eventType, playerId, teamId, coordinates);
       
-      if (['pass', 'shot', 'goal'].includes(eventType)) {
+      if (['pass', 'shot', 'goal'].includes(eventType) && coordinates) {
         onTrackBallMovement(coordinates);
       }
       

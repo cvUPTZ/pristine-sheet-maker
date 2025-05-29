@@ -19,7 +19,8 @@ export interface BallTrackingPoint {
   x: number;
   y: number;
   timestamp: number;
-  teamId?: 'home' | 'away';
+  teamId?: string;
+  playerId?: number;
 }
 
 export interface MatchEvent {
@@ -46,6 +47,22 @@ export interface TimelineEvent {
   coordinates?: { x: number; y: number };
 }
 
+export interface TimeSegmentStatistics {
+  segment: string;
+  home: {
+    possession: number;
+    shots: number;
+    passes: number;
+    fouls: number;
+  };
+  away: {
+    possession: number;
+    shots: number;
+    passes: number;
+    fouls: number;
+  };
+}
+
 export interface Statistics {
   home: {
     possession: number;
@@ -62,6 +79,14 @@ export interface Statistics {
       successful: number;
       attempted: number;
     };
+    duels?: {
+      won: number;
+      total: number;
+    };
+    crosses?: {
+      successful: number;
+      attempted: number;
+    };
   };
   away: {
     possession: number;
@@ -75,6 +100,14 @@ export interface Statistics {
     yellowCards: number;
     redCards: number;
     passes: {
+      successful: number;
+      attempted: number;
+    };
+    duels?: {
+      won: number;
+      total: number;
+    };
+    crosses?: {
       successful: number;
       attempted: number;
     };
@@ -120,6 +153,26 @@ export interface Statistics {
     home: number;
     away: number;
   };
+  duels?: {
+    home: {
+      won: number;
+      total: number;
+    };
+    away: {
+      won: number;
+      total: number;
+    };
+  };
+  crosses?: {
+    home: {
+      successful: number;
+      attempted: number;
+    };
+    away: {
+      successful: number;
+      attempted: number;
+    };
+  };
 }
 
 export interface Match {
@@ -156,14 +209,27 @@ export interface LiveMatch {
 }
 
 export interface PlayerNode {
-  id: string;
+  id: number;
   name: string;
   position: string;
   x?: number;
   y?: number;
-  fx?: number;
-  fy?: number;
+  fx?: number | null;
+  fy?: number | null;
   jersey_number?: number;
+  team?: 'home' | 'away';
+  count?: number;
+}
+
+export interface MatchFormData {
+  name: string;
+  description?: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeTeamPlayers?: Player[];
+  awayTeamPlayers?: Player[];
+  venue?: string;
+  competition?: string;
 }
 
 export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';

@@ -1,7 +1,7 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { Player, BallTrackingPoint, Team } from '@/types';
-import { PlayerNode } from '@/types/index';
+import { Player, BallTrackingPoint, Team, PlayerNode } from '@/types';
 
 interface BallFlowVisualizationProps {
   ballTrackingPoints: BallTrackingPoint[];
@@ -19,6 +19,11 @@ interface BallFlow {
   targetTeam: 'home' | 'away';
 }
 
+interface FlowPlayerNode extends PlayerNode {
+  team: 'home' | 'away';
+  count: number;
+}
+
 const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
   ballTrackingPoints,
   homeTeam,
@@ -28,17 +33,17 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   
-  const handleNodeDrag = (event: any, d: PlayerNode) => {
+  const handleNodeDrag = (event: any, d: FlowPlayerNode) => {
     d.fx = event.x;
     d.fy = event.y;
   };
 
-  const handleNodeDragEnd = (event: any, d: PlayerNode) => {
+  const handleNodeDragEnd = (event: any, d: FlowPlayerNode) => {
     d.fx = null;
     d.fy = null;
   };
 
-  const handleNodeDragStart = (event: any, d: PlayerNode) => {
+  const handleNodeDragStart = (event: any, d: FlowPlayerNode) => {
     d.fx = d.x;
     d.fy = d.y;
   };
@@ -50,7 +55,7 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
     svg.selectAll("*").remove(); // Clear previous visualization
     
     // Prepare data
-    const playerMap = new Map<number, PlayerNode>();
+    const playerMap = new Map<number, FlowPlayerNode>();
     
     // Add all players to the map
     homeTeam.players.forEach(player => {
@@ -167,7 +172,7 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
       .enter()
       .append('g')
       .attr('class', 'player-node')
-      .call(d3.drag<SVGGElement, PlayerNode>()
+      .call(d3.drag<SVGGElement, FlowPlayerNode>()
         .on('start', handleNodeDragStart)
         .on('drag', handleNodeDrag)
         .on('end', handleNodeDragEnd)
@@ -222,7 +227,7 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
       .append('text')
       .text(d => {
         const player = [...homeTeam.players, ...awayTeam.players].find(p => p.id === d.id);
-        return player ? player.number : '';
+        return player ? player.jersey_number : '';
       })
       .attr('text-anchor', 'middle')
       .attr('dy', '.3em')

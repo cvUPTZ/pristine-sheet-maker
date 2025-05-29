@@ -82,8 +82,8 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       id: event.id,
       matchId: event.match_id,
       type: event.event_type,
-      timestamp: event.timestamp,
-      playerId: event.player_id ? String(event.player_id) : '',
+      timestamp: event.timestamp || 0,
+      playerId: event.player_id ? Number(event.player_id) : 0,
       teamId: (event.team as 'home' | 'away') || 'home',
       coordinates: event.coordinates
     }));

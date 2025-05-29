@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,8 +13,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Team, Player, MatchFormData } from '@/types/index';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
 
-export type { MatchFormData };
-
 const createMatchSchema = z.object({
   name: z.string().min(1, 'Match name is required'),
   description: z.string().optional(),
@@ -23,13 +22,17 @@ const createMatchSchema = z.object({
     id: z.number(),
     name: z.string(),
     position: z.string(),
-    number: z.number()
+    number: z.number(),
+    jersey_number: z.number(),
+    player_name: z.string()
   })).optional(),
   awayTeamPlayers: z.array(z.object({
     id: z.number(),
     name: z.string(),
     position: z.string(),
-    number: z.number()
+    number: z.number(),
+    jersey_number: z.number(),
+    player_name: z.string()
   })).optional(),
   venue: z.string().optional(),
   competition: z.string().optional(),
@@ -52,15 +55,19 @@ const CreateMatchForm: React.FC = () => {
 
   const defaultPlayers: Player[] = Array.from({ length: 11 }, (_, i) => ({
     id: i + 1,
+    name: `Player ${i + 1}`,
     player_name: `Player ${i + 1}`,
     position: 'Forward',
+    number: i + 1,
     jersey_number: i + 1,
   }));
 
   const awayDefaultPlayers: Player[] = Array.from({ length: 11 }, (_, i) => ({
     id: i + 12,
+    name: `Player ${i + 12}`,
     player_name: `Player ${i + 12}`,
     position: 'Forward',
+    number: i + 1,
     jersey_number: i + 1,
   }));
 
