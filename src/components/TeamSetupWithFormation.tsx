@@ -23,6 +23,9 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
 }) => {
   const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
   const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerPosition, setNewPlayerPosition] = useState('Outfield');
+
+  const positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'Outfield'];
 
   const handleFormationChange = (formation: Formation) => {
     const newPlayers = generatePlayersForFormation(formation, team.name);
@@ -41,12 +44,19 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
     setEditingPlayer(null);
   };
 
+  const handlePlayerPositionChange = (playerId: string, newPosition: string) => {
+    const updatedPlayers = team.players.map(player =>
+      player.id === playerId ? { ...player, position: newPosition } : player
+    );
+    onTeamUpdate({ ...team, players: updatedPlayers });
+  };
+
   const addPlayer = () => {
     if (newPlayerName.trim()) {
       const newPlayer: Player = {
         id: `player-${Date.now()}`,
         name: newPlayerName.trim(),
-        position: 'Outfield',
+        position: newPlayerPosition,
         number: team.players.length + 1
       };
       onTeamUpdate({
@@ -54,6 +64,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
         players: [...team.players, newPlayer]
       });
       setNewPlayerName('');
+      setNewPlayerPosition('Outfield');
     }
   };
 
@@ -116,6 +127,21 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
                     {player.name}
                   </span>
                 )}
+                <Select 
+                  value={player.position} 
+                  onValueChange={(value) => handlePlayerPositionChange(player.id, value)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {positions.map((position) => (
+                      <SelectItem key={position} value={position}>
+                        {position}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -129,20 +155,34 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            placeholder="Add new player..."
-            value={newPlayerName}
-            onChange={(e) => setNewPlayerName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                addPlayer();
-              }
-            }}
-          />
-          <Button onClick={addPlayer} disabled={!newPlayerName.trim()}>
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add new player..."
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  addPlayer();
+                }
+              }}
+            />
+            <Select value={newPlayerPosition} onValueChange={setNewPlayerPosition}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {positions.map((position) => (
+                  <SelectItem key={position} value={position}>
+                    {position}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={addPlayer} disabled={!newPlayerName.trim()}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

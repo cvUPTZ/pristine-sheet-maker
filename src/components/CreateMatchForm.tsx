@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -87,13 +86,19 @@ const CreateMatchForm: React.FC = () => {
 
   const fetchTrackers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('role', 'tracker');
+      // Use the get_trackers_with_email function to get trackers with their emails
+      const { data, error } = await supabase.rpc('get_trackers_with_email');
 
       if (error) throw error;
-      setTrackers(data || []);
+      
+      // Transform the data to match our TrackerProfile interface
+      const transformedData: TrackerProfile[] = (data || []).map((tracker: any) => ({
+        id: tracker.id,
+        full_name: tracker.full_name,
+        email: tracker.email || 'No email'
+      }));
+      
+      setTrackers(transformedData);
     } catch (error: any) {
       console.error('Error fetching trackers:', error);
       toast.error('Failed to load trackers');
@@ -221,27 +226,31 @@ const CreateMatchForm: React.FC = () => {
         throw matchError;
       }
 
-      // Create tracker assignments
+      // Create tracker assignments - only create if both event types and players are assigned
       for (const assignment of trackerAssignments) {
-        if (assignment.eventTypes.length > 0 || assignment.playerIds.length > 0) {
-          const { error: assignmentError } = await supabase
-            .from('match_tracker_assignments')
-            .insert({
-              match_id: matchData.id,
-              tracker_user_id: assignment.trackerId,
-              assigned_event_types: assignment.eventTypes,
-              assigned_player_ids: assignment.playerIds,
-            });
+        if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
+          // Create separate assignments for each player
+          for (const playerId of assignment.playerIds) {
+            const { error: assignmentError } = await supabase
+              .from('match_tracker_assignments')
+              .insert({
+                match_id: matchData.id,
+                tracker_user_id: assignment.trackerId,
+                assigned_event_types: assignment.eventTypes,
+                player_id: parseInt(playerId), // Convert string to number
+                player_team_id: homeTeam.players.find(p => p.id === playerId) ? 'home' : 'away'
+              });
 
-          if (assignmentError) {
-            console.error('Error creating tracker assignment:', assignmentError);
+            if (assignmentError) {
+              console.error('Error creating tracker assignment:', assignmentError);
+            }
           }
         }
       }
 
       // Send notifications to assigned trackers
       for (const assignment of trackerAssignments) {
-        if (assignment.eventTypes.length > 0 || assignment.playerIds.length > 0) {
+        if (assignment.eventTypes.length > 0 && assignment.playerIds.length > 0) {
           const { error: notificationError } = await supabase
             .from('match_notifications')
             .insert({
@@ -511,7 +520,7 @@ const CreateMatchForm: React.FC = () => {
                                       htmlFor={`${tracker.id}-player-${player.id}`}
                                       className="text-sm"
                                     >
-                                      {player.name} (#{player.number})
+                                      {player.name} (#{player.number}) - {player.position}
                                     </Label>
                                   </div>
                                 ))}
