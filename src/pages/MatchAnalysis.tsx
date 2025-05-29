@@ -42,10 +42,22 @@ const MatchAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
 
-  const { sendEvent: sendCollaborationEvent } = useMatchCollaboration({
-    matchId: matchId,
-    userId: user?.id,
-  });
+  const DISABLE_COLLABORATION_FEATURE = true; // Set to true to disable
+
+  let sendCollaborationEvent = (...args: any[]) => { 
+    console.warn('Collaboration feature is disabled. sendEvent called but did nothing.', args); 
+  };
+
+  if (!DISABLE_COLLABORATION_FEATURE) {
+    const collaborationHookResult = useMatchCollaboration({ // Hook is called conditionally
+      matchId: matchId,
+      userId: user?.id,
+    });
+    sendCollaborationEvent = collaborationHookResult.sendEvent;
+  } else {
+    // Log that the feature is disabled if you want to see it in console
+    console.log('[MatchAnalysis] Real-time collaboration feature is currently disabled for testing.');
+  }
 
   const {
     match: matchDataFromHook,
