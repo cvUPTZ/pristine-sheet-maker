@@ -1,7 +1,7 @@
-
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { Player, BallTrackingPoint, Team } from '@/types';
+import { PlayerNode } from '@/types/index';
 
 interface BallFlowVisualizationProps {
   ballTrackingPoints: BallTrackingPoint[];
@@ -9,13 +9,6 @@ interface BallFlowVisualizationProps {
   awayTeam: Team;
   width?: number;
   height?: number;
-}
-
-interface PlayerNode {
-  id: number;
-  name: string;
-  team: 'home' | 'away';
-  count: number;
 }
 
 interface BallFlow {
@@ -35,6 +28,21 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   
+  const handleNodeDrag = (event: any, d: PlayerNode) => {
+    d.fx = event.x;
+    d.fy = event.y;
+  };
+
+  const handleNodeDragEnd = (event: any, d: PlayerNode) => {
+    d.fx = null;
+    d.fy = null;
+  };
+
+  const handleNodeDragStart = (event: any, d: PlayerNode) => {
+    d.fx = d.x;
+    d.fy = d.y;
+  };
+
   useEffect(() => {
     if (!svgRef.current || ballTrackingPoints.length < 2) return;
     
@@ -160,20 +168,9 @@ const BallFlowVisualization: React.FC<BallFlowVisualizationProps> = ({
       .append('g')
       .attr('class', 'player-node')
       .call(d3.drag<SVGGElement, PlayerNode>()
-        .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
-          d.fx = d.x;
-          d.fy = d.y;
-        })
-        .on('drag', (event, d) => {
-          d.fx = event.x;
-          d.fy = event.y;
-        })
-        .on('end', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
-        })
+        .on('start', handleNodeDragStart)
+        .on('drag', handleNodeDrag)
+        .on('end', handleNodeDragEnd)
       );
     
     // Add colored circles for each team

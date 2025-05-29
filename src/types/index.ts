@@ -1,212 +1,124 @@
 
-export interface Statistics {
-  home: TeamStats;
-  away: TeamStats;
-  possession: {
-    home: number;
-    away: number;
-  };
-  shots: {
-    home: {
-      onTarget: number;
-      offTarget: number;
-    };
-    away: {
-      onTarget: number;
-      offTarget: number;
-    };
-  };
-  passes: {
-    home: {
-      successful: number;
-      attempted: number;
-    };
-    away: {
-      successful: number;
-      attempted: number;
-    };
-  };
-  ballsPlayed: {
-    home: number;
-    away: number;
-  };
-  ballsLost: {
-    home: number;
-    away: number;
-  };
-  duels: {
-    home: {
-      won: number;
-      lost: number;
-      aerial: number;
-    };
-    away: {
-      won: number;
-      lost: number;
-      aerial: number;
-    };
-  };
-  cards: {
-    home: {
-      yellow: number;
-      red: number;
-    };
-    away: {
-      yellow: number;
-      red: number;
-    };
-  };
-  crosses: {
-    home: {
-      total: number;
-      successful: number;
-    };
-    away: {
-      total: number;
-      successful: number;
-    };
-  };
-  dribbles: {
-    home: {
-      successful: number;
-      attempted: number;
-    };
-    away: {
-      successful: number;
-      attempted: number;
-    };
-  };
-  corners: {
-    home: number;
-    away: number;
-  };
-  offsides: {
-    home: number;
-    away: number;
-  };
-  freeKicks: {
-    home: number;
-    away: number;
-  };
-}
-
-export interface TeamStats {
-  passes: number;
-  shots: number;
-  tackles: number;
-  fouls: number;
-  possession: number;
-}
-
-export interface TimeSegmentStatistics {
-  startTime: number;
-  endTime: number;
-  timeSegment: string;
-  events?: MatchEvent[];
-}
-
 export interface Player {
   id: number;
   name: string;
-  number?: number;
   position: string;
-  [key: string]: any;
+  number: number;
+  jersey_number: number;
+  player_name: string;
 }
 
 export interface Team {
-  id: string;
   name: string;
-  players: Player[];
   formation: string;
-}
-
-export interface Match {
-  id: string;
-  name?: string;
-  description?: string;
-  home_team_name: string;
-  away_team_name: string;
-  home_team_formation?: string;
-  away_team_formation?: string;
-  status: string;
-  match_date: string;
-  created_at: string;
-  home_team_players?: Player[];
-  away_team_players?: Player[];
-}
-
-export interface SavedMatch extends Match {
-  date: string;
-  homeTeam: Team;
-  awayTeam: Team;
-  events: MatchEvent[];
-  ballTrackingPoints: BallTrackingPoint[];
-  timeSegments: TimeSegmentStatistics[];
-  statistics: Statistics;
-  matchId?: string;
-}
-
-export interface MatchEvent {
-  id: string;
-  type: EventType;
-  timestamp: number;
-  playerId: number;
-  teamId: 'home' | 'away';
-  coordinates: { x: number; y: number };
-  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
-  clientId?: string;
-  optimisticCreationTime?: number;
-  user_id?: string;
-  matchId?: string;
+  players: Player[];
 }
 
 export interface BallTrackingPoint {
   x: number;
   y: number;
   timestamp: number;
-  teamId?: 'home' | 'away';
-  playerId?: number;
 }
 
-export interface PlayerStatistics {
-  playerId: number;
-  playerName: string;
-  team: 'home' | 'away';
-  goals?: number;
-  assists?: number;
-  passes?: number;
-  shots?: number;
-  fouls?: number;
-  player?: {
-    number?: number;
+export interface MatchEvent {
+  id: string;
+  matchId: string;
+  type: string;
+  timestamp: number;
+  playerId: string | number;
+  teamId: 'home' | 'away';
+  coordinates?: { x: number; y: number };
+  status?: string;
+  user_id?: string;
+  clientId?: string;
+  optimisticCreationTime?: number;
+}
+
+export interface TimelineEvent {
+  id: string;
+  matchId: string;
+  type: string;
+  timestamp: number;
+  playerId: string | number;
+  teamId: 'home' | 'away';
+  coordinates?: { x: number; y: number };
+}
+
+export interface Statistics {
+  home: {
+    possession: number;
+    shots: number;
+    shotsOnTarget: number;
+    corners: number;
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
   };
+  away: {
+    possession: number;
+    shots: number;
+    shotsOnTarget: number;
+    corners: number;
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+  };
+  possession: number;
+  shots: number;
+  shotsOnTarget: number;
+  corners: number;
+  fouls: number;
+  yellowCards: number;
+  redCards: number;
+  passes: number;
+  saves: number;
+  goals: number;
+  substitutions: number;
+  offsides: number;
 }
 
-export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3' | 'Unknown';
-
-export interface FormationPositions {
-  [key: string]: { x: number; y: number };
-}
-
-export type EventType = 
-  | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'
-  | 'assist' | 'yellowCard' | 'redCard' | 'substitution' | 'card'
-  | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'interception'
-  | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'cross'
-  | 'clearance' | 'block' | 'save' | 'ownGoal' | 'freeKick' | 'throwIn'
-  | 'goalKick' | 'aerialDuel' | 'groundDuel';
-
-export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
-
-// Export form data interface
-export interface MatchFormData {
-  name: string;
+export interface Match {
+  id: string;
+  name?: string;
+  description?: string;
   homeTeamName: string;
   awayTeamName: string;
-  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
-  matchType: string;
-  description: string;
-  homeTeamScore: string;
-  awayTeamScore: string;
-  notes: string;
+  homeTeamPlayers: Player[];
+  awayTeamPlayers: Player[];
+  homeTeamFormation?: string;
+  awayTeamFormation?: string;
+  status: string;
+  matchDate?: string;
+  statistics?: Statistics;
+  ballTrackingData?: BallTrackingPoint[];
+  home_team_name: string;
+  away_team_name: string;
+  home_team_players: Player[];
+  away_team_players: Player[];
+  home_team_formation?: string;
+  away_team_formation?: string;
+  match_date?: string;
+  match_statistics?: Statistics;
+  ball_tracking_data?: BallTrackingPoint[];
 }
+
+export interface LiveMatch {
+  id: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string;
+}
+
+export interface PlayerNode {
+  id: string;
+  name: string;
+  position: string;
+  x?: number;
+  y?: number;
+  fx?: number;
+  fy?: number;
+  jersey_number?: number;
+}
+
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';

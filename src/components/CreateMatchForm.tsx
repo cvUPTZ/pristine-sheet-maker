@@ -18,6 +18,8 @@ interface CreateMatchFormProps {
   initialData?: any;
 }
 
+export { MatchFormData } from '@/types/matchForm';
+
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ 
   onMatchCreated, 
   onSuccess,

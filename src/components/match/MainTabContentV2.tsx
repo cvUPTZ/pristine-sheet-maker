@@ -1,200 +1,234 @@
-import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RolePermissions } from '@/hooks/useUserPermissions'; // Adjust path if needed
-import PitchView from '@/components/match/PitchView'; // Import PitchView
-import { Player, EventType as GlobalEventType, MatchEvent as GlobalMatchEvent } from '@/types'; // Import necessary types
-import StatisticsTabPlaceholder from './StatisticsTabPlaceholder'; // Import placeholder
-import TimelineTabPlaceholder from './TimelineTabPlaceholder';   // Import placeholder
-import AnalyticsTabPlaceholder from './AnalyticsTabPlaceholder'; // Import placeholder
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { FootballPitch } from '@/components/FootballPitch';
+import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
+import { PianoInput } from '@/components/match/PianoInput';
+import { EventType } from '@/types/matchForm';
+import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
+import { MatchEvent } from '@/types/index';
 
-// Placeholder Types (Ideally, import from actual locations like @/types, @/hooks/useMatchData, etc.)
-// TeamPlayer is now Player from @/types
-// interface TeamPlayer { 
-//   id: number;
-//   name: string;
-//   position: string;
-//   number: number;
-// }
-
-interface TeamType { // Keep this local or import if defined globally with Player type
-  id: string;
-  name: string;
-  formation: string;
-  players: Player[]; // Use imported Player type
-}
-
-interface HookMatchEvent { // Assuming this is the event type from useMatchData
-  id: string;
-  match_id: string;
-  timestamp: number;
-  event_type: string;
-  // Add other fields as per actual HookMatchEvent type
-  // For example, if it contains player_id, team_id, coordinates:
-  player_id?: number | null;
-  team_id?: 'home' | 'away' | string | null;
-  coordinates?: { x: number; y: number } | null;
-}
-
-interface Statistics {
-  // Define structure of Statistics object
-  totalShots: number;
-  possession: Record<string, number>;
-  // Add other stats fields
-}
-
-interface TimeSegmentStatistics {
-  startTime: number;
-  endTime: number;
-  timeSegment: string;
-  events: HookMatchEvent[]; // Or specific event type for segments
-}
-
-// MatchEvent for sendCollaborationEvent is now GlobalMatchEvent from @/types
-// interface MatchEvent { // For sendCollaborationEvent
-//   matchId: string;
-//   teamId: 'home' | 'away' | string; 
-//   playerId: number;
-//   type: string; // GlobalEventType
-//   timestamp: number;
-//   coordinates?: { x: number; y: number };
-// }
-
-
-// --- Component Props ---
 interface MainTabContentV2Props {
-  matchId: string; // Retained from original
-  permissions: RolePermissions; // Retained
-  homeTeam: TeamType; // Retained (uses updated TeamType with Player)
-  awayTeam: TeamType; // Retained (uses updated TeamType with Player)
-  events: HookMatchEvent[]; // Retained
-  statistics: Statistics | null; // Retained
-  setStatistics: (stats: Statistics) => void; // Retained
-  playerStats: any; // Retained (define more specific type if available)
-  timeSegments: TimeSegmentStatistics[]; // Retained
-  sendCollaborationEvent: (eventData: Omit<GlobalMatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'>) => void; // Updated to use GlobalMatchEvent
-
-  // Props for PitchView integration
-  selectedPlayer: Player | null;
-  selectedTeamId: 'home' | 'away';
-  setSelectedTeamId: (teamId: 'home' | 'away') => void;
-  handlePlayerSelect: (player: Player) => void;
-  ballTrackingPoints: Array<{ x: number; y: number; timestamp: number }>;
-  handlePitchClick: (coordinates: { x: number; y: number }) => void;
-  addBallTrackingPoint: (point: { x: number; y: number }) => void;
-  recordEventForPitchView: (eventType: GlobalEventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
+  homeTeam: { name: string; formation: string; players: any[] };
+  awayTeam: { name: string; formation: string; players: any[] };
+  onEventRecord: (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => void;
+  assignedEventTypes: EventType[] | null;
+  assignedPlayers: AssignedPlayers | null;
+  fullMatchRoster: AssignedPlayers | null;
 }
 
-const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
-  matchId,
-  permissions,
+const MainTabContentV2: React.FC<MainTabContentV2Props> = ({ 
   homeTeam,
   awayTeam,
-  events,
-  statistics,
-  setStatistics,
-  playerStats,
-  timeSegments,
-  sendCollaborationEvent, // This prop might be for PianoInput or other direct event recording
-  
-  // PitchView specific props
-  selectedPlayer,
-  selectedTeamId,
-  setSelectedTeamId,
-  handlePlayerSelect,
-  ballTrackingPoints,
-  handlePitchClick,
-  addBallTrackingPoint,
-  recordEventForPitchView, // This is the specific recorder for PitchView
+  onEventRecord,
+  assignedEventTypes,
+  assignedPlayers,
+  fullMatchRoster,
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('');
+  const { matchId } = useParams<{ matchId: string }>();
+  const { toast } = useToast();
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<MatchEvent | null>(null);
 
-  const availableTabs = React.useMemo(() => [
-    { key: 'pitch', label: 'Pitch View', hasPermission: permissions.pitchView },
-    { key: 'stats', label: 'Statistics', hasPermission: permissions.statistics },
-    { key: 'timeline', label: 'Timeline', hasPermission: permissions.timeline },
-    { key: 'analytics', label: 'Analytics', hasPermission: permissions.analytics },
-  ].filter(tab => tab.hasPermission), [permissions]);
+  const fetchEvents = useCallback(async () => {
+    if (!matchId) {
+      console.warn("Match ID is missing.");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('timestamp', { ascending: true });
+
+      if (error) {
+        console.error("Error fetching match events:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load match events.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        const matchEvents = convertToMatchEvents(data);
+        setEvents(matchEvents);
+      }
+    } catch (error: any) {
+      console.error("Unexpected error fetching match events:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "Failed to load match events due to an unexpected error.",
+        variant: "destructive",
+      });
+    }
+  }, [matchId, toast]);
 
   useEffect(() => {
-    if (availableTabs.length > 0) {
-      // Check if current activeTab is still valid, otherwise set to the first available
-      const currentTabIsValid = availableTabs.some(tab => tab.key === activeTab);
-      if (!currentTabIsValid) {
-        setActiveTab(availableTabs[0].key);
-      } else if (activeTab === '' && availableTabs.length > 0) { 
-        // Handles initial load if activeTab is empty string but tabs are available
-        setActiveTab(availableTabs[0].key);
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // Convert database events to MatchEvent format
+  const convertToMatchEvents = (dbEvents: any[]): MatchEvent[] => {
+    return dbEvents.map(event => ({
+      id: event.id,
+      matchId: event.match_id,
+      type: event.event_type,
+      timestamp: event.timestamp,
+      playerId: event.player_id || '',
+      teamId: (event.team as 'home' | 'away') || 'home',
+      coordinates: event.coordinates
+    }));
+  };
+
+  const handleEventSelect = (event: MatchEvent) => {
+    setSelectedEvent(event);
+  };
+
+  const handleEventUpdate = async (updatedEvent: MatchEvent) => {
+    try {
+      const { error } = await supabase
+        .from('match_events')
+        .update({
+          event_type: updatedEvent.type,
+          timestamp: updatedEvent.timestamp,
+          player_id: updatedEvent.playerId,
+          team: updatedEvent.teamId,
+          coordinates: updatedEvent.coordinates,
+        })
+        .eq('id', updatedEvent.id);
+
+      if (error) {
+        console.error("Error updating match event:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update match event.",
+          variant: "destructive",
+        });
+        return;
       }
-    } else {
-      setActiveTab(''); // No tabs available
+
+      // Optimistically update the state
+      setEvents(prevEvents =>
+        prevEvents.map(event => (event.id === updatedEvent.id ? updatedEvent : event))
+      );
+      setSelectedEvent(updatedEvent);
+
+      toast({
+        title: "Success",
+        description: "Match event updated successfully.",
+      });
+    } catch (error: any) {
+      console.error("Unexpected error updating match event:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "Failed to update match event due to an unexpected error.",
+        variant: "destructive",
+      });
     }
-  }, [availableTabs, activeTab]); // Rerun when availableTabs change or activeTab changes (e.g. due to external influence if any)
+  };
 
+  const handleEventDelete = async (eventId: string) => {
+    try {
+      const { error } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('id', eventId);
 
-  if (availableTabs.length === 0) {
-    return <p className="p-4 text-center text-muted-foreground">No match analysis views are available based on your current permissions.</p>;
-  }
-  
-  // Ensure activeTab has a valid default if it's somehow still empty after useEffect
-  // This is a fallback, useEffect should handle it.
-  const currentActiveTab = activeTab || (availableTabs.length > 0 ? availableTabs[0].key : '');
+      if (error) {
+        console.error("Error deleting match event:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete match event.",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      // Optimistically update the state
+      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+      setSelectedEvent(null);
+
+      toast({
+        title: "Success",
+        description: "Match event deleted successfully.",
+      });
+    } catch (error: any) {
+      console.error("Unexpected error deleting match event:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "Failed to delete match event due to an unexpected error.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <Tabs value={currentActiveTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableTabs.length > 0 ? availableTabs.length : 1}, 1fr)` }}>
-        {availableTabs.map(tab => (
-          <TabsTrigger key={tab.key} value={tab.key}>
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+      <div className="space-y-6">
+        <Card className="shadow-lg">
+          <CardContent className="p-4">
+            <PianoInput
+              fullMatchRoster={fullMatchRoster}
+              assignedEventTypes={assignedEventTypes}
+              assignedPlayers={assignedPlayers}
+              onEventRecord={onEventRecord}
+            />
+          </CardContent>
+        </Card>
 
-      {permissions.pitchView && (
-        <TabsContent value="pitch" className="mt-4 p-1">
-          <PitchView
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeamId}
-            setSelectedTeam={setSelectedTeamId}
-            handlePlayerSelect={handlePlayerSelect}
-            ballTrackingPoints={ballTrackingPoints || []} // Ensure it's an array
-            handlePitchClick={handlePitchClick}
-            addBallTrackingPoint={addBallTrackingPoint}
-            recordEvent={recordEventForPitchView}
-            events={events.map(e => ({ // Map HookMatchEvent to PitchViewEvent (if types differ)
-                id: e.id,
-                match_id: e.match_id,
-                timestamp: e.timestamp,
-                event_type: e.event_type,
-                player_id: e.player_id,
-                team: e.team_id, // Ensure 'team' is the correct prop name in PitchViewEvent
-                coordinates: e.coordinates,
-                // Map other necessary fields if PitchViewEvent expects more or different structure
-            }))}
-            permissions={permissions} // Pass permissions for ball tracking toggle
-          />
-        </TabsContent>
-      )}
-      {permissions.statistics && (
-        <TabsContent value="stats" className="mt-4 p-1">
-          <StatisticsTabPlaceholder />
-          {/* Example if passing props: <StatisticsTabPlaceholder statisticsData={statistics} /> */}
-        </TabsContent>
-      )}
-      {permissions.timeline && (
-        <TabsContent value="timeline" className="mt-4 p-1">
-          <TimelineTabPlaceholder />
-          {/* Example if passing props: <TimelineTabPlaceholder events={events} /> */}
-        </TabsContent>
-      )}
-      {permissions.analytics && (
-        <TabsContent value="analytics" className="mt-4 p-1">
-          <AnalyticsTabPlaceholder />
-        </TabsContent>
-      )}
-    </Tabs>
+        <Card className="shadow-lg">
+          <CardContent className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Match Details</h3>
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm text-gray-600">Home Team:</div>
+              <div className="font-medium">{homeTeam.name}</div>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm text-gray-600">Away Team:</div>
+              <div className="font-medium">{awayTeam.name}</div>
+            </div>
+            <Separator />
+            <div className="mt-4">
+              <Badge variant="outline">
+                Events Recorded: {events.length}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="space-y-6">
+        <Card className="shadow-lg">
+          <CardContent className="p-4">
+            <FootballPitch
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              ballTrackingPoints={[]}
+              onPitchClick={() => { }}
+              selectedPlayer={null}
+              selectedTeam="home"
+              onPlayerSelect={() => { }}
+              events={events}
+            />
+          </CardContent>
+        </Card>
+        
+        <MatchEventsTimeline 
+          events={events}
+          onEventSelect={handleEventSelect}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+        />
+      </div>
+    </div>
   );
 };
 

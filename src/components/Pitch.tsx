@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Team, Player, EventType, BallTrackingPoint } from '@/types';
 import PitchView from './match/PitchView';
@@ -25,6 +24,7 @@ interface PitchProps {
   setPotentialPasser?: (player: Player | null) => void; 
   onRecordPass?: (passer: Player, receiver: Player, passerTeamIdStr: 'home' | 'away', receiverTeamIdStr: 'home' | 'away', passerCoords: {x: number, y: number}, receiverCoords: {x: number, y: number}) => void;
   ballTrackingPoints: BallTrackingPoint[];
+  onEventRecord: (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
 }
 
 const Pitch: React.FC<PitchProps> = ({
@@ -43,7 +43,8 @@ const Pitch: React.FC<PitchProps> = ({
   potentialPasser = null,
   setPotentialPasser = () => {},
   onRecordPass,
-  ballTrackingPoints
+  ballTrackingPoints,
+  onEventRecord
 }) => {
   const { toast } = useToast();
   const [lastEventTime, setLastEventTime] = useState(0);

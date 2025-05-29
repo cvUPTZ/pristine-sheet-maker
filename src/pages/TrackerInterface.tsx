@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,16 +59,21 @@ const TrackerInterface: React.FC = () => {
       const { data, error } = await supabase
         .from('matches')
         .select('id, home_team_name, away_team_name, status, match_date')
-        .eq('status', 'live')
-        .order('match_date', { ascending: true });
+        .eq('status', 'live');
 
-      if (error) {
-        console.error('Error fetching live matches:', error);
-        toast.error('Failed to fetch live matches');
-      } else {
-        setLiveMatches(data || []);
-      }
-    } catch (error) {
+      if (error) throw error;
+
+      // Convert to LiveMatch format
+      const liveMatchesData: LiveMatch[] = (data || []).map(match => ({
+        id: match.id,
+        home_team_name: match.home_team_name,
+        away_team_name: match.away_team_name,
+        status: match.status,
+        match_date: match.match_date || new Date().toISOString()
+      }));
+
+      setLiveMatches(liveMatchesData);
+    } catch (error: any) {
       console.error('Error fetching live matches:', error);
       toast.error('Failed to fetch live matches');
     } finally {
