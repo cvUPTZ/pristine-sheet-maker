@@ -67,9 +67,9 @@ const useMatchData = (matchId: string | undefined) => {
     setAwayTeam(null);
     setEvents([]);
 
+    console.log('[useMatchData] Attempting to fetch data for matchId:', matchId); // Added logging
+
     try {
-      console.log('Fetching match data for ID:', matchId);
-      
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .select('*')
@@ -85,21 +85,25 @@ const useMatchData = (matchId: string | undefined) => {
         throw new Error('Match not found.');
       }
 
-      console.log('Match data fetched successfully:', matchData);
+      console.log('[useMatchData] Successfully fetched matchData:', matchData); // Added logging
 
       setMatch(matchData as MatchDataInHook);
 
       const homeFormation = (matchData.home_team_formation || '4-4-2') as Formation;
       const awayFormation = (matchData.away_team_formation || '4-3-3') as Formation;
 
-      setHomeTeam({
+      const homeTeamData = { // Added for logging
         name: matchData.home_team_name || 'Home Team Default',
         formation: homeFormation,
-      });
-      setAwayTeam({
+      };
+      const awayTeamData = { // Added for logging
         name: matchData.away_team_name || 'Away Team Default',
         formation: awayFormation,
-      });
+      };
+      console.log('[useMatchData] Constructed homeTeamData:', homeTeamData); // Added logging
+      console.log('[useMatchData] Constructed awayTeamData:', awayTeamData); // Added logging
+      setHomeTeam(homeTeamData);
+      setAwayTeam(awayTeamData);
 
       console.log('Fetching match events for match ID:', matchId);
 
@@ -134,7 +138,7 @@ const useMatchData = (matchId: string | undefined) => {
       }
 
     } catch (err: any) {
-      console.error('Full error in useMatchData:', err);
+      console.error('[useMatchData] Error during fetch:', err); // Added logging
       setError(err.message || 'An unexpected error occurred while loading match data.');
       setMatch(null);
       setHomeTeam(null);
