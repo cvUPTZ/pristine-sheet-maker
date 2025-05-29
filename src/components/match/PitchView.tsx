@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import FootballPitch from '@/components/FootballPitch';
 import { Team, Player, MatchEvent, EventType } from '@/types';
+import { RolePermissions } from '@/hooks/useUserPermissions'; // Import RolePermissions
 
 interface PitchViewProps {
   homeTeam: Team;
@@ -20,6 +21,7 @@ interface PitchViewProps {
   addBallTrackingPoint: (point: { x: number; y: number }) => void;
   recordEvent: (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => void;
   events: MatchEvent[];
+  permissions?: RolePermissions; // Add optional permissions prop
 }
 
 const PitchView: React.FC<PitchViewProps> = ({
@@ -34,6 +36,7 @@ const PitchView: React.FC<PitchViewProps> = ({
   addBallTrackingPoint,
   recordEvent,
   events,
+  permissions, // Destructure permissions
 }) => {
   const [selectedEventType, setSelectedEventType] = useState<EventType>('pass');
   const [isTracking, setIsTracking] = useState(false);
@@ -101,31 +104,34 @@ const PitchView: React.FC<PitchViewProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Ball Tracking</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <Button
-              variant={isTracking ? 'destructive' : 'default'}
-              size="sm"
-              onClick={() => setIsTracking(!isTracking)}
-              className="w-full"
-            >
-              {isTracking ? (
-                <>
-                  <Pause className="w-4 h-4 mr-2" />
-                  Stop Tracking
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Tracking
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Conditionally render Ball Tracking Card */}
+        {(!permissions || permissions.ballTracking) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Ball Tracking</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <Button
+                variant={isTracking ? 'destructive' : 'default'}
+                size="sm"
+                onClick={() => setIsTracking(!isTracking)}
+                className="w-full"
+              >
+                {isTracking ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Stop Tracking
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Tracking
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Selected Player Info */}
