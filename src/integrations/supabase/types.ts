@@ -635,6 +635,10 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: string
       }
+      get_user_role_from_auth: {
+        Args: { user_id_param: string }
+        Returns: string
+      }
       get_user_roles: {
         Args: { _user_id?: string }
         Returns: {

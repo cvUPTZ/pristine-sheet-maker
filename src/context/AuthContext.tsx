@@ -50,8 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        // Use the security definer function to avoid RLS infinite recursion
-        const { data, error } = await supabase.rpc('get_user_role', {
+        // Use the new security definer function to get role from auth metadata
+        const { data, error } = await supabase.rpc('get_user_role_from_auth', {
           user_id_param: user.id
         });
 

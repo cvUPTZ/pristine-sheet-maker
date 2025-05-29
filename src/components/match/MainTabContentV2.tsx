@@ -1,48 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/components/ui/use-toast';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import FootballPitch from '@/components/FootballPitch';
-import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
-import { PianoInput } from '@/components/match/PianoInput';
-import { EventType } from '@/types/matchForm';
-import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
-import { MatchEvent } from '@/types/index';
+import { Team, MatchEvent, EventType } from '@/types';
 
 interface MainTabContentV2Props {
-  homeTeam: { name: string; formation: string; players: any[] };
-  awayTeam: { name: string; formation: string; players: any[] };
-  onEventRecord: (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => void;
-  assignedEventTypes: EventType[] | null;
-  assignedPlayers: AssignedPlayers | null;
-  fullMatchRoster: AssignedPlayers | null;
+  matchId: string;
+  homeTeam: Team;
+  awayTeam: Team;
 }
 
-const MainTabContentV2: React.FC<MainTabContentV2Props> = ({ 
+const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
+  matchId,
   homeTeam,
   awayTeam,
-  onEventRecord,
-  assignedEventTypes,
-  assignedPlayers,
-  fullMatchRoster,
 }) => {
-  const { matchId } = useParams<{ matchId: string }>();
-  const { toast } = useToast();
   const [events, setEvents] = useState<MatchEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<MatchEvent | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away' | null>(null);
-  const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchEvents = useCallback(async () => {
-    if (!matchId) {
-      console.warn("Match ID is missing.");
-      return;
-    }
+  useEffect(() => {
+    fetchEvents();
+  }, [matchId]);
 
+  const fetchEvents = async () => {
     try {
       const { data, error } = await supabase
         .from('match_events')
@@ -50,92 +30,28 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         .eq('match_id', matchId)
         .order('timestamp', { ascending: true });
 
-      if (error) {
-        console.error("Error fetching match events:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load match events.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      if (data) {
-        const matchEvents = convertToMatchEvents(data);
-        setEvents(matchEvents);
-      }
-    } catch (error: any) {
-      console.error("Unexpected error fetching match events:", error);
-      toast({
-        title: "Unexpected Error",
-        description: "Failed to load match events due to an unexpected error.",
-        variant: "destructive",
-      });
+      const transformedEvents: MatchEvent[] = (data || []).map(event => ({
+        id: event.id,
+        type: event.event_type as EventType,
+        timestamp: event.timestamp || 0,
+        team: event.team as 'home' | 'away',
+        coordinates: event.coordinates ? event.coordinates as { x: number; y: number } : undefined,
+        player: event.player_id ? findPlayerById(event.player_id, event.team as 'home' | 'away') : undefined,
+      }));
+
+      setEvents(transformedEvents);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [matchId, toast]);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
-
-  // Convert database events to MatchEvent format
-  const convertToMatchEvents = (dbEvents: any[]): MatchEvent[] => {
-    return dbEvents.map(event => ({
-      id: event.id,
-      matchId: event.match_id,
-      type: event.event_type,
-      timestamp: event.timestamp || 0,
-      playerId: event.player_id ? Number(event.player_id) : 0,
-      teamId: (event.team as 'home' | 'away') || 'home',
-      coordinates: event.coordinates
-    }));
   };
 
-  const handleEventSelect = (event: MatchEvent) => {
-    setSelectedEvent(event);
-  };
-
-  const handleEventUpdate = async (updatedEvent: MatchEvent) => {
-    try {
-      const { error } = await supabase
-        .from('match_events')
-        .update({
-          event_type: updatedEvent.type,
-          timestamp: updatedEvent.timestamp,
-          player_id: updatedEvent.playerId,
-          team: updatedEvent.teamId,
-          coordinates: updatedEvent.coordinates,
-        })
-        .eq('id', updatedEvent.id);
-
-      if (error) {
-        console.error("Error updating match event:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update match event.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Optimistically update the state
-      setEvents(prevEvents =>
-        prevEvents.map(event => (event.id === updatedEvent.id ? updatedEvent : event))
-      );
-      setSelectedEvent(updatedEvent);
-
-      toast({
-        title: "Success",
-        description: "Match event updated successfully.",
-      });
-    } catch (error: any) {
-      console.error("Unexpected error updating match event:", error);
-      toast({
-        title: "Unexpected Error",
-        description: "Failed to update match event due to an unexpected error.",
-        variant: "destructive",
-      });
-    }
+  const findPlayerById = (playerId: number, team: 'home' | 'away') => {
+    const teamPlayers = team === 'home' ? homeTeam.players : awayTeam.players;
+    return teamPlayers.find(player => player.id === playerId);
   };
 
   const handleEventDelete = async (eventId: string) => {
@@ -145,118 +61,123 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         .delete()
         .eq('id', eventId);
 
-      if (error) {
-        console.error("Error deleting match event:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete match event.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      // Optimistically update the state
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-      setSelectedEvent(null);
-
-      toast({
-        title: "Success",
-        description: "Match event deleted successfully.",
-      });
-    } catch (error: any) {
-      console.error("Unexpected error deleting match event:", error);
-      toast({
-        title: "Unexpected Error",
-        description: "Failed to delete match event due to an unexpected error.",
-        variant: "destructive",
-      });
+      setEvents(prev => prev.filter(event => event.id !== eventId));
+    } catch (error) {
+      console.error('Error deleting event:', error);
     }
   };
 
-  const handlePlayerSelect = (player: any, team: 'home' | 'away') => {
-    setSelectedPlayer(player);
-    setSelectedTeam(team);
+  const addEvent = async (eventData: Partial<MatchEvent>) => {
+    try {
+      const { data, error } = await supabase
+        .from('match_events')
+        .insert([{
+          match_id: matchId,
+          event_type: eventData.type as string,
+          timestamp: eventData.timestamp,
+          team: eventData.team,
+          player_id: eventData.player?.id,
+          coordinates: eventData.coordinates,
+          created_by: (await supabase.auth.getUser()).data.user?.id || ''
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newEvent: MatchEvent = {
+        id: data.id,
+        type: data.event_type as EventType,
+        timestamp: data.timestamp || 0,
+        team: data.team as 'home' | 'away',
+        coordinates: data.coordinates as { x: number; y: number } | undefined,
+        player: data.player_id ? findPlayerById(data.player_id, data.team as 'home' | 'away') : undefined,
+      };
+
+      setEvents(prev => [...prev, newEvent].sort((a, b) => a.timestamp - b.timestamp));
+    } catch (error) {
+      console.error('Error adding event:', error);
+    }
   };
 
-  const handleEventAdd = (eventType: EventType, playerId: string | number, teamId: 'home' | 'away', coordinates?: { x: number; y: number }) => {
-    // Convert playerId to number if it's a string
-    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) || 0 : playerId;
-    
-    const newEvent: MatchEvent = {
-      id: Date.now().toString(),
-      type: eventType.key,
-      playerId: playerIdNum,
-      playerName: selectedPlayer?.name || `Player ${playerIdNum}`,
-      team: teamId,
-      timestamp: Date.now(),
-      coordinates,
-      minute: Math.floor((Date.now() - (match.match_date ? new Date(match.match_date).getTime() : Date.now())) / 60000)
-    };
-
-    onEventRecord(eventType, selectedPlayer, { coordinates });
-    setSelectedPlayer(null);
-    setSelectedEventType(null);
-    setSelectedTeam(null);
-  };
+  if (loading) {
+    return <div className="p-4">Loading events...</div>;
+  }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-      <div className="space-y-6">
-        <Card className="shadow-lg">
-          <CardContent className="p-4">
-            <PianoInput
-              fullMatchRoster={fullMatchRoster}
-              assignedEventTypes={assignedEventTypes}
-              assignedPlayers={assignedPlayers}
-              onEventRecord={onEventRecord}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Match Details</h3>
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-sm text-gray-600">Home Team:</div>
-              <div className="font-medium">{homeTeam.name}</div>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-sm text-gray-600">Away Team:</div>
-              <div className="font-medium">{awayTeam.name}</div>
-            </div>
-            <Separator />
-            <div className="mt-4">
-              <Badge variant="outline">
-                Events Recorded: {events.length}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="space-y-6">
-        <Card className="shadow-lg">
-          <CardContent className="p-4">
-            <FootballPitch
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              ballTrackingPoints={[]}
-              onPitchClick={() => { }}
-              selectedPlayer={null}
-              selectedTeam="home"
-              onPlayerSelect={() => { }}
-              events={events}
-            />
+    <div className="space-y-6">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{events.length}</div>
           </CardContent>
         </Card>
         
-        <MatchEventsTimeline 
-          events={events}
-          onEventSelect={handleEventSelect}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-        />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{homeTeam.name} Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {events.filter(e => e.team === 'home').length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{awayTeam.name} Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {events.filter(e => e.team === 'away').length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Events List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Events</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {events.slice(-10).reverse().map((event) => (
+              <div key={event.id} className="flex justify-between items-center p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    event.team === 'home' ? 'bg-blue-500' : 'bg-red-500'
+                  }`} />
+                  <div>
+                    <div className="font-medium capitalize">{event.type}</div>
+                    <div className="text-sm text-gray-600">
+                      {event.player?.name || 'Unknown player'} - {Math.floor(event.timestamp / 60)}'
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleEventDelete(event.id)}
+                  className="text-red-600 hover:text-red-800 text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+            {events.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No events recorded yet
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

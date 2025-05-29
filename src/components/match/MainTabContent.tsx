@@ -1,225 +1,148 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Play, Square, RotateCcw } from 'lucide-react';
-import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
-import MatchEventsTimeline from '@/components/MatchEventsTimeline';
-import { Match, Team, MatchEvent, Statistics, BallTrackingPoint, TimelineEvent } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { PlayerStatsTable } from '@/components/visualizations/PlayerStatsTable';
+import { MatchEventsTimeline } from '@/components/match/MatchEventsTimeline';
+import { Team, MatchEvent, Statistics } from '@/types';
 
 interface MainTabContentProps {
-  match: Match;
   homeTeam: Team;
   awayTeam: Team;
   events: MatchEvent[];
   statistics: Statistics;
-  ballTrackingData: BallTrackingPoint[];
-  timerValue: number;
-  timerStatus: 'running' | 'stopped' | 'paused';
-  onTimerStart: () => void;
-  onTimerStop: () => void;
-  onTimerReset: () => void;
   onEventDelete: (eventId: string) => Promise<void>;
 }
 
 const MainTabContent: React.FC<MainTabContentProps> = ({
-  match,
   homeTeam,
   awayTeam,
   events,
   statistics,
-  ballTrackingData,
-  timerValue,
-  timerStatus,
-  onTimerStart,
-  onTimerStop,
-  onTimerReset,
-  onEventDelete
+  onEventDelete,
 }) => {
-  const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | null>(null);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleTimelineEventClick = (event: TimelineEvent) => {
-    setSelectedTimelineEvent(event);
+  // Helper function to safely render statistics values
+  const renderStatValue = (value: any) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'object' && value !== null) {
+      if ('total' in value) {
+        return value.total;
+      }
+      if ('successful' in value && 'attempted' in value) {
+        return `${value.successful}/${value.attempted}`;
+      }
+      if ('onTarget' in value && 'offTarget' in value) {
+        return `${value.onTarget + value.offTarget}`;
+      }
+    }
+    return 0;
   };
 
   return (
     <div className="space-y-6">
-      {/* Timer and Match Controls */}
+      {/* Match Statistics Overview */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            <span>Match Timer</span>
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-mono font-bold">
-                {formatTime(timerValue)}
-              </div>
-              <Badge variant={timerStatus === 'running' ? 'default' : 'secondary'}>
-                {timerStatus}
-              </Badge>
-            </div>
-          </CardTitle>
+          <CardTitle>Match Statistics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Button
-              onClick={timerStatus === 'running' ? onTimerStop : onTimerStart}
-              variant={timerStatus === 'running' ? 'destructive' : 'default'}
-            >
-              {timerStatus === 'running' ? (
-                <>
-                  <Square className="h-4 w-4 mr-2" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Start
-                </>
-              )}
-            </Button>
-            <Button onClick={onTimerReset} variant="outline">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <h3 className="font-semibold text-lg">{homeTeam.name}</h3>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Statistic</h3>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">{awayTeam.name}</h3>
+            </div>
+            
+            {/* Possession */}
+            <div className="text-2xl font-bold">
+              {statistics.possession?.home || 0}%
+            </div>
+            <div className="text-sm text-gray-600">Possession</div>
+            <div className="text-2xl font-bold">
+              {statistics.possession?.away || 0}%
+            </div>
+            
+            {/* Shots */}
+            <div className="text-2xl font-bold">
+              {renderStatValue(statistics.shots?.home)}
+            </div>
+            <div className="text-sm text-gray-600">Shots</div>
+            <div className="text-2xl font-bold">
+              {renderStatValue(statistics.shots?.away)}
+            </div>
+            
+            {/* Shots on Target */}
+            <div className="text-2xl font-bold">
+              {statistics.shots?.home?.onTarget || 0}
+            </div>
+            <div className="text-sm text-gray-600">Shots on Target</div>
+            <div className="text-2xl font-bold">
+              {statistics.shots?.away?.onTarget || 0}
+            </div>
+            
+            {/* Passes */}
+            <div className="text-2xl font-bold">
+              {renderStatValue(statistics.passes?.home)}
+            </div>
+            <div className="text-sm text-gray-600">Passes</div>
+            <div className="text-2xl font-bold">
+              {renderStatValue(statistics.passes?.away)}
+            </div>
+            
+            {/* Balls Played */}
+            <div className="text-2xl font-bold">
+              {statistics.ballsPlayed?.home || 0}
+            </div>
+            <div className="text-sm text-gray-600">Balls Played</div>
+            <div className="text-2xl font-bold">
+              {statistics.ballsPlayed?.away || 0}
+            </div>
+            
+            {/* Balls Lost */}
+            <div className="text-2xl font-bold">
+              {statistics.ballsLost?.home || 0}
+            </div>
+            <div className="text-sm text-gray-600">Balls Lost</div>
+            <div className="text-2xl font-bold">
+              {statistics.ballsLost?.away || 0}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Match Content Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      {/* Player Statistics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Player Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PlayerStatsTable 
+            events={events}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+          />
+        </CardContent>
+      </Card>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Ball Flow Visualization</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BallFlowVisualization
-                  ballTrackingPoints={ballTrackingData}
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Player Statistics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PlayerStatsTable
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                  events={events}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="timeline" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Match Events Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MatchEventsTimeline
-                events={events}
-                onEventDelete={onEventDelete}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="stats" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Possession</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>{homeTeam.name}</span>
-                    <span>{statistics.possession?.home || 0}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{awayTeam.name}</span>
-                    <span>{statistics.possession?.away || 0}%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Shots</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>{homeTeam.name}</span>
-                    <span>{statistics.shots?.home || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{awayTeam.name}</span>
-                    <span>{statistics.shots?.away || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Passes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>{homeTeam.name}</span>
-                    <span>{statistics.passes?.home || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{awayTeam.name}</span>
-                    <span>{statistics.passes?.away || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-gray-500 py-8">
-                Advanced analytics features coming soon...
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Events Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Match Events</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MatchEventsTimeline 
+            events={events}
+            onEventDelete={onEventDelete}
+            onEventSelect={(event) => console.log('Event selected:', event)}
+            onEventUpdate={(event) => console.log('Event updated:', event)}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -137,6 +137,7 @@ export interface Match {
   home_team_players: any[];
   away_team_players: any[];
   venue?: string;
+  location?: string;
   competition?: string;
   created_at: string;
   updated_at: string | null;
@@ -202,3 +203,5 @@ export interface MatchEventsTimelineProps {
   onEventUpdate?: (event: MatchEvent) => void;
   onEventDelete: (eventId: string) => Promise<void>;
 }
+
+export type UserRoleType = 'admin' | 'user' | 'tracker' | 'teacher';
