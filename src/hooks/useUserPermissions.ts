@@ -106,9 +106,9 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
 
       try {
         const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', targetUserId)
+          .from('user_profiles_with_role') // Change to this view
+          .select('role') // Assuming the 'role' column exists in this view
+          .eq('id', targetUserId) // Assuming 'id' is still the correct column for matching user ID
           .single();
 
         if (profileError) {
