@@ -37,6 +37,79 @@ export const EVENT_CATEGORIES = {
   }
 } as const;
 
+export const EVENT_TYPE_CATEGORIES = [
+  {
+    key: 'ballActions',
+    label: 'Ball Actions',
+    color: '#3B82F6',
+    events: [
+      { key: 'pass', label: 'Pass' },
+      { key: 'shot', label: 'Shot' },
+      { key: 'cross', label: 'Cross' },
+      { key: 'dribble', label: 'Dribble' },
+      { key: 'clearance', label: 'Clearance' },
+      { key: 'block', label: 'Block' },
+      { key: 'save', label: 'Save' },
+      { key: 'interception', label: 'Interception' }
+    ]
+  },
+  {
+    key: 'setPieces',
+    label: 'Set Pieces',
+    color: '#10B981',
+    events: [
+      { key: 'corner', label: 'Corner' },
+      { key: 'freeKick', label: 'Free Kick' },
+      { key: 'penalty', label: 'Penalty' },
+      { key: 'goalKick', label: 'Goal Kick' },
+      { key: 'throwIn', label: 'Throw In' }
+    ]
+  },
+  {
+    key: 'foulsCards',
+    label: 'Fouls & Cards',
+    color: '#EF4444',
+    events: [
+      { key: 'foul', label: 'Foul' },
+      { key: 'yellowCard', label: 'Yellow Card' },
+      { key: 'redCard', label: 'Red Card' },
+      { key: 'card', label: 'Card' }
+    ]
+  },
+  {
+    key: 'goalsAssists',
+    label: 'Goals & Assists',
+    color: '#F59E0B',
+    events: [
+      { key: 'goal', label: 'Goal' },
+      { key: 'assist', label: 'Assist' },
+      { key: 'ownGoal', label: 'Own Goal' }
+    ]
+  },
+  {
+    key: 'possession',
+    label: 'Possession',
+    color: '#8B5CF6',
+    events: [
+      { key: 'possession', label: 'Possession' },
+      { key: 'ballLost', label: 'Ball Lost' },
+      { key: 'ballRecovered', label: 'Ball Recovered' },
+      { key: 'tackle', label: 'Tackle' }
+    ]
+  },
+  {
+    key: 'matchEvents',
+    label: 'Match Events',
+    color: '#6B7280',
+    events: [
+      { key: 'substitution', label: 'Substitution' },
+      { key: 'offside', label: 'Offside' },
+      { key: 'aerialDuel', label: 'Aerial Duel' },
+      { key: 'groundDuel', label: 'Ground Duel' }
+    ]
+  }
+];
+
 export const KEYBOARD_MAPPINGS: Record<string, EventType> = {
   'p': 'pass',
   's': 'shot', 

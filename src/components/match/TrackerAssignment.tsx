@@ -6,12 +6,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Users, Target, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EVENT_TYPE_CATEGORIES } from '@/constants/eventTypes';
-import { EventTypeCategory, EventType } from '@/types/matchForm';
 
 interface TrackerUser {
   id: string;
@@ -22,6 +21,13 @@ interface TrackerUser {
 interface PlayerAssignment {
   player_id: number;
   player_team_id: 'home' | 'away';
+}
+
+interface EventTypeCategory {
+  key: string;
+  label: string;
+  color: string;
+  events: Array<{ key: string; label: string }>;
 }
 
 interface TrackerAssignmentProps {
@@ -226,7 +232,7 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
                                   }
                                 }}
                                 onCheckedChange={(checked) => handleCategoryToggle(category, !!checked)}
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                               />
                               <div
                                 className="w-3 h-3 rounded-full"
