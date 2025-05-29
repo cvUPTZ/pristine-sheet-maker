@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -397,21 +398,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
       </CardHeader>
       <CardContent className="p-3 sm:p-6">
         <Tabs value={currentStep} onValueChange={setCurrentStep}>
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2' : 'grid-cols-4'} mb-4`}>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3' : 'grid-cols-4'} mb-4`}>
             <TabsTrigger value="details" className="text-xs sm:text-sm px-1 sm:px-3">
               {isMobile ? 'Details' : 'Match Details'}
             </TabsTrigger>
             <TabsTrigger value="teams" className="text-xs sm:text-sm px-1 sm:px-3">
               {isMobile ? 'Teams' : 'Team Setup'}
             </TabsTrigger>
+            <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-3">
+              {isMobile ? 'Players' : 'Players'}
+            </TabsTrigger>
             {!isMobile && (
-              <>
-                <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-3">Players</TabsTrigger>
-                <TabsTrigger value="trackers" className="text-xs sm:text-sm px-1 sm:px-3">Trackers</TabsTrigger>
-              </>
-            )}
-            {isMobile && (
-              <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-3">More</TabsTrigger>
+              <TabsTrigger value="trackers" className="text-xs sm:text-sm px-1 sm:px-3">Trackers</TabsTrigger>
             )}
           </TabsList>
 
@@ -521,7 +519,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
           </TabsContent>
 
           <TabsContent value="players" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
-            {isMobile && (
+            {isMobile ? (
               <Tabs defaultValue="players-tab" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="players-tab" className="text-xs">Players</TabsTrigger>
@@ -565,12 +563,76 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Event Types Assignment for Mobile */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Event Types Assignment</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {EVENT_TYPE_CATEGORIES.map((category) => {
+                          const isOpen = openCategories.includes(category.key);
+                          const isSelected = assignmentDetails.eventCategories.includes(category.key);
+                          
+                          return (
+                            <div key={category.key} className="border rounded-lg">
+                              <Collapsible
+                                open={isOpen}
+                                onOpenChange={() => toggleCategory(category.key)}
+                              >
+                                <CollapsibleTrigger className="w-full">
+                                  <div className="flex items-center justify-between p-3 hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => handleCategoryToggle(category.key, !!checked)}
+                                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                      />
+                                      <div
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: category.color }}
+                                      />
+                                      <div className="text-left">
+                                        <h4 className="font-medium text-sm">{category.label}</h4>
+                                      </div>
+                                    </div>
+                                    {isOpen ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                </CollapsibleTrigger>
+                                
+                                <CollapsibleContent>
+                                  <div className="border-t bg-muted/20 p-3 grid grid-cols-1 gap-2">
+                                    {category.events.map((event) => (
+                                      <div key={event.key} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={`event-${event.key}`}
+                                          checked={assignmentDetails.specificEvents.includes(event.key)}
+                                          onCheckedChange={(checked) => handleEventTypeChange(event.key, !!checked)}
+                                        />
+                                        <label
+                                          htmlFor={`event-${event.key}`}
+                                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                          {event.label}
+                                        </label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
                   </div>
                 </TabsContent>
               </Tabs>
-            )}
-            
-            {!isMobile && (
+            ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {renderPlayerForm('home')}
                 {renderPlayerForm('away')}
@@ -643,7 +705,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                                     <div className="text-left">
                                       <h4 className="font-medium">{category.label}</h4>
                                       <p className="text-sm text-muted-foreground">
-                                        Events related to ball movement and possession
+                                        {category.events.length} event types
                                       </p>
                                     </div>
                                   </div>
@@ -688,7 +750,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                       <div className="grid md:grid-cols-2 gap-4">
                         <Card>
                           <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Home Team:</CardTitle>
+                            <CardTitle className="text-base">Home Team</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-2">
                             {(formData.homeTeamPlayers || []).map((player) => (
@@ -711,7 +773,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
                         <Card>
                           <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Away Team:</CardTitle>
+                            <CardTitle className="text-base">Away Team</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-2">
                             {(formData.awayTeamPlayers || []).map((player) => (
@@ -798,7 +860,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
           <Button
             variant="outline"
             onClick={() => {
-              const steps = ['details', 'teams', 'players', 'trackers'];
+              const steps = isMobile ? ['details', 'teams', 'players'] : ['details', 'teams', 'players', 'trackers'];
               const currentIndex = steps.indexOf(currentStep);
               if (currentIndex > 0) {
                 setCurrentStep(steps[currentIndex - 1]);
@@ -811,10 +873,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
             Previous
           </Button>
 
-          {currentStep !== 'trackers' && !isMobile ? (
+          {(currentStep !== 'trackers' && !isMobile) || (currentStep !== 'players' && isMobile) ? (
             <Button
               onClick={() => {
-                const steps = ['details', 'teams', 'players', 'trackers'];
+                const steps = isMobile ? ['details', 'teams', 'players'] : ['details', 'teams', 'players', 'trackers'];
                 const currentIndex = steps.indexOf(currentStep);
                 if (currentIndex < steps.length - 1) {
                   setCurrentStep(steps[currentIndex + 1]);
