@@ -47,6 +47,7 @@ export interface MatchEvent {
   coordinates?: { x: number; y: number };
   description?: string;
   player?: Player;
+  status?: string;
 }
 
 export interface TimelineEvent {
@@ -65,39 +66,52 @@ export interface BallTrackingPoint {
   x: number;
   y: number;
   timestamp: number;
+  teamId?: 'home' | 'away';
+}
+
+export interface ShotData {
+  onTarget: number;
+  offTarget: number;
+}
+
+export interface PassData {
+  successful: number;
+  attempted: number;
 }
 
 export interface Statistics {
   home: TeamStats;
   away: TeamStats;
   possession: { home: number; away: number };
-  shots: { home: number; away: number };
+  shots: { home: ShotData; away: ShotData };
   shotsOnTarget: { home: number; away: number };
   corners: { home: number; away: number };
   fouls: { home: number; away: number };
   yellowCards: { home: number; away: number };
   redCards: { home: number; away: number };
-  passes: { home: number; away: number };
+  passes: { home: PassData; away: PassData };
   passAccuracy: { home: number; away: number };
-  crosses: { home: number; away: number };
-  tackles: { home: number; away: number };
+  crosses: { home: PassData; away: PassData };
+  tackles: { home: PassData; away: PassData };
   interceptions: { home: number; away: number };
   offsides: { home: number; away: number };
+  ballsPlayed: { home: number; away: number };
+  ballsLost: { home: number; away: number };
 }
 
 export interface TeamStats {
   goals: number;
-  shots: number;
+  shots: ShotData;
   shotsOnTarget: number;
   possession: number;
-  passes: number;
+  passes: PassData;
   passAccuracy: number;
   corners: number;
   fouls: number;
   yellowCards: number;
   redCards: number;
-  crosses: number;
-  tackles: number;
+  crosses: PassData;
+  tackles: PassData;
   interceptions: number;
   offsides: number;
 }
@@ -119,7 +133,8 @@ export type EventType =
   | 'free-kick' 
   | 'goal-kick' 
   | 'throw-in' 
-  | 'interception';
+  | 'interception'
+  | 'possession';
 
 export type UserRoleType = 'admin' | 'tracker' | 'teacher' | 'user';
 
@@ -136,4 +151,35 @@ export interface PlayerNode extends Player {
   fy?: number;
   x?: number;
   y?: number;
+}
+
+export interface Formation {
+  id: string;
+  name: string;
+  positions: Array<{
+    id: number;
+    x: number;
+    y: number;
+    position: string;
+  }>;
+}
+
+export interface MatchFormData {
+  id?: string;
+  name: string;
+  match_type: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: 'draft' | 'scheduled' | 'live' | 'completed';
+  description: string;
+}
+
+export interface RolePermissions {
+  pitchView: boolean;
+  pianoInput: boolean;
+  statistics: boolean;
+  timeline: boolean;
+  analytics: boolean;
+  ballTracking: boolean;
+  liveEvents: boolean;
 }

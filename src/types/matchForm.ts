@@ -1,20 +1,21 @@
 
 export interface MatchFormData {
+  id?: string;
   name: string;
-  status: 'draft' | 'upcoming' | 'live' | 'completed' | 'postponed' | 'cancelled';
-  matchType: string;
-  matchDate: string;
-  location: string;
-  competition: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  homeTeamScore: number | null;
-  awayTeamScore: number | null;
-  notes: string;
+  match_type: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: 'draft' | 'scheduled' | 'live' | 'completed';
+  description: string;
 }
 
-export interface TrackerAssignment {
-  trackerId: string;
-  eventTypes: string[];
-  playerIds: string[];
+export interface Formation {
+  id: string;
+  name: string;
+  positions: Array<{
+    id: number;
+    x: number;
+    y: number;
+    position: string;
+  }>;
 }

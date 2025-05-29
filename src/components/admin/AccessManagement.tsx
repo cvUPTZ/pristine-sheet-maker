@@ -9,28 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Settings, Shield, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user';
-
-interface RolePermissions {
-  pitchView: boolean;
-  pianoInput: boolean;
-  statistics: boolean;
-  timeline: boolean;
-  analytics: boolean;
-  ballTracking: boolean;
-  liveEvents: boolean;
-}
+import { UserRoleType, RolePermissions } from '@/types';
 
 interface UserProfile {
   id: string;
   email?: string;
-  role: UserRole;
+  role: UserRoleType;
   full_name?: string;
   permissions?: RolePermissions;
 }
 
-const defaultPermissions: Record<UserRole, RolePermissions> = {
+const defaultPermissions: Record<UserRoleType, RolePermissions> = {
   admin: {
     pitchView: true,
     pianoInput: true,
@@ -83,7 +72,7 @@ const AccessManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, role, full_name, permissions')
+        .select('id, email, role, full_name')
         .order('email');
 
       if (error) throw error;
@@ -91,9 +80,9 @@ const AccessManagement: React.FC = () => {
       const typedUsers: UserProfile[] = (data || []).map(user => ({
         ...user,
         email: user.email || '',
-        role: (user.role || 'user') as UserRole,
+        role: (user.role || 'user') as UserRoleType,
         full_name: user.full_name || undefined,
-        permissions: user.permissions ? user.permissions as RolePermissions : defaultPermissions[user.role as UserRole] || defaultPermissions.user
+        permissions: defaultPermissions[user.role as UserRoleType] || defaultPermissions.user
       }));
 
       setUsers(typedUsers);
@@ -105,13 +94,12 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: UserRole) => {
+  const updateUserRole = async (userId: string, newRole: UserRoleType) => {
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          role: newRole,
-          permissions: defaultPermissions[newRole]
+          role: newRole
         })
         .eq('id', userId);
 
@@ -130,29 +118,6 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const updatePermissions = async (userId: string, newPermissions: RolePermissions) => {
-    try {
-      // Use the database function to update permissions
-      const { error } = await supabase.rpc('update_user_permissions', {
-        user_id_param: userId,
-        permissions_param: newPermissions
-      });
-
-      if (error) throw error;
-
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
-          ? { ...user, permissions: newPermissions }
-          : user
-      ));
-
-      toast.success('Permissions updated successfully');
-    } catch (error) {
-      console.error('Error updating permissions:', error);
-      toast.error('Failed to update permissions');
-    }
-  };
-
   const handleUserSelect = (userId: string) => {
     const user = users.find(u => u.id === userId);
     if (user) {
@@ -165,12 +130,18 @@ const AccessManagement: React.FC = () => {
     const newPermissions = { ...permissions, [permission]: value };
     setPermissions(newPermissions);
     
+    // For now, just update local state since database column doesn't exist yet
     if (selectedUser) {
-      updatePermissions(selectedUser, newPermissions);
+      setUsers(prev => prev.map(user => 
+        user.id === selectedUser 
+          ? { ...user, permissions: newPermissions }
+          : user
+      ));
+      toast.success('Permission updated (local only - database schema needs migration)');
     }
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
+  const getRoleBadgeColor = (role: UserRoleType) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'tracker': return 'bg-blue-100 text-blue-800';
@@ -216,7 +187,7 @@ const AccessManagement: React.FC = () => {
                 <div className="flex gap-2">
                   <Select
                     value={user.role}
-                    onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
+                    onValueChange={(value: UserRoleType) => updateUserRole(user.id, value)}
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue />
