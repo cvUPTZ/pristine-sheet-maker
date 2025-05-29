@@ -86,6 +86,7 @@ serve(async (req) => {
       .from('user_profiles_with_role')
       .select('id, full_name, email')
       .eq('role', 'tracker')
+      .order('full_name')
 
     if (trackersError) {
       console.error('Error fetching tracker users:', trackersError)
@@ -109,11 +110,13 @@ serve(async (req) => {
     }
 
     // Format the response to match the expected structure
-    const trackersWithEmails = trackerUsers.map(user => ({
-      id: user.id,
-      full_name: user.full_name || 'No name',
-      email: user.email || 'No email'
-    }))
+    const trackersWithEmails = trackerUsers
+      .filter(user => user.id) // Filter out null IDs
+      .map(user => ({
+        id: user.id!,
+        full_name: user.full_name || 'No name',
+        email: user.email || 'No email'
+      }))
 
     console.log(`Found ${trackersWithEmails.length} tracker users`)
 

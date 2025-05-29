@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,9 +54,24 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
   const fetchTrackerUsers = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-tracker-users');
+      // Use user_profiles_with_role view to get tracker users
+      const { data, error } = await supabase
+        .from('user_profiles_with_role')
+        .select('id, email, full_name')
+        .eq('role', 'tracker')
+        .order('full_name');
+
       if (error) throw error;
-      setTrackerUsers(data || []);
+
+      const typedUsers: TrackerUser[] = (data || [])
+        .filter(user => user.id) // Filter out null IDs
+        .map(user => ({
+          id: user.id!,
+          email: user.email || 'No email',
+          full_name: user.full_name || 'No name',
+        }));
+
+      setTrackerUsers(typedUsers);
     } catch (error: any) {
       console.error('Error fetching tracker users:', error);
       toast({
