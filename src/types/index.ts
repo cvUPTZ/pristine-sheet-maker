@@ -1,116 +1,12 @@
 
-export interface Statistics {
-  home: TeamStats;
-  away: TeamStats;
-  possession: {
-    home: number;
-    away: number;
-  };
-  shots: {
-    home: {
-      onTarget: number;
-      offTarget: number;
-    };
-    away: {
-      onTarget: number;
-      offTarget: number;
-    };
-  };
-  passes: {
-    home: {
-      successful: number;
-      attempted: number;
-    };
-    away: {
-      successful: number;
-      attempted: number;
-    };
-  };
-  ballsPlayed: {
-    home: number;
-    away: number;
-  };
-  ballsLost: {
-    home: number;
-    away: number;
-  };
-  duels: {
-    home: {
-      won: number;
-      lost: number;
-      aerial: number;
-    };
-    away: {
-      won: number;
-      lost: number;
-      aerial: number;
-    };
-  };
-  cards: {
-    home: {
-      yellow: number;
-      red: number;
-    };
-    away: {
-      yellow: number;
-      red: number;
-    };
-  };
-  crosses: {
-    home: {
-      total: number;
-      successful: number;
-    };
-    away: {
-      total: number;
-      successful: number;
-    };
-  };
-  dribbles: {
-    home: {
-      successful: number;
-      attempted: number;
-    };
-    away: {
-      successful: number;
-      attempted: number;
-    };
-  };
-  corners: {
-    home: number;
-    away: number;
-  };
-  offsides: {
-    home: number;
-    away: number;
-  };
-  freeKicks: {
-    home: number;
-    away: number;
-  };
-}
-
-export interface TeamStats {
-  passes: number;
-  shots: number;
-  tackles: number;
-  fouls: number;
-  possession: number;
-}
-
-export interface TimeSegmentStatistics {
-  startTime: number;
-  endTime: number;
-  timeSegment: string;
-  events?: MatchEvent[];
-}
-
 export interface Player {
   id: number;
   name: string;
-  number?: number;
-  position: string;
-  [key: string]: any;
+  number: number;
+  position?: string;
+  x?: number;
+  y?: number;
+  isSelected?: boolean;
 }
 
 export interface Team {
@@ -118,95 +14,126 @@ export interface Team {
   name: string;
   players: Player[];
   formation: string;
+  score?: number;
 }
 
 export interface Match {
   id: string;
   name?: string;
   description?: string;
+  match_type?: string;
   home_team_name: string;
   away_team_name: string;
   home_team_formation?: string;
   away_team_formation?: string;
-  status: string;
-  match_date: string;
-  created_at: string;
   home_team_players?: Player[];
   away_team_players?: Player[];
-}
-
-export interface SavedMatch extends Match {
-  date: string;
-  homeTeam: Team;
-  awayTeam: Team;
-  events: MatchEvent[];
-  ballTrackingPoints: BallTrackingPoint[];
-  timeSegments: TimeSegmentStatistics[];
-  statistics: Statistics;
-  matchId?: string;
+  status: string;
+  match_date?: string;
+  created_at: string;
+  updated_at?: string;
+  home_team_score?: number;
+  away_team_score?: number;
+  ball_tracking_data?: BallTrackingPoint[];
+  match_statistics?: Statistics;
 }
 
 export interface MatchEvent {
   id: string;
   type: EventType;
   timestamp: number;
-  playerId: number;
-  teamId: 'home' | 'away';
-  coordinates: { x: number; y: number };
-  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
-  clientId?: string;
-  optimisticCreationTime?: number;
-  user_id?: string;
-  matchId?: string;
+  playerId?: number;
+  teamId?: 'home' | 'away';
+  coordinates?: { x: number; y: number };
+  description?: string;
+  player?: Player;
+}
+
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;
+  category: string;
+  location: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BallTrackingPoint {
   x: number;
   y: number;
   timestamp: number;
-  teamId?: 'home' | 'away';
-  playerId?: number;
 }
 
-export interface PlayerStatistics {
-  playerId: number;
-  playerName: string;
-  team: 'home' | 'away';
-  goals?: number;
-  assists?: number;
-  passes?: number;
-  shots?: number;
-  fouls?: number;
-  player?: {
-    number?: number;
-  };
+export interface Statistics {
+  home: TeamStats;
+  away: TeamStats;
+  possession: { home: number; away: number };
+  shots: { home: number; away: number };
+  shotsOnTarget: { home: number; away: number };
+  corners: { home: number; away: number };
+  fouls: { home: number; away: number };
+  yellowCards: { home: number; away: number };
+  redCards: { home: number; away: number };
+  passes: { home: number; away: number };
+  passAccuracy: { home: number; away: number };
+  crosses: { home: number; away: number };
+  tackles: { home: number; away: number };
+  interceptions: { home: number; away: number };
+  offsides: { home: number; away: number };
 }
 
-export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1' | '3-4-3' | 'Unknown';
-
-export interface FormationPositions {
-  [key: string]: { x: number; y: number };
+export interface TeamStats {
+  goals: number;
+  shots: number;
+  shotsOnTarget: number;
+  possession: number;
+  passes: number;
+  passAccuracy: number;
+  corners: number;
+  fouls: number;
+  yellowCards: number;
+  redCards: number;
+  crosses: number;
+  tackles: number;
+  interceptions: number;
+  offsides: number;
 }
 
 export type EventType = 
-  | 'pass' | 'shot' | 'tackle' | 'foul' | 'corner' | 'offside' | 'goal'
-  | 'assist' | 'yellowCard' | 'redCard' | 'substitution' | 'card'
-  | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'interception'
-  | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'cross'
-  | 'clearance' | 'block' | 'save' | 'ownGoal' | 'freeKick' | 'throwIn'
-  | 'goalKick' | 'aerialDuel' | 'groundDuel';
+  | 'pass' 
+  | 'shot' 
+  | 'tackle' 
+  | 'foul' 
+  | 'corner' 
+  | 'offside' 
+  | 'goal'
+  | 'assist' 
+  | 'yellowCard' 
+  | 'redCard' 
+  | 'substitution' 
+  | 'card'
+  | 'penalty' 
+  | 'free-kick' 
+  | 'goal-kick' 
+  | 'throw-in' 
+  | 'interception';
 
-export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+export type UserRoleType = 'admin' | 'tracker' | 'teacher' | 'user';
 
-// Export form data interface
-export interface MatchFormData {
-  name: string;
-  homeTeamName: string;
-  awayTeamName: string;
-  status: 'draft' | 'published' | 'live' | 'completed' | 'archived';
-  matchType: string;
-  description: string;
-  homeTeamScore: string;
-  awayTeamScore: string;
-  notes: string;
+export interface LiveMatch {
+  id: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string;
+}
+
+export interface PlayerNode extends Player {
+  fx?: number;
+  fy?: number;
+  x?: number;
+  y?: number;
 }

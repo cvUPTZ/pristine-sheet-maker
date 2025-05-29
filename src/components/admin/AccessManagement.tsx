@@ -24,7 +24,7 @@ interface RolePermissions {
 
 interface UserProfile {
   id: string;
-  email: string;
+  email?: string;
   role: UserRole;
   full_name?: string;
   permissions?: RolePermissions;
@@ -83,7 +83,7 @@ const AccessManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, role, full_name')
+        .select('id, email, role, full_name, permissions')
         .order('email');
 
       if (error) throw error;
@@ -93,7 +93,7 @@ const AccessManagement: React.FC = () => {
         email: user.email || '',
         role: (user.role || 'user') as UserRole,
         full_name: user.full_name || undefined,
-        permissions: defaultPermissions[user.role as UserRole] || defaultPermissions.user
+        permissions: user.permissions ? user.permissions as RolePermissions : defaultPermissions[user.role as UserRole] || defaultPermissions.user
       }));
 
       setUsers(typedUsers);
@@ -109,7 +109,10 @@ const AccessManagement: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ 
+          role: newRole,
+          permissions: defaultPermissions[newRole]
+        })
         .eq('id', userId);
 
       if (error) throw error;
@@ -129,6 +132,14 @@ const AccessManagement: React.FC = () => {
 
   const updatePermissions = async (userId: string, newPermissions: RolePermissions) => {
     try {
+      // Use the database function to update permissions
+      const { error } = await supabase.rpc('update_user_permissions', {
+        user_id_param: userId,
+        permissions_param: newPermissions
+      });
+
+      if (error) throw error;
+
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { ...user, permissions: newPermissions }
