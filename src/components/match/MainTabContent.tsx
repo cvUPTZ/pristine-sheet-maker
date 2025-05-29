@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlayerStatsTable } from '@/components/visualizations/PlayerStatsTable';
-import { MatchEventsTimeline } from '@/components/match/MatchEventsTimeline';
+import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
+import MatchEventsTimeline from '@/components/match/MatchEventsTimeline';
 import { Team, MatchEvent, Statistics } from '@/types';
 
 interface MainTabContentProps {
@@ -138,8 +138,10 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
           <MatchEventsTimeline 
             events={events}
             onEventDelete={onEventDelete}
-            onEventSelect={(event) => console.log('Event selected:', event)}
-            onEventUpdate={(event) => console.log('Event updated:', event)}
+            onEventSelect={(event: MatchEvent) => console.log('Event selected:', event)}
+            onEventUpdate={(event: MatchEvent) => console.log('Event updated:', event)}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
           />
         </CardContent>
       </Card>

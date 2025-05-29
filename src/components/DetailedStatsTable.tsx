@@ -1,16 +1,7 @@
 
 import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Statistics } from '@/types';
-import { Badge } from '@/components/ui/badge';
 
 interface DetailedStatsTableProps {
   statistics: Statistics;
@@ -18,64 +9,96 @@ interface DetailedStatsTableProps {
   awayTeamName: string;
 }
 
-const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({ 
+const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
   statistics,
   homeTeamName,
   awayTeamName
 }) => {
-  
+  // Helper function to safely get stat values
+  const getStat = (stat: any): string => {
+    if (typeof stat === 'number') return stat.toString();
+    if (typeof stat === 'object' && stat) {
+      if ('total' in stat) return stat.total?.toString() || '0';
+      if ('successful' in stat && 'attempted' in stat) {
+        return `${stat.successful || 0}/${stat.attempted || 0}`;
+      }
+      if ('onTarget' in stat && 'offTarget' in stat) {
+        return `${(stat.onTarget || 0) + (stat.offTarget || 0)}`;
+      }
+    }
+    return '0';
+  };
+
+  const statsData = [
+    {
+      label: 'Possession',
+      home: statistics.possession?.home?.toString() || '0',
+      away: statistics.possession?.away?.toString() || '0',
+      unit: '%'
+    },
+    {
+      label: 'Total Shots',
+      home: getStat(statistics.shots?.home),
+      away: getStat(statistics.shots?.away),
+      unit: ''
+    },
+    {
+      label: 'Shots on Target', 
+      home: statistics.shots?.home?.onTarget?.toString() || '0',
+      away: statistics.shots?.away?.onTarget?.toString() || '0',
+      unit: ''
+    },
+    {
+      label: 'Passes',
+      home: getStat(statistics.passes?.home),
+      away: getStat(statistics.passes?.away),
+      unit: ''
+    },
+    {
+      label: 'Pass Accuracy',
+      home: statistics.passes?.home ? `${Math.round((statistics.passes.home.successful || 0) / Math.max(statistics.passes.home.attempted || 1, 1) * 100)}%` : '0%',
+      away: statistics.passes?.away ? `${Math.round((statistics.passes.away.successful || 0) / Math.max(statistics.passes.away.attempted || 1, 1) * 100)}%` : '0%',
+      unit: ''
+    },
+    {
+      label: 'Balls Played',
+      home: statistics.ballsPlayed?.home?.toString() || '0',
+      away: statistics.ballsPlayed?.away?.toString() || '0',
+      unit: ''
+    },
+    {
+      label: 'Balls Lost',
+      home: statistics.ballsLost?.home?.toString() || '0',
+      away: statistics.ballsLost?.away?.toString() || '0',
+      unit: ''
+    }
+  ];
+
   return (
-    <div className="overflow-auto">
-      <Table>
-        <TableCaption>
-          Team Performance Statistics
-        </TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Metric</TableHead>
-            <TableHead className="text-right">{homeTeamName}</TableHead>
-            <TableHead className="text-right">{awayTeamName}</TableHead>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="text-center">{homeTeamName}</TableHead>
+          <TableHead className="text-center">Statistic</TableHead>
+          <TableHead className="text-center">{awayTeamName}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {statsData.map((stat, index) => (
+          <TableRow key={index}>
+            <TableCell className="text-center font-semibold">
+              {stat.home}{stat.unit}
+            </TableCell>
+            <TableCell className="text-center text-gray-600">
+              {stat.label}
+            </TableCell>
+            <TableCell className="text-center font-semibold">
+              {stat.away}{stat.unit}
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow>
-            <TableCell className="font-medium">Possession (%)</TableCell>
-            <TableCell className="text-right">{Math.round(statistics.possession.home)}%</TableCell>
-            <TableCell className="text-right">{Math.round(statistics.possession.away)}%</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Total Shots</TableCell>
-            <TableCell className="text-right">{statistics.shots.home.onTarget + statistics.shots.home.offTarget}</TableCell>
-            <TableCell className="text-right">{statistics.shots.away.onTarget + statistics.shots.away.offTarget}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Shots on Target</TableCell>
-            <TableCell className="text-right">{statistics.shots.home.onTarget}</TableCell>
-            <TableCell className="text-right">{statistics.shots.away.onTarget}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Successful Passes</TableCell>
-            <TableCell className="text-right">{statistics.passes.home.successful}</TableCell>
-            <TableCell className="text-right">{statistics.passes.away.successful}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Total Passes</TableCell>
-            <TableCell className="text-right">{statistics.passes.home.attempted}</TableCell>
-            <TableCell className="text-right">{statistics.passes.away.attempted}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Balls Played</TableCell>
-            <TableCell className="text-right">{statistics.ballsPlayed.home}</TableCell>
-            <TableCell className="text-right">{statistics.ballsPlayed.away}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Balls Lost</TableCell>
-            <TableCell className="text-right">{statistics.ballsLost.home}</TableCell>
-            <TableCell className="text-right">{statistics.ballsLost.away}</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 

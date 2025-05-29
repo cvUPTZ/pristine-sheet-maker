@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Pitch } from '@/components/Pitch';
+import React, { useState } from 'react';
+import Pitch from '@/components/Pitch';
 import { Team, BallTrackingPoint } from '@/types';
 
 interface PitchViewProps {

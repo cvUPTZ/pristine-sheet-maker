@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Edit, Clock } from 'lucide-react';
-import { MatchEvent } from '@/types/index';
+import { MatchEvent, Player, Team } from '@/types';
 
 interface MatchEventsTimelineProps {
   events: MatchEvent[];
-  onEventSelect: (event: MatchEvent) => void;
-  onEventUpdate: (event: MatchEvent) => void;
-  onEventDelete: (eventId: string) => void;
+  onEventSelect?: (event: MatchEvent) => void;
+  onEventUpdate?: (event: MatchEvent) => void;
+  onEventDelete: (eventId: string) => Promise<void>;
+  homeTeam?: Team;
+  awayTeam?: Team;
 }
 
 const MatchEventsTimeline: React.FC<MatchEventsTimelineProps> = ({
@@ -18,94 +20,136 @@ const MatchEventsTimeline: React.FC<MatchEventsTimelineProps> = ({
   onEventSelect,
   onEventUpdate,
   onEventDelete,
+  homeTeam,
+  awayTeam
 }) => {
-  const formatTimestamp = (timestamp: number) => {
+  // Sort events by timestamp
+  const sortedEvents = [...events].sort((a, b) => a.timestamp - b.timestamp);
+
+  const getPlayerName = (player: Player | undefined): string => {
+    if (!player) return 'Unknown Player';
+    return player.name || player.player_name || `Player ${player.number || player.jersey_number || '?'}`;
+  };
+
+  const getTeamName = (team: 'home' | 'away'): string => {
+    if (team === 'home') return homeTeam?.name || 'Home Team';
+    return awayTeam?.name || 'Away Team';
+  };
+
+  const formatTime = (timestamp: number): string => {
     const minutes = Math.floor(timestamp / 60000);
     const seconds = Math.floor((timestamp % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const getEventColor = (eventType: string) => {
-    switch (eventType.toLowerCase()) {
-      case 'goal':
-        return 'bg-green-500';
-      case 'foul':
-        return 'bg-yellow-500';
-      case 'card':
-        return 'bg-red-500';
-      case 'substitution':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-500';
+  const getEventIcon = (eventType: string): string => {
+    switch (eventType) {
+      case 'goal': return '⚽';
+      case 'card': return '🟨';
+      case 'yellowCard': return '🟨';
+      case 'redCard': return '🟥';
+      case 'substitution': return '🔄';
+      case 'corner': return '📐';
+      case 'offside': return '🚩';
+      case 'foul': return '⚠️';
+      case 'pass': return '🏃';
+      case 'shot': return '🎯';
+      case 'tackle': return '⚔️';
+      default: return '⚪';
     }
   };
 
+  const handleDelete = async (eventId: string) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      try {
+        await onEventDelete(eventId);
+      } catch (error) {
+        console.error('Error deleting event:', error);
+      }
+    }
+  };
+
+  if (sortedEvents.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>No events recorded yet</p>
+        <p className="text-sm">Events will appear here as they are tracked during the match</p>
+      </div>
+    );
+  }
+
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Match Events Timeline
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="max-h-96 overflow-y-auto">
-        {events.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">No events recorded yet</p>
-        ) : (
-          <div className="space-y-3">
-            {events.map((event, index) => (
-              <div
-                key={event.id}
-                className="flex items-center gap-4 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => onEventSelect(event)}
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <div
-                    className={`w-3 h-3 rounded-full ${getEventColor(event.type)}`}
-                  />
-                  <div className="text-sm font-mono text-gray-600">
-                    {formatTimestamp(event.timestamp)}
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {event.type}
-                  </Badge>
-                  <div className="text-sm text-gray-700">
-                    {event.teamId === 'home' ? 'Home' : 'Away'} Team
-                  </div>
-                  {event.playerId && (
-                    <div className="text-sm text-gray-600">
-                      Player #{event.playerId}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEventUpdate(event);
-                    }}
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEventDelete(event.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+    <div className="space-y-3">
+      {sortedEvents.map((event) => (
+        <div
+          key={event.id}
+          className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors ${
+            event.team === 'home' ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-red-500'
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-2xl">{getEventIcon(event.type)}</div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs">
+                  {formatTime(event.timestamp)}
+                </Badge>
+                <Badge variant={event.team === 'home' ? 'default' : 'secondary'}>
+                  {getTeamName(event.team)}
+                </Badge>
               </div>
-            ))}
+              <div className="font-medium capitalize">{event.type.replace(/([A-Z])/g, ' $1').trim()}</div>
+              {event.player && (
+                <div className="text-sm text-gray-600">
+                  {getPlayerName(event.player)}
+                </div>
+              )}
+              {event.description && (
+                <div className="text-sm text-gray-500">{event.description}</div>
+              )}
+              {event.coordinates && (
+                <div className="text-xs text-gray-400">
+                  Position: ({Math.round(event.coordinates.x)}, {Math.round(event.coordinates.y)})
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          
+          <div className="flex gap-2">
+            {onEventUpdate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEventUpdate(event)}
+                title="Edit event"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            {onEventSelect && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEventSelect(event)}
+                title="View details"
+              >
+                View
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(event.id)}
+              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+              title="Delete event"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 

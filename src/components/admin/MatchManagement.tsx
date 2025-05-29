@@ -44,6 +44,7 @@ const MatchManagement: React.FC = () => {
 
       const typedMatches: Match[] = (data || []).map(match => ({
         ...match,
+        name: match.name || 'Untitled Match', // Ensure name is never null
         venue: match.location, // Map location to venue for compatibility
         created_at: match.created_at || new Date().toISOString(),
         home_team_players: match.home_team_players || [],
@@ -111,7 +112,7 @@ const MatchManagement: React.FC = () => {
             <div key={match.id} className="border rounded-lg p-4 hover:bg-gray-50">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="font-semibold text-lg">{match.name || 'Untitled Match'}</h3>
+                  <h3 className="font-semibold text-lg">{match.name}</h3>
                   <p className="text-sm text-gray-600">
                     {match.home_team_name} vs {match.away_team_name}
                   </p>
