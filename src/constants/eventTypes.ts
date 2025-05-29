@@ -10,6 +10,33 @@ export const EVENT_TYPES = [
   'goalKick', 'aerialDuel', 'groundDuel'
 ] as const;
 
+export const EVENT_CATEGORIES = {
+  'Ball Actions': {
+    description: 'Events related to ball movement and possession',
+    events: ['pass', 'shot', 'cross', 'dribble', 'clearance', 'block', 'save', 'interception']
+  },
+  'Set Pieces': {
+    description: 'Fixed situations and restarts',
+    events: ['corner', 'free-kick', 'penalty', 'goal-kick', 'throw-in', 'freeKick', 'throwIn', 'goalKick']
+  },
+  'Fouls & Cards': {
+    description: 'Disciplinary actions and violations',
+    events: ['foul', 'yellowCard', 'redCard', 'card']
+  },
+  'Goals & Assists': {
+    description: 'Scoring and goal-related events',
+    events: ['goal', 'assist', 'ownGoal']
+  },
+  'Possession': {
+    description: 'Ball control and possession changes',
+    events: ['possession', 'ballLost', 'ballRecovered', 'tackle']
+  },
+  'Match Events': {
+    description: 'General match occurrences',
+    events: ['substitution', 'offside', 'aerialDuel', 'groundDuel']
+  }
+} as const;
+
 export const KEYBOARD_MAPPINGS: Record<string, EventType> = {
   'p': 'pass',
   's': 'shot', 
@@ -69,3 +96,5 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'aerialDuel': 'Aerial Duel',
   'groundDuel': 'Ground Duel'
 };
+
+export type EventCategory = keyof typeof EVENT_CATEGORIES;

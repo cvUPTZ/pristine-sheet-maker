@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from '@/types';
 import { TrackerUser, NotificationSettings } from '@/types/matchForm';
-import { User, Mail, Bell } from 'lucide-react';
+import { EVENT_CATEGORIES, EVENT_TYPE_LABELS, EventCategory } from '@/constants/eventTypes';
+import { User, Mail, Bell, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface TrackerAssignmentProps {
   matchId?: string;
@@ -19,10 +21,6 @@ interface TrackerAssignmentProps {
   awayTeam: Team;
   isEditMode?: boolean;
 }
-
-const EVENT_TYPES = [
-  'pass', 'shot', 'foul', 'goal', 'save', 'offside', 'corner', 'substitution'
-];
 
 const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   matchId,
@@ -36,6 +34,14 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [existingAssignments, setExistingAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<EventCategory, boolean>>({
+    'Ball Actions': true,
+    'Set Pieces': false,
+    'Fouls & Cards': false,
+    'Goals & Assists': false,
+    'Possession': false,
+    'Match Events': false
+  });
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     sendOnAssignment: true,
     sendOnMatchStart: false,
@@ -84,6 +90,22 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
       setExistingAssignments(data || []);
     } catch (error) {
       console.error('Error fetching assignments:', error);
+    }
+  };
+
+  const toggleCategory = (category: EventCategory) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  const handleCategoryToggle = (category: EventCategory, checked: boolean) => {
+    const categoryEvents = EVENT_CATEGORIES[category].events;
+    if (checked) {
+      setSelectedEventTypes(prev => [...new Set([...prev, ...categoryEvents])]);
+    } else {
+      setSelectedEventTypes(prev => prev.filter(event => !categoryEvents.includes(event as any)));
     }
   };
 
@@ -228,6 +250,16 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
   const allPlayers = [...homeTeam.players, ...awayTeam.players];
 
+  const isCategorySelected = (category: EventCategory) => {
+    const categoryEvents = EVENT_CATEGORIES[category].events;
+    return categoryEvents.every(event => selectedEventTypes.includes(event));
+  };
+
+  const isCategoryPartiallySelected = (category: EventCategory) => {
+    const categoryEvents = EVENT_CATEGORIES[category].events;
+    return categoryEvents.some(event => selectedEventTypes.includes(event)) && !isCategorySelected(category);
+  };
+
   return (
     <div className="space-y-6">
       {/* Tracker Selection Cards */}
@@ -288,20 +320,62 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-sm font-medium mb-2 block">Event Types</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {EVENT_TYPES.map((eventType) => (
-                  <div key={eventType} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={eventType}
-                      checked={selectedEventTypes.includes(eventType)}
-                      onCheckedChange={(checked) => 
-                        handleEventTypeChange(eventType, checked as boolean)
-                      }
-                    />
-                    <Label htmlFor={eventType} className="text-sm capitalize">
-                      {eventType}
-                    </Label>
+              <Label className="text-sm font-medium mb-3 block">Event Categories & Types</Label>
+              <div className="space-y-2">
+                {Object.entries(EVENT_CATEGORIES).map(([category, config]) => (
+                  <div key={category} className="border rounded-lg">
+                    <Collapsible
+                      open={expandedCategories[category as EventCategory]}
+                      onOpenChange={() => toggleCategory(category as EventCategory)}
+                    >
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 hover:bg-gray-50">
+                          <div className="flex items-center space-x-3">
+                            <Checkbox
+                              checked={isCategorySelected(category as EventCategory)}
+                              ref={(ref) => {
+                                if (ref) {
+                                  ref.indeterminate = isCategoryPartiallySelected(category as EventCategory);
+                                }
+                              }}
+                              onCheckedChange={(checked) => 
+                                handleCategoryToggle(category as EventCategory, checked as boolean)
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="text-left">
+                              <div className="font-medium text-sm">{category}</div>
+                              <div className="text-xs text-gray-500">{config.description}</div>
+                            </div>
+                          </div>
+                          {expandedCategories[category as EventCategory] ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t bg-gray-50 p-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            {config.events.map((eventType) => (
+                              <div key={eventType} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`${category}-${eventType}`}
+                                  checked={selectedEventTypes.includes(eventType)}
+                                  onCheckedChange={(checked) => 
+                                    handleEventTypeChange(eventType, checked as boolean)
+                                  }
+                                />
+                                <Label htmlFor={`${category}-${eventType}`} className="text-sm">
+                                  {EVENT_TYPE_LABELS[eventType as keyof typeof EVENT_TYPE_LABELS] || eventType}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 ))}
               </div>

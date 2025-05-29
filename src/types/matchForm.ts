@@ -15,6 +15,7 @@ export interface TrackerAssignment {
   trackerId: string;
   eventTypes: string[];
   playerIds: string[];
+  eventCategories?: string[];
 }
 
 export interface TrackerUser {
@@ -28,4 +29,10 @@ export interface NotificationSettings {
   sendOnMatchStart: boolean;
   sendOnMatchEnd: boolean;
   customMessage?: string;
+}
+
+export interface EventCategoryAssignment {
+  category: string;
+  eventTypes: string[];
+  description: string;
 }
