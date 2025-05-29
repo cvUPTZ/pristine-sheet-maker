@@ -41,23 +41,23 @@ const MatchBasicDetails: React.FC<MatchBasicDetailsProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="home_team_name">Home Team</Label>
+            <Label htmlFor="homeTeamName">Home Team</Label>
             <Input
-              id="home_team_name"
-              {...register('home_team_name', { required: 'Home team name is required' })}
+              id="homeTeamName"
+              {...register('homeTeamName', { required: 'Home team name is required' })}
               placeholder="Enter home team name"
             />
-            {errors.home_team_name && <p className="text-red-500 text-sm">{errors.home_team_name.message}</p>}
+            {errors.homeTeamName && <p className="text-red-500 text-sm">{errors.homeTeamName.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="away_team_name">Away Team</Label>
+            <Label htmlFor="awayTeamName">Away Team</Label>
             <Input
-              id="away_team_name"
-              {...register('away_team_name', { required: 'Away team name is required' })}
+              id="awayTeamName"
+              {...register('awayTeamName', { required: 'Away team name is required' })}
               placeholder="Enter away team name"
             />
-            {errors.away_team_name && <p className="text-red-500 text-sm">{errors.away_team_name.message}</p>}
+            {errors.awayTeamName && <p className="text-red-500 text-sm">{errors.awayTeamName.message}</p>}
           </div>
         </div>
 
@@ -79,22 +79,22 @@ const MatchBasicDetails: React.FC<MatchBasicDetailsProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="home_team_score">Home Score</Label>
+            <Label htmlFor="homeTeamScore">Home Score</Label>
             <Input
-              id="home_team_score"
+              id="homeTeamScore"
               type="number"
-              {...register('home_team_score')}
+              {...register('homeTeamScore')}
               placeholder="0"
               min="0"
             />
           </div>
 
           <div>
-            <Label htmlFor="away_team_score">Away Score</Label>
+            <Label htmlFor="awayTeamScore">Away Score</Label>
             <Input
-              id="away_team_score"
+              id="awayTeamScore"
               type="number"
-              {...register('away_team_score')}
+              {...register('awayTeamScore')}
               placeholder="0"
               min="0"
             />
@@ -102,8 +102,8 @@ const MatchBasicDetails: React.FC<MatchBasicDetailsProps> = ({
         </div>
 
         <div>
-          <Label htmlFor="match_type">Match Type</Label>
-          <Select onValueChange={(value) => setValue('match_type', value)} defaultValue={watch('match_type')}>
+          <Label htmlFor="matchType">Match Type</Label>
+          <Select onValueChange={(value) => setValue('matchType', value)} defaultValue={watch('matchType')}>
             <SelectTrigger>
               <SelectValue placeholder="Select match type" />
             </SelectTrigger>

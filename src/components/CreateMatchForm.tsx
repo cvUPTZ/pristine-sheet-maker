@@ -8,20 +8,14 @@ import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MatchBasicDetails from './match/MatchBasicDetails';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
-import { Formation, MatchFormData } from '@/types';
+import { Formation, Team } from '@/types';
+import { MatchFormData } from '@/types/matchForm';
 
 interface Player {
   id: string;
   name: string;
   position: string;
   number: number;
-}
-
-interface Team {
-  id?: string;
-  name: string;
-  formation: Formation;
-  players: Player[];
 }
 
 interface CreateMatchFormProps {
@@ -42,10 +36,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const [activeTab, setActiveTab] = useState('details');
   
   const [homeTeam, setHomeTeam] = useState<Team>({
+    id: 'home',
     name: '',
     formation: '4-4-2',
     players: Array.from({ length: 11 }, (_, i) => ({
-      id: `home_${i + 1}`,
+      id: i + 1,
       name: `Player ${i + 1}`,
       position: 'Forward',
       number: i + 1
@@ -53,10 +48,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   });
   
   const [awayTeam, setAwayTeam] = useState<Team>({
+    id: 'away',
     name: '',
     formation: '4-3-3',
     players: Array.from({ length: 11 }, (_, i) => ({
-      id: `away_${i + 1}`,
+      id: i + 1,
       name: `Player ${i + 1}`,
       position: 'Midfielder',
       number: i + 1
@@ -66,13 +62,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<MatchFormData>({
     defaultValues: {
       name: '',
-      home_team_name: '',
-      away_team_name: '',
+      homeTeamName: '',
+      awayTeamName: '',
       status: 'draft',
-      match_type: 'regular',
+      matchType: 'regular',
       description: '',
-      home_team_score: '0',
-      away_team_score: '0',
+      homeTeamScore: '0',
+      awayTeamScore: '0',
       notes: ''
     }
   });
@@ -83,13 +79,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       
       reset({
         name: initialData.name || '',
-        home_team_name: initialData.home_team_name || '',
-        away_team_name: initialData.away_team_name || '',
+        homeTeamName: initialData.home_team_name || '',
+        awayTeamName: initialData.away_team_name || '',
         status: initialData.status || 'draft',
-        match_type: initialData.match_type || 'regular',
+        matchType: initialData.match_type || 'regular',
         description: initialData.description || '',
-        home_team_score: (initialData.home_team_score || 0).toString(),
-        away_team_score: (initialData.away_team_score || 0).toString(),
+        homeTeamScore: (initialData.home_team_score || 0).toString(),
+        awayTeamScore: (initialData.away_team_score || 0).toString(),
         notes: initialData.notes || '',
       });
 
@@ -119,33 +115,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   // Update team names when form values change
   useEffect(() => {
     const subscription = watch((value, { name }) => {
-      if (name === 'home_team_name') {
-        setHomeTeam(prev => ({ ...prev, name: value.home_team_name || '' }));
+      if (name === 'homeTeamName') {
+        setHomeTeam(prev => ({ ...prev, name: value.homeTeamName || '' }));
       }
-      if (name === 'away_team_name') {
-        setAwayTeam(prev => ({ ...prev, name: value.away_team_name || '' }));
+      if (name === 'awayTeamName') {
+        setAwayTeam(prev => ({ ...prev, name: value.awayTeamName || '' }));
       }
     });
     return () => subscription.unsubscribe();
   }, [watch]);
-
-  const handleFormationChange = (teamType: 'home' | 'away', formation: Formation) => {
-    if (teamType === 'home') {
-      setHomeTeam(prev => ({ ...prev, formation }));
-    } else {
-      setAwayTeam(prev => ({ ...prev, formation }));
-    }
-  };
-
-  const handlePlayerChange = (teamType: 'home' | 'away', playerIndex: number, field: string, value: string) => {
-    const updateTeam = teamType === 'home' ? setHomeTeam : setAwayTeam;
-    updateTeam(prev => ({
-      ...prev,
-      players: prev.players.map((player, index) =>
-        index === playerIndex ? { ...player, [field]: value } : player
-      )
-    }));
-  };
 
   const onSubmit = async (data: MatchFormData) => {
     if (!user?.id) {
@@ -158,17 +136,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
     try {
       const matchData = {
         name: data.name,
-        home_team_name: data.home_team_name,
-        away_team_name: data.away_team_name,
+        home_team_name: data.homeTeamName,
+        away_team_name: data.awayTeamName,
         home_team_formation: homeTeam.formation,
         away_team_formation: awayTeam.formation,
         home_team_players: JSON.stringify(homeTeam.players),
         away_team_players: JSON.stringify(awayTeam.players),
         status: data.status,
-        match_type: data.match_type,
+        match_type: data.matchType,
         description: data.description,
-        home_team_score: parseInt(data.home_team_score) || 0,
-        away_team_score: parseInt(data.away_team_score) || 0,
+        home_team_score: parseInt(data.homeTeamScore) || 0,
+        away_team_score: parseInt(data.awayTeamScore) || 0,
         notes: data.notes,
         created_by: user.id,
         match_date: new Date().toISOString()
@@ -211,20 +189,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
       if (!isEditMode) {
         reset();
         setHomeTeam({
+          id: 'home',
           name: '',
           formation: '4-4-2',
           players: Array.from({ length: 11 }, (_, i) => ({
-            id: `home_${i + 1}`,
+            id: i + 1,
             name: `Player ${i + 1}`,
             position: 'Forward',
             number: i + 1
           }))
         });
         setAwayTeam({
+          id: 'away',
           name: '',
           formation: '4-3-3',
           players: Array.from({ length: 11 }, (_, i) => ({
-            id: `away_${i + 1}`,
+            id: i + 1,
             name: `Player ${i + 1}`,
             position: 'Midfielder',
             number: i + 1
@@ -241,7 +221,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -260,16 +240,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
           </TabsContent>
           
           <TabsContent value="teams" className="space-y-4">
-            <TeamSetupWithFormation
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              onFormationChange={handleFormationChange}
-              onPlayerChange={handlePlayerChange}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TeamSetupWithFormation
+                team={homeTeam}
+                onTeamUpdate={setHomeTeam}
+                teamType="home"
+              />
+              <TeamSetupWithFormation
+                team={awayTeam}
+                onTeamUpdate={setAwayTeam}
+                teamType="away"
+              />
+            </div>
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-between pt-4">
+        <div className="flex justify-between pt-4 border-t">
           {activeTab === 'teams' && (
             <Button 
               type="button" 
@@ -302,4 +288,3 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
 };
 
 export default CreateMatchForm;
-export type { MatchFormData };
