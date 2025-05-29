@@ -125,9 +125,9 @@ export interface PlayerAssignment {
 // Match interface for admin management
 export interface Match {
   id: string;
-  name: string | null;
+  name: string;
   status: string;
-  match_date: string | null;
+  match_date: string;
   home_team_name: string;
   away_team_name: string;
   home_team_formation: string | null;
@@ -136,8 +136,8 @@ export interface Match {
   away_team_score: number | null;
   home_team_players: any[];
   away_team_players: any[];
-  venue?: string | null;
-  competition?: string | null;
+  venue?: string;
+  competition?: string;
   created_at: string;
   updated_at: string | null;
 }
@@ -188,4 +188,17 @@ export interface TrackerAssignmentDetails {
     away: number[];
   };
   notificationSettings: NotificationSettings;
+}
+
+export interface PlayerStatsTableProps {
+  events: MatchEvent[];
+  homeTeam: Team;
+  awayTeam: Team;
+}
+
+export interface MatchEventsTimelineProps {
+  events: MatchEvent[];
+  onEventSelect?: (event: MatchEvent) => void;
+  onEventUpdate?: (event: MatchEvent) => void;
+  onEventDelete: (eventId: string) => Promise<void>;
 }

@@ -1,10 +1,38 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Match, Player } from '@/types/index';
+import { Player } from '@/types/index';
+
+interface MatchState {
+  id: string;
+  name?: string;
+  description?: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeTeamPlayers: Player[];
+  awayTeamPlayers: Player[];
+  homeTeamFormation?: string;
+  awayTeamFormation?: string;
+  status: string;
+  matchDate?: string;
+  venue?: string;
+  competition?: string;
+  statistics?: any;
+  ballTrackingData?: any;
+  // Keep database field names for compatibility
+  home_team_name: string;
+  away_team_name: string;
+  home_team_players: Player[];
+  away_team_players: Player[];
+  home_team_formation?: string;
+  away_team_formation?: string;
+  match_date?: string;
+  match_statistics?: any;
+  ball_tracking_data?: any;
+}
 
 export const useMatchState = (matchId: string) => {
-  const [match, setMatch] = useState<Match | null>(null);
+  const [match, setMatch] = useState<MatchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
@@ -35,7 +63,7 @@ export const useMatchState = (matchId: string) => {
       };
 
       // Convert database format to Match type
-      const matchData: Match = {
+      const matchData: MatchState = {
         id: data.id,
         name: data.name || undefined,
         description: data.description || undefined,
@@ -47,6 +75,8 @@ export const useMatchState = (matchId: string) => {
         awayTeamFormation: data.away_team_formation || undefined,
         status: data.status,
         matchDate: data.match_date || undefined,
+        venue: data.venue || undefined,
+        competition: data.competition || undefined,
         statistics: data.match_statistics as any,
         ballTrackingData: parseJSONData(data.ball_tracking_data),
         // Keep database field names for compatibility
@@ -75,7 +105,7 @@ export const useMatchState = (matchId: string) => {
     }
   };
 
-  const updateMatch = async (updates: Partial<Match>) => {
+  const updateMatch = async (updates: Partial<MatchState>) => {
     try {
       const { error } = await supabase
         .from('matches')
@@ -90,6 +120,8 @@ export const useMatchState = (matchId: string) => {
           away_team_formation: updates.awayTeamFormation || updates.away_team_formation,
           status: updates.status,
           match_date: updates.matchDate || updates.match_date,
+          venue: updates.venue,
+          competition: updates.competition,
           match_statistics: updates.statistics || updates.match_statistics,
           ball_tracking_data: updates.ballTrackingData || updates.ball_tracking_data,
         })

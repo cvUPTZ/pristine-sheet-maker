@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,13 +66,16 @@ const EventAssignments: React.FC = () => {
       if (assignmentsResponse.error) throw assignmentsResponse.error;
       if (usersResponse.error) throw usersResponse.error;
 
-      // Transform assignments data
+      // Transform assignments data with proper null handling
       const transformedAssignments = (assignmentsResponse.data || []).map(assignment => ({
         id: String(assignment.id),
         user_id: assignment.user_id || '',
         event_type: assignment.event_type,
         created_at: assignment.created_at || new Date().toISOString(),
-        profiles: assignment.profiles
+        profiles: assignment.profiles ? {
+          email: assignment.profiles.email || '',
+          full_name: assignment.profiles.full_name || ''
+        } : undefined
       }));
 
       // Transform users data

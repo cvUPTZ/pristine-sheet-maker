@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -105,14 +106,14 @@ const PlayerAssignments: React.FC = () => {
           profiles: assignment.profiles
         }));
 
-      // Transform matches
+      // Transform matches with proper null handling
       const transformedMatches = (matchesResponse.data || []).map(match => ({
         id: match.id,
         name: match.name || undefined,
         home_team_name: match.home_team_name,
         away_team_name: match.away_team_name,
-        home_team_players: match.home_team_players,
-        away_team_players: match.away_team_players
+        home_team_players: Array.isArray(match.home_team_players) ? match.home_team_players : [],
+        away_team_players: Array.isArray(match.away_team_players) ? match.away_team_players : []
       }));
 
       // Transform users
