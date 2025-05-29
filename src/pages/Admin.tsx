@@ -980,8 +980,11 @@ const Admin: React.FC = () => {
 
       {/* Create Match Dialog */}
       <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
-        <DialogContent className="sm:max-w-2xl"> {/* Adjusted width for better form display */}
-          {/* Title and Description are now inside CreateMatchForm */}
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Match</DialogTitle>
+            <DialogDescription>Follow the steps to create a new match, including team setup and tracker assignments.</DialogDescription>
+          </DialogHeader>
           <CreateMatchForm onSuccess={handleCreateMatchSuccess} />
         </DialogContent>
       </Dialog>
@@ -991,7 +994,11 @@ const Admin: React.FC = () => {
         setIsEditMatchDialogOpen(open);
         if (!open) setEditingMatch(null); // Clear editingMatch when dialog closes
       }}>
-        <DialogContent className="sm:max-w-2xl"> {/* Adjusted width */}
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Match</DialogTitle>
+            <DialogDescription>Modify the details of the selected match.</DialogDescription>
+          </DialogHeader>
           {editingMatch && <CreateMatchForm 
                             isEditMode 
                             initialData={{ // Map fields from `Match` to `MatchFormData`
