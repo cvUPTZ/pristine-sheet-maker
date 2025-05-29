@@ -54,12 +54,38 @@ const UserManagement: React.FC = () => {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
-      const { error } = await supabase
+      // Update role in profiles table
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ role: newRole })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update role in user_roles table
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .upsert({ 
+          user_id: userId, 
+          role: newRole 
+        }, { 
+          onConflict: 'user_id,role'
+        });
+
+      if (roleError) {
+        console.warn('Warning updating user_roles:', roleError);
+        // Don't throw error here as the main update was successful
+      }
+
+      // Call the function to update auth metadata
+      const { error: functionError } = await supabase.rpc('assign_user_role', {
+        _user_id: userId,
+        _role: newRole
+      });
+
+      if (functionError) {
+        console.warn('Warning calling assign_user_role function:', functionError);
+      }
 
       setUsers(prev => prev.map(user => 
         user.id === userId 
