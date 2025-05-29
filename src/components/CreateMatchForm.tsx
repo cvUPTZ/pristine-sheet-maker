@@ -27,7 +27,7 @@ import {
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
-import { Team, Player } from '@/types';
+import { Team, Player, Formation } from '@/types';
 import { MatchFormData, TrackerAssignment } from '@/types/matchForm';
 import TeamSetupWithFormation from './TeamSetupWithFormation';
 
@@ -61,18 +61,19 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
   const [homeTeam, setHomeTeam] = useState<Team>({
     id: 'home',
     name: '',
-    formation: '4-4-2',
+    formation: '4-4-2' as Formation,
     players: []
   });
   const [awayTeam, setAwayTeam] = useState<Team>({
     id: 'away',
     name: '',
-    formation: '4-3-3',
+    formation: '4-3-3' as Formation,
     players: []
   });
   const [trackers, setTrackers] = useState<TrackerProfile[]>([]);
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingTrackers, setIsLoadingTrackers] = useState(false);
   const navigate = useNavigate();
 
   const handleLoadBothTeamsPlayers = () => {
@@ -109,22 +110,42 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
   }, [matchDetails.homeTeamName, matchDetails.awayTeamName]);
 
   const fetchTrackers = async () => {
+    setIsLoadingTrackers(true);
     try {
-      const { data, error } = await supabase.rpc('get_trackers_with_email');
+      console.log('Fetching trackers using edge function...');
+      
+      const { data, error } = await supabase.functions.invoke('get-users', {
+        body: { userType: 'tracker' }
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
       
-      const transformedData: TrackerProfile[] = (data || []).map((tracker: any) => ({
-        id: tracker.id,
-        full_name: tracker.full_name,
-        email: tracker.email || 'No email'
-      }));
+      console.log('Edge function response:', data);
       
-      setTrackers(transformedData);
-      console.log('Fetched trackers:', transformedData);
+      if (data && data.users) {
+        const transformedData: TrackerProfile[] = data.users.map((tracker: any) => ({
+          id: tracker.id,
+          full_name: tracker.full_name || null,
+          email: tracker.email || 'No email'
+        }));
+        
+        setTrackers(transformedData);
+        console.log('Transformed trackers:', transformedData);
+        toast.success(`Loaded ${transformedData.length} trackers`);
+      } else {
+        console.log('No tracker data received');
+        setTrackers([]);
+        toast.info('No trackers found');
+      }
     } catch (error: any) {
       console.error('Error fetching trackers:', error);
-      toast.error('Failed to load trackers');
+      toast.error(`Failed to load trackers: ${error.message}`);
+      setTrackers([]);
+    } finally {
+      setIsLoadingTrackers(false);
     }
   };
 
@@ -300,13 +321,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
       setHomeTeam({
         id: 'home',
         name: '',
-        formation: '4-4-2',
+        formation: '4-4-2' as Formation,
         players: []
       });
       setAwayTeam({
         id: 'away',
         name: '',
-        formation: '4-3-3',
+        formation: '4-3-3' as Formation,
         players: []
       });
       setTrackerAssignments([]);
@@ -521,11 +542,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSuccess }) => {
               </div>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Tracker Assignments</CardTitle>
+                  <Button onClick={fetchTrackers} variant="outline" size="sm" disabled={isLoadingTrackers}>
+                    {isLoadingTrackers ? 'Loading...' : 'Refresh Trackers'}
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  {trackers.length === 0 ? (
+                  {isLoadingTrackers ? (
+                    <div className="text-center p-4">
+                      <p className="text-muted-foreground">Loading trackers...</p>
+                    </div>
+                  ) : trackers.length === 0 ? (
                     <div className="text-center p-4">
                       <p className="text-muted-foreground mb-2">No trackers available</p>
                       <Button onClick={fetchTrackers} variant="outline">
