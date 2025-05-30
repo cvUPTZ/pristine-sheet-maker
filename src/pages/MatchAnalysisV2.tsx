@@ -1,9 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
@@ -173,6 +172,8 @@ const MatchAnalysisV2: React.FC = () => {
   };
 
   const handleEventRecord = async (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
+    console.log('handleEventRecord called with:', { eventType, player, details, user: user?.id });
+    
     if (!matchId) {
       console.error("Match ID is missing.");
       toast({
@@ -180,7 +181,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: "Match ID is missing.",
         variant: "destructive",
       });
-      return;
+      throw new Error("Match ID is missing");
     }
 
     if (!user?.id) {
@@ -190,7 +191,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: "Authentication required to record events.",
         variant: "destructive",
       });
-      return;
+      throw new Error("User not authenticated");
     }
 
     try {
@@ -201,35 +202,36 @@ const MatchAnalysisV2: React.FC = () => {
         player_id: player ? Number(player.id) : null,
         team: player ? (assignedPlayers?.home?.some(p => p.id === player.id) ? 'home' : 'away') : null,
         coordinates: details?.coordinates || null,
-        created_by: user.id // Use actual user ID from auth context
+        created_by: user.id
       };
+
+      console.log('Inserting event data:', eventData);
 
       const { data, error } = await supabase
         .from('match_events')
-        .insert([eventData]);
+        .insert([eventData])
+        .select();
 
       if (error) {
         console.error("Error recording event:", error);
         toast({
           title: "Error",
-          description: "Failed to record event",
+          description: `Failed to record event: ${error.message}`,
           variant: "destructive",
         });
-        return;
+        throw error;
       }
 
-      toast({
-        title: "Event Recorded",
-        description: `Event ${eventType.label} recorded successfully.`,
-      });
-
+      console.log('Event recorded successfully:', data);
+      
     } catch (error: any) {
       console.error("Error recording event:", error);
       toast({
         title: "Error",
-        description: "Failed to record event",
+        description: `Failed to record event: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
+      throw error;
     }
   };
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -6,7 +7,6 @@ import { getEventTypeIcon } from '@/components/match/getEventTypeIcon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBreakpoint } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ interface PianoInputProps {
   fullMatchRoster: AssignedPlayers | null;
   assignedEventTypes: EventType[] | null;
   assignedPlayers: AssignedPlayers | null;
-  onEventRecord: (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => void;
+  onEventRecord: (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => Promise<void>;
 }
 
 export function PianoInput({
@@ -40,6 +40,7 @@ export function PianoInput({
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
   const [activeTeamContext, setActiveTeamContext] = useState<'home' | 'away' | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   // Responsive hooks
   const isMobile = useBreakpoint('md');
@@ -121,6 +122,8 @@ export function PianoInput({
   }, [singlePlayerAssigned, displayableHomePlayers.length]);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    if (isRecording) return; // Prevent actions while recording
+    
     const key = event.key.toLowerCase();
 
     if (!selectedEventType) {
@@ -180,7 +183,7 @@ export function PianoInput({
       console.log("Selection cleared.");
     }
 
-  }, [selectedEventType, activeTeamContext, displayableEventTypes, displayableHomePlayers, displayableAwayPlayers, singlePlayerAssigned]);
+  }, [selectedEventType, activeTeamContext, displayableEventTypes, displayableHomePlayers, displayableAwayPlayers, singlePlayerAssigned, isRecording]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -190,6 +193,8 @@ export function PianoInput({
   }, [handleKeyPress]);
 
   const handleEventTypeSelect = (eventType: EventType) => {
+    if (isRecording) return;
+    
     setSelectedEventType(eventType);
     if (!singlePlayerAssigned) {
       setSelectedPlayer(null); 
@@ -214,15 +219,19 @@ export function PianoInput({
       toast.error('Authentication required to record events');
       return;
     }
+
+    if (isRecording) {
+      console.log("Already recording an event, please wait...");
+      return;
+    }
     
     try {
+      setIsRecording(true);
       setSelectedPlayer(player);
       console.log(`Recording event: ${selectedEventType.label} for player: ${player.player_name} (#${player.jersey_number})`);
       
-      // Call the parent's onEventRecord with proper user ID
-      await onEventRecord(selectedEventType, player, { 
-        created_by: user.id 
-      });
+      // Call the parent's onEventRecord
+      await onEventRecord(selectedEventType, player);
       
       // Show success toast
       toast.success(`${selectedEventType.label} recorded for ${player.player_name || `Player #${player.jersey_number}`}`);
@@ -236,6 +245,8 @@ export function PianoInput({
     } catch (error) {
       console.error('Error recording event:', error);
       toast.error('Failed to record event');
+    } finally {
+      setIsRecording(false);
     }
   };
 
@@ -358,7 +369,7 @@ export function PianoInput({
                 >
                   <Button
                     onClick={() => handleEventTypeSelect(et)}
-                    disabled={!!selectedEventType && selectedEventType.key !== et.key}
+                    disabled={isRecording || (!!selectedEventType && selectedEventType.key !== et.key)}
                     className={`w-full p-3 sm:p-4 rounded-xl transition-all duration-200 flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 ${
                       isXSmall ? 'h-16' : isMobile ? 'h-20' : 'h-24'
                     } ${
@@ -581,7 +592,17 @@ export function PianoInput({
               </svg>
             </div>
             <div className="flex-1">
-              {singlePlayerAssigned && (
+              {isRecording && (
+                <div>
+                  <p className={`font-semibold text-orange-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
+                    ⏳ Recording Event...
+                  </p>
+                  <p className={`text-orange-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
+                    Please wait while the event is being recorded.
+                  </p>
+                </div>
+              )}
+              {!isRecording && singlePlayerAssigned && (
                 <div>
                   <p className={`font-semibold text-blue-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     🎯 {isXSmall ? 'Quick Mode' : 'Quick Recording Mode'}
