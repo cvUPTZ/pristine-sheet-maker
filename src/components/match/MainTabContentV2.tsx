@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Team, MatchEvent, EventType } from '@/types';
 import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MainTabContentV2Props {
   matchId: string;
@@ -20,6 +21,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 }) => {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchEvents();
@@ -71,42 +73,54 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   };
 
   if (loading) {
-    return <div className="p-4">Loading events...</div>;
+    return (
+      <div className="flex items-center justify-center p-4 sm:p-8">
+        <div className="text-center">
+          <div className="text-sm sm:text-base">Loading events...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 p-2 md:p-0">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 p-1 sm:p-2 md:p-0">
       {/* Tracker Presence Indicator */}
-      <TrackerPresenceIndicator matchId={matchId} />
+      <div className="w-full">
+        <TrackerPresenceIndicator matchId={matchId} />
+      </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+        <Card className="min-w-0">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">{events.length}</div>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">{events.length}</div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium truncate">{homeTeam.name} Events</CardTitle>
+        <Card className="min-w-0">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+              {isMobile ? homeTeam.name.substring(0, 10) + (homeTeam.name.length > 10 ? '...' : '') : homeTeam.name} Events
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">
               {events.filter(e => e.team === 'home').length}
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium truncate">{awayTeam.name} Events</CardTitle>
+        <Card className="min-w-0 sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+              {isMobile ? awayTeam.name.substring(0, 10) + (awayTeam.name.length > 10 ? '...' : '') : awayTeam.name} Events
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">
               {events.filter(e => e.team === 'away').length}
             </div>
           </CardContent>
@@ -114,36 +128,41 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       </div>
 
       {/* Events List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base md:text-lg">Recent Events</CardTitle>
+      <Card className="w-full">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-sm sm:text-base md:text-lg">Recent Events</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-h-64 md:max-h-96 overflow-y-auto">
+        <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+          <div className="space-y-1 sm:space-y-2 max-h-48 sm:max-h-64 md:max-h-96 overflow-y-auto">
             {events.slice(-10).reverse().map((event) => (
-              <div key={event.id} className="flex justify-between items-center p-2 md:p-3 border rounded-lg">
-                <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                  <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
+              <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${
                     event.team === 'home' ? 'bg-blue-500' : 'bg-red-500'
                   }`} />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium capitalize text-sm md:text-base">{event.type}</div>
-                    <div className="text-xs md:text-sm text-gray-600 truncate">
-                      Player ID: {event.player_id || 'Unknown'} - {Math.floor(event.timestamp / 60)}'
+                    <div className="font-medium capitalize text-xs sm:text-sm md:text-base truncate">
+                      {event.type}
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600 truncate">
+                      {event.player_id ? `Player ${event.player_id}` : 'Team event'} - {Math.floor(event.timestamp / 60)}'
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => handleEventDelete(event.id)}
-                  className="text-red-600 hover:text-red-800 text-xs md:text-sm px-2 py-1 flex-shrink-0"
+                  className="text-red-600 hover:text-red-800 text-xs sm:text-sm px-2 py-1 flex-shrink-0 rounded hover:bg-red-50 transition-colors"
                 >
-                  Delete
+                  {isMobile ? '×' : 'Delete'}
                 </button>
               </div>
             ))}
             {events.length === 0 && (
-              <div className="text-center py-6 md:py-8 text-gray-500">
-                <p className="text-sm md:text-base">No events recorded yet</p>
+              <div className="text-center py-6 sm:py-8 md:py-12 text-gray-500">
+                <p className="text-xs sm:text-sm md:text-base">No events recorded yet</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                  Events will appear here as they are tracked
+                </p>
               </div>
             )}
           </div>

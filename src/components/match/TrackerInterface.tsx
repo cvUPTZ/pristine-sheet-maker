@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -15,6 +16,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [matchName, setMatchName] = useState<string>('');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!trackerUserId || !matchId) {
@@ -53,29 +55,51 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   }, [trackerUserId, matchId]);
 
   if (loading) {
-    return <div className="p-4">Loading tracker interface...</div>;
+    return (
+      <div className="flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
+        <div className="text-center">
+          <div className="text-sm sm:text-base">Loading tracker interface...</div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-4 text-red-600">Error: {error}</div>;
+    return (
+      <div className="p-2 sm:p-4">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-red-600 text-sm sm:text-base">Error: {error}</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Match Tracking Interface</CardTitle>
+    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-6xl">
+      <Card className="mb-3 sm:mb-6">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg lg:text-xl">
+            Match Tracking Interface
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <p className="text-lg font-medium">{matchName}</p>
-            <p className="text-sm text-gray-600">Tracker: {trackerUserId}</p>
-            <p className="text-sm text-gray-600">Match: {matchId}</p>
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="space-y-1 sm:space-y-2">
+            <p className="text-sm sm:text-base lg:text-lg font-medium truncate">
+              {matchName}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
+              <span>Tracker: {trackerUserId}</span>
+              <span>Match: {matchId}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
       
-      <TrackerPianoInput matchId={matchId} />
+      <div className="w-full">
+        <TrackerPianoInput matchId={matchId} />
+      </div>
     </div>
   );
 }
