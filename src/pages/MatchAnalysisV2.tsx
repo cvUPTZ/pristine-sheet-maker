@@ -225,9 +225,9 @@ const MatchAnalysisV2: React.FC = () => {
 
   if (!matchId) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen px-4">
         <Card className="w-full max-w-md">
-          <CardContent className="text-center">
+          <CardContent className="text-center p-6">
             <p className="text-lg font-semibold">Match ID is missing.</p>
           </CardContent>
         </Card>
@@ -240,7 +240,7 @@ const MatchAnalysisV2: React.FC = () => {
   const defaultTab = isAdmin ? 'main' : 'piano';
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-2 sm:p-4 max-w-7xl">
       <MatchHeader
         mode={mode}
         setMode={setMode}
@@ -251,14 +251,14 @@ const MatchAnalysisV2: React.FC = () => {
       />
 
       <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList>
-          {isAdmin && <TabsTrigger value="main">Main</TabsTrigger>}
-          <TabsTrigger value="piano">Piano Input</TabsTrigger>
-          {isAdmin && <TabsTrigger value="tracker">Assign Tracker</TabsTrigger>}
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 h-auto p-1">
+          {isAdmin && <TabsTrigger value="main" className="text-xs sm:text-sm py-2">Main</TabsTrigger>}
+          <TabsTrigger value="piano" className="text-xs sm:text-sm py-2">Piano Input</TabsTrigger>
+          {isAdmin && <TabsTrigger value="tracker" className="text-xs sm:text-sm py-2">Assign Tracker</TabsTrigger>}
         </TabsList>
         
         {isAdmin && (
-          <TabsContent value="main" className="mt-4">
+          <TabsContent value="main" className="mt-2 sm:mt-4">
             <MainTabContentV2
               matchId={matchId}
               homeTeam={homeTeam}
@@ -269,10 +269,10 @@ const MatchAnalysisV2: React.FC = () => {
           </TabsContent>
         )}
         
-        <TabsContent value="piano" className="mt-4">
+        <TabsContent value="piano" className="mt-2 sm:mt-4">
           <Card>
-            <CardContent>
-              <h2 className="text-lg font-semibold mb-4">Piano Input</h2>
+            <CardContent className="p-3 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Piano Input</h2>
               <PianoInput
                 fullMatchRoster={fullMatchRoster}
                 assignedEventTypes={assignedEventTypes}
@@ -284,9 +284,9 @@ const MatchAnalysisV2: React.FC = () => {
         </TabsContent>
         
         {isAdmin && (
-          <TabsContent value="tracker" className="mt-4">
+          <TabsContent value="tracker" className="mt-2 sm:mt-4">
             <Card>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6">
                 <TrackerAssignment
                   matchId={matchId}
                   homeTeamPlayers={fullMatchRoster?.home || []}

@@ -30,17 +30,17 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   const isXS = useBreakpoint('xs');
   
   return (
-    <header className="mb-4 bg-white p-2 md:p-4 rounded-lg shadow-md">
-      <div className="flex items-center justify-between mb-2">
+    <header className="mb-2 sm:mb-4 bg-white p-2 sm:p-3 md:p-4 rounded-lg shadow-md">
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
         {/* Mobile Menu */}
         <div className="lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size={isXS ? "sm" : "icon"}>
-                <MenuIcon className="h-4 w-4" />
+              <Button variant="outline" size={isXS ? "sm" : "default"} className="h-8 w-8 sm:h-9 sm:w-9 p-0">
+                <MenuIcon className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[80vw] max-w-[300px]">
+            <SheetContent side="left" className="w-[280px] sm:w-[300px]">
               <div className="flex flex-col gap-4 mt-10">
                 <Button variant="outline" asChild className="justify-start">
                   <Link to="/" className="flex items-center gap-2">
@@ -63,17 +63,17 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         
         {/* Regular Buttons for Desktop */}
         <div className="hidden lg:block">
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild size={isMedium ? "sm" : "default"}>
             <Link to="/" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Dashboard
+              <span className="hidden xl:inline">Dashboard</span>
             </Link>
           </Button>
         </div>
         
         <h1 className={cn(
-          "text-base sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-football-home to-football-away bg-clip-text text-transparent",
-          "sm:text-center flex-grow text-center"
+          "text-sm sm:text-lg md:text-xl lg:text-2xl font-bold bg-gradient-to-r from-football-home to-football-away bg-clip-text text-transparent",
+          "text-center flex-grow mx-2 sm:mx-4"
         )}>
           EFOOTPAD
         </h1>
@@ -83,38 +83,72 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
             variant="outline"
             onClick={handleSave}
             className="flex items-center gap-2"
+            size={isMedium ? "sm" : "default"}
           >
             <Save className="h-4 w-4" />
-            Save Match
+            <span className="hidden xl:inline">Save</span>
           </Button>
         </div>
         
-        {/* Empty div for proper layout on mobile */}
-        <div className="lg:hidden w-[40px]"></div>
+        {/* Save button for mobile - icon only */}
+        <div className="lg:hidden">
+          <Button 
+            variant="outline"
+            onClick={handleSave}
+            size={isXS ? "sm" : "default"}
+            className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+          >
+            <Save className="h-3 w-3 sm:h-4 sm:w-4" />
+          </Button>
+        </div>
       </div>
       
-      <div className="flex justify-center my-2">
+      <div className="flex justify-center my-2 sm:my-3">
         <Tabs 
           value={mode} 
-          className="w-full max-w-md"
+          className="w-full max-w-xs sm:max-w-sm md:max-w-md"
           onValueChange={(value) => setMode(value as 'piano' | 'tracking')}
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="piano" className="text-xs sm:text-sm">Piano Mode</TabsTrigger>
-            <TabsTrigger value="tracking" onClick={handleToggleTracking} className="text-xs sm:text-sm">Ball Tracking</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-8 sm:h-9 md:h-10">
+            <TabsTrigger value="piano" className="text-xs sm:text-sm py-1 sm:py-2">Piano</TabsTrigger>
+            <TabsTrigger value="tracking" onClick={handleToggleTracking} className="text-xs sm:text-sm py-1 sm:py-2">Tracking</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       
-      <div className="flex justify-between items-center mt-2 text-xs sm:text-sm md:text-base flex-wrap">
-        <div className={`text-football-home font-semibold md:text-xl ${isXS ? 'max-w-[35%]' : isSmall ? 'max-w-[40%]' : ''} truncate`}>
-          {homeTeam.name} <span className="text-[0.65rem] md:text-sm">{isXS ? '' : isSmall ? '' : `(${homeTeam.formation})`}</span>
+      <div className="flex justify-between items-center mt-2 sm:mt-3 text-xs sm:text-sm md:text-base">
+        <div className={cn(
+          "text-football-home font-semibold flex-1 text-left",
+          "text-xs sm:text-sm md:text-lg lg:text-xl"
+        )}>
+          <div className="truncate pr-1 sm:pr-2">
+            {homeTeam.name}
+          </div>
+          {!isXS && (
+            <div className="text-[0.6rem] sm:text-xs md:text-sm text-gray-600">
+              {homeTeam.formation}
+            </div>
+          )}
         </div>
-        <div className="text-base sm:text-lg font-mono font-bold mx-1 md:mx-4">
-          vs
+        
+        <div className="text-center px-2 sm:px-4 flex-shrink-0">
+          <div className="text-sm sm:text-base md:text-lg font-mono font-bold">
+            vs
+          </div>
         </div>
-        <div className={`text-football-away font-semibold md:text-xl ${isXS ? 'max-w-[35%]' : isSmall ? 'max-w-[40%]' : ''} truncate`}>
-          {awayTeam.name} <span className="text-[0.65rem] md:text-sm">{isXS ? '' : isSmall ? '' : `(${awayTeam.formation})`}</span>
+        
+        <div className={cn(
+          "text-football-away font-semibold flex-1 text-right",
+          "text-xs sm:text-sm md:text-lg lg:text-xl"
+        )}>
+          <div className="truncate pl-1 sm:pl-2">
+            {awayTeam.name}
+          </div>
+          {!isXS && (
+            <div className="text-[0.6rem] sm:text-xs md:text-sm text-gray-600">
+              {awayTeam.formation}
+            </div>
+          )}
         </div>
       </div>
     </header>
