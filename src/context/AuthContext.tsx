@@ -1,220 +1,142 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { UserRoleType } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 
-type UserRoleType = 'admin' | 'tracker' | 'viewer' | null;
-
-// Explicit Admin Email for initial/override check
-const EXPLICIT_ADMIN_EMAIL = 'adminzack@efoot.com'; // <--- YOUR ADMIN EMAIL HERE
-
-type AuthContextType = {
+interface AuthContextType {
   user: User | null;
-  session: Session | null;
+  userRole: UserRoleType | null;
+  assignedEventTypes: string[] | null;
   loading: boolean;
+  signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  userRole: UserRoleType;
-  assignedEventTypes: string[] | null;
-  refreshUserSession: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<UserRoleType>(null);
+  const [userRole, setUserRole] = useState<UserRoleType | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const processSession = (currentSession: Session | null) => {
-    setSession(currentSession);
-    const currentUser = currentSession?.user ?? null;
-    setUser(currentUser);
-
-    let determinedRole: UserRoleType = null;
-
-    if (currentUser) {
-      console.log(`Processing session for ${currentUser.email}`);
-      // 1. Explicit Admin Check (use with caution, primarily for bootstrapping/dev)
-      if (currentUser.email === EXPLICIT_ADMIN_EMAIL) {
-        console.log(`User ${currentUser.email} matches EXPLICIT_ADMIN_EMAIL. Setting role to 'admin'.`);
-        determinedRole = 'admin';
-      }
-      
-      // 2. Check app_metadata (this should be the primary source of truth)
-      // If app_metadata has a role, it can override the explicit check if it's different and not admin
-      // Or, you might decide the explicit check always wins if it's an admin.
-      // Current logic: app_metadata role is preferred unless explicit admin is set.
-      if (currentUser.app_metadata && currentUser.app_metadata.role) {
-        const roleFromAppMeta = currentUser.app_metadata.role as UserRoleType;
-        console.log(`Role from app_metadata for ${currentUser.email}: ${roleFromAppMeta}`);
-        
-        // If explicit admin was set, keep it. Otherwise, use app_metadata.
-        // This means app_metadata can define 'tracker' or 'viewer' even for the explicit admin email,
-        // but if the explicit email is matched, it defaults to 'admin' if app_metadata is missing role.
-        if (determinedRole === 'admin') {
-            // If explicit admin is already set, and app_metadata also says admin, that's fine.
-            // If app_metadata says something else, you might want to log a warning or decide which takes precedence.
-            // For now, if EXPLICIT_ADMIN_EMAIL matches, 'admin' role takes high precedence.
-            if (roleFromAppMeta !== 'admin') {
-                 console.warn(`User ${EXPLICIT_ADMIN_EMAIL} is an explicit admin, but app_metadata.role is '${roleFromAppMeta}'. Prioritizing explicit admin for now.`);
-            }
-        } else {
-            determinedRole = roleFromAppMeta;
-        }
-      } else if (determinedRole !== 'admin') { // If not explicit admin and no app_metadata role
-        console.warn(`User ${currentUser.email} has no role in app_metadata.`);
-      }
-      
-      console.log('Full app_metadata:', JSON.stringify(currentUser.app_metadata, null, 2));
-    }
-    
-    setUserRole(determinedRole);
-  };
-
-  // ... (rest of the useEffect for auth state, signIn, signUp, signOut, fetchUserEventAssignments, refreshUserSession remains the same as my previous corrected version)
-
   useEffect(() => {
-    setLoading(true);
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      processSession(initialSession);
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        console.log('Auth state changed. Event:', _event, 'New Session User:', newSession?.user?.email);
-        processSession(newSession);
-        if (_event === 'TOKEN_REFRESHED' || _event === 'USER_UPDATED') {
-            console.log('Token refreshed or user updated, re-evaluating role from new session.');
-        }
-      }
-    );
     return () => subscription.unsubscribe();
   }, []);
 
-
-  const fetchUserEventAssignments = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_event_assignments')
-        .select('event_type')
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error('Error fetching user event assignments:', error);
-        setAssignedEventTypes([]);
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) {
+        setUserRole(null);
+        setAssignedEventTypes(null);
         return;
       }
-      setAssignedEventTypes(data ? data.map(item => item.event_type) : []);
-    } catch (e) {
-      console.error('Exception fetching user event assignments:', e);
-      setAssignedEventTypes([]);
-    }
-  };
-  
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserEventAssignments(user.id);
-    } else {
-      setAssignedEventTypes(null);
-    }
+
+      try {
+        // Use the new security definer function to get role from auth metadata
+        const { data, error } = await supabase.rpc('get_user_role_from_auth', {
+          user_id_param: user.id
+        });
+
+        if (error) {
+          console.error('Error fetching user role:', error);
+          // Fallback to app_metadata role
+          const roleFromMetadata = user.app_metadata?.role as UserRoleType;
+          setUserRole(roleFromMetadata || 'user');
+        } else {
+          setUserRole((data as UserRoleType) || 'user');
+        }
+
+        // Fetch assigned event types
+        const { data: eventTypesData, error: eventTypesError } = await supabase
+          .from('user_event_assignments')
+          .select('event_type')
+          .eq('user_id', user.id);
+
+        if (eventTypesError) {
+          console.error('Error fetching assigned event types:', eventTypesError);
+          setAssignedEventTypes([]);
+        } else {
+          setAssignedEventTypes(eventTypesData?.map(item => item.event_type) || []);
+        }
+      } catch (error) {
+        console.error('Error in fetchUserRole:', error);
+        setUserRole('user');
+        setAssignedEventTypes([]);
+      }
+    };
+
+    fetchUserRole();
   }, [user]);
 
-  const refreshUserSession = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.refreshSession();
-      if (error) {
-        console.error("Error refreshing session:", error);
-        toast({ title: "Session Refresh Error", description: error.message, variant: "destructive" });
-      } else if (data.session) {
-        console.log("Session refreshed, new app_metadata should be available.");
-        processSession(data.session);
-        toast({ title: "Session Refreshed", description: "Your session data has been updated." });
-      } else {
-        processSession(null);
-      }
-    } catch (e: any) {
-      console.error("Exception refreshing session:", e);
-      toast({ title: "Session Refresh Exception", description: e.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
-        throw error;
-      }
-      toast({ title: "Signed in", description: "Welcome back!" });
-    } catch (error: any) {
-      console.error('Error signing in:', error.message);
-    } finally {
-      setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    setLoading(true);
-    try {
-      const { data: { user: newUser }, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } }
-      });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
 
-      if (error) {
-        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-        throw error;
-      }
-      if (newUser) {
-        console.log("User signed up. Role will be assigned by backend/hook if configured.");
-        toast({ title: "Account created", description: "Please check your email for a confirmation link. Your role will be assigned shortly." });
-      }
-    } catch (error: any) {
-      console.error('Error signing up:', error.message);
-    } finally {
-      setLoading(false);
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
     }
+
+    toast({
+      title: "Success",
+      description: "Please check your email to verify your account.",
+    });
   };
 
   const signOut = async () => {
-    setLoading(true);
-    try {
-      await supabase.auth.signOut();
-      toast({ title: "Signed out", description: "You have been signed out successfully." });
-    } catch (error: any)
-    {
-      console.error('Error signing out:', error.message);
-      toast({ title: "Sign out failed", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    setUserRole(null);
+    setAssignedEventTypes(null);
   };
 
-
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-      userRole,
-      assignedEventTypes,
-      refreshUserSession,
-    }}>
+    <AuthContext.Provider value={{ user, userRole, assignedEventTypes, loading, signOut, signIn, signUp }}>
       {children}
     </AuthContext.Provider>
   );

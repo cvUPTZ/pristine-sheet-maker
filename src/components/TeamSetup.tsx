@@ -13,9 +13,11 @@ interface TeamSetupProps {
 }
 
 const defaultPlayer = (id: number): Player => ({
-  id,
+  id: id.toString(),
   name: `Player ${id}`,
+  player_name: `Player ${id}`,
   number: id,
+  jersey_number: id,
   position: 'Not Set',
 });
 
@@ -31,7 +33,7 @@ const TeamSetup: React.FC<TeamSetupProps> = ({ teams, onTeamsChange, onConfirm }
   };
 
   const handlePlayerChange = (team: 'home' | 'away', player: Player) => {
-    const updatedPlayers = teams[team].players.map((p) => 
+    const updatedPlayers = teams[team].players.map((p: Player) => 
       p.id === player.id ? player : p
     );
 
@@ -46,7 +48,7 @@ const TeamSetup: React.FC<TeamSetupProps> = ({ teams, onTeamsChange, onConfirm }
 
   const handleAddPlayer = (team: 'home' | 'away') => {
     const newId = teams[team].players.length > 0 
-      ? Math.max(...teams[team].players.map(p => p.id)) + 1 
+      ? Math.max(...teams[team].players.map((p: Player) => typeof p.id === 'string' ? parseInt(p.id) : p.id as number)) + 1 
       : 1;
       
     onTeamsChange({
@@ -58,12 +60,12 @@ const TeamSetup: React.FC<TeamSetupProps> = ({ teams, onTeamsChange, onConfirm }
     });
   };
 
-  const handleRemovePlayer = (team: 'home' | 'away', playerId: number) => {
+  const handleRemovePlayer = (team: 'home' | 'away', playerId: string | number) => {
     onTeamsChange({
       ...teams,
       [team]: {
         ...teams[team],
-        players: teams[team].players.filter(p => p.id !== playerId),
+        players: teams[team].players.filter((p: Player) => p.id !== playerId),
       },
     });
   };
@@ -111,7 +113,7 @@ interface TeamFormProps {
   onTeamNameChange: (name: string) => void;
   onPlayerChange: (player: Player) => void;
   onAddPlayer: () => void;
-  onRemovePlayer: (id: number) => void;
+  onRemovePlayer: (id: string | number) => void;
 }
 
 const TeamForm: React.FC<TeamFormProps> = ({
@@ -136,7 +138,7 @@ const TeamForm: React.FC<TeamFormProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {team.players.map((player) => (
+          {team.players.map((player: Player) => (
             <div key={player.id} className="flex items-center space-x-2">
               <Input
                 type="number"

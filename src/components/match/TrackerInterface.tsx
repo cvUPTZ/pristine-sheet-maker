@@ -1,0 +1,105 @@
+
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import TrackerPianoInput from '@/components/TrackerPianoInput';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+interface TrackerInterfaceProps {
+  trackerUserId: string;
+  matchId: string;
+}
+
+export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [matchName, setMatchName] = useState<string>('');
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!trackerUserId || !matchId) {
+      setLoading(false);
+      setError("Tracker user ID or Match ID is missing.");
+      return;
+    }
+
+    async function fetchMatchInfo() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data: matchData, error: matchError } = await supabase
+          .from('matches')
+          .select('name, home_team_name, away_team_name')
+          .eq('id', matchId)
+          .single();
+
+        if (matchError) {
+          console.error('Error fetching match data:', matchError);
+          throw new Error(`Failed to fetch match data: ${matchError.message}`);
+        }
+
+        setMatchName(matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`);
+
+      } catch (e: any) {
+        console.error("Error fetching match info:", e);
+        setError(e.message || "An unexpected error occurred while fetching match information.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchMatchInfo();
+  }, [trackerUserId, matchId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
+        <div className="text-center">
+          <div className="text-sm sm:text-base">Loading tracker interface...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-2 sm:p-4">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-red-600 text-sm sm:text-base">Error: {error}</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-6xl">
+      <Card className="mb-3 sm:mb-6">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg lg:text-xl">
+            Match Tracking Interface
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="space-y-1 sm:space-y-2">
+            <p className="text-sm sm:text-base lg:text-lg font-medium truncate">
+              {matchName}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
+              <span>Tracker: {trackerUserId}</span>
+              <span>Match: {matchId}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      <div className="w-full">
+        <TrackerPianoInput matchId={matchId} />
+      </div>
+    </div>
+  );
+}

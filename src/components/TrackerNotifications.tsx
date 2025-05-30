@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,19 +8,31 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+interface NotificationData {
+  assigned_event_types?: string[];
+  assigned_player_ids?: number[];
+  assignment_type?: string;
+}
+
+interface MatchInfo {
+  name: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+}
 
 interface Notification {
   id: string;
   match_id: string;
+  title: string;
   message: string;
+  type: string;
   is_read: boolean;
   created_at: string;
-  matches?: {
-    name: string;
-    home_team_name: string;
-    away_team_name: string;
-    status: string;
-  };
+  notification_data?: NotificationData;
+  matches?: MatchInfo;
 }
 
 const TrackerNotifications: React.FC = () => {
@@ -29,39 +40,75 @@ const TrackerNotifications: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
-  const fetchNotifications = async () => {
-    if (!user?.id) return;
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .select(`
-          *,
-          matches:match_id (
-            name,
-            home_team_name,
-            away_team_name,
-            status
-          )
+          id,
+          match_id,
+          title,
+          message,
+          type,
+          is_read,
+          created_at,
+          notification_data,
+          user_id
         `)
-        .eq('tracker_id', user.id)
+        .eq('user_id', user.id)
+        .not('match_id', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      
+      // Get match information for each notification
+      const notificationsWithMatches: Notification[] = [];
+      
+      for (const notification of data || []) {
+        if (notification.match_id) {
+          const { data: matchData, error: matchError } = await supabase
+            .from('matches')
+            .select('name, home_team_name, away_team_name, status')
+            .eq('id', notification.match_id)
+            .single();
+
+          if (!matchError && matchData) {
+            notificationsWithMatches.push({
+              id: notification.id,
+              match_id: notification.match_id,
+              title: notification.title || '',
+              message: notification.message || '',
+              type: notification.type || 'general',
+              is_read: notification.is_read || false,
+              created_at: notification.created_at || new Date().toISOString(),
+              notification_data: notification.notification_data as NotificationData,
+              matches: matchData
+            });
+          }
+        }
+      }
+      
+      setNotifications(notificationsWithMatches);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to load notifications');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
 
@@ -80,9 +127,9 @@ const TrackerNotifications: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .update({ is_read: true })
-        .eq('tracker_id', user.id)
+        .eq('user_id', user.id)
         .eq('is_read', false);
 
       if (error) throw error;
@@ -104,37 +151,56 @@ const TrackerNotifications: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchNotifications();
+    if (user?.id) {
+      fetchNotifications();
 
-    // Subscribe to real-time notifications
-    const channel = supabase
-      .channel('tracker-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'match_notifications',
-          filter: `tracker_id=eq.${user?.id}`,
-        },
-        () => {
-          fetchNotifications();
-          toast.info('New match notification received!');
+      // Subscribe to real-time notifications
+      const channel = supabase
+        .channel('tracker-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('New notification received via Supabase RT:', payload);
+            fetchNotifications();
+            toast.info('New match notification received!');
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Subscribed to tracker-notifications channel for user:', user.id);
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('Tracker notification channel error:', status, err);
+          }
+        });
+
+      return () => {
+        if (channel) {
+          supabase.removeChannel(channel).then(status => {
+            console.log('Unsubscribed from tracker-notifications. Status:', status);
+          }).catch(error => {
+            console.error('Error unsubscribing from tracker-notifications:', error);
+          });
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
+      };
+    } else {
+      setNotifications([]);
+      setLoading(false);
+    }
+  }, [user?.id, fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   if (loading) {
     return (
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="text-center text-muted-foreground">Loading notifications...</div>
         </CardContent>
       </Card>
@@ -143,75 +209,110 @@ const TrackerNotifications: React.FC = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            <CardTitle>Match Notifications</CardTitle>
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+            <CardTitle className="text-sm sm:text-base md:text-lg">Match Notifications</CardTitle>
             {unreadCount > 0 && (
-              <Badge variant="destructive">{unreadCount}</Badge>
+              <Badge variant="destructive" className="text-xs">
+                {unreadCount}
+              </Badge>
             )}
           </div>
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead}>
-              <Check className="h-4 w-4 mr-1" />
-              Mark All Read
+            <Button 
+              variant="outline" 
+              size={isMobile ? "sm" : "default"}
+              onClick={markAllAsRead}
+              className="text-xs sm:text-sm"
+            >
+              <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              {isMobile ? "Mark All" : "Mark All Read"}
             </Button>
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 sm:p-6">
         {notifications.length === 0 ? (
-          <div className="text-center text-muted-foreground py-6">
+          <div className="text-center text-muted-foreground py-6 sm:py-8">
             No notifications yet
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-4 border rounded-lg ${
+                className={`p-3 sm:p-4 border rounded-lg ${
                   notification.is_read ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
                 }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {!notification.is_read && (
-                        <div className="w-2 h-2 bg-primary rounded-full" />
+                        <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                       )}
-                      <span className="font-medium">
+                      <span className="font-medium text-sm sm:text-base truncate">{notification.title}</span>
+                      <Badge 
+                        variant={notification.matches?.status === 'published' ? 'secondary' : 'outline'}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {notification.type}
+                      </Badge>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <span className="font-medium text-sm sm:text-base">
                         {notification.matches?.name || 
                          `${notification.matches?.home_team_name} vs ${notification.matches?.away_team_name}`}
                       </span>
-                      <Badge variant={notification.matches?.status === 'published' ? 'secondary' : 'outline'}>
-                        {notification.matches?.status}
-                      </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">
                       {notification.message}
                     </p>
+                    
+                    {notification.notification_data && (
+                      <div className="text-xs space-y-1 mb-2">
+                        {notification.notification_data.assigned_event_types && (
+                          <div className="break-words">
+                            <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
+                          </div>
+                        )}
+                        {notification.notification_data.assigned_player_ids && (
+                          <div>
+                            <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  
+                  <div className="flex gap-1 sm:gap-2 flex-col sm:flex-row flex-shrink-0">
                     {!notification.is_read && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => markAsRead(notification.id)}
+                        className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-2"
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline sm:ml-1">Read</span>
                       </Button>
                     )}
                     <Button
                       variant="default"
                       size="sm"
                       onClick={() => handleViewMatch(notification.match_id, notification.id)}
+                      className="h-8 sm:h-9 text-xs"
                     >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Match
+                      <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="ml-1">{isMobile ? "Track" : "Start Tracking"}</span>
                     </Button>
                   </div>
                 </div>

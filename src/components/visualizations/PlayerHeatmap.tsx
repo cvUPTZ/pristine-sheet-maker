@@ -12,7 +12,7 @@ interface PlayerHeatmapProps {
     name: string;
     players: Player[];
   };
-  teamPositions: Record<number, { x: number; y: number }>;
+  teamPositions: Record<string | number, { x: number; y: number }>;
   selectedTeam: 'home' | 'away';
   onSelectTeam: (team: 'home' | 'away') => void;
 }
@@ -32,7 +32,8 @@ const PlayerHeatmap: React.FC<PlayerHeatmapProps> = ({
     
     // Add position data to grid
     players.forEach(player => {
-      const pos = teamPositions[player.id];
+      const playerId = String(player.id);
+      const pos = teamPositions[playerId];
       if (pos) {
         const gridX = Math.min(gridSize - 1, Math.floor(pos.x * gridSize));
         const gridY = Math.min(gridSize - 1, Math.floor(pos.y * gridSize));

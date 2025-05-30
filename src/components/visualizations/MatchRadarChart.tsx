@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { Statistics } from '@/types';
+import { Statistics, ShotStats, PassStats, DuelStats, CrossStats } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 
@@ -21,36 +21,70 @@ interface MatchRadarChartProps {
 }
 
 const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamName, awayTeamName }) => {
+  // Helper functions to safely get stats
+  const getShotStats = (shots: ShotStats): ShotStats => {
+    return {
+      onTarget: shots.onTarget || 0,
+      offTarget: shots.offTarget || 0,
+      total: shots.total || (shots.onTarget || 0) + (shots.offTarget || 0)
+    };
+  };
+
+  const getPassStats = (passes: PassStats): PassStats => {
+    return {
+      successful: passes.successful || 0,
+      attempted: passes.attempted || 0
+    };
+  };
+
+  const getDuelStats = (duels: DuelStats): DuelStats => {
+    return {
+      won: duels.won || 0,
+      total: duels.total || 0
+    };
+  };
+
+  const getCrossStats = (crosses: CrossStats): CrossStats => {
+    return {
+      total: crosses.total || 0,
+      successful: crosses.successful || 0
+    };
+  };
+
   // Prepare data for radar chart
   const prepareRadarData = () => {
-    // Calculate goals from shots on target as a simple approximation
-    // since 'goals' property doesn't exist in Statistics
-    const homeGoals = statistics.shots?.home?.onTarget || 0;
-    const awayGoals = statistics.shots?.away?.onTarget || 0;
+    const homeShots = getShotStats(statistics.shots.home);
+    const awayShots = getShotStats(statistics.shots.away);
+    const homePasses = getPassStats(statistics.passes.home);
+    const awayPasses = getPassStats(statistics.passes.away);
+    const homeDuels = getDuelStats(statistics.duels.home);
+    const awayDuels = getDuelStats(statistics.duels.away);
+    const homeCrosses = getCrossStats(statistics.crosses.home);
+    const awayCrosses = getCrossStats(statistics.crosses.away);
     
     return [
       {
         stat: 'Goals',
-        [homeTeamName]: homeGoals,
-        [awayTeamName]: awayGoals,
+        [homeTeamName]: homeShots.onTarget,
+        [awayTeamName]: awayShots.onTarget,
         fullMark: 10,
       },
       {
         stat: 'Shots',
-        [homeTeamName]: (statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0),
-        [awayTeamName]: (statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0),
+        [homeTeamName]: homeShots.onTarget + homeShots.offTarget,
+        [awayTeamName]: awayShots.onTarget + awayShots.offTarget,
         fullMark: 20,
       },
       {
         stat: 'On-Target',
-        [homeTeamName]: statistics.shots?.home?.onTarget || 0,
-        [awayTeamName]: statistics.shots?.away?.onTarget || 0,
+        [homeTeamName]: homeShots.onTarget,
+        [awayTeamName]: awayShots.onTarget,
         fullMark: 10,
       },
       {
         stat: 'Passes',
-        [homeTeamName]: statistics.passes?.home?.attempted || 0,
-        [awayTeamName]: statistics.passes?.away?.attempted || 0,
+        [homeTeamName]: homePasses.attempted,
+        [awayTeamName]: awayPasses.attempted,
         fullMark: 100,
       },
       {
@@ -67,14 +101,14 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
       },
       {
         stat: 'Duels Won',
-        [homeTeamName]: statistics.duels?.home?.won || 0,
-        [awayTeamName]: statistics.duels?.away?.won || 0,
+        [homeTeamName]: homeDuels.won,
+        [awayTeamName]: awayDuels.won,
         fullMark: 20,
       },
       {
         stat: 'Crosses',
-        [homeTeamName]: statistics.crosses?.home?.total || 0,
-        [awayTeamName]: statistics.crosses?.away?.total || 0,
+        [homeTeamName]: homeCrosses.total,
+        [awayTeamName]: awayCrosses.total,
         fullMark: 15,
       },
     ];

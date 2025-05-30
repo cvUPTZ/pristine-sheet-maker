@@ -9,82 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      chapters: {
-        Row: {
-          content: string | null
-          created_at: string
-          id: string
-          order_number: number
-          thesis_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string
-          id?: string
-          order_number: number
-          thesis_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          content?: string | null
-          created_at?: string
-          id?: string
-          order_number?: number
-          thesis_id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chapters_thesis_id_fkey"
-            columns: ["thesis_id"]
-            isOneToOne: false
-            referencedRelation: "theses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      custom_commands: {
-        Row: {
-          command_action: string
-          command_description: string | null
-          command_name: string
-          command_type: string
-          created_at: string
-          created_by: string
-          id: string
-        }
-        Insert: {
-          command_action: string
-          command_description?: string | null
-          command_name: string
-          command_type: string
-          created_at?: string
-          created_by: string
-          id?: string
-        }
-        Update: {
-          command_action?: string
-          command_description?: string | null
-          command_name?: string
-          command_type?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "custom_commands_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       match_events: {
         Row: {
           coordinates: Json | null
@@ -119,7 +43,22 @@ export type Database = {
           team?: string | null
           timestamp?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "match_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       match_notifications: {
         Row: {
@@ -137,7 +76,7 @@ export type Database = {
           is_read?: boolean
           match_id: string
           message: string
-          tracker_id: string
+          tracker_id?: string
           updated_at?: string
         }
         Update: {
@@ -159,80 +98,246 @@ export type Database = {
           },
         ]
       }
+      match_tracker_assignments: {
+        Row: {
+          assigned_event_types: string[] | null
+          assigned_player_id: number | null
+          created_at: string
+          id: string
+          match_id: string
+          player_id: number | null
+          player_team_id: string
+          tracker_id: string | null
+          tracker_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_event_types?: string[] | null
+          assigned_player_id?: number | null
+          created_at?: string
+          id?: string
+          match_id: string
+          player_id?: number | null
+          player_team_id: string
+          tracker_id?: string | null
+          tracker_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_event_types?: string[] | null
+          assigned_player_id?: number | null
+          created_at?: string
+          id?: string
+          match_id?: string
+          player_id?: number | null
+          player_team_id?: string
+          tracker_id?: string | null
+          tracker_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_tracker_assignments_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
+            columns: ["tracker_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
+            columns: ["tracker_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           away_team_formation: string | null
           away_team_name: string
           away_team_players: Json | null
+          away_team_score: number | null
+          ball_tracking_data: Json | null
+          competition: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           home_team_formation: string | null
           home_team_name: string
           home_team_players: Json | null
+          home_team_score: number | null
           id: string
+          location: string | null
           match_date: string | null
+          match_statistics: Json | null
+          match_type: string | null
           name: string | null
+          notes: string | null
           status: string
+          timer_current_value: number | null
+          timer_last_started_at: string | null
+          timer_status: string | null
           updated_at: string | null
         }
         Insert: {
           away_team_formation?: string | null
           away_team_name: string
           away_team_players?: Json | null
+          away_team_score?: number | null
+          ball_tracking_data?: Json | null
+          competition?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           home_team_formation?: string | null
           home_team_name: string
           home_team_players?: Json | null
+          home_team_score?: number | null
           id?: string
+          location?: string | null
           match_date?: string | null
+          match_statistics?: Json | null
+          match_type?: string | null
           name?: string | null
+          notes?: string | null
           status?: string
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string | null
         }
         Update: {
           away_team_formation?: string | null
           away_team_name?: string
           away_team_players?: Json | null
+          away_team_score?: number | null
+          ball_tracking_data?: Json | null
+          competition?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           home_team_formation?: string | null
           home_team_name?: string
           home_team_players?: Json | null
+          home_team_score?: number | null
           id?: string
+          location?: string | null
           match_date?: string | null
+          match_statistics?: Json | null
+          match_type?: string | null
           name?: string | null
+          notes?: string | null
           status?: string
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          match_id: string | null
+          message: string
+          notification_data: Json | null
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          match_id?: string | null
+          message: string
+          notification_data?: Json | null
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          match_id?: string | null
+          message?: string
+          notification_data?: Json | null
+          title?: string
+          type?: string | null
+          user_id?: string
         }
         Relationships: []
       }
       profiles: {
         Row: {
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       references: {
         Row: {
@@ -256,142 +361,7 @@ export type Database = {
           id?: string
           thesis_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "references_thesis_id_fkey"
-            columns: ["thesis_id"]
-            isOneToOne: false
-            referencedRelation: "theses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      reviews: {
-        Row: {
-          comments: string | null
-          created_at: string
-          id: string
-          reviewer_id: string
-          status: string | null
-          thesis_id: string
-          updated_at: string
-        }
-        Insert: {
-          comments?: string | null
-          created_at?: string
-          id?: string
-          reviewer_id: string
-          status?: string | null
-          thesis_id: string
-          updated_at?: string
-        }
-        Update: {
-          comments?: string | null
-          created_at?: string
-          id?: string
-          reviewer_id?: string
-          status?: string | null
-          thesis_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reviews_reviewer_id_fkey"
-            columns: ["reviewer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_thesis_id_fkey"
-            columns: ["thesis_id"]
-            isOneToOne: false
-            referencedRelation: "theses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sections: {
-        Row: {
-          chapter_id: string
-          content: string | null
-          created_at: string
-          id: string
-          order_number: number
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          chapter_id: string
-          content?: string | null
-          created_at?: string
-          id?: string
-          order_number: number
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          chapter_id?: string
-          content?: string | null
-          created_at?: string
-          id?: string
-          order_number?: number
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sections_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      theses: {
-        Row: {
-          created_at: string
-          field: string | null
-          id: string
-          status: string | null
-          supervisor: string | null
-          title: string | null
-          university: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          field?: string | null
-          id?: string
-          status?: string | null
-          supervisor?: string | null
-          title?: string | null
-          university?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          field?: string | null
-          id?: string
-          status?: string | null
-          supervisor?: string | null
-          title?: string | null
-          university?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "theses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       timeline_events: {
         Row: {
@@ -454,7 +424,36 @@ export type Database = {
           tracker_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracker_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tracker_assignments_tracker_id_fkey"
+            columns: ["tracker_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_assignments_tracker_id_fkey"
+            columns: ["tracker_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_event_assignments: {
         Row: {
@@ -475,41 +474,198 @@ export type Database = {
           id?: number
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_event_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
           created_at: string
           id: string
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      match_tracker_assignments_view: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          match_id: string | null
+          player_id: number | null
+          player_team_id: string | null
+          tracker_email: string | null
+          tracker_role: Database["public"]["Enums"]["user_role"] | null
+          tracker_user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_tracker_assignments_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
+            columns: ["tracker_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles_with_role"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
+            columns: ["tracker_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles_view"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_profiles_with_role: {
+        Row: {
+          email: string | null
+          full_name: string | null
+          id: string | null
+          role: string | null
+        }
+        Relationships: []
+      }
+      user_roles_view: {
+        Row: {
+          email: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          role_assigned_at: string | null
+          user_created_at: string | null
+          user_id: string | null
         }
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
     Functions: {
+      assign_tracker_to_player: {
+        Args: {
+          _match_id: string
+          _tracker_user_id: string
+          _player_id: number
+          _player_team_id: string
+        }
+        Returns: string
+      }
+      assign_user_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: undefined
+      }
+      can_access_match_assignments: {
+        Args: { match_uuid: string }
+        Returns: boolean
+      }
+      get_tracker_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          full_name: string
+          email: string
+        }[]
+      }
+      get_tracker_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          full_name: string
+          email: string
+        }[]
+      }
+      get_trackers_with_email: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          full_name: string
+          email: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       get_user_role: {
         Args: { user_id_param: string }
         Returns: string
       }
+      get_user_role_from_auth: {
+        Args: { user_id_param: string }
+        Returns: string
+      }
+      get_user_roles: {
+        Args: { _user_id?: string }
+        Returns: {
+          role: Database["public"]["Enums"]["user_role"]
+        }[]
+      }
+      has_role: {
+        Args: { _user_id: string; _role: string }
+        Returns: boolean
+      }
       is_admin: {
         Args: { p_user_id: string }
         Returns: boolean
+      }
+      notify_assigned_trackers: {
+        Args: { p_match_id: string; p_tracker_assignments: Json }
+        Returns: undefined
+      }
+      remove_user_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: undefined
       }
     }
     Enums: {

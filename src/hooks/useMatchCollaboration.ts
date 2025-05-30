@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRealtime } from './useRealtime';
@@ -25,14 +24,28 @@ export const useMatchCollaboration = ({
   teamId = 'default-team',
   optimisticUpdates = true,
 }: CollaborationOptions) => {
+  // If matchId is not provided, return a disabled state immediately.
+  if (!matchId) {
+    return {
+      sendEvent: () => console.warn('Collaboration disabled: No matchId provided.'),
+      recordEvent: () => console.warn('Collaboration disabled: No matchId provided.'),
+      presence: {},
+      onlineUsers: [],
+      isOnline: false,
+      isConnected: false,
+      participants: [],
+      events: [],
+      lastReceivedEvent: null,
+      users: [],
+      collaborationError: null,
+    };
+  }
+
   const [isOnline, setIsOnline] = useState(false);
   const [pendingEvents, setPendingEvents] = useState<MatchEvent[]>([]);
   const [optimisticEvents, setOptimisticEvents] = useState<MatchEvent[]>([]);
   const [serverConfirmedEvents, setServerConfirmedEvents] = useState<MatchEvent[]>([]);
   const [lastReceivedEvent, setLastReceivedEvent] = useState<MatchEvent | null>(null);
-  // const [isPassTrackingModeActive, setIsPassTrackingModeActive] = useState(false); // Removed
-  // const [potentialPasser, setPotentialPasser] = useState<Player | null>(null); // Removed
-  // const [ballPathHistory, setBallPathHistory] = useState<BallPath[]>([]); // Removed
   const pendingEventsRef = useRef(pendingEvents);
 
   const {
@@ -41,12 +54,12 @@ export const useMatchCollaboration = ({
     onlineUsers,
     isOnline: realtimeIsOnline,
     pushEvent,
+    channelError,
   } = useRealtime({
-    channelName: `match:${matchId || 'default'}`,
+    channelName: `match:${matchId}`,
     onEventReceived: (event) => {
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
-        // console.log('Event confirmed by server:', confirmedEvent); // Removed
         setServerConfirmedEvents((prev) => [...prev, confirmedEvent]);
         setLastReceivedEvent(confirmedEvent);
       }
@@ -64,7 +77,7 @@ export const useMatchCollaboration = ({
 
   const createOptimisticEvent = (eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'>) => {
     if (!isOnline && optimisticUpdates) {
-      // console.warn('Offline: Event will not be synced until online.'); // Removed
+      console.warn('Offline: Event will not be synced until online.');
     }
 
     const optimisticId = uuidv4();
@@ -74,7 +87,7 @@ export const useMatchCollaboration = ({
       ...eventData,
       id: optimisticId,
       clientId: optimisticId,
-      status: 'optimistic',
+      status: 'confirmed',
       optimisticCreationTime: optimisticCreationTime,
       user_id: userId,
     };
@@ -90,44 +103,39 @@ export const useMatchCollaboration = ({
       setPendingEvents((prev) => [...prev, newEvent]);
       pushEvent({ type: 'add_event', payload: newEvent });
     } else {
-      // console.log('Not online, not sending event'); // Removed
+      console.log('Not online, not sending event');
     }
   };
 
   const recordEvent = (
     eventType: string,
     playerId: number,
-    teamId: string,
+    teamId: 'home' | 'away',
     coordinates: { x: number; y: number },
     relatedPlayerId?: number
   ) => {
     const eventData = {
-      matchId: matchId || 'default',
-      teamId,
-      playerId,
+      match_id: matchId!,
+      team_id: teamId,
+      player_id: playerId,
       type: eventType as any,
       timestamp: Date.now(),
       coordinates,
-      relatedPlayerId,
+      event_type: eventType,
+      team: teamId,
     };
     sendEvent(eventData);
   };
-
-  // const togglePassTrackingMode = () => { // Removed
-  //   setIsPassTrackingModeActive(!isPassTrackingModeActive); // Removed
-  // }; // Removed
 
   useEffect(() => {
     if (channel) {
       channel.on('broadcast', { event: 'add_event' }, (payload) => {
         const serverEvent = payload.payload as MatchEvent;
-        // console.log('Received event from server:', serverEvent); // Removed
         setLastReceivedEvent(serverEvent);
       });
 
       channel.on('broadcast', { event: 'event_confirmed' }, (payload) => {
         const confirmedEvent = payload.payload as MatchEvent;
-        // console.log('Event confirmed by server:', confirmedEvent); // Removed
         setLastReceivedEvent(confirmedEvent);
       });
     }
@@ -142,8 +150,6 @@ export const useMatchCollaboration = ({
   useEffect(() => {
     const processPendingEvents = async () => {
       if (isOnline && pendingEvents.length > 0) {
-        // console.log('Attempting to send pending events:', pendingEvents); // Removed
-
         for (const event of pendingEvents) {
           try {
             pushEvent({ type: 'add_event', payload: event });
@@ -170,9 +176,6 @@ export const useMatchCollaboration = ({
     events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
     users: onlineUsers,
-    // isPassTrackingModeActive, // Removed
-    // potentialPasser, // Removed
-    // ballPathHistory, // Removed
-    // togglePassTrackingMode, // Removed
+    collaborationError: channelError,
   };
 };

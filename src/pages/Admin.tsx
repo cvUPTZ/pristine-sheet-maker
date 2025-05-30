@@ -686,13 +686,13 @@ const Admin: React.FC = () => {
       {/* Edit Match Dialog */}
       <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
         <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Match</DialogTitle><DialogDescription>Update details.</DialogDescription></DialogHeader>
-          {editingMatch && <CreateMatchForm
-                            isEditMode
+          {editingMatch && <CreateMatchForm 
+                            isEditMode 
                             initialData={{
                               id: editingMatch.id, homeTeam: editingMatch.home_team_name, awayTeam: editingMatch.away_team_name,
                               matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
-                            }}
-                            onSubmitOverride={handleUpdateMatch}
+                            }} 
+                            onSubmitOverride={handleUpdateMatch} 
                             onSuccess={handleEditMatchSuccess} // Use the new callback
                           />}
         </DialogContent>

@@ -21,9 +21,9 @@ export function useIsMobile() {
     // Initial check
     const checkMobile = () => {
       const isTouchDevice = 'ontouchstart' in window || 
-                           navigator.maxTouchPoints > 0 ||
-                           window.innerWidth < BREAKPOINTS.md;
-      setIsMobile(isTouchDevice);
+                           navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < BREAKPOINTS.md;
+      setIsMobile(isTouchDevice || isSmallScreen);
     }
     
     checkMobile();

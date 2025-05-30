@@ -2,13 +2,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const getAllowedOrigin = () => Deno.env.get('FRONTEND_URL') || 'http://localhost:5173';
+
+const getCorsHeaders = (method: string) => ({
+  'Access-Control-Allow-Origin': getAllowedOrigin(),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-};
+  'Access-Control-Allow-Methods': 'GET, OPTIONS', // Specific to this function
+});
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.method);
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -82,19 +85,29 @@ serve(async (req) => {
       throw new Error(`Error fetching user roles: ${allRolesError.message}`);
     }
 
-    const usersWithRoles = profilesData.map((profile: any) => {
+    // Fetch all authenticated users to get their emails
+    // Note: This can be resource-intensive for a very large number of users.
+    // Consider pagination or more targeted queries if performance becomes an issue.
+    const { data: { users: authUsers }, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (listUsersError) {
+      throw new Error(`Error fetching auth users: ${listUsersError.message}`);
+    }
+
+    const usersWithRolesAndEmail = profilesData.map((profile: any) => {
       const userRole = rolesData.find((r: any) => r.user_id === profile.id);
+      const authUser = authUsers.find((u: any) => u.id === profile.id);
       return {
         id: profile.id,
-        email: profile.full_name || 'No name',
         full_name: profile.full_name,
+        email: authUser ? authUser.email : null, // Actual email from auth.users
         created_at: profile.created_at,
         updated_at: profile.updated_at,
-        role: userRole ? userRole.role : 'user',
+        role: userRole ? userRole.role : 'user', // Default to 'user' if no specific role found
       };
     });
 
-    return new Response(JSON.stringify(usersWithRoles), {
+    return new Response(JSON.stringify(usersWithRolesAndEmail), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

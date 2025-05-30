@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { LogOut, Users, Shield, User } from 'lucide-react';
 
 const Header = () => {
@@ -20,9 +21,9 @@ const Header = () => {
           <User size={16} className="mr-1" />
           <span className="mr-2">{user.email}</span>
           {userRole && (
-            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
-              {userRole}
-            </span>
+            <Badge variant="secondary" className="text-xs font-medium">
+              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+            </Badge>
           )}
         </div>
         {userRole === 'admin' && (

@@ -1,50 +1,3 @@
-export interface Match {
-  id: string;
-  name?: string | null;
-  description?: string | null;
-  home_team_name: string;
-  away_team_name: string;
-  home_team_formation?: string | null;
-  away_team_formation?: string | null;
-  home_team_players?: any;
-  away_team_players?: any;
-  match_date?: string | null;
-  status: 'published' | 'draft' | 'live' | 'completed' | 'archived';
-  created_at?: string | null;
-  updated_at?: string | null;
-  created_by?: string | null;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  players: Player[];
-  formation: string;
-}
-
-export interface Player {
-  id: number;
-  name: string;
-  number: number;
-  position: string;
-  teamId?: string;
-}
-
-export interface MatchEvent {
-  id: string;
-  matchId: string;
-  teamId: string;
-  playerId: number;
-  type: EventType;
-  timestamp: number;
-  coordinates?: { x: number; y: number };
-  status?: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
-  clientId?: string;
-  optimisticCreationTime?: number;
-  user_id?: string;
-  relatedPlayerId?: number;
-  meta?: any;
-}
 
 export type EventType =
   | 'pass'
@@ -63,102 +16,187 @@ export type EventType =
   | 'free-kick'
   | 'goal-kick'
   | 'throw-in'
-  | 'interception';
+  | 'interception'
+  | 'possession'
+  | 'ballLost'
+  | 'ballRecovered'
+  | 'dribble'
+  | 'cross'
+  | 'clearance'
+  | 'block'
+  | 'save'
+  | 'ownGoal'
+  | 'freeKick'
+  | 'throwIn'
+  | 'goalKick'
+  | 'aerialDuel'
+  | 'groundDuel'
+  | 'sub';
 
-export interface Statistics {
-  possession: { home: number; away: number };
-  shots: { 
-    home: { onTarget: number; offTarget: number; total?: number }; 
-    away: { onTarget: number; offTarget: number; total?: number } 
-  };
-  passes: { 
-    home: { successful: number; attempted: number; total?: number }; 
-    away: { successful: number; attempted: number; total?: number } 
-  };
-  ballsPlayed: { home: number; away: number };
-  ballsLost: { home: number; away: number };
-  duels: { home: { won: number; lost: number; aerial: number }; away: { won: number; lost: number; aerial: number } };
-  cards: { home: { yellow: number; red: number }; away: { yellow: number; red: number } };
-  crosses: { home: { total: number; successful: number }; away: { total: number; successful: number } };
-  dribbles: { home: { successful: number; attempted: number }; away: { successful: number; attempted: number } };
-  corners: { home: number; away: number };
-  offsides: { home: number; away: number };
-  freeKicks: { home: number; away: number };
+export type Formation = 
+  | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
+  | 'Unknown';
+
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+
+export interface Player {
+  id: string | number;
+  name: string;
+  player_name?: string;
+  position: string;
+  number: number;
+  jersey_number?: number;
+}
+
+export interface Team {
+  id?: string;
+  name: string;
+  formation: Formation;
+  players: Player[];
 }
 
 export interface BallTrackingPoint {
+  id?: string;
   x: number;
   y: number;
   timestamp: number;
-  playerId?: number;
-  teamId?: string;
+  team?: 'home' | 'away';
+  player_id?: string | number;
+}
+
+export interface FlowPlayerNode {
+  id: string | number;
+  name: string;
+  x: number;
+  y: number;
+  count: number;
+  team: 'home' | 'away';
+  fx?: number;
+  fy?: number;
+}
+
+export interface Filter {
+  searchTerm: string;
+  dateRange: { from: Date | undefined; to: Date | undefined };
+}
+
+export interface ShotStats {
+  onTarget: number;
+  offTarget: number;
+  total?: number;
+}
+
+export interface PassStats {
+  successful: number;
+  attempted: number;
+}
+
+export interface DuelStats {
+  won?: number;
+  total?: number;
+}
+
+export interface CrossStats {
+  total?: number;
+  successful?: number;
+}
+
+export interface Statistics {
+  possession: { home: number; away: number };
+  shots: { home: ShotStats; away: ShotStats };
+  corners: { home: number; away: number };
+  fouls: { home: number; away: number };
+  offsides: { home: number; away: number };
+  passes: { home: PassStats; away: PassStats };
+  ballsPlayed: { home: number; away: number };
+  ballsLost: { home: number; away: number };
+  duels: { home: DuelStats; away: DuelStats };
+  crosses: { home: CrossStats; away: CrossStats };
 }
 
 export interface TimeSegmentStatistics {
-  id: string;
+  startTime: number;
+  endTime: number;
   timeSegment: string;
-  possession: { home: number; away: number };
-  ballsPlayed: { home: number; away: number };
-  ballsGiven: { home: number; away: number };
-  ballsRecovered: { home: number; away: number };
-  recoveryTime: { home: number; away: number };
-  contacts: { home: number; away: number };
-  cumulativePossession: { home: number; away: number };
-  cumulativeBallsPlayed: { home: number; away: number };
-  cumulativeBallsGiven: { home: number; away: number };
-  cumulativeBallsRecovered: { home: number; away: number };
-  cumulativeRecoveryTime: { home: number; away: number };
-  cumulativeContacts: { home: number; away: number };
-  possessionDifference: { home: number; away: number };
-  ballsPlayedDifference: { home: number; away: number };
-  ballsGivenDifference: { home: number; away: number };
-  ballsRecoveredDifference: { home: number; away: number };
+  events: any[];
+  possession?: { home: number; away: number };
+  cumulativePossession?: { home: number; away: number };
+  possessionDifference?: { home: number; away: number };
+  ballsPlayed?: { home: number; away: number };
+  cumulativeBallsPlayed?: { home: number; away: number };
+  ballsPlayedDifference?: { home: number; away: number };
+  ballsGiven?: { home: number; away: number };
+  cumulativeBallsGiven?: { home: number; away: number };
+  ballsGivenDifference?: { home: number; away: number };
+  ballsRecovered?: { home: number; away: number };
+  cumulativeBallsRecovered?: { home: number; away: number };
+  recoveryTime?: { home: number; away: number };
+  cumulativeRecoveryTime?: { home: number; away: number };
 }
 
-export interface PlayerStatistics {
-  playerId: number;
-  playerName: string;
-  teamId: string;
-  team: string;
-  player: Player;
-  ballsPlayed: number;
-  ballsLost: number;
-  ballsRecovered: number;
-  passesCompleted: number;
-  passesAttempted: number;
-  possessionTime: number;
-  contacts: number;
-  lossRatio: number;
-  goals: number;
-  assists: number;
-  passes: number;
-  shots: number;
-  fouls: number;
-}
-
-export type Formation = string;
-
-export interface FormationPositions {
-  [key: string]: { [key: number]: { x: number; y: number } };
-}
-
-export interface SavedMatch {
-  matchId: string;
-  date: string;
-  elapsedTime: number;
-  homeTeam: Team;
-  awayTeam: Team;
-  events: MatchEvent[];
-  statistics: Statistics;
-  ballTrackingPoints: BallTrackingPoint[];
-  timeSegments: TimeSegmentStatistics[];
-  playerStats: PlayerStatistics[];
-}
-
-export interface BallPath {
-  id?: string;
+export interface MatchEvent {
+  id: string;
+  match_id: string;
+  timestamp: number;
+  event_type: string;
+  event_data?: Record<string, any> | null;
+  created_at?: string;
+  tracker_id?: string | null;
+  team_id?: string | null;
+  player_id?: number | null;
+  team?: 'home' | 'away';
+  coordinates: { x: number; y: number };
+  created_by?: string;
+  type: EventType;
+  status?: string;
+  user_id?: string;
   clientId?: string;
-  startCoordinates: { x: number; y: number };
-  endCoordinates: { x: number; y: number };
-  status: 'optimistic' | 'pending_confirmation' | 'confirmed' | 'failed';
+  optimisticCreationTime?: number;
+  player?: Player;
+  description?: string;
+}
+
+export interface Match {
+  id: string;
+  name?: string;
+  status: string;
+  home_team_name: string;
+  away_team_name: string;
+  home_team_formation?: string;
+  away_team_formation?: string;
+  match_date?: string;
+  location?: string;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  description?: string;
+  match_type?: string;
+  timer_status?: string;
+  timer_current_value?: number;
+  timer_last_started_at?: string;
+  home_team_score?: number;
+  away_team_score?: number;
+  competition?: string;
+  notes?: string;
+  home_team_players?: any;
+  away_team_players?: any;
+  match_statistics?: any;
+  ball_tracking_data?: any;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  matchDate?: string;
+  venue?: string;
+  statistics?: Statistics;
+  ballTrackingData?: BallTrackingPoint[];
+}
+
+export interface TrackerSyncEvent {
+  trackerId: string; // ID of the user performing the tracking
+  matchId: string;   // ID of the match being tracked
+  timestamp: number; // Unix timestamp of the event
+  eventType: 'tracker_status' | 'tracker_action';
+  payload: {
+    status?: 'active' | 'inactive' | 'paused'; // For tracker_status
+    currentAction?: string; // e.g., "marking_pass", "focused_on_player_X", "editing_event_Y"
+  };
 }

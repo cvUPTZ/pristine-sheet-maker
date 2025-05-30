@@ -4,12 +4,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 // CORS headers for browser requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const getAllowedOrigin = () => Deno.env.get('FRONTEND_URL') || 'http://localhost:5173';
+
+const getCorsHeaders = (method: string) => ({
+  'Access-Control-Allow-Origin': getAllowedOrigin(),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Specific to this function
+});
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.method);
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

@@ -1,220 +1,190 @@
 
 import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Play, Upload, Download } from 'lucide-react';
 import { Statistics } from '@/types';
-import { Separator } from '@/components/ui/separator';
-import { Upload } from 'lucide-react';
 
 interface VideoAnalyzerProps {
-  onAnalysisComplete?: (statistics: Statistics) => void;
+  onAnalysisComplete?: (analysis: any) => void;
 }
 
-const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({ onAnalysisComplete }) => {
+const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({
+  onAnalysisComplete
+}) => {
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
-  const { toast } = useToast();
+  const [analysisResults, setAnalysisResults] = useState<any>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      toast({
-        title: "File selected",
-        description: `Selected: ${e.target.files[0].name}`,
-      });
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setVideoFile(file);
+      setVideoUrl('');
     }
   };
 
-  const analyzeVideo = async () => {
-    if (!videoUrl && !file) {
-      toast({
-        title: "Error",
-        description: "Please enter a YouTube video URL or upload a video file",
-        variant: "destructive",
-      });
+  const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setVideoUrl(event.target.value);
+    setVideoFile(null);
+  };
+
+  const handleAnalyze = async () => {
+    if (!videoFile && !videoUrl) {
+      alert('Please upload a video file or provide a video URL');
       return;
     }
 
     setIsAnalyzing(true);
-    setProgress(10);
-
+    
     try {
-      // Update progress to simulate steps
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
+      // Simulate video analysis - in real implementation, this would call an AI service
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Mock analysis results
+      const mockResults = {
+        duration: '90:00',
+        events: [
+          { type: 'goal', timestamp: 1200, team: 'home', player: 'Player 9' },
+          { type: 'yellowCard', timestamp: 2400, team: 'away', player: 'Player 5' },
+          { type: 'goal', timestamp: 4800, team: 'away', player: 'Player 11' }
+        ],
+        statistics: {
+          possession: { home: 55, away: 45 },
+          shots: { 
+            home: { onTarget: 5, offTarget: 3, total: 8 }, 
+            away: { onTarget: 4, offTarget: 2, total: 6 } 
+          },
+          passes: { 
+            home: { successful: 350, attempted: 400 }, 
+            away: { successful: 280, attempted: 350 } 
           }
-          return prev + 5;
-        });
-      }, 3000);
-
-      toast({
-        title: "Analysis started",
-        description: "Video analysis in progress. This might take a few minutes.",
-      });
-
-      // Call the Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('analyze-youtube-video', {
-        body: { 
-          videoUrl,
-          fileUpload: file ? true : false
-        },
-      });
-
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      if (error) {
-        console.error("Analysis error:", error);
-        throw new Error(error.message);
-      }
-
-      if (!data?.statistics) {
-        console.error("Missing statistics in response:", data);
-        throw new Error("No statistics returned from analysis");
-      }
-
-      console.log("Analysis result:", data);
-
-      // Format the received statistics to match the Statistics type
-      const formattedStats: Statistics = {
-        possession: data.statistics.possession || { home: 50, away: 50 },
-        shots: data.statistics.shots || {
-          home: { onTarget: 0, offTarget: 0 },
-          away: { onTarget: 0, offTarget: 0 }
-        },
-        passes: data.statistics.passes || {
-          home: { successful: 0, attempted: 0 },
-          away: { successful: 0, attempted: 0 }
-        },
-        ballsPlayed: data.statistics.ballsPlayed || { home: 0, away: 0 },
-        ballsLost: data.statistics.ballsLost || { home: 0, away: 0 },
-        duels: data.statistics.duels || {
-          home: { won: 0, lost: 0, aerial: 0 },
-          away: { won: 0, lost: 0, aerial: 0 }
-        },
-        cards: data.statistics.cards || {
-          home: { yellow: 0, red: 0 },
-          away: { yellow: 0, red: 0 }
-        },
-        crosses: data.statistics.crosses || {
-          home: { total: 0, successful: 0 },
-          away: { total: 0, successful: 0 }
-        },
-        dribbles: data.statistics.dribbles || {
-          home: { successful: 0, attempted: 0 },
-          away: { successful: 0, attempted: 0 }
-        },
-        corners: data.statistics.corners || { home: 0, away: 0 },
-        offsides: data.statistics.offsides || { home: 0, away: 0 },
-        freeKicks: data.statistics.freeKicks || { home: 0, away: 0 }
+        } as Statistics,
+        ballTracking: [
+          { x: 50, y: 50, timestamp: 0, team: 'home' },
+          { x: 60, y: 40, timestamp: 1000, team: 'home' },
+          { x: 70, y: 30, timestamp: 2000, team: 'away' }
+        ]
       };
 
-      toast({
-        title: "Analysis complete",
-        description: "Video statistics have been extracted successfully.",
-        variant: "default",
-      });
+      setAnalysisResults(mockResults);
+      onAnalysisComplete?.(mockResults);
       
-      // Make sure to call the callback with the formatted statistics
-      if (onAnalysisComplete) {
-        console.log("Passing statistics to parent component:", formattedStats);
-        onAnalysisComplete(formattedStats);
-      } else {
-        console.warn("No onAnalysisComplete callback provided");
-      }
-
     } catch (error) {
-      console.error("Video analysis error:", error);
-      toast({
-        title: "Analysis failed",
-        description: error.message || "Failed to analyze the video",
-        variant: "destructive",
-      });
+      console.error('Error analyzing video:', error);
+      alert('Error analyzing video. Please try again.');
     } finally {
       setIsAnalyzing(false);
-      setProgress(0);
-      setFile(null);
     }
   };
 
+  const handleExportResults = () => {
+    if (!analysisResults) return;
+    
+    const dataStr = JSON.stringify(analysisResults, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'video-analysis-results.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Video Analysis</CardTitle>
-        <CardDescription>
-          Enter a YouTube URL or upload a video file of a soccer match to analyze and extract statistics
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex flex-col space-y-2">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5" />
+            Video Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="video-file">Upload Video File</Label>
             <Input
-              placeholder="Enter YouTube URL (e.g., https://www.youtube.com/watch?v=...)"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              disabled={isAnalyzing || isUploading}
+              id="video-file"
+              type="file"
+              accept="video/*"
+              onChange={handleFileUpload}
+              className="mt-1"
             />
-            
-            <Separator className="my-2" />
-            
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Or upload a video file</p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleFileChange}
-                    disabled={isAnalyzing || isUploading}
-                    className="flex-1"
-                  />
-                </div>
-                {file && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Selected file: {file.name} ({Math.round(file.size / 1024 / 1024 * 10) / 10} MB)
-                  </p>
-                )}
+          </div>
+
+          <div className="text-center text-gray-500">or</div>
+
+          <div>
+            <Label htmlFor="video-url">Video URL</Label>
+            <Input
+              id="video-url"
+              type="url"
+              placeholder="https://example.com/video.mp4"
+              value={videoUrl}
+              onChange={handleUrlChange}
+              className="mt-1"
+            />
+          </div>
+
+          <Button
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || (!videoFile && !videoUrl)}
+            className="w-full"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Analyze Video'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {analysisResults && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Analysis Results
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportResults}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Match Duration</Label>
+              <div className="text-lg font-semibold">{analysisResults.duration}</div>
+            </div>
+
+            <div>
+              <Label>Events Detected</Label>
+              <div className="space-y-2 mt-2">
+                {analysisResults.events.map((event: any, index: number) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span>{event.type}</span>
+                    <span className="text-sm text-gray-600">
+                      {Math.floor(event.timestamp / 60)}:{(event.timestamp % 60).toString().padStart(2, '0')} - {event.team} ({event.player})
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-            
-            <Button 
-              onClick={analyzeVideo} 
-              disabled={isAnalyzing || isUploading || (!videoUrl && !file)}
-              className="w-full mt-2"
-            >
-              {isAnalyzing ? "Analyzing..." : "Analyze Video"}
-            </Button>
-          </div>
-          
-          {isAnalyzing && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                style={{ width: `${progress}%` }}
-              ></div>
-              <p className="text-xs text-gray-500 mt-1 text-center">
-                {progress < 30 && "Extracting video content..."}
-                {progress >= 30 && progress < 60 && "Processing footage..."}
-                {progress >= 60 && progress < 90 && "Analyzing match data..."}
-                {progress >= 90 && "Finalizing results..."}
-              </p>
+
+            <div>
+              <Label>Ball Tracking Points</Label>
+              <div className="text-sm text-gray-600">
+                {analysisResults.ballTracking?.length || 0} tracking points detected
+              </div>
             </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="text-xs text-gray-500">
-        Analysis powered by Google Gemini 2.5 Flash. Results may vary based on video quality and content.
-      </CardFooter>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

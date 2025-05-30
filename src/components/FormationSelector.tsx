@@ -16,7 +16,7 @@ const FormationSelector: React.FC<FormationSelectorProps> = ({ value, onChange, 
   return (
     <div className="space-y-2">
       {label && <Label>{label}</Label>}
-      <Select value={value} onValueChange={onChange as any}>
+      <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select formation" />
         </SelectTrigger>

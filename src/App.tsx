@@ -7,13 +7,16 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { RequireAuth } from "./components/RequireAuth";
 import Dashboard from "./pages/Dashboard";
-import MatchAnalysis from "./pages/MatchAnalysis";
+import MatchAnalysisV2 from "./pages/MatchAnalysisV2";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import CreateMatch from "./pages/CreateMatch";
+import ProfileListPage from './pages/Admin/ProfileListPage';
+import TrackerInterface from "./pages/TrackerInterface";
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -34,13 +37,13 @@ interface MatchPayload {
 }
 
 const AppContent = () => {
-  const { session, user } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (session && user && user.app_metadata?.role === 'tracker') {
+    if (user && user.app_metadata?.role === 'tracker') {
       const channel = supabase
         .channel('match-live-notifications')
         .on(
@@ -90,7 +93,7 @@ const AppContent = () => {
         });
       };
     }
-  }, [session, user, toast, navigate, location]);
+  }, [user, toast, navigate, location]);
 
   return (
     <>
@@ -99,10 +102,22 @@ const AppContent = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
-        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysis /></RequireAuth>} />
-        <Route path="/matches" element={<RequireAuth><Matches /></RequireAuth>} />
-        <Route path="/statistics" element={<RequireAuth><Statistics /></RequireAuth>} />
+        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
+        <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><MatchAnalysisV2 /></RequireAuth>} />
+        <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
+        <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
+        <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
+        <Route path="/statistics" element={<RequireAuth requiredRoles={['admin']}><Statistics /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
+        <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
+        <Route 
+          path="/admin/profiles" 
+          element={
+            <RequireAuth requiredRoles={['admin']}>
+              <ProfileListPage />
+            </RequireAuth>
+          } 
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
