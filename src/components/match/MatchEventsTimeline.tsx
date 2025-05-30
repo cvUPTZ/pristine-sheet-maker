@@ -31,7 +31,8 @@ const MatchEventsTimeline: React.FC<MatchEventsTimelineProps> = ({
     return player.name || player.player_name || `Player ${player.number || player.jersey_number || '?'}`;
   };
 
-  const getTeamName = (team: 'home' | 'away'): string => {
+  const getTeamName = (team: 'home' | 'away' | undefined): string => {
+    if (!team) return 'Unknown Team';
     if (team === 'home') return homeTeam?.name || 'Home Team';
     return awayTeam?.name || 'Away Team';
   };

@@ -34,6 +34,7 @@ export interface MatchEvent {
   team?: string | null;
   coordinates?: any;
   created_by?: string;
+  type: string; // Add the missing type property
 }
 
 export interface TeamHeaderData {
@@ -67,7 +68,7 @@ const useMatchData = (matchId: string | undefined) => {
     setAwayTeam(null);
     setEvents([]);
 
-    console.log('[useMatchData] Attempting to fetch data for matchId:', matchId); // Added logging
+    console.log('[useMatchData] Attempting to fetch data for matchId:', matchId);
 
     try {
       const { data: matchData, error: matchError } = await supabase
@@ -85,23 +86,23 @@ const useMatchData = (matchId: string | undefined) => {
         throw new Error('Match not found.');
       }
 
-      console.log('[useMatchData] Successfully fetched matchData:', matchData); // Added logging
+      console.log('[useMatchData] Successfully fetched matchData:', matchData);
 
       setMatch(matchData as MatchDataInHook);
 
       const homeFormation = (matchData.home_team_formation || '4-4-2') as Formation;
       const awayFormation = (matchData.away_team_formation || '4-3-3') as Formation;
 
-      const homeTeamData = { // Added for logging
+      const homeTeamData = {
         name: matchData.home_team_name || 'Home Team Default',
         formation: homeFormation,
       };
-      const awayTeamData = { // Added for logging
+      const awayTeamData = {
         name: matchData.away_team_name || 'Away Team Default',
         formation: awayFormation,
       };
-      console.log('[useMatchData] Constructed homeTeamData:', homeTeamData); // Added logging
-      console.log('[useMatchData] Constructed awayTeamData:', awayTeamData); // Added logging
+      console.log('[useMatchData] Constructed homeTeamData:', homeTeamData);
+      console.log('[useMatchData] Constructed awayTeamData:', awayTeamData);
       setHomeTeam(homeTeamData);
       setAwayTeam(awayTeamData);
 
@@ -125,6 +126,7 @@ const useMatchData = (matchId: string | undefined) => {
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             event_type: event.event_type,
+            type: event.event_type, // Add the type property
             event_data: {},
             created_at: event.created_at,
             tracker_id: '',
@@ -138,7 +140,7 @@ const useMatchData = (matchId: string | undefined) => {
       }
 
     } catch (err: any) {
-      console.error('[useMatchData] Error during fetch:', err); // Added logging
+      console.error('[useMatchData] Error during fetch:', err);
       setError(err.message || 'An unexpected error occurred while loading match data.');
       setMatch(null);
       setHomeTeam(null);
