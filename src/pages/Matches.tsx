@@ -38,17 +38,22 @@ const Matches: React.FC = () => {
 
       const processedMatches: Match[] = (data || []).map(match => ({
         ...match,
-        matchDate: match.match_date,
+        name: match.name || undefined,
+        matchDate: match.match_date || undefined,
         homeTeamName: match.home_team_name,
         awayTeamName: match.away_team_name,
-        venue: match.location,
+        venue: match.location || undefined,
         statistics: {
           possession: { home: 0, away: 0 },
           shots: { home: 0, away: 0 },
           corners: { home: 0, away: 0 },
           fouls: { home: 0, away: 0 },
           offsides: { home: 0, away: 0 },
-          passes: { home: 0, away: 0 }
+          passes: { home: 0, away: 0 },
+          ballsPlayed: { home: 0, away: 0 },
+          ballsLost: { home: 0, away: 0 },
+          duels: { home: 0, away: 0 },
+          crosses: { home: 0, away: 0 }
         } as Statistics,
         ballTrackingData: [] as BallTrackingPoint[]
       }));

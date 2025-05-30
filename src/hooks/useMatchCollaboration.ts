@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRealtime } from './useRealtime';
@@ -38,7 +37,7 @@ export const useMatchCollaboration = ({
       events: [],
       lastReceivedEvent: null,
       users: [],
-      collaborationError: null, // Add default error state for early return
+      collaborationError: null,
     };
   }
 
@@ -55,9 +54,9 @@ export const useMatchCollaboration = ({
     onlineUsers,
     isOnline: realtimeIsOnline,
     pushEvent,
-    channelError, // Receive channelError
-  } = useRealtime({ // This hook will only be called if matchId is valid due to the check above.
-    channelName: `match:${matchId}`, // matchId is guaranteed to be valid here
+    channelError,
+  } = useRealtime({
+    channelName: `match:${matchId}`,
     onEventReceived: (event) => {
       if (event.type === 'event_confirmed') {
         const confirmedEvent = event.payload as MatchEvent;
@@ -115,15 +114,15 @@ export const useMatchCollaboration = ({
     coordinates: { x: number; y: number },
     relatedPlayerId?: number
   ) => {
-    // matchId is guaranteed to be present due to the early return if it's not.
     const eventData = {
-      matchId: matchId!, 
-      teamId,
-      playerId,
+      match_id: matchId!,
+      team_id: teamId,
+      player_id: playerId,
       type: eventType as any,
       timestamp: Date.now(),
       coordinates,
-      relatedPlayerId,
+      event_type: eventType,
+      team: teamId,
     };
     sendEvent(eventData);
   };
@@ -177,6 +176,6 @@ export const useMatchCollaboration = ({
     events: [...optimisticEvents, ...serverConfirmedEvents],
     lastReceivedEvent,
     users: onlineUsers,
-    collaborationError: channelError, // Return channelError as collaborationError
+    collaborationError: channelError,
   };
 };

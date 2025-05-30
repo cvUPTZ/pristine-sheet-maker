@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { EventType } from '@/types';
@@ -31,9 +30,9 @@ export interface MatchEvent {
   created_at?: string;
   tracker_id?: string | null;
   team_id?: string | null;
-  player_id?: number | undefined;
-  team?: 'home' | 'away' | undefined;
-  coordinates?: any;
+  player_id?: number | null;
+  team?: 'home' | 'away';
+  coordinates?: { x: number; y: number };
   created_by?: string;
   type: EventType;
 }
