@@ -50,6 +50,7 @@ export function PianoInput({
   console.log('PianoInput - assignedEventTypes:', assignedEventTypes);
   console.log('PianoInput - assignedPlayers:', assignedPlayers);
   console.log('PianoInput - fullMatchRoster:', fullMatchRoster);
+  console.log('PianoInput - user:', user);
 
   const displayableEventTypes = useMemo(() => {
     if (!assignedEventTypes || assignedEventTypes.length === 0) {
@@ -225,12 +226,18 @@ export function PianoInput({
       return;
     }
     
+    setIsRecording(true);
+    
     try {
-      setIsRecording(true);
       setSelectedPlayer(player);
       console.log(`Recording event: ${selectedEventType.label} for player: ${player.player_name} (#${player.jersey_number})`);
+      console.log('Event data being sent:', {
+        eventType: selectedEventType,
+        player: player,
+        userId: user.id
+      });
       
-      // Call the parent's onEventRecord
+      // Call the parent's onEventRecord with proper error handling
       await onEventRecord(selectedEventType, player);
       
       // Show success toast
@@ -242,9 +249,9 @@ export function PianoInput({
         setSelectedPlayer(null);
         setActiveTeamContext(null);
       }
-    } catch (error) {
-      console.error('Error recording event:', error);
-      toast.error('Failed to record event');
+    } catch (error: any) {
+      console.error('Error in handlePlayerSelect:', error);
+      toast.error(`Failed to record event: ${error.message || 'Unknown error'}`);
     } finally {
       setIsRecording(false);
     }

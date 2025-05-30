@@ -85,16 +85,19 @@ const MatchAnalysisV2: React.FC = () => {
   }, [matchId, toast]);
 
   const fetchTrackerAssignments = useCallback(async () => {
-    if (!matchId) {
-      console.error("Match ID is missing.");
+    if (!matchId || !user?.id) {
+      console.error("Match ID or user ID is missing.");
       return;
     }
 
     try {
+      console.log('Fetching tracker assignments for:', { matchId, userId: user.id });
+      
       const { data, error } = await supabase
         .from('match_tracker_assignments')
         .select('*')
-        .eq('match_id', matchId);
+        .eq('match_id', matchId)
+        .eq('tracker_user_id', user.id);
 
       if (error) {
         console.error("Error fetching tracker assignments:", error);
@@ -106,8 +109,10 @@ const MatchAnalysisV2: React.FC = () => {
         return;
       }
 
+      console.log('Tracker assignments data:', data);
+
       if (!data || data.length === 0) {
-        console.log("No tracker assignments found for this match.");
+        console.log("No tracker assignments found for this user and match.");
         setAssignedEventTypes([]);
         setAssignedPlayers({ home: [], away: [] });
         return;
@@ -119,6 +124,7 @@ const MatchAnalysisV2: React.FC = () => {
         .filter(key => key)
         .map(key => ({ key, label: key }));
       setAssignedEventTypes(assignedEventTypesData);
+      console.log('Assigned event types:', assignedEventTypesData);
 
       // Aggregate assigned players
       const homePlayers: PlayerForPianoInput[] = [];
@@ -139,6 +145,7 @@ const MatchAnalysisV2: React.FC = () => {
       });
 
       setAssignedPlayers({ home: homePlayers, away: awayPlayers });
+      console.log('Assigned players:', { home: homePlayers, away: awayPlayers });
 
     } catch (error: any) {
       console.error("Error fetching tracker assignments:", error);
@@ -148,7 +155,7 @@ const MatchAnalysisV2: React.FC = () => {
         variant: "destructive",
       });
     }
-  }, [matchId, toast, fullMatchRoster]);
+  }, [matchId, user?.id, toast, fullMatchRoster]);
 
   useEffect(() => {
     fetchMatchDetails();
@@ -172,35 +179,46 @@ const MatchAnalysisV2: React.FC = () => {
   };
 
   const handleEventRecord = async (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('handleEventRecord called with:', { eventType, player, details, user: user?.id });
+    console.log('handleEventRecord called with:', { 
+      eventType, 
+      player, 
+      details, 
+      user: user?.id,
+      matchId 
+    });
     
     if (!matchId) {
       console.error("Match ID is missing.");
-      toast({
-        title: "Error",
-        description: "Match ID is missing.",
-        variant: "destructive",
-      });
       throw new Error("Match ID is missing");
     }
 
     if (!user?.id) {
       console.error("User not authenticated");
-      toast({
-        title: "Error",
-        description: "Authentication required to record events.",
-        variant: "destructive",
-      });
       throw new Error("User not authenticated");
     }
 
+    if (!eventType) {
+      console.error("Event type is missing");
+      throw new Error("Event type is missing");
+    }
+
     try {
+      // Determine team context
+      let teamContext = null;
+      if (player && assignedPlayers) {
+        if (assignedPlayers.home?.some(p => p.id === player.id)) {
+          teamContext = 'home';
+        } else if (assignedPlayers.away?.some(p => p.id === player.id)) {
+          teamContext = 'away';
+        }
+      }
+
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
         timestamp: Date.now(),
         player_id: player ? Number(player.id) : null,
-        team: player ? (assignedPlayers?.home?.some(p => p.id === player.id) ? 'home' : 'away') : null,
+        team: teamContext,
         coordinates: details?.coordinates || null,
         created_by: user.id
       };
@@ -214,23 +232,13 @@ const MatchAnalysisV2: React.FC = () => {
 
       if (error) {
         console.error("Error recording event:", error);
-        toast({
-          title: "Error",
-          description: `Failed to record event: ${error.message}`,
-          variant: "destructive",
-        });
-        throw error;
+        throw new Error(`Failed to record event: ${error.message}`);
       }
 
       console.log('Event recorded successfully:', data);
       
     } catch (error: any) {
-      console.error("Error recording event:", error);
-      toast({
-        title: "Error",
-        description: `Failed to record event: ${error.message || 'Unknown error'}`,
-        variant: "destructive",
-      });
+      console.error("Error in handleEventRecord:", error);
       throw error;
     }
   };
