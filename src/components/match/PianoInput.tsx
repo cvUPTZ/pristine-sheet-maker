@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBreakpoint } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
   { key: 'pass', label: 'Pass' },
@@ -36,6 +36,7 @@ export function PianoInput({
   assignedPlayers,
   onEventRecord,
 }: PianoInputProps) {
+  const { user } = useAuth();
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
   const [activeTeamContext, setActiveTeamContext] = useState<'home' | 'away' | null>(null);
@@ -208,14 +209,23 @@ export function PianoInput({
       return;
     }
     
+    if (!user?.id) {
+      console.error("User not authenticated");
+      toast.error('Authentication required to record events');
+      return;
+    }
+    
     try {
       setSelectedPlayer(player);
       console.log(`Recording event: ${selectedEventType.label} for player: ${player.player_name} (#${player.jersey_number})`);
       
-      await onEventRecord(selectedEventType, player);
+      // Call the parent's onEventRecord with proper user ID
+      await onEventRecord(selectedEventType, player, { 
+        created_by: user.id 
+      });
       
       // Show success toast
-      toast.success(`${selectedEventType.label} recorded for ${player.player_name}`);
+      toast.success(`${selectedEventType.label} recorded for ${player.player_name || `Player #${player.jersey_number}`}`);
       
       // Reset selection
       setSelectedEventType(null);
@@ -286,7 +296,7 @@ export function PianoInput({
               <h2 className={`font-bold ${isXSmall ? 'text-lg' : isMobile ? 'text-xl' : 'text-2xl'}`}>Event Piano Input</h2>
               <p className={`text-white/80 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
                 {singlePlayerAssigned ? 
-                  `Recording for: ${singlePlayerAssigned.player_name} (#${singlePlayerAssigned.jersey_number})` :
+                  `Recording for: ${singlePlayerAssigned.player_name || `Player #${singlePlayerAssigned.jersey_number}`}` :
                   (isXSmall ? 'Fast event recording' : 'Fast event recording with keyboard shortcuts')
                 }
               </p>
@@ -310,7 +320,7 @@ export function PianoInput({
                   Auto-Selected Player
                 </h3>
                 <p className={`text-green-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
-                  #{singlePlayerAssigned.jersey_number} {singlePlayerAssigned.player_name} - Just select an event type!
+                  #{singlePlayerAssigned.jersey_number} {singlePlayerAssigned.player_name || `Player #${singlePlayerAssigned.jersey_number}`} - Just select an event type!
                 </p>
               </div>
             </div>
@@ -472,7 +482,7 @@ export function PianoInput({
                                     {player.jersey_number}
                                   </div>
                                   <span className={`flex-1 font-medium ${isXSmall ? 'text-sm' : 'text-base'} truncate`}>
-                                    {player.player_name}
+                                    {player.player_name || `Player #${player.jersey_number}`}
                                   </span>
                                 </div>
                               </Button>
@@ -544,7 +554,7 @@ export function PianoInput({
                                     {player.jersey_number}
                                   </div>
                                   <span className={`flex-1 font-medium ${isXSmall ? 'text-sm' : 'text-base'} truncate`}>
-                                    {player.player_name}
+                                    {player.player_name || `Player #${player.jersey_number}`}
                                   </span>
                                 </div>
                               </Button>

@@ -16,7 +16,7 @@ import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 
 const MatchAnalysisV2: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
   const [homeTeam, setHomeTeam] = useState({ name: 'Home Team', formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState({ name: 'Away Team', formation: '4-3-3' });
@@ -183,15 +183,25 @@ const MatchAnalysisV2: React.FC = () => {
       return;
     }
 
+    if (!user?.id) {
+      console.error("User not authenticated");
+      toast({
+        title: "Error",
+        description: "Authentication required to record events.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const eventData = {
-        match_id: matchId || '',
+        match_id: matchId,
         event_type: eventType.key,
         timestamp: Date.now(),
         player_id: player ? Number(player.id) : null,
         team: player ? (assignedPlayers?.home?.some(p => p.id === player.id) ? 'home' : 'away') : null,
         coordinates: details?.coordinates || null,
-        created_by: 'user'
+        created_by: user.id // Use actual user ID from auth context
       };
 
       const { data, error } = await supabase
