@@ -158,14 +158,10 @@ export interface MatchEvent {
 
 export interface Match {
   id: string;
-  name?: string;
+  name?: string | null;
   status: string;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation?: string;
-  away_team_formation?: string;
-  match_date?: string;
-  location?: string;
   created_at?: string;
   updated_at?: string;
   created_by?: string;
@@ -184,6 +180,8 @@ export interface Match {
   ball_tracking_data?: any;
   homeTeamName?: string;
   awayTeamName?: string;
+  homeTeamFormation?: string;
+  awayTeamFormation?: string;
   matchDate?: string;
   venue?: string;
   statistics?: Statistics;
