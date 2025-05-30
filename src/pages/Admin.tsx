@@ -352,6 +352,30 @@ const Admin: React.FC = () => {
     }
   }, []); 
 
+  const handleCreateMatchSuccess = useCallback(() => {
+    setIsCreateMatchDialogOpen(false);
+    // Attempt to call fetchData and log success or failure of the call itself
+    try {
+      console.log('Attempting to call fetchData from handleCreateMatchSuccess...');
+      fetchData();
+      console.log('fetchData called successfully from handleCreateMatchSuccess.');
+    } catch (e) {
+      console.error('Error calling fetchData within handleCreateMatchSuccess:', e);
+    }
+  }, [fetchData, setIsCreateMatchDialogOpen]); // Ensure all dependencies are listed
+
+  const handleEditMatchSuccess = useCallback(() => {
+    setIsEditMatchDialogOpen(false);
+    setEditingMatch(null);
+    try {
+      console.log('Attempting to call fetchData from handleEditMatchSuccess...');
+      fetchData();
+      console.log('fetchData called successfully from handleEditMatchSuccess.');
+    } catch (e) {
+      console.error('Error calling fetchData within handleEditMatchSuccess:', e);
+    }
+  }, [fetchData, setIsEditMatchDialogOpen, setEditingMatch]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -655,17 +679,22 @@ const Admin: React.FC = () => {
       {/* Create Match Dialog */}
       <Dialog open={isCreateMatchDialogOpen} onOpenChange={setIsCreateMatchDialogOpen}>
         <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Create New Match</DialogTitle><DialogDescription>Fill details.</DialogDescription></DialogHeader>
-          <CreateMatchForm onSuccess={() => { setIsCreateMatchDialogOpen(false); fetchData(); }} />
+          <CreateMatchForm onSuccess={handleCreateMatchSuccess} />
         </DialogContent>
       </Dialog>
 
       {/* Edit Match Dialog */}
       <Dialog open={isEditMatchDialogOpen} onOpenChange={setIsEditMatchDialogOpen}>
         <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Match</DialogTitle><DialogDescription>Update details.</DialogDescription></DialogHeader>
-          {editingMatch && <CreateMatchForm isEditMode initialData={{
-              id: editingMatch.id, homeTeam: editingMatch.home_team_name, awayTeam: editingMatch.away_team_name,
-              matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
-            }} onSubmitOverride={handleUpdateMatch} onSuccess={() => { setIsEditMatchDialogOpen(false); setEditingMatch(null); fetchData(); }}/>}
+          {editingMatch && <CreateMatchForm
+                            isEditMode
+                            initialData={{
+                              id: editingMatch.id, homeTeam: editingMatch.home_team_name, awayTeam: editingMatch.away_team_name,
+                              matchDate: editingMatch.match_date || '', status: editingMatch.status as any, description: editingMatch.description || editingMatch.name || ''
+                            }}
+                            onSubmitOverride={handleUpdateMatch}
+                            onSuccess={handleEditMatchSuccess} // Use the new callback
+                          />}
         </DialogContent>
       </Dialog>
 

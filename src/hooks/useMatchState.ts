@@ -127,9 +127,11 @@ export const useMatchState = () => {
   };
 
   const completeSetup = (home: Team, away: Team) => {
+    console.log('useMatchState: completeSetup called with homeTeam:', home, 'and awayTeam:', away);
     setHomeTeam(home);
     setAwayTeam(away);
     setSetupComplete(true);
+    console.log('useMatchState: setupComplete state has been set to true.');
   };
 
   const toggleBallTrackingMode = () => {

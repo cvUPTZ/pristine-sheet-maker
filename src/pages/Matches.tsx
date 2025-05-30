@@ -20,8 +20,10 @@ const Matches: React.FC = () => {
 
       if (error) {
         console.error('Supabase error fetching matches:', error);
+        console.error('Supabase query error details:', error);
         throw error; // Re-throw to be caught by the component's catch block
       }
+      console.log('Fetched raw matches:', data);
 
       // Handle cases where data might be null (e.g., no matches found) or not an array
       if (!data || !Array.isArray(data)) {
@@ -59,11 +61,13 @@ const Matches: React.FC = () => {
         });
       
       // Assuming your Match type aligns with the object structure created above
+      console.log('Processed matches to be set:', processedMatches);
       setMatches(processedMatches as Match[]);
 
     } catch (error: any) {
       // Catch errors from Supabase call or from processing logic
       console.error('Error in fetchMatches process:', error.message);
+      console.error('Error during fetchMatches process (outside Supabase query):', error.message, error.stack);
       setMatches([]); // Set to empty array on any error to prevent rendering issues
     } finally {
       setIsLoading(false);
@@ -94,7 +98,7 @@ const Matches: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {matches.map((match) => (
+          {matches.map((match) => { console.log('Rendering link for match:', match); return (
             // `match` here is guaranteed by the processing in fetchMatches
             // to be an object with a valid, stringified `id`.
             <Card key={match.id}>
@@ -118,7 +122,7 @@ const Matches: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ); })}
         </div>
       )}
     </div>

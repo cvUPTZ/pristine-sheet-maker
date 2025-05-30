@@ -178,7 +178,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
               <div>
                 <FormationSelector
                   label="Formation"
-                  value={teams.home.formation as Formation || '4-4-2'}
+                  value={(teams.home.formation && teams.home.formation.trim() !== '') ? teams.home.formation as Formation : '4-4-2'}
                   onChange={(value) => updateTeamFormation('home', value)}
                 />
               </div>
@@ -253,7 +253,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
               <div>
                 <FormationSelector
                   label="Formation"
-                  value={teams.away.formation as Formation || '4-3-3'}
+                  value={(teams.away.formation && teams.away.formation.trim() !== '') ? teams.away.formation as Formation : '4-3-3'}
                   onChange={(value) => updateTeamFormation('away', value)}
                 />
               </div>
