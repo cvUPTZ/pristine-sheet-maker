@@ -212,18 +212,37 @@ const MatchAnalysisV2: React.FC = () => {
         }
       }
 
-      // Use Math.floor(Date.now() / 1000) to get seconds since epoch, which fits in bigint
+      // Ensure player_id is properly converted to integer or null
+      const playerId = player ? parseInt(String(player.id), 10) : null;
+      
+      // Validate player_id is a valid integer
+      if (player && (isNaN(playerId!) || playerId === null)) {
+        console.error("Invalid player ID:", player.id);
+        throw new Error("Invalid player ID");
+      }
+
+      // Use seconds since epoch for timestamp to fit in bigint
+      const timestampInSeconds = Math.floor(Date.now() / 1000);
+
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
-        timestamp: Math.floor(Date.now() / 1000), // Convert to seconds to fit in bigint
-        player_id: player ? Number(player.id) : null,
+        timestamp: timestampInSeconds,
+        player_id: playerId,
         team: teamContext,
         coordinates: details?.coordinates || null,
         created_by: user.id
       };
 
       console.log('Inserting event data:', eventData);
+      console.log('Data types:', {
+        match_id: typeof eventData.match_id,
+        event_type: typeof eventData.event_type,
+        timestamp: typeof eventData.timestamp,
+        player_id: typeof eventData.player_id,
+        team: typeof eventData.team,
+        created_by: typeof eventData.created_by
+      });
 
       const { data, error } = await supabase
         .from('match_events')

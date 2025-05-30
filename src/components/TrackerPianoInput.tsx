@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -156,14 +155,37 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
 
     try {
+      // Ensure player_id is properly converted to integer
+      const playerId = parseInt(String(selectedPlayer.id), 10);
+      
+      // Validate player_id is a valid integer
+      if (isNaN(playerId)) {
+        console.error("Invalid player ID:", selectedPlayer.id);
+        toast.error('Invalid player ID');
+        return;
+      }
+
+      // Use seconds since epoch for timestamp to fit in bigint
+      const timestampInSeconds = Math.floor(Date.now() / 1000);
+
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
-        timestamp: Date.now(),
-        player_id: Number(selectedPlayer.id),
+        timestamp: timestampInSeconds,
+        player_id: playerId,
         team: selectedPlayer.team_context,
         created_by: user?.id || ''
       };
+
+      console.log('TrackerPianoInput - Inserting event data:', eventData);
+      console.log('TrackerPianoInput - Data types:', {
+        match_id: typeof eventData.match_id,
+        event_type: typeof eventData.event_type,
+        timestamp: typeof eventData.timestamp,
+        player_id: typeof eventData.player_id,
+        team: typeof eventData.team,
+        created_by: typeof eventData.created_by
+      });
 
       const { error } = await supabase
         .from('match_events')
