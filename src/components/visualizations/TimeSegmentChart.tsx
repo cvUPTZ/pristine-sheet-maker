@@ -23,7 +23,7 @@ interface TimeSegmentChartProps {
   timeSegments: TimeSegmentStatistics[];
   homeTeamName: string;
   awayTeamName: string;
-  dataKey: keyof TimeSegmentStatistics | string;
+  dataKey: string;
   title: string;
   description: string;
   chartType?: 'bar' | 'line' | 'area' | 'composed';
@@ -41,7 +41,7 @@ const TimeSegmentChart: React.FC<TimeSegmentChartProps> = ({
   const formatData = () => {
     return timeSegments.map(segment => {
       // Handle nested data keys like 'possession.home'
-      if (dataKey.includes('.')) {
+      if (typeof dataKey === 'string' && dataKey.includes('.')) {
         const [mainKey, subKey] = dataKey.split('.');
         const mainData = segment[mainKey as keyof TimeSegmentStatistics] as any;
         

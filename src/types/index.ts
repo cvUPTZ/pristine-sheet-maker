@@ -37,6 +37,8 @@ export type Formation =
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
   | 'Unknown';
 
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+
 export interface Player {
   id: string | number;
   name: string;
@@ -59,6 +61,18 @@ export interface BallTrackingPoint {
   y: number;
   timestamp: number;
   team?: 'home' | 'away';
+  player_id?: string | number;
+}
+
+export interface FlowPlayerNode {
+  id: string | number;
+  name: string;
+  x: number;
+  y: number;
+  count: number;
+  team: 'home' | 'away';
+  fx?: number;
+  fy?: number;
 }
 
 export interface Filter {
@@ -89,15 +103,35 @@ export interface CrossStats {
 
 export interface Statistics {
   possession: { home: number; away: number };
-  shots: { home: ShotStats | number; away: ShotStats | number };
+  shots: { home: ShotStats; away: ShotStats };
   corners: { home: number; away: number };
   fouls: { home: number; away: number };
   offsides: { home: number; away: number };
-  passes: { home: PassStats | number; away: PassStats | number };
+  passes: { home: PassStats; away: PassStats };
   ballsPlayed: { home: number; away: number };
   ballsLost: { home: number; away: number };
-  duels: { home: DuelStats | number; away: DuelStats | number };
-  crosses: { home: CrossStats | number; away: CrossStats | number };
+  duels: { home: DuelStats; away: DuelStats };
+  crosses: { home: CrossStats; away: CrossStats };
+}
+
+export interface TimeSegmentStatistics {
+  startTime: number;
+  endTime: number;
+  timeSegment: string;
+  events: any[];
+  possession?: { home: number; away: number };
+  cumulativePossession?: { home: number; away: number };
+  possessionDifference?: { home: number; away: number };
+  ballsPlayed?: { home: number; away: number };
+  cumulativeBallsPlayed?: { home: number; away: number };
+  ballsPlayedDifference?: { home: number; away: number };
+  ballsGiven?: { home: number; away: number };
+  cumulativeBallsGiven?: { home: number; away: number };
+  ballsGivenDifference?: { home: number; away: number };
+  ballsRecovered?: { home: number; away: number };
+  cumulativeBallsRecovered?: { home: number; away: number };
+  recoveryTime?: { home: number; away: number };
+  cumulativeRecoveryTime?: { home: number; away: number };
 }
 
 export interface MatchEvent {

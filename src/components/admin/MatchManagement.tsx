@@ -48,6 +48,8 @@ const MatchManagement: React.FC = () => {
         name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
         created_at: match.created_at || new Date().toISOString(),
         venue: match.location || undefined,
+        home_team_formation: match.home_team_formation || undefined,
+        away_team_formation: match.away_team_formation || undefined,
         home_team_players: parsePlayerData(match.home_team_players),
         away_team_players: parsePlayerData(match.away_team_players)
       }));
