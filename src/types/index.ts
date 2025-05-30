@@ -189,3 +189,14 @@ export interface Match {
   statistics?: Statistics;
   ballTrackingData?: BallTrackingPoint[];
 }
+
+export interface TrackerSyncEvent {
+  trackerId: string; // ID of the user performing the tracking
+  matchId: string;   // ID of the match being tracked
+  timestamp: number; // Unix timestamp of the event
+  eventType: 'tracker_status' | 'tracker_action';
+  payload: {
+    status?: 'active' | 'inactive' | 'paused'; // For tracker_status
+    currentAction?: string; // e.g., "marking_pass", "focused_on_player_X", "editing_event_Y"
+  };
+}

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRealtime } from '@/hooks/useRealtime';
+import { TrackerSyncEvent } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -88,6 +90,11 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: str
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
+  const { pushEvent } = useRealtime({
+    channelName: 'tracker-admin-sync',
+    userId: user?.id || 'anonymous_tracker',
+    onEventReceived: () => {}, // Not used for sending, but required by hook
+  });
   const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[]>([]);
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayer[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
@@ -313,7 +320,39 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     };
 
     fetchAssignments();
-  }, [user?.id, matchId]);
+
+    // Realtime: tracker_status active
+    if (user?.id && matchId && pushEvent) {
+      pushEvent({
+        type: 'broadcast',
+        event: 'tracker_event',
+        payload: {
+          trackerId: user.id,
+          matchId: matchId,
+          timestamp: Date.now(),
+          eventType: 'tracker_status',
+          payload: { status: 'active' },
+        } as TrackerSyncEvent,
+      });
+    }
+
+    return () => {
+      // Realtime: tracker_status inactive
+      if (user?.id && matchId && pushEvent) {
+        pushEvent({
+          type: 'broadcast',
+          event: 'tracker_event',
+          payload: {
+            trackerId: user.id, // user.id might be stale in cleanup if not handled carefully, but useRealtime should ideally use a stable ID or handle this.
+            matchId: matchId,
+            timestamp: Date.now(),
+            eventType: 'tracker_status',
+            payload: { status: 'inactive' },
+          } as TrackerSyncEvent,
+        });
+      }
+    };
+  }, [user?.id, matchId, pushEvent]);
 
   const handleEventRecord = (eventType: EventType) => {
     if (!selectedPlayer) {
@@ -325,6 +364,20 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       if (selectedEventType === null) {
         // First click in two-click mode: select the event type
         setSelectedEventType(eventType.key);
+        // Realtime: tracker_action arming_event
+        if (pushEvent && user?.id && selectedPlayer) {
+          pushEvent({
+            type: 'broadcast',
+            event: 'tracker_event',
+            payload: {
+              trackerId: user.id,
+              matchId,
+              timestamp: Date.now(),
+              eventType: 'tracker_action',
+              payload: { currentAction: `arming_event_${eventType.key}_for_player_${selectedPlayer.id}` },
+            } as TrackerSyncEvent,
+          });
+        }
       } else {
         // Second click in two-click mode
         if (selectedEventType === eventType.key) {
@@ -347,6 +400,24 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   const recordEvent = (eventType: EventType) => {
     if (!selectedPlayer) return;
+
+    // Realtime: tracker_action recorded_event_locally
+    if (pushEvent && user?.id) {
+      pushEvent({
+        type: 'broadcast',
+        event: 'tracker_event',
+        payload: {
+          trackerId: user.id,
+          matchId,
+          timestamp: Date.now(),
+          eventType: 'tracker_action',
+          payload: {
+            currentAction: `recorded_event_locally_${eventType.key}_for_player_${selectedPlayer.id}`,
+            details: { playerId: selectedPlayer.id, team: selectedPlayer.team_context, eventKey: eventType.key },
+          },
+        } as TrackerSyncEvent,
+      });
+    }
 
     // Ensure player_id is properly converted to integer
     const playerId = parseInt(String(selectedPlayer.id), 10);
@@ -380,6 +451,20 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   };
 
   const handleSyncEvents = async () => {
+    // Realtime: tracker_action sync_attempt
+    if (pushEvent && user?.id) {
+      pushEvent({
+        type: 'broadcast',
+        event: 'tracker_event',
+        payload: {
+          trackerId: user.id,
+          matchId,
+          timestamp: Date.now(),
+          eventType: 'tracker_action',
+          payload: { currentAction: `sync_attempt_${getLocalEvents().length}_events` },
+        } as TrackerSyncEvent,
+      });
+    }
     const localEvents = getLocalEvents();
 
     if (localEvents.length === 0) {
@@ -543,7 +628,23 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   <Button
                     variant={selectedPlayer?.id === player.id && selectedPlayer?.team_context === player.team_context ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedPlayer(player)}
+                    onClick={() => {
+                      setSelectedPlayer(player);
+                      // Realtime: tracker_action selected_player
+                      if (pushEvent && user?.id) {
+                        pushEvent({
+                          type: 'broadcast',
+                          event: 'tracker_event',
+                          payload: {
+                            trackerId: user.id,
+                            matchId,
+                            timestamp: Date.now(),
+                            eventType: 'tracker_action',
+                            payload: { currentAction: `selected_player_${player.id}_${player.team_context}` },
+                          } as TrackerSyncEvent,
+                        });
+                      }
+                    }}
                     className="flex items-center gap-2"
                   >
                     <Badge variant={player.team_context === 'home' ? 'default' : 'secondary'}>
