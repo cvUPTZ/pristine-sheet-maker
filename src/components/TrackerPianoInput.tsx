@@ -8,6 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { EVENT_TYPE_LABELS } from '@/constants/eventTypes';
 
+const LOCAL_STORAGE_KEY_MATCH_EVENTS = 'matchEventsQueue';
+
 interface EventType {
   key: string;
   label: string;
@@ -31,7 +33,32 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recordingEvent, setRecordingEvent] = useState<string | null>(null);
+  const [unsavedEventCount, setUnsavedEventCount] = useState<number>(0);
+
+  const getLocalEvents = (): any[] => {
+    const localData = localStorage.getItem(LOCAL_STORAGE_KEY_MATCH_EVENTS);
+    if (localData) {
+      try {
+        return JSON.parse(localData);
+      } catch (e) {
+        console.error("Error parsing local events:", e);
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const addLocalEvent = (eventData: any) => {
+    const events = getLocalEvents();
+    events.push(eventData);
+    localStorage.setItem(LOCAL_STORAGE_KEY_MATCH_EVENTS, JSON.stringify(events));
+    setUnsavedEventCount(events.length);
+  };
+
+  const clearLocalEvents = () => {
+    localStorage.removeItem(LOCAL_STORAGE_KEY_MATCH_EVENTS);
+    setUnsavedEventCount(0);
+  };
 
   useEffect(() => {
     if (!user?.id || !matchId) return;
@@ -121,62 +148,71 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         setError(err.message || 'Failed to load assignments');
       } finally {
         setLoading(false);
+        const localEvents = getLocalEvents();
+        setUnsavedEventCount(localEvents.length);
       }
     };
 
     fetchAssignments();
   }, [user?.id, matchId]);
 
-  const handleEventRecord = async (eventType: EventType) => {
+  const handleEventRecord = (eventType: EventType) => {
     if (!selectedPlayer) {
       toast.error('Please select a player first');
       return;
     }
 
-    if (recordingEvent) {
-      console.log('Already recording an event, please wait...');
+    // Ensure player_id is properly converted to integer
+    const playerId = parseInt(String(selectedPlayer.id), 10);
+    
+    // Validate player_id is a valid integer
+    if (isNaN(playerId)) {
+      console.error("Invalid player ID:", selectedPlayer.id);
+      toast.error('Invalid player ID');
       return;
     }
 
-    setRecordingEvent(eventType.key);
+    // Use seconds since epoch for timestamp to fit in bigint
+    const timestampInSeconds = Math.floor(Date.now() / 1000);
+
+    const eventData = {
+      match_id: matchId,
+      event_type: eventType.key,
+      timestamp: timestampInSeconds,
+      player_id: playerId,
+      team: selectedPlayer.team_context,
+      created_by: user?.id || ''
+    };
+
+    addLocalEvent(eventData);
+    toast.info(`${eventType.label} logged locally for ${selectedPlayer.player_name}`);
+  };
+
+  const handleSyncEvents = async () => {
+    const localEvents = getLocalEvents();
+
+    if (localEvents.length === 0) {
+      toast.info("No events to sync.");
+      return;
+    }
+
+    toast.loading("Syncing events to database...", { id: "sync-toast" });
 
     try {
-      // Ensure player_id is properly converted to integer
-      const playerId = parseInt(String(selectedPlayer.id), 10);
-      
-      // Validate player_id is a valid integer
-      if (isNaN(playerId)) {
-        console.error("Invalid player ID:", selectedPlayer.id);
-        toast.error('Invalid player ID');
-        return;
-      }
-
-      // Use seconds since epoch for timestamp to fit in bigint
-      const timestampInSeconds = Math.floor(Date.now() / 1000);
-
-      const eventData = {
-        match_id: matchId,
-        event_type: eventType.key,
-        timestamp: timestampInSeconds,
-        player_id: playerId,
-        team: selectedPlayer.team_context,
-        created_by: user?.id || ''
-      };
-
-      console.log('TrackerPianoInput - Inserting event data:', eventData);
-
       const { error } = await supabase
         .from('match_events')
-        .insert([eventData]);
+        .insert(localEvents);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      toast.success(`${eventType.label} recorded for ${selectedPlayer.player_name}`);
+      toast.success(`${localEvents.length} event(s) synced successfully!`, { id: "sync-toast" });
+      clearLocalEvents();
+
     } catch (err: any) {
-      console.error('Error recording event:', err);
-      toast.error('Failed to record event');
-    } finally {
-      setRecordingEvent(null);
+      console.error('Error syncing events:', err);
+      toast.error(`Failed to sync events: ${err.message || 'Unknown error'}. Please try again.`, { id: "sync-toast" });
     }
   };
 
@@ -239,7 +275,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 <Button
                   key={eventType.key}
                   onClick={() => handleEventRecord(eventType)}
-                  disabled={!selectedPlayer || recordingEvent === eventType.key}
+                  disabled={!selectedPlayer}
                   variant="outline"
                   className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
                 >
@@ -248,9 +284,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                     <span className="text-xs opacity-70">
                       {selectedPlayer.player_name}
                     </span>
-                  )}
-                  {recordingEvent === eventType.key && (
-                    <span className="text-xs text-orange-600">Recording...</span>
                   )}
                 </Button>
               ))}
@@ -265,6 +298,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               Select a player to record events
             </div>
           )}
+
+          {/* Sync Button */}
+          <div className="mt-6">
+            <Button
+              onClick={handleSyncEvents}
+              disabled={unsavedEventCount === 0}
+              className="w-full"
+            >
+              Sync {unsavedEventCount} Event{unsavedEventCount !== 1 ? 's' : ''} to Database
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
