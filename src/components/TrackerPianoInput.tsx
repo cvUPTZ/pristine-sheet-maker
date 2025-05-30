@@ -69,40 +69,45 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         setLoading(true);
         setError(null);
 
+        console.log('Fetching assignments for user:', user.id, 'match:', matchId);
+
         // Fetch tracker assignments for this user and match
         const { data: assignments, error: assignmentsError } = await supabase
           .from('match_tracker_assignments')
-          .select('assigned_event_types, player_id, player_team_id')
+          .select('*')
           .eq('tracker_user_id', user.id)
           .eq('match_id', matchId);
 
-        if (assignmentsError) throw assignmentsError;
+        if (assignmentsError) {
+          console.error('Assignments error:', assignmentsError);
+          throw assignmentsError;
+        }
+
+        console.log('Raw assignments data:', assignments);
 
         if (!assignments || assignments.length === 0) {
           setError('No assignments found for this match');
+          setAssignedEventTypes([]);
+          setAssignedPlayers([]);
           return;
         }
 
-        // Process assigned event types
-        const eventTypesSet = new Set<string>();
-        const playerIds = new Set<number>();
-        
+        // Process assigned event types - aggregate all unique event types
+        const allEventTypes = new Set<string>();
         assignments.forEach(assignment => {
-          if (assignment.assigned_event_types) {
+          if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
             assignment.assigned_event_types.forEach(eventType => {
-              eventTypesSet.add(eventType);
+              allEventTypes.add(eventType);
             });
-          }
-          if (assignment.player_id) {
-            playerIds.add(assignment.player_id);
           }
         });
 
-        const eventTypes: EventType[] = Array.from(eventTypesSet).map(key => ({
+        const eventTypes: EventType[] = Array.from(allEventTypes).map(key => ({
           key,
           label: EVENT_TYPE_LABELS[key as keyof typeof EVENT_TYPE_LABELS] || key
         }));
 
+        console.log('Processed event types:', eventTypes);
         setAssignedEventTypes(eventTypes);
 
         // Fetch match data to get player details
@@ -112,36 +117,69 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           .eq('id', matchId)
           .single();
 
-        if (matchError) throw matchError;
+        if (matchError) {
+          console.error('Match data error:', matchError);
+          throw matchError;
+        }
 
-        // Parse player data and filter assigned players
-        const homeTeamPlayers = typeof matchData.home_team_players === 'string' 
-          ? JSON.parse(matchData.home_team_players) 
-          : matchData.home_team_players || [];
+        console.log('Match data:', matchData);
+
+        // Parse player data safely
+        const parsePlayerData = (data: any): any[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
+
+        const homeTeamPlayers = parsePlayerData(matchData.home_team_players);
+        const awayTeamPlayers = parsePlayerData(matchData.away_team_players);
+
+        console.log('Home team players:', homeTeamPlayers);
+        console.log('Away team players:', awayTeamPlayers);
+
+        // Get assigned player IDs and team contexts from assignments
+        const assignedPlayerData: AssignedPlayer[] = [];
         
-        const awayTeamPlayers = typeof matchData.away_team_players === 'string' 
-          ? JSON.parse(matchData.away_team_players) 
-          : matchData.away_team_players || [];
+        assignments.forEach(assignment => {
+          const playerId = assignment.player_id;
+          const teamContext = assignment.player_team_id;
+          
+          if (playerId && teamContext) {
+            let player = null;
+            
+            if (teamContext === 'home') {
+              player = homeTeamPlayers.find(p => String(p.id) === String(playerId));
+            } else if (teamContext === 'away') {
+              player = awayTeamPlayers.find(p => String(p.id) === String(playerId));
+            }
+            
+            if (player) {
+              const assignedPlayer: AssignedPlayer = {
+                id: String(player.id),
+                player_name: player.name || player.player_name,
+                jersey_number: player.number || player.jersey_number,
+                team_context: teamContext as 'home' | 'away'
+              };
+              
+              // Avoid duplicates
+              if (!assignedPlayerData.some(p => p.id === assignedPlayer.id)) {
+                assignedPlayerData.push(assignedPlayer);
+              }
+            }
+          }
+        });
 
-        const allPlayers = [
-          ...homeTeamPlayers.map((p: any) => ({ ...p, team_context: 'home' as const })),
-          ...awayTeamPlayers.map((p: any) => ({ ...p, team_context: 'away' as const }))
-        ];
-
-        const filteredPlayers = allPlayers
-          .filter(player => playerIds.has(Number(player.id)))
-          .map(player => ({
-            id: String(player.id),
-            player_name: player.name || player.player_name,
-            jersey_number: player.number || player.jersey_number,
-            team_context: player.team_context
-          }));
-
-        setAssignedPlayers(filteredPlayers);
+        console.log('Processed assigned players:', assignedPlayerData);
+        setAssignedPlayers(assignedPlayerData);
 
         // Auto-select first player if only one is assigned
-        if (filteredPlayers.length === 1) {
-          setSelectedPlayer(filteredPlayers[0]);
+        if (assignedPlayerData.length === 1) {
+          setSelectedPlayer(assignedPlayerData[0]);
         }
 
       } catch (err: any) {
@@ -276,7 +314,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           <CardTitle>Your Tracker Assignment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Toggle Behavior Control - This is the button you should see */}
+          {/* Toggle Behavior Control */}
           <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -301,6 +339,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               >
                 {toggleBehaviorEnabled ? "Switch to One-Click" : "Switch to Two-Click"}
               </Button>
+            </div>
+          </div>
+
+          {/* Assignment Summary */}
+          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Event Types</h4>
+              <p className="text-lg font-semibold">{assignedEventTypes.length}</p>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Players</h4>
+              <p className="text-lg font-semibold">{assignedPlayers.length}</p>
             </div>
           </div>
 
@@ -330,7 +380,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
           {/* Event Type Buttons */}
           <div>
-            <h3 className="font-medium mb-2">Event Types</h3>
+            <h3 className="font-medium mb-2">Assigned Event Types</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {assignedEventTypes.map((eventType) => {
                 const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
