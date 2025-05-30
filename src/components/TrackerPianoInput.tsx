@@ -53,6 +53,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pressedButtons, setPressedButtons] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.id || !matchId) return;
@@ -193,6 +194,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       if (error) throw error;
 
+      // Keep the button pressed by adding it to pressedButtons set
+      setPressedButtons(prev => new Set([...prev, eventType.key]));
+
       toast.success(`${eventType.label} recorded for ${selectedPlayer.player_name}`);
     } catch (err: any) {
       console.error('Error recording event:', err);
@@ -260,7 +264,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   key={eventType.key}
                   onClick={() => handleEventRecord(eventType)}
                   disabled={!selectedPlayer}
-                  variant="outline"
+                  variant="default"
                   className="h-16 flex flex-col gap-1"
                 >
                   <span className="font-medium">{eventType.label}</span>
