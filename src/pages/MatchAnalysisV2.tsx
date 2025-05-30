@@ -8,7 +8,7 @@ import MatchHeader from '@/components/match/MatchHeader';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
 import MainTabContentV2 from '@/components/match/MainTabContentV2';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PianoInput } from '@/components/match/PianoInput';
+import { TrackerInterface } from '@/components/match/TrackerInterface';
 import { EventType } from '@/types/matchForm';
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 
@@ -309,17 +309,10 @@ const MatchAnalysisV2: React.FC = () => {
         )}
         
         <TabsContent value="piano" className="mt-2 sm:mt-4">
-          <Card>
-            <CardContent className="p-3 sm:p-6">
-              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Piano Input</h2>
-              <PianoInput
-                fullMatchRoster={fullMatchRoster}
-                assignedEventTypes={assignedEventTypes}
-                assignedPlayers={assignedPlayers}
-                onEventRecord={handleEventRecord}
-              />
-            </CardContent>
-          </Card>
+          <TrackerInterface
+            trackerUserId={user?.id || ''}
+            matchId={matchId}
+          />
         </TabsContent>
         
         {isAdmin && (
