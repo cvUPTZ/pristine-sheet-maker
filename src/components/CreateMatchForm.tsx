@@ -14,7 +14,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Trash2, ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
-import { Player, Formation } from '@/types';
 
 interface CreateMatchFormProps {
   onMatchCreated: (match: any) => void;
@@ -32,6 +31,15 @@ interface TrackerAssignment {
   assigned_event_types: string[];
   player_ids: number[];
 }
+
+interface Player {
+  id: number;
+  name: string;
+  number: number;
+  position: string;
+}
+
+type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2' | '3-4-3';
 
 const EVENT_TYPE_CATEGORIES = [
   {
@@ -108,8 +116,6 @@ const EVENT_TYPE_CATEGORIES = [
 
 const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2', '3-4-3'];
 
-const POSITIONS = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
-
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -160,9 +166,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     const players: Player[] = positions.map((position, index) => ({
       id: Date.now() + index,
       name: '',
-      player_name: '',
       number: index + 1,
-      jersey_number: index + 1,
       position
     }));
 
@@ -208,13 +212,32 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     setLoading(true);
 
     try {
+      // Convert players to the format expected by the database
+      const homePlayersJson = homeTeamPlayers.map(player => ({
+        id: player.id,
+        name: player.name || '',
+        player_name: player.name || '',
+        number: player.number,
+        jersey_number: player.number,
+        position: player.position
+      }));
+
+      const awayPlayersJson = awayTeamPlayers.map(player => ({
+        id: player.id,
+        name: player.name || '',
+        player_name: player.name || '',
+        number: player.number,
+        jersey_number: player.number,
+        position: player.position
+      }));
+
       const matchData = {
         name: formData.name || `${formData.homeTeamName} vs ${formData.awayTeamName}`,
         description: formData.description,
         home_team_name: formData.homeTeamName,
         away_team_name: formData.awayTeamName,
-        home_team_players: homeTeamPlayers,
-        away_team_players: awayTeamPlayers,
+        home_team_players: homePlayersJson,
+        away_team_players: awayPlayersJson,
         home_team_formation: formData.homeTeamFormation,
         away_team_formation: formData.awayTeamFormation,
         match_date: formData.matchDate,
@@ -306,17 +329,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
   const updatePlayer = (team: 'home' | 'away', index: number, field: keyof Player, value: any) => {
     if (team === 'home') {
       const updated = [...homeTeamPlayers];
-      updated[index] = { ...updated[index], [field]: value, player_name: field === 'name' ? value : updated[index].player_name };
-      if (field === 'number') {
-        updated[index].jersey_number = value;
-      }
+      updated[index] = { ...updated[index], [field]: value };
       setHomeTeamPlayers(updated);
     } else {
       const updated = [...awayTeamPlayers];
-      updated[index] = { ...updated[index], [field]: value, player_name: field === 'name' ? value : updated[index].player_name };
-      if (field === 'number') {
-        updated[index].jersey_number = value;
-      }
+      updated[index] = { ...updated[index], [field]: value };
       setAwayTeamPlayers(updated);
     }
   };

@@ -10,25 +10,29 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
+interface NotificationData {
+  assigned_event_types?: string[];
+  assigned_player_ids?: number[];
+  assignment_type?: string;
+}
+
+interface MatchInfo {
+  name: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+}
+
 interface Notification {
   id: string;
-  match_id: string | null;
+  match_id: string;
   title: string;
   message: string;
   type: string;
   is_read: boolean;
   created_at: string;
-  notification_data?: {
-    assigned_event_types?: string[];
-    assigned_player_ids?: number[];
-    assignment_type?: string;
-  };
-  matches?: {
-    name: string | null;
-    home_team_name: string;
-    away_team_name: string;
-    status: string;
-  };
+  notification_data?: NotificationData;
+  matches?: MatchInfo;
 }
 
 const TrackerNotifications: React.FC = () => {
@@ -48,31 +52,50 @@ const TrackerNotifications: React.FC = () => {
       const { data, error } = await supabase
         .from('notifications')
         .select(`
-          *,
-          matches:match_id (
-            name,
-            home_team_name,
-            away_team_name,
-            status
-          )
+          id,
+          match_id,
+          title,
+          message,
+          type,
+          is_read,
+          created_at,
+          notification_data,
+          user_id
         `)
         .eq('user_id', user.id)
+        .not('match_id', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      // Filter and type-cast the data properly
-      const validNotifications = (data || [])
-        .filter(notification => notification.match_id) // Only keep notifications with valid match_id
-        .map(notification => ({
-          ...notification,
-          match_id: notification.match_id as string, // Type assertion since we filtered out nulls
-          is_read: notification.is_read || false,
-          type: notification.type || 'general',
-          created_at: notification.created_at || new Date().toISOString()
-        }));
+      // Get match information for each notification
+      const notificationsWithMatches: Notification[] = [];
       
-      setNotifications(validNotifications);
+      for (const notification of data || []) {
+        if (notification.match_id) {
+          const { data: matchData, error: matchError } = await supabase
+            .from('matches')
+            .select('name, home_team_name, away_team_name, status')
+            .eq('id', notification.match_id)
+            .single();
+
+          if (!matchError && matchData) {
+            notificationsWithMatches.push({
+              id: notification.id,
+              match_id: notification.match_id,
+              title: notification.title || '',
+              message: notification.message || '',
+              type: notification.type || 'general',
+              is_read: notification.is_read || false,
+              created_at: notification.created_at || new Date().toISOString(),
+              notification_data: notification.notification_data as NotificationData,
+              matches: matchData
+            });
+          }
+        }
+      }
+      
+      setNotifications(notificationsWithMatches);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to load notifications');
@@ -271,7 +294,7 @@ const TrackerNotifications: React.FC = () => {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => handleViewMatch(notification.match_id!, notification.id)}
+                      onClick={() => handleViewMatch(notification.match_id, notification.id)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Start Tracking
