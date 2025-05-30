@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Statistics } from '@/types';
+import { Statistics, ShotStats, PassStats } from '@/types';
 
 interface DetailedStatsTableProps {
   statistics: Statistics;
@@ -29,6 +29,21 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
     return '0';
   };
 
+  const getShotStats = (shots: ShotStats | number) => {
+    if (typeof shots === 'number') return { onTarget: 0, offTarget: shots, total: shots };
+    return shots;
+  };
+
+  const getPassStats = (passes: PassStats | number) => {
+    if (typeof passes === 'number') return { successful: 0, attempted: passes };
+    return passes;
+  };
+
+  const homeShots = getShotStats(statistics.shots?.home || 0);
+  const awayShots = getShotStats(statistics.shots?.away || 0);
+  const homePasses = getPassStats(statistics.passes?.home || 0);
+  const awayPasses = getPassStats(statistics.passes?.away || 0);
+
   const statsData = [
     {
       label: 'Possession',
@@ -44,8 +59,8 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
     },
     {
       label: 'Shots on Target', 
-      home: statistics.shots?.home?.onTarget?.toString() || '0',
-      away: statistics.shots?.away?.onTarget?.toString() || '0',
+      home: homeShots.onTarget?.toString() || '0',
+      away: awayShots.onTarget?.toString() || '0',
       unit: ''
     },
     {
@@ -56,8 +71,8 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
     },
     {
       label: 'Pass Accuracy',
-      home: statistics.passes?.home ? `${Math.round((statistics.passes.home.successful || 0) / Math.max(statistics.passes.home.attempted || 1, 1) * 100)}%` : '0%',
-      away: statistics.passes?.away ? `${Math.round((statistics.passes.away.successful || 0) / Math.max(statistics.passes.away.attempted || 1, 1) * 100)}%` : '0%',
+      home: homePasses.attempted ? `${Math.round((homePasses.successful || 0) / Math.max(homePasses.attempted || 1, 1) * 100)}%` : '0%',
+      away: awayPasses.attempted ? `${Math.round((awayPasses.successful || 0) / Math.max(awayPasses.attempted || 1, 1) * 100)}%` : '0%',
       unit: ''
     },
     {

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Statistics } from '@/types';
+import { Statistics, ShotStats, PassStats } from '@/types';
 import { Progress } from '@/components/ui/progress';
 
 interface StatisticsDisplayProps {
@@ -30,6 +30,21 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
       </Card>
     );
   }
+
+  const getShotStats = (shots: ShotStats | number) => {
+    if (typeof shots === 'number') return { onTarget: 0, offTarget: shots, total: shots };
+    return shots;
+  };
+
+  const getPassStats = (passes: PassStats | number) => {
+    if (typeof passes === 'number') return { successful: 0, attempted: passes };
+    return passes;
+  };
+
+  const homeShots = getShotStats(statistics.shots?.home || 0);
+  const awayShots = getShotStats(statistics.shots?.away || 0);
+  const homePasses = getPassStats(statistics.passes?.home || 0);
+  const awayPasses = getPassStats(statistics.passes?.away || 0);
 
   return (
     <Card>
@@ -61,38 +76,38 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
           <div>
             <div className="grid grid-cols-3 text-sm mb-1">
               <div className="text-right font-medium text-football-home">
-                {(statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)}
+                {(homeShots.onTarget || 0) + (homeShots.offTarget || 0)}
               </div>
               <div className="text-center text-muted-foreground">Shots (total)</div>
               <div className="text-left font-medium text-football-away">
-                {(statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0)}
+                {(awayShots.onTarget || 0) + (awayShots.offTarget || 0)}
               </div>
             </div>
             <div className="grid grid-cols-3 text-sm mb-2">
               <div className="text-right text-xs text-muted-foreground">
-                ({statistics.shots?.home?.onTarget || 0} on target)
+                ({homeShots.onTarget || 0} on target)
               </div>
               <div className="text-center"></div>
               <div className="text-left text-xs text-muted-foreground">
-                ({statistics.shots?.away?.onTarget || 0} on target)
+                ({awayShots.onTarget || 0} on target)
               </div>
             </div>
             <div className="flex gap-1 h-2">
               <Progress 
-                value={(statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)} 
+                value={(homeShots.onTarget || 0) + (homeShots.offTarget || 0)} 
                 max={Math.max(
-                  (statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0),
-                  (statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0),
+                  (homeShots.onTarget || 0) + (homeShots.offTarget || 0),
+                  (awayShots.onTarget || 0) + (awayShots.offTarget || 0),
                   1
                 )}
                 className="bg-muted h-2"
                 indicatorClassName="bg-football-home"
               />
               <Progress 
-                value={(statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0)}
+                value={(awayShots.onTarget || 0) + (awayShots.offTarget || 0)}
                 max={Math.max(
-                  (statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0),
-                  (statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0),
+                  (homeShots.onTarget || 0) + (homeShots.offTarget || 0),
+                  (awayShots.onTarget || 0) + (awayShots.offTarget || 0),
                   1
                 )}
                 className="bg-muted h-2"
@@ -105,48 +120,48 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
           <div>
             <div className="grid grid-cols-3 text-sm mb-1">
               <div className="text-right font-medium text-football-home">
-                {statistics.passes?.home?.successful || 0}/{statistics.passes?.home?.attempted || 0}
+                {homePasses.successful || 0}/{homePasses.attempted || 0}
               </div>
               <div className="text-center text-muted-foreground">Passes (success/total)</div>
               <div className="text-left font-medium text-football-away">
-                {statistics.passes?.away?.successful || 0}/{statistics.passes?.away?.attempted || 0}
+                {awayPasses.successful || 0}/{awayPasses.attempted || 0}
               </div>
             </div>
             <div className="grid grid-cols-3 text-sm mb-2">
               <div className="text-right text-xs text-muted-foreground">
-                ({(statistics.passes?.home?.attempted || 0) ? 
-                  Math.round(((statistics.passes?.home?.successful || 0) / (statistics.passes?.home?.attempted || 1)) * 100) : 0}% success)
+                ({(homePasses.attempted || 0) ? 
+                  Math.round(((homePasses.successful || 0) / (homePasses.attempted || 1)) * 100) : 0}% success)
               </div>
               <div className="text-center"></div>
               <div className="text-left text-xs text-muted-foreground">
-                ({(statistics.passes?.away?.attempted || 0) ? 
-                  Math.round(((statistics.passes?.away?.successful || 0) / (statistics.passes?.away?.attempted || 1)) * 100) : 0}% success)
+                ({(awayPasses.attempted || 0) ? 
+                  Math.round(((awayPasses.successful || 0) / (awayPasses.attempted || 1)) * 100) : 0}% success)
               </div>
             </div>
             <div className="flex gap-1 h-2">
               <Progress 
-                value={statistics.passes?.home?.attempted || 0}
-                max={Math.max((statistics.passes?.home?.attempted || 0), (statistics.passes?.away?.attempted || 0), 1)}
+                value={homePasses.attempted || 0}
+                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
                 className="bg-muted h-2"
                 indicatorClassName="bg-football-home/30"
               />
               <Progress 
-                value={statistics.passes?.away?.attempted || 0}
-                max={Math.max((statistics.passes?.home?.attempted || 0), (statistics.passes?.away?.attempted || 0), 1)}
+                value={awayPasses.attempted || 0}
+                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
                 className="bg-muted h-2"
                 indicatorClassName="bg-football-away/30"
               />
             </div>
             <div className="flex gap-1 h-2 mt-1">
               <Progress 
-                value={statistics.passes?.home?.successful || 0}
-                max={Math.max((statistics.passes?.home?.attempted || 0), (statistics.passes?.away?.attempted || 0), 1)}
+                value={homePasses.successful || 0}
+                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
                 className="bg-transparent h-2"
                 indicatorClassName="bg-football-home"
               />
               <Progress 
-                value={statistics.passes?.away?.successful || 0}
-                max={Math.max((statistics.passes?.home?.attempted || 0), (statistics.passes?.away?.attempted || 0), 1)}
+                value={awayPasses.successful || 0}
+                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
                 className="bg-transparent h-2"
                 indicatorClassName="bg-football-away"
               />

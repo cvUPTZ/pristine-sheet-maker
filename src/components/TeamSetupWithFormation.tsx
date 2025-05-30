@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Formation, Team } from '@/types';
+import { Formation, Team, Player } from '@/types';
 
 interface TeamSetupWithFormationProps {
   team: Team;
@@ -21,7 +21,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
   const handlePlayerNumberChange = (playerIndex: number, value: string) => {
     const numValue = parseInt(value) || 1;
     if (numValue >= 1 && numValue <= 99) {
-      const updatedPlayers = team.players.map((player, index) =>
+      const updatedPlayers = team.players.map((player: Player, index: number) =>
         index === playerIndex ? { ...player, number: numValue } : player
       );
       onTeamUpdate({ ...team, players: updatedPlayers });
@@ -29,7 +29,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
   };
 
   const handlePlayerChange = (playerIndex: number, field: string, value: string) => {
-    const updatedPlayers = team.players.map((player, index) =>
+    const updatedPlayers = team.players.map((player: Player, index: number) =>
       index === playerIndex ? { ...player, [field]: value } : player
     );
     onTeamUpdate({ ...team, players: updatedPlayers });
@@ -87,7 +87,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({
             </AccordionTrigger>
             <AccordionContent>
               <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
-                {team.players.map((player, index) => (
+                {team.players.map((player: Player, index: number) => (
                   <Card key={player.id} className="p-3">
                     <div className="grid grid-cols-3 gap-2 items-center">
                       <div>

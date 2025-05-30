@@ -1,7 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BallTrackingPoint } from '@/types';
 
@@ -76,9 +75,9 @@ const BallTracker: React.FC<BallTrackerProps> = ({
         </div>
       </div>
 
-      {/* Ball tracking visualization would go here */}
+      {/* Ball tracking visualization */}
       <div 
-        className="border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[200px] cursor-crosshair"
+        className="border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[200px] cursor-crosshair relative"
         onClick={(e) => {
           if (isRecording) {
             const rect = e.currentTarget.getBoundingClientRect();
@@ -95,7 +94,7 @@ const BallTracker: React.FC<BallTrackerProps> = ({
         {/* Render tracking points */}
         {trackingData.map((point, index) => (
           <div
-            key={point.id}
+            key={point.id || index}
             className={`absolute w-2 h-2 rounded-full ${
               point.team === 'home' ? 'bg-blue-500' : 'bg-red-500'
             }`}
