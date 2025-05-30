@@ -14,11 +14,20 @@ import { format } from 'date-fns';
 import { Formation } from '@/types';
 
 interface CreateMatchFormProps {
-  onSubmit: (matchData: any) => void;
+  onMatchCreated?: (newMatchData: any) => void;
+  onMatchUpdated?: (updatedMatchData: any) => void;
+  isEditMode?: boolean;
+  matchId?: string;
   onCancel: () => void;
 }
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSubmit, onCancel }) => {
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({
+  onMatchCreated,
+  onMatchUpdated,
+  onCancel,
+  isEditMode,
+  matchId,
+}) => {
   const [homeTeamName, setHomeTeamName] = useState('');
   const [awayTeamName, setAwayTeamName] = useState('');
   const [homeTeamFormation, setHomeTeamFormation] = useState<Formation>('4-4-2');
@@ -30,7 +39,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSubmit, onCancel })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const matchData = {
       home_team_name: homeTeamName,
       away_team_name: awayTeamName,
@@ -40,16 +49,21 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSubmit, onCancel })
       location,
       description,
       competition,
-      status: 'draft'
+      status: 'draft',
+      ...(isEditMode && matchId && { id: matchId }), // Include matchId if in edit mode
     };
 
-    onSubmit(matchData);
+    if (isEditMode && onMatchUpdated) {
+      onMatchUpdated(matchData);
+    } else if (!isEditMode && onMatchCreated) {
+      onMatchCreated(matchData);
+    }
   };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Create New Match</CardTitle>
+        <CardTitle>{isEditMode ? 'Edit Match' : 'Create New Match'}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -182,9 +196,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onSubmit, onCancel })
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button type="submit">
-              Create Match
-            </Button>
+            <Button type="submit">{isEditMode ? 'Update Match' : 'Create Match'}</Button>
           </div>
         </form>
       </CardContent>

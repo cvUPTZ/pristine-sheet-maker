@@ -45,10 +45,8 @@ const PitchView: React.FC<PitchViewProps> = ({
         <CardContent>
           <div className="w-full h-96 border rounded-lg bg-green-100 relative overflow-hidden">
             <FootballPitch
-              players={selectedTeam === 'home' ? homeTeam.players : awayTeam.players}
-              ballTrackingPoints={ballTrackingData}
+              ballTrackingData={ballTrackingData}
               onCoordinateClick={onCoordinateClick}
-              teamColor={selectedTeam === 'home' ? 'blue' : 'red'}
             />
           </div>
         </CardContent>
