@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +33,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unsavedEventCount, setUnsavedEventCount] = useState<number>(0);
+  const [toggleBehaviorEnabled, setToggleBehaviorEnabled] = useState<boolean>(false);
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
 
   const getLocalEvents = (): any[] => {
     const localData = localStorage.getItem(LOCAL_STORAGE_KEY_MATCH_EVENTS);
@@ -162,6 +163,25 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       return;
     }
 
+    // If toggle behavior is enabled and this event type is already selected, deselect it
+    if (toggleBehaviorEnabled && selectedEventType === eventType.key) {
+      setSelectedEventType(null);
+      return;
+    }
+
+    // If toggle behavior is enabled, set as selected but don't record yet
+    if (toggleBehaviorEnabled) {
+      setSelectedEventType(eventType.key);
+      return;
+    }
+
+    // Record the event immediately (single-click behavior)
+    recordEvent(eventType);
+  };
+
+  const recordEvent = (eventType: EventType) => {
+    if (!selectedPlayer) return;
+
     // Ensure player_id is properly converted to integer
     const playerId = parseInt(String(selectedPlayer.id), 10);
     
@@ -186,6 +206,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
     addLocalEvent(eventData);
     toast.info(`${eventType.label} logged locally for ${selectedPlayer.player_name}`);
+    
+    // Clear selection after recording if toggle behavior is enabled
+    if (toggleBehaviorEnabled) {
+      setSelectedEventType(null);
+    }
   };
 
   const handleSyncEvents = async () => {
@@ -243,6 +268,26 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           <CardTitle>Your Tracker Assignment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Toggle Behavior Control */}
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <div>
+              <span className="font-medium">Toggle Mode</span>
+              <p className="text-sm text-muted-foreground">
+                {toggleBehaviorEnabled 
+                  ? "Click to select event type, click again to record" 
+                  : "Click once to record event immediately"
+                }
+              </p>
+            </div>
+            <Button
+              onClick={() => setToggleBehaviorEnabled(!toggleBehaviorEnabled)}
+              variant={toggleBehaviorEnabled ? "default" : "outline"}
+              size="sm"
+            >
+              {toggleBehaviorEnabled ? "ON" : "OFF"}
+            </Button>
+          </div>
+
           {/* Player Selection */}
           <div>
             <h3 className="font-medium mb-2">Assigned Players</h3>
@@ -271,29 +316,33 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           <div>
             <h3 className="font-medium mb-2">Event Types</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {assignedEventTypes.map((eventType) => (
-                <Button
-                  key={eventType.key}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleEventRecord(eventType);
-                  }}
-                  disabled={!selectedPlayer}
-                  variant="outline"
-                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-75 active:scale-95"
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onFocus={(e) => e.target.blur()}
-                >
-                  <span className="font-medium">{eventType.label}</span>
-                  {selectedPlayer && (
-                    <span className="text-xs opacity-70">
-                      {selectedPlayer.player_name}
-                    </span>
-                  )}
-                </Button>
-              ))}
+              {assignedEventTypes.map((eventType) => {
+                const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
+                return (
+                  <Button
+                    key={eventType.key}
+                    onClick={() => handleEventRecord(eventType)}
+                    disabled={!selectedPlayer}
+                    variant={isSelected ? "default" : "outline"}
+                    className={`h-16 flex flex-col gap-1 transition-colors duration-75 ${
+                      isSelected 
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-primary hover:text-primary-foreground"
+                    }`}
+                    type="button"
+                  >
+                    <span className="font-medium">{eventType.label}</span>
+                    {selectedPlayer && (
+                      <span className="text-xs opacity-70">
+                        {selectedPlayer.player_name}
+                      </span>
+                    )}
+                    {toggleBehaviorEnabled && isSelected && (
+                      <span className="text-xs">Click to record</span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
             {assignedEventTypes.length === 0 && (
               <p className="text-muted-foreground text-sm">No event types assigned</p>
