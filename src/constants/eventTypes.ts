@@ -173,4 +173,40 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'sub': 'Sub'
 };
 
+// Add the missing EVENT_STYLES constant that CircularMenu is looking for
+export const EVENT_STYLES: Record<EventType, { color: string; description: string; icon?: string }> = {
+  'pass': { color: '#3B82F6', description: 'Pass between players', icon: '⚽' },
+  'shot': { color: '#EF4444', description: 'Shot on goal', icon: '🎯' },
+  'tackle': { color: '#F59E0B', description: 'Defensive tackle', icon: '⚔️' },
+  'foul': { color: '#EF4444', description: 'Rule violation', icon: '⚠️' },
+  'corner': { color: '#10B981', description: 'Corner kick', icon: '📐' },
+  'offside': { color: '#F59E0B', description: 'Offside violation', icon: '🚩' },
+  'goal': { color: '#10B981', description: 'Goal scored', icon: '⚽' },
+  'assist': { color: '#8B5CF6', description: 'Goal assist', icon: '🎯' },
+  'yellowCard': { color: '#F59E0B', description: 'Yellow card', icon: '🟨' },
+  'redCard': { color: '#EF4444', description: 'Red card', icon: '🟥' },
+  'substitution': { color: '#6B7280', description: 'Player substitution', icon: '🔄' },
+  'card': { color: '#F59E0B', description: 'Card shown', icon: '🟨' },
+  'penalty': { color: '#EF4444', description: 'Penalty kick', icon: '⚽' },
+  'free-kick': { color: '#10B981', description: 'Free kick', icon: '⚽' },
+  'goal-kick': { color: '#3B82F6', description: 'Goal kick', icon: '👢' },
+  'throw-in': { color: '#6B7280', description: 'Throw in', icon: '🤾' },
+  'interception': { color: '#8B5CF6', description: 'Ball interception', icon: '✋' },
+  'possession': { color: '#3B82F6', description: 'Ball possession', icon: '⚽' },
+  'ballLost': { color: '#EF4444', description: 'Ball lost', icon: '❌' },
+  'ballRecovered': { color: '#10B981', description: 'Ball recovered', icon: '✅' },
+  'dribble': { color: '#8B5CF6', description: 'Dribbling move', icon: '🏃' },
+  'cross': { color: '#3B82F6', description: 'Cross into box', icon: '↗️' },
+  'clearance': { color: '#F59E0B', description: 'Defensive clearance', icon: '🦶' },
+  'block': { color: '#6B7280', description: 'Shot block', icon: '🛡️' },
+  'save': { color: '#10B981', description: 'Goalkeeper save', icon: '🥅' },
+  'ownGoal': { color: '#EF4444', description: 'Own goal', icon: '😬' },
+  'freeKick': { color: '#10B981', description: 'Free kick', icon: '⚽' },
+  'throwIn': { color: '#6B7280', description: 'Throw in', icon: '🤾' },
+  'goalKick': { color: '#3B82F6', description: 'Goal kick', icon: '👢' },
+  'aerialDuel': { color: '#8B5CF6', description: 'Aerial duel', icon: '🦅' },
+  'groundDuel': { color: '#F59E0B', description: 'Ground duel', icon: '⚔️' },
+  'sub': { color: '#6B7280', description: 'Substitution', icon: '🔄' }
+};
+
 export type EventCategory = keyof typeof EVENT_CATEGORIES;

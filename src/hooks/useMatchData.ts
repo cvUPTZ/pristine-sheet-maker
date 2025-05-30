@@ -30,11 +30,11 @@ export interface MatchEvent {
   created_at?: string;
   tracker_id?: string | null;
   team_id?: string | null;
-  player_id?: number | null;
-  team?: string | null;
+  player_id?: number | undefined;
+  team?: 'home' | 'away' | undefined;
   coordinates?: any;
   created_by?: string;
-  type: string; // Add the missing type property
+  type: string;
 }
 
 export interface TeamHeaderData {
@@ -126,13 +126,13 @@ const useMatchData = (matchId: string | undefined) => {
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             event_type: event.event_type,
-            type: event.event_type, // Add the type property
+            type: event.event_type,
             event_data: {},
             created_at: event.created_at,
             tracker_id: '',
             team_id: event.team,
-            player_id: event.player_id,
-            team: event.team,
+            player_id: event.player_id || undefined,
+            team: (event.team === 'home' || event.team === 'away') ? event.team : undefined,
             coordinates: event.coordinates,
             created_by: event.created_by,
           }));

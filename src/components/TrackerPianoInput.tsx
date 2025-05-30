@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { EVENT_TYPE_LABELS } from '@/constants/eventTypes';
 
 interface EventType {
   key: string;
@@ -18,33 +20,9 @@ interface AssignedPlayer {
   team_context: 'home' | 'away';
 }
 
-interface TrackerAssignment {
-  assigned_event_types: string[];
-  player_id: number;
-  player_team_id: string;
-  match_id: string;
-}
-
 interface TrackerPianoInputProps {
   matchId: string;
 }
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  'pass': 'Pass',
-  'shot': 'Shot',
-  'foul': 'Foul',
-  'goal': 'Goal',
-  'save': 'Save',
-  'offside': 'Offside',
-  'corner': 'Corner Kick',
-  'substitution': 'Substitution',
-  'yellowCard': 'Yellow Card',
-  'redCard': 'Red Card',
-  'tackle': 'Tackle',
-  'interception': 'Interception',
-  'cross': 'Cross',
-  'clearance': 'Clearance'
-};
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
@@ -53,7 +31,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     if (!user?.id || !matchId) return;
@@ -94,7 +71,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
         const eventTypes: EventType[] = Array.from(eventTypesSet).map(key => ({
           key,
-          label: EVENT_TYPE_LABELS[key] || key
+          label: EVENT_TYPE_LABELS[key as keyof typeof EVENT_TYPE_LABELS] || key
         }));
 
         setAssignedEventTypes(eventTypes);
@@ -155,13 +132,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       return;
     }
 
-    if (isRecording) {
-      return; // Prevent multiple simultaneous recordings
-    }
-
     try {
-      setIsRecording(true);
-      
       // Ensure player_id is properly converted to integer
       const playerId = parseInt(String(selectedPlayer.id), 10);
       
@@ -196,8 +167,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     } catch (err: any) {
       console.error('Error recording event:', err);
       toast.error('Failed to record event');
-    } finally {
-      setIsRecording(false);
     }
   };
 
@@ -260,13 +229,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 <Button
                   key={eventType.key}
                   onClick={() => handleEventRecord(eventType)}
-                  disabled={!selectedPlayer || isRecording}
-                  variant="default"
-                  className="h-16 flex flex-col gap-1 hover:bg-primary/90 active:bg-primary/80"
+                  disabled={!selectedPlayer}
+                  variant="outline"
+                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
                 >
                   <span className="font-medium">{eventType.label}</span>
                   {selectedPlayer && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs opacity-70">
                       {selectedPlayer.player_name}
                     </span>
                   )}
