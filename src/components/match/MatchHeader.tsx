@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,8 +38,21 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   onToggleTracking,
   onSave
 }) => {
+  const [togglePressed, setTogglePressed] = useState(false);
+  const [savePressed, setSavePressed] = useState(false);
+
   const toggleHandler = onToggleTracking || handleToggleTracking;
   const saveHandler = onSave || handleSave;
+
+  const handleToggleClick = () => {
+    setTogglePressed(true);
+    toggleHandler();
+  };
+
+  const handleSaveClick = () => {
+    setSavePressed(true);
+    saveHandler();
+  };
 
   return (
     <Card className="mb-4">
@@ -79,17 +92,17 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               Tracking Mode
             </Button>
             <Button
-              variant="outline"
+              variant={togglePressed ? 'default' : 'outline'}
               size="sm"
-              onClick={toggleHandler}
+              onClick={handleToggleClick}
             >
               <Play className="w-4 h-4 mr-1" />
               Toggle
             </Button>
             <Button
-              variant="outline"
+              variant={savePressed ? 'default' : 'outline'}
               size="sm"
-              onClick={saveHandler}
+              onClick={handleSaveClick}
             >
               <Save className="w-4 h-4 mr-1" />
               Save
