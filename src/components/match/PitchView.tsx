@@ -1,95 +1,72 @@
 
 import React, { useState } from 'react';
-import Pitch from '@/components/Pitch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import FootballPitch from '@/components/FootballPitch';
 import { Team, BallTrackingPoint } from '@/types';
 
 interface PitchViewProps {
   homeTeam: Team;
   awayTeam: Team;
   ballTrackingData: BallTrackingPoint[];
-  onEventAdd?: (event: any) => void;
+  onCoordinateClick: (x: number, y: number) => void;
 }
 
 const PitchView: React.FC<PitchViewProps> = ({
   homeTeam,
   awayTeam,
   ballTrackingData,
-  onEventAdd,
+  onCoordinateClick
 }) => {
   const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
-  const [selectedEventType, setSelectedEventType] = useState<string>('pass');
-
-  // Ensure teams have required properties with defaults
-  const normalizedHomeTeam = {
-    name: homeTeam.name,
-    formation: homeTeam.formation || '4-4-2',
-    players: homeTeam.players || []
-  };
-
-  const normalizedAwayTeam = {
-    name: awayTeam.name,
-    formation: awayTeam.formation || '4-3-3',
-    players: awayTeam.players || []
-  };
-
-  // Ensure ball tracking data has required properties
-  const normalizedBallData: BallTrackingPoint[] = ballTrackingData.map(point => ({
-    ...point,
-    id: point.id || `${point.x}-${point.y}-${point.timestamp}`,
-  }));
-
-  const handlePitchClick = (x: number, y: number) => {
-    if (onEventAdd) {
-      onEventAdd({
-        type: selectedEventType,
-        team: selectedTeam,
-        coordinates: { x, y },
-        timestamp: Date.now(),
-      });
-    }
-  };
 
   return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg">
-        <div>
-          <label className="block text-sm font-medium mb-1">Team</label>
-          <select
-            value={selectedTeam}
-            onChange={(e) => setSelectedTeam(e.target.value as 'home' | 'away')}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="home">{homeTeam.name}</option>
-            <option value="away">{awayTeam.name}</option>
-          </select>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium mb-1">Event Type</label>
-          <select
-            value={selectedEventType}
-            onChange={(e) => setSelectedEventType(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="pass">Pass</option>
-            <option value="shot">Shot</option>
-            <option value="tackle">Tackle</option>
-            <option value="foul">Foul</option>
-            <option value="goal">Goal</option>
-          </select>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Football Pitch</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant={selectedTeam === 'home' ? 'default' : 'outline'}
+              onClick={() => setSelectedTeam('home')}
+              size="sm"
+            >
+              {homeTeam.name}
+            </Button>
+            <Button
+              variant={selectedTeam === 'away' ? 'default' : 'outline'}
+              onClick={() => setSelectedTeam('away')}
+              size="sm"
+            >
+              {awayTeam.name}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full h-96 border rounded-lg bg-green-100 relative overflow-hidden">
+            <FootballPitch
+              players={selectedTeam === 'home' ? homeTeam.players : awayTeam.players}
+              ballTrackingPoints={ballTrackingData}
+              onCoordinateClick={onCoordinateClick}
+              teamColor={selectedTeam === 'home' ? 'blue' : 'red'}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Pitch */}
-      <div className="border rounded-lg p-4 bg-white">
-        <Pitch
-          homeTeam={normalizedHomeTeam}
-          awayTeam={normalizedAwayTeam}
-          ballTrackingData={normalizedBallData}
-          onCoordinateClick={handlePitchClick}
-        />
-      </div>
+      {/* Ball tracking points display */}
+      {ballTrackingData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ball Tracking Data</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-gray-600">
+              Total tracking points: {ballTrackingData.length}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
