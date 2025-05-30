@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
@@ -16,6 +16,7 @@ import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 
 const MatchAnalysisV2: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
+  const { userRole } = useAuth();
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
   const [homeTeam, setHomeTeam] = useState({ name: 'Home Team', formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState({ name: 'Away Team', formation: '4-3-3' });
@@ -234,6 +235,10 @@ const MatchAnalysisV2: React.FC = () => {
     );
   }
 
+  // Determine available tabs based on user role
+  const isAdmin = userRole === 'admin';
+  const defaultTab = isAdmin ? 'main' : 'piano';
+
   return (
     <div className="container mx-auto p-4">
       <MatchHeader
@@ -245,31 +250,26 @@ const MatchAnalysisV2: React.FC = () => {
         handleSave={handleSave}
       />
 
-      <Tabs defaultValue="main" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="main">Main</TabsTrigger>
-          <TabsTrigger value="tracker">Tracker</TabsTrigger>
+          {isAdmin && <TabsTrigger value="main">Main</TabsTrigger>}
+          <TabsTrigger value="piano">Piano Input</TabsTrigger>
+          {isAdmin && <TabsTrigger value="tracker">Assign Tracker</TabsTrigger>}
         </TabsList>
-        <TabsContent value="main" className="mt-4">
-          <MainTabContentV2
-            matchId={matchId}
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            isTracking={isTracking}
-            onEventRecord={handleEventRecord}
-          />
-        </TabsContent>
-        <TabsContent value="tracker" className="mt-4">
-          <Card>
-            <CardContent>
-              <TrackerAssignment
-                matchId={matchId}
-                homeTeamPlayers={fullMatchRoster?.home || []}
-                awayTeamPlayers={fullMatchRoster?.away || []}
-              />
-            </CardContent>
-          </Card>
-          <Separator className="my-4" />
+        
+        {isAdmin && (
+          <TabsContent value="main" className="mt-4">
+            <MainTabContentV2
+              matchId={matchId}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              isTracking={isTracking}
+              onEventRecord={handleEventRecord}
+            />
+          </TabsContent>
+        )}
+        
+        <TabsContent value="piano" className="mt-4">
           <Card>
             <CardContent>
               <h2 className="text-lg font-semibold mb-4">Piano Input</h2>
@@ -282,6 +282,20 @@ const MatchAnalysisV2: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {isAdmin && (
+          <TabsContent value="tracker" className="mt-4">
+            <Card>
+              <CardContent>
+                <TrackerAssignment
+                  matchId={matchId}
+                  homeTeamPlayers={fullMatchRoster?.home || []}
+                  awayTeamPlayers={fullMatchRoster?.away || []}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
