@@ -73,7 +73,14 @@ export const useRealtimeEventSync = ({
       })
       .on('presence', { event: 'sync' }, () => {
         const presenceState = realtimeChannel.presenceState();
-        const trackers = Object.values(presenceState).flat() as TrackerPresence[];
+        const trackers = Object.values(presenceState).flat().map((presence: any) => ({
+          user_id: presence.user_id || '',
+          email: presence.email || '',
+          online_at: presence.online_at || new Date().toISOString(),
+          last_event_type: presence.last_event_type,
+          last_event_time: presence.last_event_time,
+          status: presence.status || 'online'
+        })) as TrackerPresence[];
         setConnectedTrackers(trackers);
         if (onTrackerPresenceUpdate) {
           onTrackerPresenceUpdate(trackers);
