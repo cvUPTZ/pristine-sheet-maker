@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -63,31 +63,29 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
     };
   }, [channelName, userId]);
 
-  const pushEvent = (event: any) => {
+  const pushEvent = useCallback((event: any) => {
     if (channelRef.current) {
       try {
         channelRef.current.send({
           type: 'broadcast',
-          event: event.type,
+          event: event.type, // This is the Supabase event name, from the `type` passed in the argument
           payload: event.payload,
         });
       } catch (sendError: any) {
         console.error('Error sending event via channel:', sendError);
-        setChannelError(new Error(`Failed to send event: ${sendError.message || 'Unknown error'}`));
-        // Optionally, re-throw or handle more specifically if needed
+        // setChannelError(new Error(`Failed to send event: ${sendError.message || 'Unknown error'}`)); // setChannelError would require it to be a dependency
       }
     } else {
-      // Handle case where channel is not available (e.g., set an error or log)
       console.warn('Cannot push event: Realtime channel is not available.');
-      setChannelError(new Error('Cannot push event: Realtime channel not available.'));
+      // setChannelError(new Error('Cannot push event: Realtime channel not available.')); // setChannelError would require it to be a dependency
     }
-  };
+  }, []); // Empty dependency array as channelRef is stable and setChannelError is omitted for max stability of pushEvent ref
 
   // Set up event listening
   useEffect(() => {
     if (channelRef.current && onEventReceived) {
       const eventHandlerWrapper = (event: any) => {
-        console.log('[useRealtime_DEBUG] Raw event received by broadcast listener:', JSON.stringify(event, null, 2));
+        // console.log('[useRealtime_DEBUG] Raw event received by broadcast listener:', JSON.stringify(event, null, 2)); // Removed
         onEventReceived(event); // Call the original callback
       };
       channelRef.current.on('broadcast', { event: '*' }, eventHandlerWrapper);

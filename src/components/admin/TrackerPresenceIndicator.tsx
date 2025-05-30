@@ -47,97 +47,56 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
 
   const handleEventReceived = useCallback((event: any) => {
-    console.log('[REALTIME_DEBUG] handleEventReceived CALLED. Raw event type from Supabase:', event.type, 'Raw Supabase event name:', event.event);
-
-    console.log('[REALTIME_DEBUG] Inside handleEventReceived. event object is present:', !!event);
-    if (event) {
-      console.log('[REALTIME_DEBUG] event.type is:', event.type);
-      console.log('[REALTIME_DEBUG] event.event is:', event.event); // This is the Supabase event name
-      console.log('[REALTIME_DEBUG] event.payload exists?:', !!event.payload);
-      if (event.payload) {
-        console.log('[REALTIME_DEBUG] event.payload.event is:', event.payload.event); // This is our custom event name ('tracker_event')
-        console.log('[REALTIME_DEBUG] event.payload.payload exists?:', !!event.payload.payload);
-      } else {
-        console.log('[REALTIME_DEBUG] event.payload is null/undefined.');
-      }
-    } else {
-      console.log('[REALTIME_DEBUG] event object itself is null/undefined in handleEventReceived.');
-    }
-    console.log('[REALTIME_DEBUG] Check: event.type === "broadcast"', event.type === 'broadcast'); // This and following logs are the old ones, can be removed if new ones are sufficient
-    console.log('[REALTIME_DEBUG] Check: event.payload (exists)', !!event.payload);
-    if (event.payload) {
-      console.log('[REALTIME_DEBUG] Value: event.payload.event is:', event.payload.event);
-      console.log('[REALTIME_DEBUG] Check: event.payload.event === "tracker_event"', event.payload.event === 'tracker_event');
-      console.log('[REALTIME_DEBUG] Check: event.payload.payload (exists)', !!event.payload.payload);
-    } else {
-      console.log('[REALTIME_DEBUG] event.payload is null/undefined.');
-    }
-    // Check for the new broadcast structure - Applying the final proposed fix
+    // All [REALTIME_DEBUG] logs removed from here
     if (event.type === 'broadcast' && event.event === 'broadcast' && event.payload) {
-      const syncEvent = event.payload as TrackerSyncEvent; // Corrected syncEvent assignment
-      // The existing detailed log for syncEvent should now reflect the direct payload
-      console.log('[REALTIME_DEBUG] Received tracker_event (final corrected path):', JSON.stringify(syncEvent, null, 2));
+      const syncEvent = event.payload as TrackerSyncEvent;
 
       if (syncEvent.matchId && syncEvent.matchId !== matchId) {
-        console.log(`[REALTIME_DEBUG] Ignoring event for other matchId. Expected: ${matchId}, Got: ${syncEvent.matchId}`);
         return;
       }
 
       setTrackers(prevTrackers => {
-        console.log('[REALTIME_DEBUG] Processing event in setTrackers (corrected path). Current syncEvent:', JSON.stringify(syncEvent, null, 2));
-        console.log('[REALTIME_DEBUG] prevTrackers state (corrected path):', JSON.stringify(prevTrackers, null, 2));
         return prevTrackers.map(t => {
           if (t.user_id === syncEvent.trackerId) {
             if (syncEvent.eventType === 'tracker_status') {
-              const updatedTracker = {
+              return {
                 ...t,
                 currentStatus: syncEvent.payload.status,
                 statusTimestamp: syncEvent.timestamp
               };
-              console.log(`[REALTIME_DEBUG] Matched tracker_status for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
-              return updatedTracker;
             } else if (syncEvent.eventType === 'tracker_action') {
-              const updatedTracker = {
+              return {
                 ...t,
                 lastKnownAction: syncEvent.payload.currentAction || 'unknown_action',
                 lastActionTimestamp: syncEvent.timestamp,
                 currentStatus: t.currentStatus === 'inactive' ? 'active' : t.currentStatus,
                 statusTimestamp: syncEvent.timestamp
               };
-              console.log(`[REALTIME_DEBUG] Matched tracker_action for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
-              return updatedTracker;
             }
           }
           return t;
         });
       });
     } else if (event.type === 'event_recorded' && event.payload) {
-      // This section handles the old 'event_recorded' direct events.
-      // As per instruction, setRecentEvents is removed.
-      // We will still update the main 'trackers' state for compatibility.
       const { created_by, event_type } = event.payload;
       if (created_by && event_type) {
-        console.log(`[REALTIME_DEBUG] Received old 'event_recorded': User ${created_by}, Type ${event_type}`);
-        // setRecentEvents(prev => new Map(prev.set(created_by, { type: event_type, time: Date.now() }))); // Removed as per instruction
         setTrackers(prevTrackers => prevTrackers.map(t => {
           if (t.user_id === created_by) {
-            const updatedTracker = {
+            return {
               ...t,
-              last_event_type: event_type, // old field
-              last_event_time: Date.now(), // old field
-              lastKnownAction: `recorded_${event_type}`, // new field for compatibility
+              last_event_type: event_type,
+              last_event_time: Date.now(),
+              lastKnownAction: `recorded_${event_type}`,
               lastActionTimestamp: Date.now(),
-              currentStatus: 'active', // Assume active on old event type
+              currentStatus: 'active',
               statusTimestamp: Date.now()
             };
-            console.log(`[REALTIME_DEBUG] Matched old 'event_recorded' for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
-            return updatedTracker;
           }
           return t;
         }));
       }
     }
-  }, [matchId, setTrackers]); // matchId and setTrackers are dependencies
+  }, [matchId, setTrackers]);
 
   const { onlineUsers, isOnline } = useRealtime({
     channelName: "tracker-admin-sync",
@@ -335,15 +294,13 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardContent className="space-y-2 md:space-y-4">
         <AnimatePresence>
           {trackers.map((tracker, index) => {
-            console.log(`[REALTIME_RENDER_DEBUG] Mapping tracker: ${tracker.user_id}`, JSON.stringify(tracker, null, 2));
-            // getTrackerStatus and getStatusColor now take the tracker object
-            const status = getTrackerStatus(tracker.user_id); // This still returns the detailed status object
-            console.log(`[REALTIME_RENDER_DEBUG] Status for tracker ${tracker.user_id}:`, JSON.stringify(status, null, 2));
-            const statusColor = getStatusColor(tracker); // Pass the tracker object
+            // [REALTIME_RENDER_DEBUG] logs removed from here
+            const status = getTrackerStatus(tracker.user_id);
+            const statusColor = getStatusColor(tracker);
             
             return (
               <motion.div
-                key={tracker.user_id}
+                key={`${tracker.user_id}-${tracker.lastActionTimestamp}-${tracker.currentStatus}`} // Modified key
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -389,12 +346,15 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                         {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
                       </div>
                       <div className="flex items-center gap-1 md:gap-2 flex-wrap">
-                        {/* Simplified rendering for status.activityText */}
-                        <div style={{ border: '1px solid red', padding: '2px', color: 'black' }}>
-                          {console.log(`[REALTIME_RENDER_DEBUG] Rendering simplified text for ${tracker.user_id} with text: ${status.activityText}`)}
-                          Tracker Action: {status.activityText}
-                        </div>
-                        {status.lastActionTimestamp && ( // Use lastActionTimestamp
+                        <Badge
+                          variant={(status.isOnline || status.currentStatus === 'active') ? "default" : "secondary"}
+                          className={`text-xs ${(status.isOnline || status.currentStatus === 'active') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
+                        >
+                          {/* [REALTIME_RENDER_DEBUG] log removed from here */}
+                          <span className="hidden sm:inline">{status.activityText}</span>
+                          <span className="sm:hidden">{(status.isOnline || status.currentStatus === 'active') ? 'On' : 'Off'}</span>
+                        </Badge>
+                        {status.lastActionTimestamp && (
                           <span className="text-xs text-slate-500 hidden md:inline">
                             {Math.floor((Date.now() - status.lastActionTimestamp) / 1000)}s ago
                           </span>
