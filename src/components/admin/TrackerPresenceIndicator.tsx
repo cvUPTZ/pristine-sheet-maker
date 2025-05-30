@@ -47,6 +47,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
 
   const handleEventReceived = useCallback((event: any) => {
+    console.log('[REALTIME_DEBUG] handleEventReceived CALLED. Raw event type from Supabase:', event.type, 'Raw Supabase event name:', event.event);
     // Check for the new broadcast structure
     if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
       const syncEvent = event.payload.payload as TrackerSyncEvent;
