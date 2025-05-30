@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -213,10 +212,11 @@ const MatchAnalysisV2: React.FC = () => {
         }
       }
 
+      // Use Math.floor(Date.now() / 1000) to get seconds since epoch, which fits in bigint
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
-        timestamp: Date.now(),
+        timestamp: Math.floor(Date.now() / 1000), // Convert to seconds to fit in bigint
         player_id: player ? Number(player.id) : null,
         team: teamContext,
         coordinates: details?.coordinates || null,
