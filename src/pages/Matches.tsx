@@ -1,226 +1,129 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Search } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { Match, Filter, Statistics, BallTrackingPoint } from '@/types';
-import { DateRange } from 'react-day-picker';
+import { supabase } from '@/integrations/supabase/client';
+import { Match } from '@/types'; // Assuming Match type is correctly defined here
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const Matches: React.FC = () => {
-  const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<Filter>({
-    searchTerm: '',
-    dateRange: { from: undefined, to: undefined }
-  });
-
-  useEffect(() => {
-    fetchMatches();
-  }, []);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchMatches = async () => {
+    setIsLoading(true); // Set loading true at the beginning of the fetch attempt
     try {
       const { data, error } = await supabase
         .from('matches')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      const processedMatches: Match[] = (data || []).map(match => ({
-        ...match,
-        name: match.name || undefined,
-        matchDate: match.match_date || undefined,
-        homeTeamName: match.home_team_name,
-        awayTeamName: match.away_team_name,
-        venue: match.location || undefined,
-        statistics: {
-          possession: { home: 0, away: 0 },
-          shots: { home: 0, away: 0 },
-          corners: { home: 0, away: 0 },
-          fouls: { home: 0, away: 0 },
-          offsides: { home: 0, away: 0 },
-          passes: { home: 0, away: 0 },
-          ballsPlayed: { home: 0, away: 0 },
-          ballsLost: { home: 0, away: 0 },
-          duels: { home: 0, away: 0 },
-          crosses: { home: 0, away: 0 }
-        } as Statistics,
-        ballTrackingData: [] as BallTrackingPoint[]
-      }));
-
-      setMatches(processedMatches);
-    } catch (error) {
-      console.error('Error fetching matches:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setFilter(prev => ({
-      ...prev,
-      dateRange: {
-        from: range?.from,
-        to: range?.to
+      if (error) {
+        console.error('Supabase error fetching matches:', error);
+        console.error('Supabase query error details:', error);
+        throw error; // Re-throw to be caught by the component's catch block
       }
-    }));
-  };
+      console.log('Fetched raw matches:', data);
 
-  const filteredMatches = matches.filter(match => {
-    const matchesSearch = !filter.searchTerm || 
-      match.home_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
-      match.away_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase());
+      // Handle cases where data might be null (e.g., no matches found) or not an array
+      if (!data || !Array.isArray(data)) {
+        setMatches([]); // Set to empty array if no data or data is not an array
+        return; 
+      }
 
-    const matchesDateRange = !filter.dateRange.from || !filter.dateRange.to || !match.match_date ||
-      (new Date(match.match_date) >= filter.dateRange.from && 
-       new Date(match.match_date) <= filter.dateRange.to);
+      // Process the data:
+      // 1. Filter out any items that are null, not objects, or don't have a valid 'id'.
+      // 2. Map the valid items to the structure expected by your Match type and UI.
+      const processedMatches = data
+        .filter(item => {
+          if (item === null || typeof item !== 'object') {
+            console.warn('Skipping invalid item from Supabase (null or not an object):', item);
+            return false;
+          }
+          if (typeof item.id === 'undefined' || item.id === null || String(item.id).trim() === '') {
+            console.warn('Skipping item from Supabase due to missing or invalid id:', item);
+            return false;
+          }
+          return true;
+        })
+        .map(dbMatch => {
+          // We are now sure dbMatch is an object and dbMatch.id is valid
+          return {
+            ...dbMatch, // Spread all properties from the database record
+            id: String(dbMatch.id), // Ensure id is a string (good for keys)
+            home_team_name: dbMatch.home_team_name || 'N/A', // Default if missing
+            away_team_name: dbMatch.away_team_name || 'N/A', // Default if missing
+            match_date: dbMatch.match_date, // Keep as is (can be null/undefined if optional)
+            // Ensure status is one of the allowed types for your Match interface
+            // If dbMatch.status can be anything, you might need more sophisticated mapping or a default
+            status: (dbMatch.status || 'draft') as 'published' | 'draft' | 'live' | 'completed' | 'archived', 
+          };
+        });
+      
+      // Assuming your Match type aligns with the object structure created above
+      console.log('Processed matches to be set:', processedMatches);
+      setMatches(processedMatches as Match[]);
 
-    return matchesSearch && matchesDateRange;
-  });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'live': return 'bg-green-500';
-      case 'completed': return 'bg-blue-500';
-      case 'scheduled': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
+    } catch (error: any) {
+      // Catch errors from Supabase call or from processing logic
+      console.error('Error in fetchMatches process:', error.message);
+      console.error('Error during fetchMatches process (outside Supabase query):', error.message, error.stack);
+      setMatches([]); // Set to empty array on any error to prevent rendering issues
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-4">
-        <div className="text-center">Loading matches...</div>
-      </div>
-    );
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
+  if (isLoading) {
+    return <div className="container mx-auto p-6 text-center">Loading matches...</div>;
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Matches</h1>
-        <Button onClick={() => navigate('/create-match')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Match
-        </Button>
+        {/* Optional: Add a button to refresh or create new matches */}
+        {/* <Button onClick={fetchMatches}>Refresh Matches</Button> */}
       </div>
-
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Filter Matches</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search teams..."
-                  value={filter.searchTerm}
-                  onChange={(e) => setFilter(prev => ({ ...prev, searchTerm: e.target.value }))}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !filter.dateRange.from && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filter.dateRange.from ? (
-                    filter.dateRange.to ? (
-                      <>
-                        {format(filter.dateRange.from, "LLL dd, y")} -{" "}
-                        {format(filter.dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(filter.dateRange.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={filter.dateRange.from}
-                  selected={filter.dateRange}
-                  onSelect={handleDateRangeChange}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Matches Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredMatches.map((match) => (
-          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">
-                  {match.home_team_name} vs {match.away_team_name}
-                </CardTitle>
-                <Badge className={getStatusColor(match.status)}>
-                  {match.status}
-                </Badge>
-              </div>
-              <CardDescription>
-                {match.match_date ? format(new Date(match.match_date), 'PPP') : 'Date TBD'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {match.location && (
-                  <p className="text-sm text-gray-600">📍 {match.location}</p>
-                )}
-                <div className="flex justify-between items-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/match/${match.id}`)}
-                  >
-                    View Details
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => navigate(`/match-analysis-v2/${match.id}`)}
-                  >
-                    Analyze
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredMatches.length === 0 && (
+      
+      {matches.length === 0 ? (
         <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">No matches found matching your criteria.</p>
+          <CardContent className="py-8">
+            <p className="text-center text-muted-foreground">No matches found or available.</p>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {matches.map((match) => { console.log('Rendering link for match:', match); return (
+            // `match` here is guaranteed by the processing in fetchMatches
+            // to be an object with a valid, stringified `id`.
+            <Card key={match.id}>
+              <CardHeader>
+                <CardTitle>{match.home_team_name} vs {match.away_team_name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Date: {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'Not specified'}
+                  </p>
+                  {/* Ensure match.status has a value; if it can be undefined, handle that for Badge */}
+                  <Badge variant={match.status === 'live' ? 'destructive' : (match.status === 'completed' ? 'default' : 'outline')}>
+                    {match.status || 'Unknown Status'}
+                  </Badge>
+                  <div className="pt-2"> {/* Added some padding for the button */}
+                    <Link to={`/match/${match.id}`}>
+                      <Button variant="default" size="sm">View Match</Button>
+                    </Link>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ); })}
+        </div>
       )}
     </div>
   );
