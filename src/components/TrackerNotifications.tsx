@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,8 @@ const TrackerNotifications: React.FC = () => {
           ...notification,
           match_id: notification.match_id as string, // Type assertion since we filtered out nulls
           is_read: notification.is_read || false,
-          type: notification.type || 'general'
+          type: notification.type || 'general',
+          created_at: notification.created_at || new Date().toISOString()
         }));
       
       setNotifications(validNotifications);
@@ -269,7 +271,7 @@ const TrackerNotifications: React.FC = () => {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => handleViewMatch(notification.match_id, notification.id)}
+                      onClick={() => handleViewMatch(notification.match_id!, notification.id)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Start Tracking
