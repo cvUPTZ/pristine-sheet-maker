@@ -52,6 +52,7 @@ const MatchManagement: React.FC = () => {
         home_team_formation: match.home_team_formation || undefined,
         away_team_formation: match.away_team_formation || undefined,
         match_date: match.match_date || undefined,
+        location: match.location || undefined,
         home_team_players: parsePlayerData(match.home_team_players),
         away_team_players: parsePlayerData(match.away_team_players)
       }));
@@ -166,7 +167,7 @@ const MatchManagement: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/match/${match.id}`)}
+                      onClick={() => navigate(`/match-analysis-v2/${match.id}`)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>

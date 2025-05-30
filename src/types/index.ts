@@ -189,3 +189,7 @@ export interface Match {
   statistics?: Statistics;
   ballTrackingData?: BallTrackingPoint[];
 }
+
+export interface SavedMatch extends Match {
+  events?: MatchEvent[];
+}
