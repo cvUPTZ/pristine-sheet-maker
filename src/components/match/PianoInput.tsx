@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBreakpoint } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 
 const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
   { key: 'pass', label: 'Pass' },
@@ -100,6 +101,24 @@ export function PianoInput({
     return filtered;
   }, [fullMatchRoster, assignedPlayers]);
 
+  // Check if tracker has only one player assigned
+  const singlePlayerAssigned = useMemo(() => {
+    const totalPlayers = displayableHomePlayers.length + displayableAwayPlayers.length;
+    if (totalPlayers === 1) {
+      return displayableHomePlayers.length === 1 ? displayableHomePlayers[0] : displayableAwayPlayers[0];
+    }
+    return null;
+  }, [displayableHomePlayers, displayableAwayPlayers]);
+
+  // Auto-select the single player and team context
+  useEffect(() => {
+    if (singlePlayerAssigned) {
+      setSelectedPlayer(singlePlayerAssigned);
+      setActiveTeamContext(displayableHomePlayers.length === 1 ? 'home' : 'away');
+      console.log('Auto-selected single player:', singlePlayerAssigned);
+    }
+  }, [singlePlayerAssigned, displayableHomePlayers.length]);
+
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
 
@@ -114,7 +133,7 @@ export function PianoInput({
       }
     }
 
-    if (selectedEventType && !activeTeamContext) {
+    if (selectedEventType && !singlePlayerAssigned && !activeTeamContext) {
       if (key === 'h' && !event.metaKey && !event.ctrlKey) {
         event.preventDefault();
         setActiveTeamContext('home');
@@ -129,8 +148,15 @@ export function PianoInput({
       }
     }
     
-    if (selectedEventType && activeTeamContext && /^\d$/.test(key)) {
+    if (selectedEventType && (singlePlayerAssigned || activeTeamContext) && /^\d$/.test(key)) {
       event.preventDefault();
+      
+      if (singlePlayerAssigned) {
+        // Auto-record event for single player
+        handlePlayerSelect(singlePlayerAssigned);
+        return;
+      }
+      
       const jerseyNumber = parseInt(key, 10);
       const targetPlayers = activeTeamContext === 'home' ? displayableHomePlayers : displayableAwayPlayers;
       const targetPlayer = targetPlayers.find((p: PlayerForPianoInput) => p.jersey_number === jerseyNumber);
@@ -146,12 +172,14 @@ export function PianoInput({
     if (key === 'escape') {
       event.preventDefault();
       setSelectedEventType(null);
-      setSelectedPlayer(null);
-      setActiveTeamContext(null);
+      if (!singlePlayerAssigned) {
+        setSelectedPlayer(null);
+        setActiveTeamContext(null);
+      }
       console.log("Selection cleared.");
     }
 
-  }, [selectedEventType, activeTeamContext, displayableEventTypes, displayableHomePlayers, displayableAwayPlayers]);
+  }, [selectedEventType, activeTeamContext, displayableEventTypes, displayableHomePlayers, displayableAwayPlayers, singlePlayerAssigned]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -162,23 +190,43 @@ export function PianoInput({
 
   const handleEventTypeSelect = (eventType: EventType) => {
     setSelectedEventType(eventType);
-    setSelectedPlayer(null); 
-    setActiveTeamContext(null);
+    if (!singlePlayerAssigned) {
+      setSelectedPlayer(null); 
+      setActiveTeamContext(null);
+    }
     console.log(`Selected Event Type: ${eventType.label}`);
+    
+    // If single player is assigned, record event immediately
+    if (singlePlayerAssigned) {
+      handlePlayerSelect(singlePlayerAssigned);
+    }
   };
 
-  const handlePlayerSelect = (player: PlayerForPianoInput) => {
+  const handlePlayerSelect = async (player: PlayerForPianoInput) => {
     if (!selectedEventType) {
       console.warn("Player selected without an event type. Please select an event type first.");
       return;
     }
-    setSelectedPlayer(player);
-    console.log(`Selected Player: ${player.player_name} (#${player.jersey_number}) for event: ${selectedEventType.label}`);
-    onEventRecord(selectedEventType, player);
     
-    setSelectedEventType(null);
-    setSelectedPlayer(null);
-    setActiveTeamContext(null);
+    try {
+      setSelectedPlayer(player);
+      console.log(`Recording event: ${selectedEventType.label} for player: ${player.player_name} (#${player.jersey_number})`);
+      
+      await onEventRecord(selectedEventType, player);
+      
+      // Show success toast
+      toast.success(`${selectedEventType.label} recorded for ${player.player_name}`);
+      
+      // Reset selection
+      setSelectedEventType(null);
+      if (!singlePlayerAssigned) {
+        setSelectedPlayer(null);
+        setActiveTeamContext(null);
+      }
+    } catch (error) {
+      console.error('Error recording event:', error);
+      toast.error('Failed to record event');
+    }
   };
 
   if (!fullMatchRoster) {
@@ -211,7 +259,7 @@ export function PianoInput({
     );
   }
   
-  const showPlayerSelection = selectedEventType && (displayableHomePlayers.length > 0 || displayableAwayPlayers.length > 0);
+  const showPlayerSelection = selectedEventType && !singlePlayerAssigned && (displayableHomePlayers.length > 0 || displayableAwayPlayers.length > 0);
 
   // Responsive grid columns
   const eventTypeGridCols = isXSmall 
@@ -237,12 +285,38 @@ export function PianoInput({
             <div>
               <h2 className={`font-bold ${isXSmall ? 'text-lg' : isMobile ? 'text-xl' : 'text-2xl'}`}>Event Piano Input</h2>
               <p className={`text-white/80 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
-                {isXSmall ? 'Fast event recording' : 'Fast event recording with keyboard shortcuts'}
+                {singlePlayerAssigned ? 
+                  `Recording for: ${singlePlayerAssigned.player_name} (#${singlePlayerAssigned.jersey_number})` :
+                  (isXSmall ? 'Fast event recording' : 'Fast event recording with keyboard shortcuts')
+                }
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Single Player Assignment Notice */}
+      {singlePlayerAssigned && (
+        <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className={`${isXSmall ? 'p-4' : 'p-5'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`bg-green-500 rounded-full flex items-center justify-center ${isXSmall ? 'w-8 h-8' : 'w-10 h-10'}`}>
+                <svg className={`text-white ${isXSmall ? 'w-4 h-4' : 'w-5 h-5'}`} fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className={`font-semibold text-green-800 ${isXSmall ? 'text-sm' : 'text-base'}`}>
+                  Auto-Selected Player
+                </h3>
+                <p className={`text-green-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
+                  #{singlePlayerAssigned.jersey_number} {singlePlayerAssigned.player_name} - Just select an event type!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Event Types Selection */}
       <Card className="shadow-lg border-slate-200">
@@ -311,7 +385,7 @@ export function PianoInput({
         </CardContent>
       </Card>
 
-      {/* Player Selection */}
+      {/* Player Selection - Only show if not single player assigned */}
       <AnimatePresence>
         {showPlayerSelection && (
           <motion.div
@@ -497,7 +571,20 @@ export function PianoInput({
               </svg>
             </div>
             <div className="flex-1">
-              {!selectedEventType && displayableEventTypes.length > 0 && (
+              {singlePlayerAssigned && (
+                <div>
+                  <p className={`font-semibold text-blue-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
+                    🎯 {isXSmall ? 'Quick Mode' : 'Quick Recording Mode'}
+                  </p>
+                  <p className={`text-blue-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
+                    {isXSmall 
+                      ? 'Select event type to record instantly.' 
+                      : 'Just select an event type - it will be recorded automatically for your assigned player.'
+                    }
+                  </p>
+                </div>
+              )}
+              {!singlePlayerAssigned && !selectedEventType && displayableEventTypes.length > 0 && (
                 <div>
                   <p className={`font-semibold text-slate-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     🎹 {isXSmall ? 'Piano Mode' : 'Piano Mode Instructions'}
@@ -510,7 +597,7 @@ export function PianoInput({
                   </p>
                 </div>
               )}
-              {selectedEventType && !showPlayerSelection && (
+              {!singlePlayerAssigned && selectedEventType && !showPlayerSelection && (
                 <div>
                   <p className={`font-semibold text-amber-700 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     ⚠️ {isXSmall ? 'No Players' : 'No Players Available'}
@@ -520,7 +607,7 @@ export function PianoInput({
                   </p>
                 </div>
               )}
-              {selectedEventType && !activeTeamContext && showPlayerSelection && (
+              {!singlePlayerAssigned && selectedEventType && !activeTeamContext && showPlayerSelection && (
                 <div>
                   <p className={`font-semibold text-slate-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     👥 {isXSmall ? 'Select Team' : 'Team Selection Required'}
@@ -533,7 +620,7 @@ export function PianoInput({
                   </p>
                 </div>
               )}
-              {selectedEventType && activeTeamContext && (
+              {!singlePlayerAssigned && selectedEventType && activeTeamContext && (
                 <div>
                   <p className={`font-semibold text-green-700 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     🎯 {isXSmall ? 'Ready' : 'Ready to Record'}
