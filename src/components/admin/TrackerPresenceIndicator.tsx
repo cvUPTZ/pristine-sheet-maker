@@ -49,38 +49,46 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     channelName: "tracker-admin-sync", // Updated channel name
     userId: user?.id || 'admin_listener_tracker_sync', // Updated userId
     onEventReceived: (event) => {
-      if (event.event === 'tracker_event' && event.payload) {
-        const syncEvent = event.payload as TrackerSyncEvent;
+      // Check for the new broadcast structure
+      if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
+        const syncEvent = event.payload.payload as TrackerSyncEvent; // Access the nested payload
+        console.log('[REALTIME_DEBUG] Received tracker_event (via broadcast structure):', JSON.stringify(syncEvent, null, 2));
 
         // Ignore if matchId is different
         if (syncEvent.matchId && syncEvent.matchId !== matchId) {
+          console.log(`[REALTIME_DEBUG] Ignoring event for other matchId. Expected: ${matchId}, Got: ${syncEvent.matchId}`);
           return;
         }
 
-        setTrackers(prevTrackers =>
-          prevTrackers.map(t => {
+        setTrackers(prevTrackers => {
+          console.log('[REALTIME_DEBUG] Processing event in setTrackers. Current syncEvent:', JSON.stringify(syncEvent, null, 2));
+          console.log('[REALTIME_DEBUG] prevTrackers state:', JSON.stringify(prevTrackers, null, 2));
+          return prevTrackers.map(t => {
             if (t.user_id === syncEvent.trackerId) {
               if (syncEvent.eventType === 'tracker_status') {
-                return {
+                const updatedTracker = {
                   ...t,
-                  currentStatus: syncEvent.payload.status,
+                  currentStatus: syncEvent.payload.status, // Accessing payload of TrackerSyncEvent
                   statusTimestamp: syncEvent.timestamp
                 };
+                // console.log(`[REALTIME_DEBUG] Matched tracker_status for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
+                return updatedTracker;
               } else if (syncEvent.eventType === 'tracker_action') {
-                return {
+                const updatedTracker = {
                   ...t,
-                  lastKnownAction: syncEvent.payload.currentAction || 'unknown_action',
+                  lastKnownAction: syncEvent.payload.currentAction || 'unknown_action', // Accessing payload of TrackerSyncEvent
                   lastActionTimestamp: syncEvent.timestamp,
-                  // If an action is received, assume active status for now, can be refined
                   currentStatus: t.currentStatus === 'inactive' ? 'active' : t.currentStatus,
                   statusTimestamp: syncEvent.timestamp
                 };
+                console.log(`[REALTIME_DEBUG] Matched tracker_action for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
+                return updatedTracker;
               }
             }
             return t;
-          })
-        );
-      } else if (event.type === 'event_recorded' && event.payload) {
+          });
+        });
+      } else if (event.type === 'event_recorded' && event.payload) { // Keep old logic for direct 'event_recorded' if still used
         // Keep old logic for existing event_recorded events for now
         // This can be removed if TrackerSyncEvent fully replaces it
         const { created_by, event_type } = event.payload;
@@ -214,7 +222,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     // Consider active if status is active and timestamp is recent, or if last action was recent
     const isActiveBasedOnTimestamp = (tracker.statusTimestamp && (now - tracker.statusTimestamp < 60000)) ||
                                      (tracker.lastActionTimestamp && (now - tracker.lastActionTimestamp < 60000));
-    
+
     const isOnlineNow = isOnlineFromStatus && isActiveBasedOnTimestamp;
 
     let activityText = tracker.currentStatus === 'inactive' ? 'Offline' : (isOnlineNow ? 'Online' : 'Status Unknown');
