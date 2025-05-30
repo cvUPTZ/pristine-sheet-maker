@@ -11,7 +11,7 @@ import Matches from './pages/Matches';
 import CreateMatch from './pages/CreateMatch';
 import MatchAnalysisV2 from './pages/MatchAnalysisV2';
 import TrackerInterface from './pages/TrackerInterface';
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/toaster";
 import EditMatch from '@/pages/EditMatch';
 
 function App() {
