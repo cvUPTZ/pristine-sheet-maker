@@ -145,11 +145,9 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
               <div className="space-y-4 sm:space-y-6" id="visualization-container">
                 <div className="overflow-x-auto">
                   <PlayerStatsTable
-                    stats={[
-                      { name: 'Total Events', value: events.length },
-                      { name: 'Home Team Events', value: events.filter(e => e.team === 'home').length },
-                      { name: 'Away Team Events', value: events.filter(e => e.team === 'away').length }
-                    ]}
+                    homeTeam={homeTeam}
+                    awayTeam={awayTeam}
+                    events={events}
                   />
                 </div>
               </div>

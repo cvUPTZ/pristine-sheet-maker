@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { EventType } from '@/types/matchForm';
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
+import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
 
 const MatchAnalysisV2: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -23,6 +25,8 @@ const MatchAnalysisV2: React.FC = () => {
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const isSmall = useBreakpoint('sm');
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -235,14 +239,6 @@ const MatchAnalysisV2: React.FC = () => {
       };
 
       console.log('Inserting event data:', eventData);
-      console.log('Data types:', {
-        match_id: typeof eventData.match_id,
-        event_type: typeof eventData.event_type,
-        timestamp: typeof eventData.timestamp,
-        player_id: typeof eventData.player_id,
-        team: typeof eventData.team,
-        created_by: typeof eventData.created_by
-      });
 
       const { data, error } = await supabase
         .from('match_events')
@@ -264,10 +260,10 @@ const MatchAnalysisV2: React.FC = () => {
 
   if (!matchId) {
     return (
-      <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4">
         <Card className="w-full max-w-md">
-          <CardContent className="text-center p-6">
-            <p className="text-lg font-semibold">Match ID is missing.</p>
+          <CardContent className="text-center p-4 sm:p-6">
+            <p className="text-base sm:text-lg font-semibold">Match ID is missing.</p>
           </CardContent>
         </Card>
       </div>
@@ -279,21 +275,48 @@ const MatchAnalysisV2: React.FC = () => {
   const defaultTab = isAdmin ? 'main' : 'piano';
 
   return (
-    <div className="container mx-auto p-2 sm:p-4 max-w-7xl">
-      <MatchHeader
-        mode={mode}
-        setMode={setMode}
-        homeTeam={homeTeam}
-        awayTeam={awayTeam}
-        handleToggleTracking={handleToggleTracking}
-        handleSave={handleSave}
-      />
+    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-7xl">
+      <div className="mb-3 sm:mb-4">
+        <MatchHeader
+          mode={mode}
+          setMode={setMode}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          handleToggleTracking={handleToggleTracking}
+          handleSave={handleSave}
+        />
+      </div>
 
       <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 h-auto p-1">
-          {isAdmin && <TabsTrigger value="main" className="text-xs sm:text-sm py-2">Main</TabsTrigger>}
-          <TabsTrigger value="piano" className="text-xs sm:text-sm py-2">Piano Input</TabsTrigger>
-          {isAdmin && <TabsTrigger value="tracker" className="text-xs sm:text-sm py-2">Assign Tracker</TabsTrigger>}
+        <TabsList className={`
+          grid w-full gap-1 h-auto p-1 mb-3 sm:mb-4
+          ${isAdmin 
+            ? (isMobile ? "grid-cols-1" : isSmall ? "grid-cols-2" : "grid-cols-3")
+            : "grid-cols-1"
+          }
+        `}>
+          {isAdmin && (
+            <TabsTrigger 
+              value="main" 
+              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+            >
+              {isMobile ? "Main" : "Main Dashboard"}
+            </TabsTrigger>
+          )}
+          <TabsTrigger 
+            value="piano" 
+            className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+          >
+            {isMobile ? "Piano" : "Piano Input"}
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger 
+              value="tracker" 
+              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+            >
+              {isMobile ? "Assign" : "Assign Tracker"}
+            </TabsTrigger>
+          )}
         </TabsList>
         
         {isAdmin && (
@@ -310,11 +333,11 @@ const MatchAnalysisV2: React.FC = () => {
         
         <TabsContent value="piano" className="mt-2 sm:mt-4">
           <Card>
-            <CardContent className="p-3 sm:p-6">
-              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Piano Input</h2>
-              <TrackerPianoInput
-                matchId={matchId}
-              />
+            <CardContent className="p-2 sm:p-3 lg:p-6">
+              <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                Piano Input
+              </h2>
+              <TrackerPianoInput matchId={matchId} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -322,7 +345,10 @@ const MatchAnalysisV2: React.FC = () => {
         {isAdmin && (
           <TabsContent value="tracker" className="mt-2 sm:mt-4">
             <Card>
-              <CardContent className="p-3 sm:p-6">
+              <CardContent className="p-2 sm:p-3 lg:p-6">
+                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                  Tracker Assignment
+                </h2>
                 <TrackerAssignment
                   matchId={matchId}
                   homeTeamPlayers={fullMatchRoster?.home || []}
