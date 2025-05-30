@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,17 +93,21 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           return;
         }
 
-        // Process assigned event types - aggregate all unique event types
-        const allEventTypes = new Set<string>();
+        // Process assigned event types - get ALL event types from ALL assignments
+        const allEventTypesSet = new Set<string>();
         assignments.forEach(assignment => {
+          console.log('Processing assignment:', assignment);
           if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
             assignment.assigned_event_types.forEach(eventType => {
-              allEventTypes.add(eventType);
+              console.log('Adding event type:', eventType);
+              allEventTypesSet.add(eventType);
             });
           }
         });
 
-        const eventTypes: EventType[] = Array.from(allEventTypes).map(key => ({
+        console.log('All unique event types:', Array.from(allEventTypesSet));
+
+        const eventTypes: EventType[] = Array.from(allEventTypesSet).map(key => ({
           key,
           label: EVENT_TYPE_LABELS[key as keyof typeof EVENT_TYPE_LABELS] || key
         }));
@@ -149,6 +154,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           const playerId = assignment.player_id;
           const teamContext = assignment.player_team_id;
           
+          console.log('Processing assignment for player:', playerId, 'team:', teamContext);
+          
           if (playerId && teamContext) {
             let player = null;
             
@@ -157,6 +164,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             } else if (teamContext === 'away') {
               player = awayTeamPlayers.find(p => String(p.id) === String(playerId));
             }
+            
+            console.log('Found player:', player);
             
             if (player) {
               const assignedPlayer: AssignedPlayer = {
@@ -167,14 +176,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               };
               
               // Avoid duplicates
-              if (!assignedPlayerData.some(p => p.id === assignedPlayer.id)) {
+              if (!assignedPlayerData.some(p => p.id === assignedPlayer.id && p.team_context === assignedPlayer.team_context)) {
                 assignedPlayerData.push(assignedPlayer);
+                console.log('Added assigned player:', assignedPlayer);
               }
+            } else {
+              console.log('Player not found for ID:', playerId, 'in team:', teamContext);
             }
           }
         });
 
-        console.log('Processed assigned players:', assignedPlayerData);
+        console.log('Final processed assigned players:', assignedPlayerData);
         setAssignedPlayers(assignedPlayerData);
 
         // Auto-select first player if only one is assigned
@@ -347,10 +359,16 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             <div>
               <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Event Types</h4>
               <p className="text-lg font-semibold">{assignedEventTypes.length}</p>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignedEventTypes.map(et => et.label).join(', ')}
+              </div>
             </div>
             <div>
               <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Players</h4>
               <p className="text-lg font-semibold">{assignedPlayers.length}</p>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignedPlayers.map(p => `#${p.jersey_number} ${p.player_name}`).join(', ')}
+              </div>
             </div>
           </div>
 
@@ -360,8 +378,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             <div className="flex flex-wrap gap-2">
               {assignedPlayers.map((player) => (
                 <Button
-                  key={player.id}
-                  variant={selectedPlayer?.id === player.id ? "default" : "outline"}
+                  key={`${player.id}-${player.team_context}`}
+                  variant={selectedPlayer?.id === player.id && selectedPlayer?.team_context === player.team_context ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedPlayer(player)}
                   className="flex items-center gap-2"
