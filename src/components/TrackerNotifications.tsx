@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface Notification {
   id: string;
-  match_id: string;
+  match_id: string | null;
   title: string;
   message: string;
   type: string;
@@ -60,7 +59,18 @@ const TrackerNotifications: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      
+      // Filter and type-cast the data properly
+      const validNotifications = (data || [])
+        .filter(notification => notification.match_id) // Only keep notifications with valid match_id
+        .map(notification => ({
+          ...notification,
+          match_id: notification.match_id as string, // Type assertion since we filtered out nulls
+          is_read: notification.is_read || false,
+          type: notification.type || 'general'
+        }));
+      
+      setNotifications(validNotifications);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to load notifications');
