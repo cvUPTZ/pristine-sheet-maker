@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,79 +42,81 @@ const EVENT_COLORS = {
 const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ matchId }) => {
   const { user } = useAuth();
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
-  // recentEvents might be phased out or adapted later. For now, new events update `trackers` state directly.
+  // The recentEvents state and its cleanup can be removed if fully migrated
+  // For now, we'll keep it but remove its usage in handleEventReceived's old path
   const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
 
-  const { onlineUsers, isOnline } = useRealtime({
-    channelName: "tracker-admin-sync", // Updated channel name
-    userId: user?.id || 'admin_listener_tracker_sync', // Updated userId
-    onEventReceived: (event) => {
-      // Check for the new broadcast structure
-      if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
-        const syncEvent = event.payload.payload as TrackerSyncEvent; // Access the nested payload
-        console.log('[REALTIME_DEBUG] Received tracker_event (via broadcast structure):', JSON.stringify(syncEvent, null, 2));
+  const handleEventReceived = useCallback((event: any) => {
+    // Check for the new broadcast structure
+    if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
+      const syncEvent = event.payload.payload as TrackerSyncEvent;
+      console.log('[REALTIME_DEBUG] Received tracker_event (corrected path):', JSON.stringify(syncEvent, null, 2));
 
-        // Ignore if matchId is different
-        if (syncEvent.matchId && syncEvent.matchId !== matchId) {
-          console.log(`[REALTIME_DEBUG] Ignoring event for other matchId. Expected: ${matchId}, Got: ${syncEvent.matchId}`);
-          return;
-        }
+      if (syncEvent.matchId && syncEvent.matchId !== matchId) {
+        console.log(`[REALTIME_DEBUG] Ignoring event for other matchId. Expected: ${matchId}, Got: ${syncEvent.matchId}`);
+        return;
+      }
 
-        setTrackers(prevTrackers => {
-          console.log('[REALTIME_DEBUG] Processing event in setTrackers. Current syncEvent:', JSON.stringify(syncEvent, null, 2));
-          console.log('[REALTIME_DEBUG] prevTrackers state:', JSON.stringify(prevTrackers, null, 2));
-          return prevTrackers.map(t => {
-            if (t.user_id === syncEvent.trackerId) {
-              if (syncEvent.eventType === 'tracker_status') {
-                const updatedTracker = {
-                  ...t,
-                  currentStatus: syncEvent.payload.status, // Accessing payload of TrackerSyncEvent
-                  statusTimestamp: syncEvent.timestamp
-                };
-                // console.log(`[REALTIME_DEBUG] Matched tracker_status for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
-                return updatedTracker;
-              } else if (syncEvent.eventType === 'tracker_action') {
-                const updatedTracker = {
-                  ...t,
-                  lastKnownAction: syncEvent.payload.currentAction || 'unknown_action', // Accessing payload of TrackerSyncEvent
-                  lastActionTimestamp: syncEvent.timestamp,
-                  currentStatus: t.currentStatus === 'inactive' ? 'active' : t.currentStatus,
-                  statusTimestamp: syncEvent.timestamp
-                };
-                console.log(`[REALTIME_DEBUG] Matched tracker_action for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
-                return updatedTracker;
-              }
-            }
-            return t;
-          });
-        });
-      } else if (event.type === 'event_recorded' && event.payload) { // Keep old logic for direct 'event_recorded' if still used
-        // Keep old logic for existing event_recorded events for now
-        // This can be removed if TrackerSyncEvent fully replaces it
-        const { created_by, event_type } = event.payload;
-        if (created_by && event_type) {
-          setRecentEvents(prev => new Map(prev.set(created_by, {
-            type: event_type,
-            time: Date.now()
-          })));
-          // Also update tracker state if this user is being tracked
-          setTrackers(prevTrackers => prevTrackers.map(t => {
-            if (t.user_id === created_by) {
-              return {
+      setTrackers(prevTrackers => {
+        console.log('[REALTIME_DEBUG] Processing event in setTrackers (corrected path). Current syncEvent:', JSON.stringify(syncEvent, null, 2));
+        console.log('[REALTIME_DEBUG] prevTrackers state (corrected path):', JSON.stringify(prevTrackers, null, 2));
+        return prevTrackers.map(t => {
+          if (t.user_id === syncEvent.trackerId) {
+            if (syncEvent.eventType === 'tracker_status') {
+              const updatedTracker = {
                 ...t,
-                last_event_type: event_type, // old field
-                last_event_time: Date.now(), // old field
-                lastKnownAction: `recorded_${event_type}`, // new field for compatibility
-                lastActionTimestamp: Date.now(),
-                currentStatus: 'active',
-                statusTimestamp: Date.now()
+                currentStatus: syncEvent.payload.status,
+                statusTimestamp: syncEvent.timestamp
               };
+              console.log(`[REALTIME_DEBUG] Matched tracker_status for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
+              return updatedTracker;
+            } else if (syncEvent.eventType === 'tracker_action') {
+              const updatedTracker = {
+                ...t,
+                lastKnownAction: syncEvent.payload.currentAction || 'unknown_action',
+                lastActionTimestamp: syncEvent.timestamp,
+                currentStatus: t.currentStatus === 'inactive' ? 'active' : t.currentStatus,
+                statusTimestamp: syncEvent.timestamp
+              };
+              console.log(`[REALTIME_DEBUG] Matched tracker_action for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
+              return updatedTracker;
             }
-            return t;
-          }));
-        }
+          }
+          return t;
+        });
+      });
+    } else if (event.type === 'event_recorded' && event.payload) {
+      // This section handles the old 'event_recorded' direct events.
+      // As per instruction, setRecentEvents is removed.
+      // We will still update the main 'trackers' state for compatibility.
+      const { created_by, event_type } = event.payload;
+      if (created_by && event_type) {
+        console.log(`[REALTIME_DEBUG] Received old 'event_recorded': User ${created_by}, Type ${event_type}`);
+        // setRecentEvents(prev => new Map(prev.set(created_by, { type: event_type, time: Date.now() }))); // Removed as per instruction
+        setTrackers(prevTrackers => prevTrackers.map(t => {
+          if (t.user_id === created_by) {
+            const updatedTracker = {
+              ...t,
+              last_event_type: event_type, // old field
+              last_event_time: Date.now(), // old field
+              lastKnownAction: `recorded_${event_type}`, // new field for compatibility
+              lastActionTimestamp: Date.now(),
+              currentStatus: 'active', // Assume active on old event type
+              statusTimestamp: Date.now()
+            };
+            console.log(`[REALTIME_DEBUG] Matched old 'event_recorded' for trackerId: ${t.user_id}. Old:`, JSON.stringify(t, null, 2), 'New:', JSON.stringify(updatedTracker, null, 2));
+            return updatedTracker;
+          }
+          return t;
+        }));
       }
     }
+  }, [matchId, setTrackers]); // matchId and setTrackers are dependencies
+
+  const { onlineUsers, isOnline } = useRealtime({
+    channelName: "tracker-admin-sync",
+    userId: user?.id || 'admin_listener_tracker_sync',
+    onEventReceived: handleEventReceived, // Pass the memoized callback
   });
 
   useEffect(() => {
