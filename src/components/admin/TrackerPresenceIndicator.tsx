@@ -48,6 +48,17 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
   const handleEventReceived = useCallback((event: any) => {
     console.log('[REALTIME_DEBUG] handleEventReceived CALLED. Raw event type from Supabase:', event.type, 'Raw Supabase event name:', event.event);
+
+    console.log('[REALTIME_DEBUG] In handleEventReceived. Evaluating condition for event:', JSON.stringify(event, null, 2));
+    console.log('[REALTIME_DEBUG] Check: event.type === "broadcast"', event.type === 'broadcast');
+    console.log('[REALTIME_DEBUG] Check: event.payload (exists)', !!event.payload);
+    if (event.payload) {
+      console.log('[REALTIME_DEBUG] Value: event.payload.event is:', event.payload.event);
+      console.log('[REALTIME_DEBUG] Check: event.payload.event === "tracker_event"', event.payload.event === 'tracker_event');
+      console.log('[REALTIME_DEBUG] Check: event.payload.payload (exists)', !!event.payload.payload);
+    } else {
+      console.log('[REALTIME_DEBUG] event.payload is null/undefined.');
+    }
     // Check for the new broadcast structure
     if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
       const syncEvent = event.payload.payload as TrackerSyncEvent;
