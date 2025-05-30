@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,11 +274,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               {assignedEventTypes.map((eventType) => (
                 <Button
                   key={eventType.key}
-                  onClick={() => handleEventRecord(eventType)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleEventRecord(eventType);
+                  }}
                   disabled={!selectedPlayer}
                   variant="outline"
-                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150 focus:outline-none focus:ring-0"
+                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-75 active:scale-95"
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onFocus={(e) => e.target.blur()}
                 >
                   <span className="font-medium">{eventType.label}</span>
                   {selectedPlayer && (
