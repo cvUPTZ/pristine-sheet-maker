@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EventType, PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
-import { getEventTypeIcon } from '@/components/match/getEventTypeIcon';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,65 @@ const ALL_SYSTEM_EVENT_TYPES: EventType[] = [
   { key: 'corner', label: 'Corner Kick' },
   { key: 'sub', label: 'Substitution' },
 ];
+
+const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: string; text: string; shadow: string }> = {
+  'pass': { 
+    bg: 'bg-gradient-to-br from-blue-500 to-blue-600', 
+    hover: 'hover:from-blue-600 hover:to-blue-700', 
+    border: 'border-blue-400', 
+    text: 'text-blue-700',
+    shadow: 'shadow-blue-200'
+  },
+  'shot': { 
+    bg: 'bg-gradient-to-br from-red-500 to-red-600', 
+    hover: 'hover:from-red-600 hover:to-red-700', 
+    border: 'border-red-400', 
+    text: 'text-red-700',
+    shadow: 'shadow-red-200'
+  },
+  'goal': { 
+    bg: 'bg-gradient-to-br from-green-500 to-green-600', 
+    hover: 'hover:from-green-600 hover:to-green-700', 
+    border: 'border-green-400', 
+    text: 'text-green-700',
+    shadow: 'shadow-green-200'
+  },
+  'foul': { 
+    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600', 
+    hover: 'hover:from-yellow-600 hover:to-yellow-700', 
+    border: 'border-yellow-400', 
+    text: 'text-yellow-700',
+    shadow: 'shadow-yellow-200'
+  },
+  'save': { 
+    bg: 'bg-gradient-to-br from-purple-500 to-purple-600', 
+    hover: 'hover:from-purple-600 hover:to-purple-700', 
+    border: 'border-purple-400', 
+    text: 'text-purple-700',
+    shadow: 'shadow-purple-200'
+  },
+  'offside': { 
+    bg: 'bg-gradient-to-br from-orange-500 to-orange-600', 
+    hover: 'hover:from-orange-600 hover:to-orange-700', 
+    border: 'border-orange-400', 
+    text: 'text-orange-700',
+    shadow: 'shadow-orange-200'
+  },
+  'corner': { 
+    bg: 'bg-gradient-to-br from-teal-500 to-teal-600', 
+    hover: 'hover:from-teal-600 hover:to-teal-700', 
+    border: 'border-teal-400', 
+    text: 'text-teal-700',
+    shadow: 'shadow-teal-200'
+  },
+  'sub': { 
+    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', 
+    hover: 'hover:from-indigo-600 hover:to-indigo-700', 
+    border: 'border-indigo-400', 
+    text: 'text-indigo-700',
+    shadow: 'shadow-indigo-200'
+  },
+};
 
 interface PianoInputProps {
   fullMatchRoster: AssignedPlayers | null;
@@ -300,10 +359,11 @@ export function PianoInput({
   return (
     <div className="w-full space-y-4 sm:space-y-6">
       {/* Header */}
-      <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl">
-        <CardContent className={`${isXSmall ? 'p-4' : isMobile ? 'p-5' : 'p-6'}`}>
+      <Card className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white shadow-2xl border-0 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-700/20 animate-pulse"></div>
+        <CardContent className={`${isXSmall ? 'p-4' : isMobile ? 'p-5' : 'p-6'} relative z-10`}>
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className={`bg-white/20 rounded-xl flex items-center justify-center ${isXSmall ? 'w-10 h-10' : 'w-12 h-12'}`}>
+            <div className={`bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center ${isXSmall ? 'w-10 h-10' : 'w-12 h-12'} shadow-lg`}>
               <svg className={`${isXSmall ? 'w-5 h-5' : 'w-6 h-6'}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5z"/>
                 <path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2zM7 11h2v2H7zM11 11h2v2h-2zM15 11h2v2h-2zM7 15h2v2H7zM11 15h2v2h-2zM15 15h2v2h-2z"/>
@@ -311,7 +371,7 @@ export function PianoInput({
             </div>
             <div>
               <h2 className={`font-bold ${isXSmall ? 'text-lg' : isMobile ? 'text-xl' : 'text-2xl'}`}>Event Piano Input</h2>
-              <p className={`text-white/80 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
+              <p className={`text-white/90 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
                 {singlePlayerAssigned ? 
                   `Recording for: ${singlePlayerAssigned.player_name || `Player #${singlePlayerAssigned.jersey_number}`}` :
                   (isXSmall ? 'Fast event recording' : 'Fast event recording with keyboard shortcuts')
@@ -324,89 +384,134 @@ export function PianoInput({
 
       {/* Single Player Assignment Notice */}
       {singlePlayerAssigned && (
-        <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className={`${isXSmall ? 'p-4' : 'p-5'}`}>
-            <div className="flex items-center gap-3">
-              <div className={`bg-green-500 rounded-full flex items-center justify-center ${isXSmall ? 'w-8 h-8' : 'w-10 h-10'}`}>
-                <svg className={`text-white ${isXSmall ? 'w-4 h-4' : 'w-5 h-5'}`} fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 via-emerald-50 to-green-50 shadow-lg shadow-green-100">
+            <CardContent className={`${isXSmall ? 'p-4' : 'p-5'}`}>
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className={`bg-green-500 rounded-full flex items-center justify-center ${isXSmall ? 'w-8 h-8' : 'w-10 h-10'} shadow-lg`}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                >
+                  <svg className={`text-white ${isXSmall ? 'w-4 h-4' : 'w-5 h-5'}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </motion.div>
+                <div>
+                  <h3 className={`font-semibold text-green-800 ${isXSmall ? 'text-sm' : 'text-base'}`}>
+                    Auto-Selected Player
+                  </h3>
+                  <p className={`text-green-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
+                    #{singlePlayerAssigned.jersey_number} {singlePlayerAssigned.player_name || `Player #${singlePlayerAssigned.jersey_number}`} - Just select an event type!
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className={`font-semibold text-green-800 ${isXSmall ? 'text-sm' : 'text-base'}`}>
-                  Auto-Selected Player
-                </h3>
-                <p className={`text-green-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
-                  #{singlePlayerAssigned.jersey_number} {singlePlayerAssigned.player_name || `Player #${singlePlayerAssigned.jersey_number}`} - Just select an event type!
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
 
       {/* Event Types Selection */}
-      <Card className="shadow-lg border-slate-200">
+      <Card className="shadow-xl border-slate-200 bg-gradient-to-br from-white to-slate-50">
         <CardContent className={`${isXSmall ? 'p-4' : isMobile ? 'p-5' : 'p-6'}`}>
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <div className={`bg-blue-100 rounded-lg flex items-center justify-center ${isXSmall ? 'w-7 h-7' : 'w-8 h-8'}`}>
-              <span className={`text-blue-600 font-bold ${isXSmall ? 'text-base' : 'text-lg'}`}>1</span>
-            </div>
+            <motion.div 
+              className={`bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center ${isXSmall ? 'w-7 h-7' : 'w-8 h-8'} shadow-lg text-white`}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <span className={`font-bold ${isXSmall ? 'text-base' : 'text-lg'}`}>1</span>
+            </motion.div>
             <h3 className={`font-semibold text-slate-800 ${isXSmall ? 'text-lg' : 'text-xl'}`}>
               {isXSmall ? 'Event Type' : 'Select Event Type'}
             </h3>
             {selectedEventType && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
-                {isXSmall ? selectedEventType.key.toUpperCase() : `Selected: ${selectedEventType.label}`}
-              </Badge>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Badge variant="secondary" className={`${EVENT_TYPE_COLORS[selectedEventType.key]?.bg || 'bg-blue-100'} text-white border-0 text-xs shadow-lg`}>
+                  {isXSmall ? selectedEventType.key.toUpperCase() : `Selected: ${selectedEventType.label}`}
+                </Badge>
+              </motion.div>
             )}
           </div>
           
           {displayableEventTypes.length === 0 ? (
             <p className="text-slate-500 italic text-sm">No event types assigned.</p>
           ) : (
-            <div className={`grid ${eventTypeGridCols} gap-2 sm:gap-3 md:gap-4`}>
-              {displayableEventTypes.map((et: EventType) => (
-                <motion.div
-                  key={et.key}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="relative"
-                >
-                  <Button
-                    onClick={() => handleEventTypeSelect(et)}
-                    disabled={isRecording || (!!selectedEventType && selectedEventType.key !== et.key)}
-                    className={`w-full p-3 sm:p-4 rounded-xl transition-all duration-200 flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 ${
-                      isXSmall ? 'h-16' : isMobile ? 'h-20' : 'h-24'
-                    } ${
-                      selectedEventType?.key === et.key 
-                        ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-300' 
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100'
-                    }`}
+            <div className={`grid ${eventTypeGridCols} gap-3 sm:gap-4`}>
+              {displayableEventTypes.map((et: EventType) => {
+                const isSelected = selectedEventType?.key === et.key;
+                const colors = EVENT_TYPE_COLORS[et.key] || EVENT_TYPE_COLORS['pass'];
+                
+                return (
+                  <motion.div
+                    key={et.key}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative"
+                    layout
                   >
-                    <div className={`transition-colors duration-200 ${
-                      selectedEventType?.key === et.key ? 'text-white' : 'text-slate-600'
-                    }`}>
-                      {getEventTypeIcon(et.key, { size: isXSmall ? 16 : isMobile ? 20 : 24 })}
-                    </div>
-                    <span className={`font-medium text-center leading-tight ${isXSmall ? 'text-[10px]' : 'text-xs'}`}>
-                      {isXSmall ? et.key.charAt(0).toUpperCase() : et.label}
-                    </span>
-                    <Badge 
-                      variant="outline" 
-                      className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold ${
-                        isXSmall ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'
+                    <Button
+                      onClick={() => handleEventTypeSelect(et)}
+                      disabled={isRecording || (!!selectedEventType && selectedEventType.key !== et.key)}
+                      className={`w-full p-3 sm:p-4 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 overflow-hidden relative ${
+                        isXSmall ? 'h-20' : isMobile ? 'h-24' : 'h-28'
                       } ${
-                        selectedEventType?.key === et.key 
-                          ? 'bg-white text-blue-600 border-white' 
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                        isSelected 
+                          ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2` 
+                          : `bg-white hover:bg-slate-50 ${colors.text} border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100 shadow-lg hover:shadow-xl`
                       }`}
                     >
-                      {et.key.charAt(0).toUpperCase()}
-                    </Badge>
-                  </Button>
-                </motion.div>
-              ))}
+                      {isSelected && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+                      
+                      <div className={`transition-colors duration-300 z-10 relative ${
+                        isSelected ? 'text-white' : colors.text
+                      }`}>
+                        <EnhancedEventTypeIcon 
+                          eventKey={et.key} 
+                          size={isXSmall ? 20 : isMobile ? 24 : 28} 
+                          isSelected={isSelected}
+                        />
+                      </div>
+                      
+                      <span className={`font-semibold text-center leading-tight z-10 relative ${isXSmall ? 'text-[10px]' : 'text-xs'}`}>
+                        {isXSmall ? et.key.charAt(0).toUpperCase() : et.label}
+                      </span>
+                      
+                      <motion.div
+                        className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 ${
+                          isXSmall ? 'w-6 h-6 text-[10px]' : 'w-7 h-7 text-xs'
+                        } ${
+                          isSelected 
+                            ? 'bg-white text-slate-700 border-white shadow-lg' 
+                            : `${colors.bg.replace('gradient-to-br', 'solid')} text-white border-white shadow-md`
+                        }`}
+                        whileHover={{ scale: 1.1 }}
+                        animate={isSelected ? { 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0]
+                        } : {}}
+                        transition={{ duration: 0.5, repeat: isSelected ? Infinity : 0, repeatDelay: 2 }}
+                      >
+                        {et.key.charAt(0).toUpperCase()}
+                      </motion.div>
+                    </Button>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -416,24 +521,34 @@ export function PianoInput({
       <AnimatePresence>
         {showPlayerSelection && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
           >
-            <Card className="shadow-lg border-slate-200">
+            <Card className="shadow-xl border-slate-200 bg-gradient-to-br from-white to-slate-50">
               <CardContent className={`${isXSmall ? 'p-4' : isMobile ? 'p-5' : 'p-6'}`}>
                 <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                  <div className={`bg-green-100 rounded-lg flex items-center justify-center ${isXSmall ? 'w-7 h-7' : 'w-8 h-8'}`}>
-                    <span className={`text-green-600 font-bold ${isXSmall ? 'text-base' : 'text-lg'}`}>2</span>
-                  </div>
+                  <motion.div 
+                    className={`bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center ${isXSmall ? 'w-7 h-7' : 'w-8 h-8'} shadow-lg text-white`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <span className={`font-bold ${isXSmall ? 'text-base' : 'text-lg'}`}>2</span>
+                  </motion.div>
                   <h3 className={`font-semibold text-slate-800 ${isXSmall ? 'text-lg' : 'text-xl'}`}>
                     {isXSmall ? 'Player' : 'Select Player'}
                   </h3>
                   {activeTeamContext && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
-                      {activeTeamContext.toUpperCase()}
-                    </Badge>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Badge variant="secondary" className={`${activeTeamContext === 'home' ? 'bg-green-500' : 'bg-red-500'} text-white border-0 text-xs shadow-lg`}>
+                        {activeTeamContext.toUpperCase()}
+                      </Badge>
+                    </motion.div>
                   )}
                 </div>
 
@@ -592,21 +707,29 @@ export function PianoInput({
       <Card className="bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200 shadow-lg">
         <CardContent className={`${isXSmall ? 'p-4' : isMobile ? 'p-5' : 'p-6'}`}>
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className={`bg-blue-100 rounded-xl flex items-center justify-center ${isXSmall ? 'w-10 h-10' : 'w-12 h-12'}`}>
+            <motion.div 
+              className={`bg-blue-100 rounded-xl flex items-center justify-center ${isXSmall ? 'w-10 h-10' : 'w-12 h-12'}`}
+              animate={{ rotate: isRecording ? 360 : 0 }}
+              transition={{ duration: isRecording ? 1 : 0, repeat: isRecording ? Infinity : 0, ease: "linear" }}
+            >
               <svg className={`text-blue-600 ${isXSmall ? 'w-5 h-5' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </div>
+            </motion.div>
             <div className="flex-1">
               {isRecording && (
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <p className={`font-semibold text-orange-800 mb-1 ${isXSmall ? 'text-sm' : 'text-base'}`}>
                     ⏳ Recording Event...
                   </p>
                   <p className={`text-orange-600 ${isXSmall ? 'text-xs' : 'text-sm'}`}>
                     Please wait while the event is being recorded.
                   </p>
-                </div>
+                </motion.div>
               )}
               {!isRecording && singlePlayerAssigned && (
                 <div>
