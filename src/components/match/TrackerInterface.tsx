@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface TrackerInterfaceProps {
@@ -74,13 +75,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         </CardContent>
       </Card>
       
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-gray-500">
-            <p>Tracker input interface will be implemented here.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <TrackerPianoInput matchId={matchId} />
     </div>
   );
 }
