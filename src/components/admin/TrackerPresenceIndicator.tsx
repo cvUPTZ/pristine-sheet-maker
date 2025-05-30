@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRealtime } from '@/hooks/useRealtime';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+import { useRealtimeEventSync } from '@/hooks/useRealtimeEventSync';
 
 interface TrackerUser {
   user_id: string;
@@ -16,6 +16,7 @@ interface TrackerUser {
   last_event_type?: string;
   last_event_time?: number;
   assigned_event_types?: string[];
+  status: 'online' | 'tracking' | 'offline';
 }
 
 interface TrackerPresenceIndicatorProps {
@@ -39,19 +40,44 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
 
-  const { onlineUsers, isOnline } = useRealtime({
-    channelName: `match:${matchId}:trackers`,
-    userId: user?.id || 'admin',
+  // Real-time synchronization
+  const { connectedTrackers } = useRealtimeEventSync({
+    matchId,
     onEventReceived: (event) => {
-      if (event.type === 'event_recorded' && event.payload) {
-        const { created_by, event_type } = event.payload;
-        if (created_by && event_type) {
-          setRecentEvents(prev => new Map(prev.set(created_by, {
-            type: event_type,
-            time: Date.now()
-          })));
-        }
+      if (event.created_by) {
+        setRecentEvents(prev => new Map(prev.set(event.created_by, {
+          type: event.event_type,
+          time: Date.now()
+        })));
       }
+    },
+    onTrackerPresenceUpdate: (presenceTrackers) => {
+      // Merge presence data with assigned tracker data
+      setTrackers(prev => {
+        const updatedTrackers = [...prev];
+        
+        presenceTrackers.forEach(presenceTracker => {
+          const existingIndex = updatedTrackers.findIndex(t => t.user_id === presenceTracker.user_id);
+          
+          if (existingIndex >= 0) {
+            updatedTrackers[existingIndex] = {
+              ...updatedTrackers[existingIndex],
+              ...presenceTracker,
+              online_at: presenceTracker.online_at
+            };
+          } else {
+            updatedTrackers.push(presenceTracker);
+          }
+        });
+
+        // Mark trackers as offline if they're not in presence
+        return updatedTrackers.map(tracker => ({
+          ...tracker,
+          status: presenceTrackers.some(p => p.user_id === tracker.user_id) 
+            ? (tracker.status || 'online')
+            : 'offline'
+        }));
+      });
     }
   });
 
@@ -94,7 +120,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
               user_id: userId,
               email: assignment.tracker_email || undefined,
               online_at: '',
-              assigned_event_types: []
+              assigned_event_types: [],
+              status: 'offline'
             });
           }
         });
@@ -107,20 +134,22 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   };
 
   const getTrackerStatus = (trackerId: string) => {
-    const isOnlineNow = onlineUsers.some(user => user.user_id === trackerId);
+    const tracker = trackers.find(t => t.user_id === trackerId);
     const recentEvent = recentEvents.get(trackerId);
+    const isOnline = tracker?.status !== 'offline';
     
     return {
-      isOnline: isOnlineNow,
+      isOnline,
       lastEventType: recentEvent?.type,
       lastEventTime: recentEvent?.time,
-      isActivelyTracking: recentEvent && (Date.now() - recentEvent.time < 30000)
+      isActivelyTracking: recentEvent && (Date.now() - recentEvent.time < 30000),
+      status: tracker?.status || 'offline'
     };
   };
 
   const getStatusColor = (status: ReturnType<typeof getTrackerStatus>) => {
     if (!status.isOnline) return 'from-gray-400 to-gray-500';
-    if (status.isActivelyTracking && status.lastEventType) {
+    if (status.status === 'tracking' && status.lastEventType) {
       return EVENT_COLORS[status.lastEventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.default;
     }
     return 'from-green-400 to-green-500';
@@ -128,7 +157,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
   const getStatusText = (status: ReturnType<typeof getTrackerStatus>) => {
     if (!status.isOnline) return 'Offline';
-    if (status.isActivelyTracking && status.lastEventType) {
+    if (status.status === 'tracking' && status.lastEventType) {
       return `Tracking ${status.lastEventType}`;
     }
     return 'Online';
@@ -139,11 +168,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardHeader className="pb-2 md:pb-4">
         <CardTitle className="flex items-center gap-2 text-sm md:text-base">
           <motion.div
-            animate={{ rotate: isOnline ? 360 : 0 }}
-            transition={{ duration: 2, repeat: isOnline ? Infinity : 0, ease: "linear" }}
+            animate={{ rotate: connectedTrackers.length > 0 ? 360 : 0 }}
+            transition={{ duration: 2, repeat: connectedTrackers.length > 0 ? Infinity : 0, ease: "linear" }}
             className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0"
           />
-          <span className="truncate">Tracker Status ({trackers.length})</span>
+          <span className="truncate">Live Tracker Status ({connectedTrackers.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 md:space-y-4">
@@ -166,7 +195,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                     {/* Status Indicator */}
                     <motion.div
                       className={`relative w-8 h-8 md:w-12 md:h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center flex-shrink-0`}
-                      animate={status.isActivelyTracking ? {
+                      animate={status.status === 'tracking' ? {
                         scale: [1, 1.1, 1],
                         boxShadow: [
                           '0 0 0 0 rgba(59, 130, 246, 0.7)',
@@ -174,9 +203,9 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                           '0 0 0 0 rgba(59, 130, 246, 0)'
                         ]
                       } : {}}
-                      transition={{ duration: 1.5, repeat: status.isActivelyTracking ? Infinity : 0 }}
+                      transition={{ duration: 1.5, repeat: status.status === 'tracking' ? Infinity : 0 }}
                     >
-                      {status.isActivelyTracking && status.lastEventType ? (
+                      {status.status === 'tracking' && status.lastEventType ? (
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -217,7 +246,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
                   {/* Activity Indicator */}
                   <AnimatePresence>
-                    {status.isActivelyTracking && (
+                    {status.status === 'tracking' && (
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
@@ -245,7 +274,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                 </div>
 
                 {/* Pulse Effect for Active Tracking */}
-                {status.isActivelyTracking && (
+                {status.status === 'tracking' && (
                   <motion.div
                     className={`absolute inset-0 rounded-xl bg-gradient-to-r ${statusColor} opacity-20`}
                     animate={{
@@ -285,13 +314,13 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         >
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-slate-800">
-              {onlineUsers.length}
+              {connectedTrackers.filter(t => t.status !== 'offline').length}
             </div>
             <div className="text-xs text-slate-500">Online</div>
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-green-600">
-              {Array.from(recentEvents.values()).filter(event => Date.now() - event.time < 30000).length}
+              {connectedTrackers.filter(t => t.status === 'tracking').length}
             </div>
             <div className="text-xs text-slate-500">Active</div>
           </div>
