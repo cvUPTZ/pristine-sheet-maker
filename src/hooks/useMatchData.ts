@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { EventType } from '@/types';
 
 export type Formation = 
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
@@ -34,7 +35,7 @@ export interface MatchEvent {
   team?: 'home' | 'away' | undefined;
   coordinates?: any;
   created_by?: string;
-  type: string;
+  type: EventType;
 }
 
 export interface TeamHeaderData {
@@ -126,7 +127,7 @@ const useMatchData = (matchId: string | undefined) => {
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             event_type: event.event_type,
-            type: event.event_type,
+            type: event.event_type as EventType,
             event_data: {},
             created_at: event.created_at,
             tracker_id: '',

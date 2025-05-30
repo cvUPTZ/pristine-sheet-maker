@@ -107,14 +107,14 @@ export interface Match {
   id: string;
   name?: string | undefined;
   status: string;
-  match_date: string | undefined;
+  match_date?: string | undefined;
   matchDate?: string;
   home_team_name: string;
   away_team_name: string;
   homeTeamName?: string;
   awayTeamName?: string;
-  home_team_formation: string | undefined;
-  away_team_formation: string | undefined;
+  home_team_formation?: string | undefined;
+  away_team_formation?: string | undefined;
   home_team_players?: any;
   away_team_players?: any;
   home_team_score?: number | undefined;

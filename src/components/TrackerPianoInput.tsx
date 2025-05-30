@@ -31,6 +31,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recordingEvent, setRecordingEvent] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id || !matchId) return;
@@ -132,6 +133,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       return;
     }
 
+    if (recordingEvent) {
+      console.log('Already recording an event, please wait...');
+      return;
+    }
+
+    setRecordingEvent(eventType.key);
+
     try {
       // Ensure player_id is properly converted to integer
       const playerId = parseInt(String(selectedPlayer.id), 10);
@@ -167,6 +175,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     } catch (err: any) {
       console.error('Error recording event:', err);
       toast.error('Failed to record event');
+    } finally {
+      setRecordingEvent(null);
     }
   };
 
@@ -229,7 +239,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 <Button
                   key={eventType.key}
                   onClick={() => handleEventRecord(eventType)}
-                  disabled={!selectedPlayer}
+                  disabled={!selectedPlayer || recordingEvent === eventType.key}
                   variant="outline"
                   className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
                 >
@@ -238,6 +248,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                     <span className="text-xs opacity-70">
                       {selectedPlayer.player_name}
                     </span>
+                  )}
+                  {recordingEvent === eventType.key && (
+                    <span className="text-xs text-orange-600">Recording...</span>
                   )}
                 </Button>
               ))}
