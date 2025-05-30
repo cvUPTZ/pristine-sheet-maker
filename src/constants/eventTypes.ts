@@ -1,3 +1,4 @@
+
 import { EventType } from '@/types';
 
 export const EVENT_TYPES = [

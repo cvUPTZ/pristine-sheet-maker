@@ -268,24 +268,32 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           <CardTitle>Your Tracker Assignment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Toggle Behavior Control */}
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div>
-              <span className="font-medium">Toggle Mode</span>
-              <p className="text-sm text-muted-foreground">
-                {toggleBehaviorEnabled 
-                  ? "Click to select event type, click again to record" 
-                  : "Click once to record event immediately"
-                }
-              </p>
+          {/* Toggle Behavior Control - This is the button you should see */}
+          <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-lg">Click Behavior</span>
+                  <Badge variant={toggleBehaviorEnabled ? "default" : "secondary"}>
+                    {toggleBehaviorEnabled ? "Two-Click Mode" : "One-Click Mode"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {toggleBehaviorEnabled 
+                    ? "First click selects event type, second click records it" 
+                    : "Single click records event immediately"
+                  }
+                </p>
+              </div>
+              <Button
+                onClick={() => setToggleBehaviorEnabled(!toggleBehaviorEnabled)}
+                variant={toggleBehaviorEnabled ? "default" : "outline"}
+                size="lg"
+                className="px-6"
+              >
+                {toggleBehaviorEnabled ? "Switch to One-Click" : "Switch to Two-Click"}
+              </Button>
             </div>
-            <Button
-              onClick={() => setToggleBehaviorEnabled(!toggleBehaviorEnabled)}
-              variant={toggleBehaviorEnabled ? "default" : "outline"}
-              size="sm"
-            >
-              {toggleBehaviorEnabled ? "ON" : "OFF"}
-            </Button>
           </div>
 
           {/* Player Selection */}
