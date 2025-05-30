@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -102,6 +103,7 @@ const AppContent = () => {
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
+        <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><MatchAnalysisV2 /></RequireAuth>} />
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
