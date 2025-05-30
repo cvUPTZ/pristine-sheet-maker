@@ -49,8 +49,21 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   const handleEventReceived = useCallback((event: any) => {
     console.log('[REALTIME_DEBUG] handleEventReceived CALLED. Raw event type from Supabase:', event.type, 'Raw Supabase event name:', event.event);
 
-    console.log('[REALTIME_DEBUG] In handleEventReceived. Evaluating condition for event:', JSON.stringify(event, null, 2));
-    console.log('[REALTIME_DEBUG] Check: event.type === "broadcast"', event.type === 'broadcast');
+    console.log('[REALTIME_DEBUG] Inside handleEventReceived. event object is present:', !!event);
+    if (event) {
+      console.log('[REALTIME_DEBUG] event.type is:', event.type);
+      console.log('[REALTIME_DEBUG] event.event is:', event.event); // This is the Supabase event name
+      console.log('[REALTIME_DEBUG] event.payload exists?:', !!event.payload);
+      if (event.payload) {
+        console.log('[REALTIME_DEBUG] event.payload.event is:', event.payload.event); // This is our custom event name ('tracker_event')
+        console.log('[REALTIME_DEBUG] event.payload.payload exists?:', !!event.payload.payload);
+      } else {
+        console.log('[REALTIME_DEBUG] event.payload is null/undefined.');
+      }
+    } else {
+      console.log('[REALTIME_DEBUG] event object itself is null/undefined in handleEventReceived.');
+    }
+    console.log('[REALTIME_DEBUG] Check: event.type === "broadcast"', event.type === 'broadcast'); // This and following logs are the old ones, can be removed if new ones are sufficient
     console.log('[REALTIME_DEBUG] Check: event.payload (exists)', !!event.payload);
     if (event.payload) {
       console.log('[REALTIME_DEBUG] Value: event.payload.event is:', event.payload.event);
@@ -59,10 +72,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     } else {
       console.log('[REALTIME_DEBUG] event.payload is null/undefined.');
     }
-    // Check for the new broadcast structure
-    if (event.type === 'broadcast' && event.payload && event.payload.event === 'tracker_event' && event.payload.payload) {
-      const syncEvent = event.payload.payload as TrackerSyncEvent;
-      console.log('[REALTIME_DEBUG] Received tracker_event (corrected path):', JSON.stringify(syncEvent, null, 2));
+    // Check for the new broadcast structure - Applying the final proposed fix
+    if (event.type === 'broadcast' && event.event === 'broadcast' && event.payload) {
+      const syncEvent = event.payload as TrackerSyncEvent; // Corrected syncEvent assignment
+      // The existing detailed log for syncEvent should now reflect the direct payload
+      console.log('[REALTIME_DEBUG] Received tracker_event (final corrected path):', JSON.stringify(syncEvent, null, 2));
 
       if (syncEvent.matchId && syncEvent.matchId !== matchId) {
         console.log(`[REALTIME_DEBUG] Ignoring event for other matchId. Expected: ${matchId}, Got: ${syncEvent.matchId}`);
