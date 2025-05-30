@@ -78,21 +78,21 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
           
           <div className="flex gap-2">
             <Button
-              variant={mode === 'piano' ? 'default' : 'outline'}
+              variant="default"
               size="sm"
               onClick={() => setMode('piano')}
             >
               Piano Mode
             </Button>
             <Button
-              variant={mode === 'tracking' ? 'default' : 'outline'}
+              variant="default"
               size="sm"
               onClick={() => setMode('tracking')}
             >
               Tracking Mode
             </Button>
             <Button
-              variant={togglePressed ? 'default' : 'outline'}
+              variant="default"
               size="sm"
               onClick={handleToggleClick}
             >
@@ -100,7 +100,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               Toggle
             </Button>
             <Button
-              variant={savePressed ? 'default' : 'outline'}
+              variant="default"
               size="sm"
               onClick={handleSaveClick}
             >
