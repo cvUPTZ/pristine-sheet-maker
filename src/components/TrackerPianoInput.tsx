@@ -1,6 +1,3 @@
-
-"use client";
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,257 +5,686 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import { useRealtimeEventSync } from '@/hooks/useRealtimeEventSync';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { EVENT_TYPE_LABELS } from '@/constants/eventTypes';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const LOCAL_STORAGE_KEY_MATCH_EVENTS = 'matchEventsQueue';
+
+interface EventType {
+  key: string;
+  label: string;
+}
+
+interface AssignedPlayer {
+  id: string;
+  player_name: string;
+  jersey_number: number;
+  team_context: 'home' | 'away';
+}
 
 interface TrackerPianoInputProps {
   matchId: string;
 }
 
-const eventTypes = [
-  { key: 'pass', label: 'Pass', color: 'bg-blue-500' },
-  { key: 'shot', label: 'Shot', color: 'bg-red-500' },
-  { key: 'goal', label: 'Goal', color: 'bg-green-500' },
-  { key: 'foul', label: 'Foul', color: 'bg-yellow-500' },
-  { key: 'card', label: 'Card', color: 'bg-orange-500' },
-  { key: 'corner', label: 'Corner', color: 'bg-purple-500' },
-  { key: 'offside', label: 'Offside', color: 'bg-pink-500' },
-  { key: 'save', label: 'Save', color: 'bg-cyan-500' }
-];
+const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: string; text: string; shadow: string }> = {
+  'pass': { 
+    bg: 'bg-gradient-to-br from-blue-500 to-blue-600', 
+    hover: 'hover:from-blue-600 hover:to-blue-700', 
+    border: 'border-blue-400', 
+    text: 'text-blue-700',
+    shadow: 'shadow-blue-200'
+  },
+  'shot': { 
+    bg: 'bg-gradient-to-br from-red-500 to-red-600', 
+    hover: 'hover:from-red-600 hover:to-red-700', 
+    border: 'border-red-400', 
+    text: 'text-red-700',
+    shadow: 'shadow-red-200'
+  },
+  'goal': { 
+    bg: 'bg-gradient-to-br from-green-500 to-green-600', 
+    hover: 'hover:from-green-600 hover:to-green-700', 
+    border: 'border-green-400', 
+    text: 'text-green-700',
+    shadow: 'shadow-green-200'
+  },
+  'foul': { 
+    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600', 
+    hover: 'hover:from-yellow-600 hover:to-yellow-700', 
+    border: 'border-yellow-400', 
+    text: 'text-yellow-700',
+    shadow: 'shadow-yellow-200'
+  },
+  'save': { 
+    bg: 'bg-gradient-to-br from-purple-500 to-purple-600', 
+    hover: 'hover:from-purple-600 hover:to-purple-700', 
+    border: 'border-purple-400', 
+    text: 'text-purple-700',
+    shadow: 'shadow-purple-200'
+  },
+  'offside': { 
+    bg: 'bg-gradient-to-br from-orange-500 to-orange-600', 
+    hover: 'hover:from-orange-600 hover:to-orange-700', 
+    border: 'border-orange-400', 
+    text: 'text-orange-700',
+    shadow: 'shadow-orange-200'
+  },
+  'corner': { 
+    bg: 'bg-gradient-to-br from-teal-500 to-teal-600', 
+    hover: 'hover:from-teal-600 hover:to-teal-700', 
+    border: 'border-teal-400', 
+    text: 'text-teal-700',
+    shadow: 'shadow-teal-200'
+  },
+  'sub': { 
+    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', 
+    hover: 'hover:from-indigo-600 hover:to-indigo-700', 
+    border: 'border-indigo-400', 
+    text: 'text-indigo-700',
+    shadow: 'shadow-indigo-200'
+  },
+};
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
-  const [isRecording, setIsRecording] = useState(false);
-  const [recentEvents, setRecentEvents] = useState<any[]>([]);
-  const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
-  const [assignedPlayers, setAssignedPlayers] = useState<any[]>([]);
-  const isMobile = useIsMobile();
+  const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[]>([]);
+  const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayer[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [unsavedEventCount, setUnsavedEventCount] = useState<number>(0);
+  const [toggleBehaviorEnabled, setToggleBehaviorEnabled] = useState<boolean>(false);
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
 
-  // Real-time event synchronization
-  const { 
-    isConnected, 
-    connectedTrackers, 
-    broadcastTrackerActivity, 
-    updateTrackerStatus 
-  } = useRealtimeEventSync({
-    matchId,
-    onEventReceived: (event) => {
-      setRecentEvents(prev => [event, ...prev.slice(0, 9)]);
-      if (event.created_by !== user?.id) {
-        toast.info(`Event recorded by another tracker: ${event.event_type}`);
+  const getLocalEvents = (): any[] => {
+    const localData = localStorage.getItem(LOCAL_STORAGE_KEY_MATCH_EVENTS);
+    if (localData) {
+      try {
+        return JSON.parse(localData);
+      } catch (e) {
+        console.error("Error parsing local events:", e);
+        return [];
       }
     }
-  });
+    return [];
+  };
+
+  const addLocalEvent = (eventData: any) => {
+    const events = getLocalEvents();
+    events.push(eventData);
+    localStorage.setItem(LOCAL_STORAGE_KEY_MATCH_EVENTS, JSON.stringify(events));
+    setUnsavedEventCount(events.length);
+  };
+
+  const clearLocalEvents = () => {
+    localStorage.removeItem(LOCAL_STORAGE_KEY_MATCH_EVENTS);
+    setUnsavedEventCount(0);
+  };
 
   useEffect(() => {
-    fetchTrackerAssignments();
-    fetchRecentEvents();
-  }, [matchId, user?.id]);
-
-  useEffect(() => {
-    // Update status when component mounts
-    if (isConnected) {
-      updateTrackerStatus('online');
-    }
-
-    return () => {
-      // Update status when component unmounts
-      if (isConnected) {
-        updateTrackerStatus('offline');
-      }
-    };
-  }, [isConnected, updateTrackerStatus]);
-
-  const fetchTrackerAssignments = async () => {
     if (!user?.id || !matchId) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('match_tracker_assignments')
-        .select('*')
-        .eq('match_id', matchId)
-        .eq('tracker_user_id', user.id);
+    const fetchAssignments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (error) throw error;
+        console.log('=== TRACKER DEBUG: Starting fetchAssignments ===');
+        console.log('User ID:', user.id);
+        console.log('Match ID:', matchId);
 
-      if (data && data.length > 0) {
-        const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types || [])));
-        setAssignedEventTypes(eventTypes);
+        // Fetch tracker assignments for this user and match
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('match_tracker_assignments')
+          .select('*')
+          .eq('tracker_user_id', user.id)
+          .eq('match_id', matchId);
+
+        if (assignmentsError) {
+          console.error('Assignments error:', assignmentsError);
+          throw assignmentsError;
+        }
+
+        console.log('=== RAW ASSIGNMENTS DATA ===');
+        console.log('Assignments found:', assignments?.length || 0);
+        console.log('Full assignments data:', JSON.stringify(assignments, null, 2));
+
+        if (!assignments || assignments.length === 0) {
+          console.log('No assignments found - setting error state');
+          setError('No assignments found for this match. Please contact your admin to assign you to track specific players and event types.');
+          setAssignedEventTypes([]);
+          setAssignedPlayers([]);
+          return;
+        }
+
+        // Process assigned event types - get ALL event types from ALL assignments
+        console.log('=== PROCESSING EVENT TYPES ===');
+        const allEventTypesSet = new Set<string>();
         
-        const players = data.map(assignment => ({
-          id: assignment.player_id,
-          team: assignment.player_team_id
-        }));
-        setAssignedPlayers(players);
+        assignments.forEach((assignment, index) => {
+          console.log(`Processing assignment ${index + 1}:`, {
+            id: assignment.id,
+            assigned_event_types: assignment.assigned_event_types,
+            player_id: assignment.player_id,
+            player_team_id: assignment.player_team_id
+          });
+          
+          if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
+            console.log(`Found ${assignment.assigned_event_types.length} event types in assignment ${index + 1}`);
+            assignment.assigned_event_types.forEach((eventType: string) => {
+              console.log(`Adding event type: "${eventType}"`);
+              allEventTypesSet.add(eventType);
+            });
+          } else {
+            console.log(`No event types found in assignment ${index + 1} or not an array:`, assignment.assigned_event_types);
+          }
+        });
+
+        console.log('=== FINAL EVENT TYPES SET ===');
+        console.log('All unique event types collected:', Array.from(allEventTypesSet));
+
+        const eventTypes: EventType[] = Array.from(allEventTypesSet).map(key => {
+          const label = EVENT_TYPE_LABELS[key as keyof typeof EVENT_TYPE_LABELS] || key;
+          console.log(`Mapping event type: "${key}" -> "${label}"`);
+          return {
+            key,
+            label
+          };
+        });
+
+        console.log('=== PROCESSED EVENT TYPES ===');
+        console.log('Final event types array:', eventTypes);
+        setAssignedEventTypes(eventTypes);
+
+        // Fetch match data to get player details
+        console.log('=== FETCHING MATCH DATA ===');
+        const { data: matchData, error: matchError } = await supabase
+          .from('matches')
+          .select('home_team_players, away_team_players')
+          .eq('id', matchId)
+          .single();
+
+        if (matchError) {
+          console.error('Match data error:', matchError);
+          throw matchError;
+        }
+
+        console.log('Match data retrieved:', {
+          home_team_players_type: typeof matchData.home_team_players,
+          away_team_players_type: typeof matchData.away_team_players,
+          home_team_players_sample: matchData.home_team_players,
+          away_team_players_sample: matchData.away_team_players
+        });
+
+        // Parse player data safely
+        const parsePlayerData = (data: any): any[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              console.log('Failed to parse player data as JSON:', data);
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
+
+        const homeTeamPlayers = parsePlayerData(matchData.home_team_players);
+        const awayTeamPlayers = parsePlayerData(matchData.away_team_players);
+
+        console.log('=== PARSED PLAYER DATA ===');
+        console.log('Home team players count:', homeTeamPlayers.length);
+        console.log('Away team players count:', awayTeamPlayers.length);
+        console.log('Home team players sample:', homeTeamPlayers.slice(0, 2));
+        console.log('Away team players sample:', awayTeamPlayers.slice(0, 2));
+
+        // Get assigned player IDs and team contexts from assignments
+        console.log('=== PROCESSING ASSIGNED PLAYERS ===');
+        const assignedPlayerData: AssignedPlayer[] = [];
+        
+        assignments.forEach((assignment, index) => {
+          const playerId = assignment.player_id;
+          const teamContext = assignment.player_team_id;
+          
+          console.log(`Processing player assignment ${index + 1}:`, {
+            player_id: playerId,
+            player_team_id: teamContext
+          });
+          
+          if (playerId && teamContext) {
+            let player = null;
+            
+            if (teamContext === 'home') {
+              player = homeTeamPlayers.find(p => String(p.id) === String(playerId));
+              console.log(`Looking for player ID ${playerId} in home team:`, player ? 'FOUND' : 'NOT FOUND');
+            } else if (teamContext === 'away') {
+              player = awayTeamPlayers.find(p => String(p.id) === String(playerId));
+              console.log(`Looking for player ID ${playerId} in away team:`, player ? 'FOUND' : 'NOT FOUND');
+            }
+            
+            if (player) {
+              const assignedPlayer: AssignedPlayer = {
+                id: String(player.id),
+                player_name: player.name || player.player_name,
+                jersey_number: player.number || player.jersey_number,
+                team_context: teamContext as 'home' | 'away'
+              };
+              
+              // Avoid duplicates
+              if (!assignedPlayerData.some(p => p.id === assignedPlayer.id && p.team_context === assignedPlayer.team_context)) {
+                assignedPlayerData.push(assignedPlayer);
+                console.log(`Added assigned player:`, assignedPlayer);
+              } else {
+                console.log(`Duplicate player skipped:`, assignedPlayer);
+              }
+            } else {
+              console.log(`Player not found for ID: ${playerId} in team: ${teamContext}`);
+              // Debug: show available players in the team
+              const teamPlayers = teamContext === 'home' ? homeTeamPlayers : awayTeamPlayers;
+              console.log(`Available ${teamContext} team player IDs:`, teamPlayers.map(p => p.id));
+            }
+          } else {
+            console.log(`Skipping assignment ${index + 1} - missing player_id or player_team_id`);
+          }
+        });
+
+        console.log('=== FINAL ASSIGNED PLAYERS ===');
+        console.log('Total assigned players:', assignedPlayerData.length);
+        console.log('Assigned players:', assignedPlayerData);
+        setAssignedPlayers(assignedPlayerData);
+
+        // Auto-select first player if only one is assigned
+        if (assignedPlayerData.length === 1) {
+          console.log('Auto-selecting single assigned player:', assignedPlayerData[0]);
+          setSelectedPlayer(assignedPlayerData[0]);
+        }
+
+        console.log('=== FETCH ASSIGNMENTS COMPLETED ===');
+
+      } catch (err: any) {
+        console.error('Error fetching tracker assignments:', err);
+        setError(err.message || 'Failed to load assignments');
+      } finally {
+        setLoading(false);
+        const localEvents = getLocalEvents();
+        setUnsavedEventCount(localEvents.length);
       }
-    } catch (error) {
-      console.error('Error fetching tracker assignments:', error);
-    }
-  };
+    };
 
-  const fetchRecentEvents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('match_events')
-        .select('*')
-        .eq('match_id', matchId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+    fetchAssignments();
+  }, [user?.id, matchId]);
 
-      if (error) throw error;
-
-      setRecentEvents(data || []);
-    } catch (error) {
-      console.error('Error fetching recent events:', error);
-    }
-  };
-
-  const handleEventRecord = async (eventType: string) => {
-    if (!user?.id || !matchId) {
-      toast.error('User not authenticated or match ID missing');
+  const handleEventRecord = (eventType: EventType) => {
+    if (!selectedPlayer) {
+      toast.error('Please select a player first');
       return;
     }
 
-    // Update tracker status to tracking
-    updateTrackerStatus('tracking');
-    broadcastTrackerActivity(eventType);
-
-    try {
-      const timestampInSeconds = Math.floor(Date.now() / 1000);
-
-      const eventData = {
-        match_id: matchId,
-        event_type: eventType,
-        timestamp: timestampInSeconds,
-        player_id: null,
-        team: null,
-        coordinates: null,
-        created_by: user.id
-      };
-
-      const { data, error } = await supabase
-        .from('match_events')
-        .insert([eventData])
-        .select();
-
-      if (error) throw error;
-
-      toast.success(`${eventType} recorded successfully`);
-      
-      // Return to online status after a short delay
-      setTimeout(() => {
-        updateTrackerStatus('online');
-      }, 2000);
-
-    } catch (error: any) {
-      console.error('Error recording event:', error);
-      toast.error(`Failed to record event: ${error.message}`);
-      updateTrackerStatus('online');
+    if (toggleBehaviorEnabled) {
+      if (selectedEventType === null) {
+        // First click in two-click mode: select the event type
+        setSelectedEventType(eventType.key);
+      } else {
+        // Second click in two-click mode
+        if (selectedEventType === eventType.key) {
+          // Clicked the same event type again: record it and reset selection
+          recordEvent(eventType);
+          setSelectedEventType(null);
+        } else {
+          // Clicked a different event type: record the previously selected event, then select the new one
+          const previousEventKey = selectedEventType;
+          const previousEventTypeObj = assignedEventTypes.find(et => et.key === previousEventKey) || { key: previousEventKey, label: EVENT_TYPE_LABELS[previousEventKey as keyof typeof EVENT_TYPE_LABELS] || previousEventKey };
+          recordEvent(previousEventTypeObj);
+          setSelectedEventType(eventType.key);
+        }
+      }
+    } else {
+      // One-click mode: record immediately
+      recordEvent(eventType);
     }
   };
 
-  const getEventColor = (eventType: string) => {
-    const event = eventTypes.find(e => e.key === eventType);
-    return event?.color || 'bg-gray-500';
+  const recordEvent = (eventType: EventType) => {
+    if (!selectedPlayer) return;
+
+    // Ensure player_id is properly converted to integer
+    const playerId = parseInt(String(selectedPlayer.id), 10);
+    
+    // Validate player_id is a valid integer
+    if (isNaN(playerId)) {
+      console.error("Invalid player ID:", selectedPlayer.id);
+      toast.error('Invalid player ID');
+      return;
+    }
+
+    // Use seconds since epoch for timestamp to fit in bigint
+    const timestampInSeconds = Math.floor(Date.now() / 1000);
+
+    const eventData = {
+      match_id: matchId,
+      event_type: eventType.key,
+      timestamp: timestampInSeconds,
+      player_id: playerId,
+      team: selectedPlayer.team_context,
+      created_by: user?.id || ''
+    };
+
+    addLocalEvent(eventData);
+    toast.info(`${eventType.label} logged locally for ${selectedPlayer.player_name}`);
+    
+    // Clear selection after recording if toggle behavior is enabled
+    if (toggleBehaviorEnabled) {
+      setSelectedEventType(null);
+    }
   };
 
+  const handleSyncEvents = async () => {
+    const localEvents = getLocalEvents();
+
+    if (localEvents.length === 0) {
+      toast.info("No events to sync.");
+      return;
+    }
+
+    toast.loading("Syncing events to database...", { id: "sync-toast" });
+
+    try {
+      const { error } = await supabase
+        .from('match_events')
+        .insert(localEvents);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success(`${localEvents.length} event(s) synced successfully!`, { id: "sync-toast" });
+      clearLocalEvents();
+
+    } catch (err: any) {
+      console.error('Error syncing events:', err);
+      toast.error(`Failed to sync events: ${err.message || 'Unknown error'}. Please try again.`, { id: "sync-toast" });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="w-full bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
+        <CardContent className="p-6">
+          <div className="animate-pulse text-center">
+            <div className="bg-slate-300 rounded-full mx-auto mb-4 w-16 h-16"></div>
+            <p className="text-slate-600 font-medium text-lg">Loading your assignments...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full bg-gradient-to-br from-red-50 to-rose-50 shadow-xl border-red-200">
+        <CardContent className="p-6">
+          <div className="text-center">
+            <div className="bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 w-16 h-16">
+              <svg className="text-red-600 w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-red-800 mb-3 text-xl">Assignment Error</h3>
+            <p className="text-red-600">{error}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  console.log('=== RENDER DEBUG ===');
+  console.log('Rendering with assigned event types:', assignedEventTypes.length);
+  console.log('Event types to display:', assignedEventTypes);
+  console.log('Assigned players:', assignedPlayers.length);
+  console.log('Selected player:', selectedPlayer);
+
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Connection Status */}
-      <Card className="border-l-4 border-l-blue-500">
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-sm font-medium">
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <Card className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white shadow-2xl border-0 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-700/20 animate-pulse"></div>
+        <CardContent className="p-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center w-12 h-12 shadow-lg">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5z"/>
+                <path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2zM7 11h2v2H7zM11 11h2v2h-2zM15 11h2v2h-2zM7 15h2v2H7zM11 15h2v2h-2zM15 15h2v2h-2z"/>
+              </svg>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {connectedTrackers.length} tracker{connectedTrackers.length !== 1 ? 's' : ''} online
-            </Badge>
+            <div>
+              <h2 className="text-2xl font-bold">Tracker Piano Input</h2>
+              <p className="text-white/90 text-sm">Fast event recording for assigned players</p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Event Recording Buttons */}
-      <Card>
-        <CardHeader className="pb-2 sm:pb-3">
-          <CardTitle className="text-sm sm:text-base">Quick Event Recording</CardTitle>
+      <Card className="shadow-xl border-slate-200 bg-gradient-to-br from-white to-slate-50">
+        <CardHeader>
+          <CardTitle className="text-xl">Your Tracker Assignment</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
-          <div className={`grid gap-2 ${
-            isMobile 
-              ? 'grid-cols-2' 
-              : 'grid-cols-3 sm:grid-cols-4'
-          }`}>
-            {eventTypes.map((event) => {
-              const isAssigned = assignedEventTypes.length === 0 || assignedEventTypes.includes(event.key);
-              
-              return (
-                <Button
-                  key={event.key}
-                  onClick={() => handleEventRecord(event.key)}
-                  disabled={!isAssigned || !isConnected}
-                  className={`${event.color} hover:opacity-80 text-white ${
-                    isMobile ? 'text-xs py-2 px-2' : 'text-sm py-2 px-3'
-                  } ${!isAssigned ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  size={isMobile ? "sm" : "default"}
-                >
-                  {event.label}
-                </Button>
-              );
-            })}
-          </div>
-
-          {assignedEventTypes.length > 0 && (
-            <div className="text-xs text-gray-600">
-              Assigned events: {assignedEventTypes.join(', ')}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Events */}
-      <Card>
-        <CardHeader className="pb-2 sm:pb-3">
-          <CardTitle className="text-sm sm:text-base">Recent Events</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
-            {recentEvents.length === 0 ? (
-              <p className="text-gray-500 text-center py-4 text-sm">
-                No events recorded yet
-              </p>
-            ) : (
-              recentEvents.map((event, index) => (
-                <div
-                  key={`${event.id}-${index}`}
-                  className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${getEventColor(event.event_type)}`} />
-                    <div>
-                      <div className="font-medium text-xs sm:text-sm capitalize">
-                        {event.event_type}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {event.created_by === user?.id ? 'You' : 'Other tracker'} • {
-                          new Date(event.created_at).toLocaleTimeString()
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  <Badge 
-                    variant={event.created_by === user?.id ? "default" : "secondary"}
-                    className="text-xs"
-                  >
-                    {event.created_by === user?.id ? 'Mine' : 'Other'}
+        <CardContent className="space-y-6">
+          {/* Toggle Behavior Control */}
+          <motion.div 
+            className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-lg">Click Behavior</span>
+                  <Badge variant={toggleBehaviorEnabled ? "default" : "secondary"}>
+                    {toggleBehaviorEnabled ? "Two-Click Mode" : "One-Click Mode"}
                   </Badge>
                 </div>
-              ))
+                <p className="text-sm text-muted-foreground">
+                  {toggleBehaviorEnabled 
+                    ? "First click selects event type, second click records it" 
+                    : "Single click records event immediately"
+                  }
+                </p>
+              </div>
+              <Button
+                onClick={() => setToggleBehaviorEnabled(!toggleBehaviorEnabled)}
+                variant={toggleBehaviorEnabled ? "default" : "outline"}
+                size="lg"
+                className="px-6"
+              >
+                {toggleBehaviorEnabled ? "Switch to One-Click" : "Switch to Two-Click"}
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Assignment Summary */}
+          <motion.div 
+            className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Event Types</h4>
+              <p className="text-lg font-semibold">{assignedEventTypes.length}</p>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignedEventTypes.map(et => et.label).join(', ')}
+              </div>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Players</h4>
+              <p className="text-lg font-semibold">{assignedPlayers.length}</p>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignedPlayers.map(p => `#${p.jersey_number} ${p.player_name}`).join(', ')}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Player Selection */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
+            <h3 className="font-medium mb-2">Assigned Players</h3>
+            <div className="flex flex-wrap gap-2">
+              {assignedPlayers.map((player) => (
+                <motion.div
+                  key={`${player.id}-${player.team_context}`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    variant={selectedPlayer?.id === player.id && selectedPlayer?.team_context === player.team_context ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedPlayer(player)}
+                    className="flex items-center gap-2"
+                  >
+                    <Badge variant={player.team_context === 'home' ? 'default' : 'secondary'}>
+                      {player.team_context.toUpperCase()}
+                    </Badge>
+                    #{player.jersey_number} {player.player_name}
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+            {assignedPlayers.length === 0 && (
+              <p className="text-muted-foreground text-sm">No players assigned</p>
             )}
-          </div>
+          </motion.div>
+
+          {/* Event Type Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+          >
+            <h3 className="font-medium mb-4">Assigned Event Types ({assignedEventTypes.length})</h3>
+            {assignedEventTypes.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {assignedEventTypes.map((eventType) => {
+                  const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
+                  const colors = EVENT_TYPE_COLORS[eventType.key] || EVENT_TYPE_COLORS['pass'];
+                  
+                  return (
+                    <motion.div
+                      key={eventType.key}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative"
+                      layout
+                    >
+                      <Button
+                        onClick={() => handleEventRecord(eventType)}
+                        disabled={!selectedPlayer}
+                        className={`w-full h-24 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 border-2 overflow-hidden relative ${
+                          isSelected 
+                            ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2` 
+                            : `bg-white hover:bg-slate-50 ${colors.text} border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100 shadow-lg hover:shadow-xl`
+                        }`}
+                        type="button"
+                      >
+                        {isSelected && (
+                          <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10"
+                            animate={{ x: ['-100%', '100%'] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                          />
+                        )}
+                        
+                        <div className={`transition-colors duration-300 z-10 relative ${
+                          isSelected ? 'text-white' : colors.text
+                        }`}>
+                          <EnhancedEventTypeIcon 
+                            eventKey={eventType.key} 
+                            size={28} 
+                            isSelected={isSelected}
+                          />
+                        </div>
+                        
+                        <span className="font-semibold text-center leading-tight z-10 relative text-xs">
+                          {eventType.label}
+                        </span>
+                        
+                        {selectedPlayer && (
+                          <span className="text-xs opacity-70 z-10 relative">
+                            {selectedPlayer.player_name}
+                          </span>
+                        )}
+                        
+                        {toggleBehaviorEnabled && isSelected && (
+                          <span className="text-xs z-10 relative">Click to record</span>
+                        )}
+
+                        <motion.div
+                          className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 w-7 h-7 text-xs ${
+                            isSelected 
+                              ? 'bg-white text-slate-700 border-white shadow-lg' 
+                              : `${colors.bg.replace('gradient-to-br', 'solid')} text-white border-white shadow-md`
+                          }`}
+                          whileHover={{ scale: 1.1 }}
+                          animate={isSelected ? { 
+                            scale: [1, 1.1, 1],
+                            rotate: [0, 5, -5, 0]
+                          } : {}}
+                          transition={{ duration: 0.5, repeat: isSelected ? Infinity : 0, repeatDelay: 2 }}
+                        >
+                          {eventType.key.charAt(0).toUpperCase()}
+                        </motion.div>
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center p-8 bg-gray-100 rounded-lg">
+                <p className="text-muted-foreground text-sm">No event types assigned</p>
+                <p className="text-xs text-gray-500 mt-1">Contact your admin to assign event types</p>
+              </div>
+            )}
+          </motion.div>
+
+          {!selectedPlayer && assignedPlayers.length > 1 && (
+            <motion.div 
+              className="text-center text-muted-foreground text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
+              Select a player to record events
+            </motion.div>
+          )}
+
+          {/* Sync Button */}
+          <motion.div 
+            className="mt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+          >
+            <Button
+              onClick={handleSyncEvents}
+              disabled={unsavedEventCount === 0}
+              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <motion.div
+                className="flex items-center gap-2"
+                animate={unsavedEventCount > 0 ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Sync {unsavedEventCount} Event{unsavedEventCount !== 1 ? 's' : ''} to Database
+              </motion.div>
+            </Button>
+          </motion.div>
         </CardContent>
       </Card>
     </div>
