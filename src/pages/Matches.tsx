@@ -1,196 +1,219 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from '@/integrations/supabase/client';
-import { Match, Statistics, BallTrackingPoint } from '@/types/index';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Plus, Search } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Match, Filter, Statistics, BallTrackingPoint } from '@/types';
+import { DateRange } from 'react-day-picker';
 
-interface Filter {
-  searchTerm: string;
-  dateRange: {
-    from: Date | undefined;
-    to: Date | undefined;
-  };
-}
-
-const Matches = () => {
+const Matches: React.FC = () => {
+  const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>({
     searchTerm: '',
-    dateRange: { from: undefined, to: undefined },
+    dateRange: { from: undefined, to: undefined }
   });
-  const navigate = useNavigate();
 
-  const { data: matchesData, isLoading, isError, error } = useQuery({
-    queryKey: ['matches'],
-    queryFn: async () => {
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
+  const fetchMatches = async () => {
+    try {
       const { data, error } = await supabase
         .from('matches')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      return data;
+      const processedMatches: Match[] = (data || []).map(match => ({
+        ...match,
+        matchDate: match.match_date,
+        homeTeamName: match.home_team_name,
+        awayTeamName: match.away_team_name,
+        venue: match.location,
+        statistics: {
+          possession: { home: 0, away: 0 },
+          shots: { home: 0, away: 0 },
+          corners: { home: 0, away: 0 },
+          fouls: { home: 0, away: 0 },
+          offsides: { home: 0, away: 0 },
+          passes: { home: 0, away: 0 }
+        } as Statistics,
+        ballTrackingData: [] as BallTrackingPoint[]
+      }));
+
+      setMatches(processedMatches);
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setFilter(prev => ({
+      ...prev,
+      dateRange: {
+        from: range?.from,
+        to: range?.to
+      }
+    }));
+  };
+
+  const filteredMatches = matches.filter(match => {
+    const matchesSearch = !filter.searchTerm || 
+      match.home_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
+      match.away_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase());
+
+    const matchesDateRange = !filter.dateRange.from || !filter.dateRange.to || !match.match_date ||
+      (new Date(match.match_date) >= filter.dateRange.from && 
+       new Date(match.match_date) <= filter.dateRange.to);
+
+    return matchesSearch && matchesDateRange;
   });
 
-  useEffect(() => {
-    if (matchesData) {
-      const processedData = processMatchData(matchesData);
-      setMatches(processedData);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'live': return 'bg-green-500';
+      case 'completed': return 'bg-blue-500';
+      case 'scheduled': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
     }
-  }, [matchesData]);
-
-  const processMatchData = (matches: any[]): Match[] => {
-    return matches.map(match => ({
-      id: match.id,
-      name: match.name || undefined,
-      homeTeamName: match.home_team_name,
-      awayTeamName: match.away_team_name,
-      status: match.status,
-      matchDate: match.match_date || new Date().toISOString(),
-      statistics: (match.match_statistics || {}) as Statistics,
-      ballTrackingData: (match.ball_tracking_data || []) as BallTrackingPoint[],
-      home_team_name: match.home_team_name,
-      away_team_name: match.away_team_name,
-      home_team_players: match.home_team_players || [],
-      away_team_players: match.away_team_players || [],
-    }));
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilter(prev => ({ ...prev, searchTerm: e.target.value }));
-  };
-
-  const handleDateChange = (date: { from?: Date, to?: Date }) => {
-    setFilter(prev => ({ ...prev, dateRange: date }));
-  };
-
-  const filteredMatches = React.useMemo(() => {
-    return matches.filter(match => {
-      const searchTerm = filter.searchTerm.toLowerCase();
-      const nameMatch = match.name?.toLowerCase().includes(searchTerm) ||
-        match.homeTeamName.toLowerCase().includes(searchTerm) ||
-        match.awayTeamName.toLowerCase().includes(searchTerm);
-
-      const dateRange = filter.dateRange;
-      let dateMatch = true;
-
-      if (dateRange.from && dateRange.to && match.matchDate) {
-        const matchDate = new Date(match.matchDate);
-        dateMatch = matchDate >= dateRange.from && matchDate <= dateRange.to;
-      } else if (dateRange.from && match.matchDate) {
-        const matchDate = new Date(match.matchDate);
-        dateMatch = matchDate >= dateRange.from;
-      } else if (dateRange.to && match.matchDate) {
-        const matchDate = new Date(match.matchDate);
-        dateMatch = matchDate <= dateRange.to;
-      }
-
-      return nameMatch && dateMatch;
-    });
-  }, [matches, filter]);
-
-  const processedMatches = React.useMemo(() => {
-    return filteredMatches.map(match => ({
-      ...match,
-      matchDate: match.matchDate ? new Date(match.matchDate).toLocaleDateString() : 'No date',
-    }));
-  }, [filteredMatches]);
-
-  if (isLoading) {
-    return <div>Loading matches...</div>;
-  }
-
-  if (isError) {
-    return <div>Error fetching matches: {error?.message}</div>;
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="text-center">Loading matches...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-4">
-        <div className="w-full md:w-1/2">
-          <Label htmlFor="search">Search Matches</Label>
-          <Input
-            type="search"
-            id="search"
-            placeholder="Search by match name, home team, or away team..."
-            onChange={handleSearchChange}
-          />
-        </div>
-
-        <div className="w-full md:w-1/2">
-          <Label>Filter by Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !filter.dateRange.from || !filter.dateRange.to
-                    ? "text-muted-foreground"
-                    : ""
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {filter.dateRange.from && filter.dateRange.to ? (
-                  `${format(filter.dateRange.from, "PPP")} - ${format(filter.dateRange.to, "PPP")}`
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="range"
-                defaultMonth={filter.dateRange.from}
-                selected={filter.dateRange}
-                onSelect={handleDateChange}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Matches</h1>
+        <Button onClick={() => navigate('/create-match')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Match
+        </Button>
       </div>
 
-      <Separator />
-
-      {processedMatches.map((match) => (
-        <Card key={match.id}>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-semibold">{match.name || 'Unnamed Match'}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {match.homeTeamName} vs {match.awayTeamName}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {match.matchDate ? new Date(match.matchDate).toLocaleDateString() : 'No date'}
-                </p>
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filter Matches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search teams..."
+                  value={filter.searchTerm}
+                  onChange={(e) => setFilter(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  className="pl-10"
+                />
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !filter.dateRange.from && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filter.dateRange.from ? (
+                    filter.dateRange.to ? (
+                      <>
+                        {format(filter.dateRange.from, "LLL dd, y")} -{" "}
+                        {format(filter.dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(filter.dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={filter.dateRange.from}
+                  selected={filter.dateRange}
+                  onSelect={handleDateRangeChange}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardContent>
+      </Card>
 
-      {processedMatches.length === 0 && (
+      {/* Matches Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredMatches.map((match) => (
+          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg">
+                  {match.home_team_name} vs {match.away_team_name}
+                </CardTitle>
+                <Badge className={getStatusColor(match.status)}>
+                  {match.status}
+                </Badge>
+              </div>
+              <CardDescription>
+                {match.match_date ? format(new Date(match.match_date), 'PPP') : 'Date TBD'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {match.location && (
+                  <p className="text-sm text-gray-600">📍 {match.location}</p>
+                )}
+                <div className="flex justify-between items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/match/${match.id}`)}
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/match-analysis-v2/${match.id}`)}
+                  >
+                    Analyze
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredMatches.length === 0 && (
         <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-gray-500">No matches found.</p>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No matches found matching your criteria.</p>
           </CardContent>
         </Card>
       )}

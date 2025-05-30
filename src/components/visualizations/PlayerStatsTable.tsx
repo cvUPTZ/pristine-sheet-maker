@@ -1,41 +1,81 @@
+
 import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { MatchEvent, Team } from '@/types';
 
 interface PlayerStatsTableProps {
-  stats: { name: string; value: number | string }[];
+  homeTeam: Team;
+  awayTeam: Team;
 }
 
-const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ stats }) => {
-
-  const getStatValue = (stat: any): number => {
-    return typeof stat === 'number' ? stat : 0;
+const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ homeTeam, awayTeam }) => {
+  // Calculate basic stats from team data
+  const getPlayerStats = (team: Team) => {
+    return team.players.map(player => ({
+      name: player.player_name || player.name || `Player ${player.jersey_number || player.number}`,
+      number: player.jersey_number || player.number || 0,
+      position: player.position || 'Unknown',
+      // Add more stats as needed
+    }));
   };
 
+  const homeStats = getPlayerStats(homeTeam);
+  const awayStats = getPlayerStats(awayTeam);
+
   return (
-    <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[200px]">Statistic</TableHead>
-            <TableHead className="text-right">Value</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {stats.map((stat, index) => (
-            <TableRow key={index}>
-              <TableCell>{stat.name}</TableCell>
-              <TableCell className="text-right">{getStatValue(stat.value)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{homeTeam.name} - Player Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Position</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {homeStats.map((player, index) => (
+                <TableRow key={index}>
+                  <TableCell>{player.number}</TableCell>
+                  <TableCell>{player.name}</TableCell>
+                  <TableCell>{player.position}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{awayTeam.name} - Player Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Position</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {awayStats.map((player, index) => (
+                <TableRow key={index}>
+                  <TableCell>{player.number}</TableCell>
+                  <TableCell>{player.name}</TableCell>
+                  <TableCell>{player.position}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
