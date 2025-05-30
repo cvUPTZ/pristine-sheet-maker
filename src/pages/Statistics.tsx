@@ -53,19 +53,51 @@ const Statistics: React.FC = () => {
             formation: (matchData.away_team_formation as any) || '4-3-3',
             players: []
           },
-          statistics: matchData.match_statistics as Statistics || {
-            possession: { home: 0, away: 0 },
-            shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
-            corners: { home: 0, away: 0 },
-            fouls: { home: 0, away: 0 },
-            offsides: { home: 0, away: 0 },
-            passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
-            ballsPlayed: { home: 0, away: 0 },
-            ballsLost: { home: 0, away: 0 },
-            duels: { home: {}, away: {} },
-            crosses: { home: {}, away: {} }
-          },
-          ballTrackingData: matchData.ball_tracking_data as BallTrackingPoint[] || []
+          statistics: (() => {
+            let parsedStatistics: Statistics | undefined = undefined;
+            if (matchData.match_statistics) {
+              if (typeof matchData.match_statistics === 'string') {
+                try {
+                  parsedStatistics = JSON.parse(matchData.match_statistics);
+                } catch (e) {
+                  console.error('Failed to parse match_statistics string:', e);
+                }
+              } else if (typeof matchData.match_statistics === 'object') {
+                parsedStatistics = matchData.match_statistics as Statistics;
+              }
+            }
+            return parsedStatistics || {
+              possession: { home: 0, away: 0 },
+              shots: { home: { onTarget: 0, offTarget: 0, total: 0 }, away: { onTarget: 0, offTarget: 0, total: 0 } },
+              corners: { home: 0, away: 0 },
+              fouls: { home: 0, away: 0 },
+              offsides: { home: 0, away: 0 },
+              passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+              ballsPlayed: { home: 0, away: 0 },
+              ballsLost: { home: 0, away: 0 },
+              duels: { home: { won: 0, total: 0 }, away: { won: 0, total: 0 } },
+              crosses: { home: { successful: 0, total: 0 }, away: { successful: 0, total: 0 } }
+            };
+          })(),
+          ballTrackingData: (() => {
+            let parsedBallTrackingData: BallTrackingPoint[] | undefined = undefined;
+            if (matchData.ball_tracking_data) {
+              if (typeof matchData.ball_tracking_data === 'string') {
+                try {
+                  parsedBallTrackingData = JSON.parse(matchData.ball_tracking_data);
+                  if (!Array.isArray(parsedBallTrackingData)) {
+                    console.error('Parsed ball_tracking_data is not an array.');
+                    parsedBallTrackingData = []; 
+                  }
+                } catch (e) {
+                  console.error('Failed to parse ball_tracking_data string:', e);
+                }
+              } else if (Array.isArray(matchData.ball_tracking_data)) {
+                parsedBallTrackingData = matchData.ball_tracking_data as BallTrackingPoint[];
+              }
+            }
+            return parsedBallTrackingData || [];
+          })()
         };
 
         // Fetch events
