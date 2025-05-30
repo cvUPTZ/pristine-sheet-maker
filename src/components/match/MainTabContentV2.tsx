@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Team, MatchEvent, EventType } from '@/types';
@@ -19,50 +19,18 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   homeTeam,
   awayTeam,
 }) => {
+  console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    fetchEvents(); // Initial fetch
-
-    const channel = supabase
-      .channel(`match-events-for-${matchId}`) // Unique channel name per match
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'match_events',
-          filter: `match_id=eq.${matchId}`,
-        },
-        (payload) => {
-          console.log('Realtime change to match_events received:', payload);
-          // Re-fetch all events to update counts and the recent events list
-          fetchEvents();
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to match-events-for-${matchId}`);
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error(`Error subscribing to match-events-for-${matchId}:`, err);
-        }
-      });
-
-    return () => {
-      console.log(`Unsubscribing from match-events-for-${matchId}`);
-      supabase.removeChannel(channel);
-    };
-  }, [matchId]); // Keep matchId as a dependency. fetchEvents should be stable.
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
+    // setLoading(true); // Optional: set loading state at the beginning of fetch
     try {
       const { data, error } = await supabase
         .from('match_events')
         .select('*')
-        .eq('match_id', matchId)
+        .eq('match_id', matchId) // matchId is a dependency of useCallback
         .order('timestamp', { ascending: true });
 
       if (error) throw error;
@@ -85,7 +53,44 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [matchId]); // Dependency: matchId
+
+  const handleRealtimeEvent = useCallback((payload: any) => {
+    console.log('[MainTabContentV2 DEBUG] Realtime change to match_events received:', payload);
+    // Re-fetch all events to update counts and the recent events list
+    fetchEvents();
+  }, [fetchEvents]); // Dependency: memoized fetchEvents
+
+  useEffect(() => {
+    fetchEvents(); // Initial fetch
+
+    const channel = supabase
+      .channel(`match-events-for-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_events',
+          filter: `match_id=eq.${matchId}`,
+        },
+        handleRealtimeEvent // Use the memoized callback here
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to match-events-for-${matchId}`);
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error(`Error subscribing to match-events-for-${matchId}:`, err);
+        }
+      });
+
+    return () => {
+      console.log(`[MainTabContentV2 DEBUG] Cleaning up match_events subscription for matchId: ${matchId}. Channel:`, channel);
+      console.log(`Unsubscribing from match-events-for-${matchId}`); // Kept original log too
+      supabase.removeChannel(channel);
+    };
+  }, [matchId, fetchEvents]); // Added fetchEvents to dependency array
 
   const handleEventDelete = async (eventId: string) => {
     try {
