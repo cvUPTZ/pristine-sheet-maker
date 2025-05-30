@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -146,7 +145,7 @@ const TrackerNotifications: React.FC = () => {
 
   const handleViewMatch = (matchId: string, notificationId: string) => {
     markAsRead(notificationId);
-    navigate(`/tracker-interface?matchId=${matchId}&trackerUserId=${user?.id}`);
+    navigate(`/match/${matchId}`);
   };
 
   useEffect(() => {
