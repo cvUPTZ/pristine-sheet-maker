@@ -335,8 +335,10 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardContent className="space-y-2 md:space-y-4">
         <AnimatePresence>
           {trackers.map((tracker, index) => {
+            console.log(`[REALTIME_RENDER_DEBUG] Mapping tracker: ${tracker.user_id}`, JSON.stringify(tracker, null, 2));
             // getTrackerStatus and getStatusColor now take the tracker object
             const status = getTrackerStatus(tracker.user_id); // This still returns the detailed status object
+            console.log(`[REALTIME_RENDER_DEBUG] Status for tracker ${tracker.user_id}:`, JSON.stringify(status, null, 2));
             const statusColor = getStatusColor(tracker); // Pass the tracker object
             
             return (
@@ -391,7 +393,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                           variant={(status.isOnline || status.currentStatus === 'active') ? "default" : "secondary"}
                           className={`text-xs ${(status.isOnline || status.currentStatus === 'active') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
                         >
-                          <span className="hidden sm:inline">{getStatusText(tracker)}</span>
+                          {console.log(`[REALTIME_RENDER_DEBUG] Rendering Badge for ${tracker.user_id} with text: ${status.activityText}`)}
+                          <span className="hidden sm:inline">{status.activityText}</span>
                           <span className="sm:hidden">{(status.isOnline || status.currentStatus === 'active') ? 'On' : 'Off'}</span>
                         </Badge>
                         {status.lastActionTimestamp && ( // Use lastActionTimestamp
