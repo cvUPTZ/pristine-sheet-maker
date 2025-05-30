@@ -139,6 +139,7 @@ export interface MatchEvent {
   match_id: string;
   timestamp: number;
   event_type: string;
+  type: EventType;
   event_data?: Record<string, any> | null;
   created_at?: string;
   tracker_id?: string | null;
@@ -147,7 +148,6 @@ export interface MatchEvent {
   team?: 'home' | 'away';
   coordinates: { x: number; y: number };
   created_by?: string;
-  type: EventType;
   status?: string;
   user_id?: string;
   clientId?: string;
@@ -188,6 +188,13 @@ export interface Match {
   venue?: string;
   statistics?: Statistics;
   ballTrackingData?: BallTrackingPoint[];
+  homeTeam?: Team;
+  awayTeam?: Team;
+  ballTrackingPoints?: BallTrackingPoint[];
+  timeSegments?: TimeSegmentStatistics[];
+  date?: string;
+  matchId?: string;
+  events?: MatchEvent[];
 }
 
 export interface SavedMatch extends Match {

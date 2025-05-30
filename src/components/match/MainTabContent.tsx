@@ -122,7 +122,6 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
         </CardHeader>
         <CardContent>
           <PlayerStatsTable 
-            events={events}
             homeTeam={homeTeam}
             awayTeam={awayTeam}
           />

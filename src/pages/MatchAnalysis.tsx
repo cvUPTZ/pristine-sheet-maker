@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
-import MainTabContent from '@/components/match/MainTabContent';
+import MainTabContentV2 from '@/components/match/MainTabContentV2';
 import { PianoInput } from '@/components/match/PianoInput';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -72,10 +72,8 @@ const MatchAnalysis: React.FC = () => {
   console.log('[MatchAnalysis] Hook data: isLoadingMatchData:', isLoadingMatchData, 'matchDataError:', matchDataError, 'matchDataFromHook:', matchDataFromHook, 'homeTeamHeaderDataFromHook:', homeTeamHeaderDataFromHook, 'awayTeamHeaderDataFromHook:', awayTeamHeaderDataFromHook);
 
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-  const [activeTab, setActiveTab] = useState<string>('pitch');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<'home' | 'away'>('home');
-  const [ballTrackingPoints, setBallTrackingPoints] = useState<Array<{ x: number; y: number; timestamp: number }>>([]);
   const [statistics, setStatistics] = useState<Statistics>({
     possession: { home: 0, away: 0 },
     shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
@@ -88,7 +86,6 @@ const MatchAnalysis: React.FC = () => {
     duels: { home: {}, away: {} },
     crosses: { home: {}, away: {} }
   });
-  const [playerStats, setPlayerStats] = useState<any>({});
 
   const [assignedPlayerForMatch, setAssignedPlayerForMatch] = useState<AssignedPlayerForMatch | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
@@ -271,6 +268,7 @@ const MatchAnalysis: React.FC = () => {
                   team_id: player.team_context === 'home' ? 'home' : 'away',
                   player_id: Number(player.id),
                   type: eventType.key as EventType,
+                  event_type: eventType.key,
                   timestamp: Date.now(),
                   coordinates: { x: 0, y: 0 },
                 };
@@ -282,50 +280,10 @@ const MatchAnalysis: React.FC = () => {
         )}
 
         {mode === 'tracking' && (
-          <MainTabContent
+          <MainTabContentV2
             matchId={matchDataFromHook.id}
-            userRole={userRole || ''}
-            assignedPlayerForMatch={assignedPlayerForMatch}
-            assignedEventTypes={assignedEventTypes}
-            
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            homeTeam={homeTeamFull as any}
-            awayTeam={awayTeamFull as any}
-            selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeamId}
-            setSelectedTeam={(teamId: 'home' | 'away') => {
-              setSelectedTeamId(teamId);
-              setSelectedPlayer(null);
-            }}
-            handlePlayerSelect={(player: Player) => setSelectedPlayer(player)}
-            ballTrackingPoints={ballTrackingPoints}
-            handlePitchClick={(coordinates: { x: number; y: number }) => console.log('Pitch clicked:', coordinates)}
-            addBallTrackingPoint={(point: { x: number; y: number }) => setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }])}
-            statistics={statistics}
-            setStatistics={(stats: Statistics) => setStatistics(stats)}
-            playerStats={playerStats}
-            handleUndo={() => console.log('Undo action triggered from MainTabContent')}
-            handleSave={() => console.log('Save action triggered from MainTabContent')}
-            timeSegments={timeSegments}
-            recordEvent={(eventType: EventType, playerId: string | number, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
-              if (!matchId || !user?.id) {
-                toast.error("Error: Missing match or user information.");
-                return;
-              }
-              const actualTeamId = teamIdStr;
-              const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
-                match_id: matchId,
-                team_id: actualTeamId,
-                player_id: Number(playerId),
-                type: eventType,
-                timestamp: Date.now(),
-                coordinates: coordinates || { x: 0, y: 0 },
-              };
-              sendCollaborationEvent(eventData);
-              toast.success(`Event ${eventType} recorded for player ${playerId}.`);
-            }}
-            events={eventsFromHook || []}
+            homeTeam={homeTeamHeaderDataFromHook}
+            awayTeam={awayTeamHeaderDataFromHook}
           />
         )}
 

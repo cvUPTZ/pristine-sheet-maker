@@ -10,6 +10,7 @@ import Admin from './pages/Admin';
 import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
 import CreateMatch from './pages/CreateMatch';
+import MatchAnalysis from './pages/MatchAnalysis';
 import MatchAnalysisV2 from './pages/MatchAnalysisV2';
 import TrackerInterface from './pages/TrackerInterface';
 import { Toaster } from "@/components/ui/toaster";
@@ -49,6 +50,11 @@ function App() {
               <Route path="/edit-match/:matchId" element={
                 <RequireAuth requiredRoles={['admin']}>
                   <EditMatch />
+                </RequireAuth>
+              } />
+              <Route path="/match/:matchId" element={
+                <RequireAuth>
+                  <MatchAnalysis />
                 </RequireAuth>
               } />
               <Route path="/match-analysis-v2/:matchId" element={

@@ -147,7 +147,6 @@ const MatchStatsVisualizer: React.FC<MatchStatsVisualizerProps> = ({
                   <PlayerStatsTable
                     homeTeam={homeTeam}
                     awayTeam={awayTeam}
-                    events={events}
                   />
                 </div>
               </div>

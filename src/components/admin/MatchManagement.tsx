@@ -3,16 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { Match, Player } from '@/types';
+import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2, Edit, Eye, Plus } from 'lucide-react';
+import { Match } from '@/types';
 
 const MatchManagement: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchMatches();
@@ -22,43 +23,42 @@ const MatchManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('matches')
-        .select(`
-          id,
-          name,
-          status,
-          match_date,
-          home_team_name,
-          away_team_name,
-          home_team_formation,
-          away_team_formation,
-          home_team_score,
-          away_team_score,
-          location,
-          competition,
-          home_team_players,
-          away_team_players,
-          created_at,
-          updated_at
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const typedMatches: Match[] = (data || []).map(match => ({
-        ...match,
+      // Transform the data to match our Match interface
+      const transformedMatches: Match[] = (data || []).map(match => ({
+        id: match.id,
         name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
-        created_at: match.created_at || new Date().toISOString(),
-        venue: match.location || undefined,
-        home_team_formation: match.home_team_formation || undefined,
-        away_team_formation: match.away_team_formation || undefined,
-        match_date: match.match_date || undefined,
-        location: match.location || undefined,
-        home_team_players: parsePlayerData(match.home_team_players),
-        away_team_players: parsePlayerData(match.away_team_players)
+        status: match.status,
+        home_team_name: match.home_team_name,
+        away_team_name: match.away_team_name,
+        home_team_formation: match.home_team_formation,
+        away_team_formation: match.away_team_formation,
+        match_date: match.match_date,
+        location: match.location,
+        created_at: match.created_at,
+        updated_at: match.updated_at || undefined,
+        created_by: match.created_by,
+        description: match.description,
+        match_type: match.match_type,
+        timer_status: match.timer_status,
+        timer_current_value: match.timer_current_value,
+        timer_last_started_at: match.timer_last_started_at,
+        home_team_score: match.home_team_score,
+        away_team_score: match.away_team_score,
+        competition: match.competition,
+        notes: match.notes,
+        home_team_players: match.home_team_players,
+        away_team_players: match.away_team_players,
+        match_statistics: match.match_statistics,
+        ball_tracking_data: match.ball_tracking_data
       }));
 
-      setMatches(typedMatches);
-    } catch (error) {
+      setMatches(transformedMatches);
+    } catch (error: any) {
       console.error('Error fetching matches:', error);
       toast.error('Failed to fetch matches');
     } finally {
@@ -66,19 +66,10 @@ const MatchManagement: React.FC = () => {
     }
   };
 
-  const parsePlayerData = (data: any): Player[] => {
-    if (typeof data === 'string') {
-      try {
-        return JSON.parse(data);
-      } catch {
-        return [];
-      }
+  const deleteMatch = async (matchId: string) => {
+    if (!confirm('Are you sure you want to delete this match?')) {
+      return;
     }
-    return Array.isArray(data) ? data : [];
-  };
-
-  const handleDeleteMatch = async (matchId: string) => {
-    if (!confirm('Are you sure you want to delete this match?')) return;
 
     try {
       const { error } = await supabase
@@ -88,152 +79,122 @@ const MatchManagement: React.FC = () => {
 
       if (error) throw error;
 
-      setMatches(prev => prev.filter(match => match.id !== matchId));
+      setMatches(matches.filter(match => match.id !== matchId));
       toast.success('Match deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting match:', error);
       toast.error('Failed to delete match');
     }
   };
 
-  const handleEditMatch = (matchId: string) => {
-    navigate(`/edit-match/${matchId}`);
-  };
+  const filteredMatches = matches.filter(match =>
+    match.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    match.home_team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    match.away_team_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'live':
-        return 'destructive';
-      case 'completed':
-        return 'secondary';
-      case 'scheduled':
-        return 'default';
-      default:
-        return 'outline';
-    }
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      'live': 'default',
+      'completed': 'secondary',
+      'scheduled': 'outline',
+      'draft': 'destructive'
+    };
+    return <Badge variant={variants[status] || 'outline'}>{status.toUpperCase()}</Badge>;
   };
 
   if (loading) {
-    return <div className="p-4">Loading matches...</div>;
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center p-6">
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground">Loading matches...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Match Management</h2>
-        <Button 
-          onClick={() => navigate('/create-match')}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create New Match
-        </Button>
-      </div>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Match Management</CardTitle>
+          <Link to="/create-match">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Match
+            </Button>
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search matches..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
 
-      <div className="grid gap-4">
-        {matches.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-gray-500">No matches found</p>
-              <Button 
-                onClick={() => navigate('/create-match')}
-                className="mt-4"
+          <div className="space-y-2">
+            {filteredMatches.map((match) => (
+              <div
+                key={match.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
               >
-                Create your first match
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          matches.map((match) => (
-            <Card key={match.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {match.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={getStatusBadgeVariant(match.status)}>
-                        {match.status}
-                      </Badge>
-                      {match.match_date && (
-                        <span className="text-sm text-gray-500">
-                          {new Date(match.match_date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium">{match.name}</h3>
+                    {getStatusBadge(match.status)}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/match-analysis-v2/${match.id}`)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditMatch(match.id)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteMatch(match.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="text-sm text-muted-foreground">
+                    {match.home_team_name} vs {match.away_team_name}
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Home:</span>
-                    <br />
-                    {match.home_team_name}
-                    {match.home_team_formation && (
-                      <span className="text-gray-500"> ({match.home_team_formation})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium">Away:</span>
-                    <br />
-                    {match.away_team_name}
-                    {match.away_team_formation && (
-                      <span className="text-gray-500"> ({match.away_team_formation})</span>
-                    )}
-                  </div>
-                  {match.location && (
-                    <div>
-                      <span className="font-medium">Location:</span>
-                      <br />
-                      {match.location}
-                    </div>
-                  )}
-                  {match.competition && (
-                    <div>
-                      <span className="font-medium">Competition:</span>
-                      <br />
-                      {match.competition}
+                  {match.match_date && (
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(match.match_date).toLocaleDateString()}
                     </div>
                   )}
                 </div>
-                {(match.home_team_score !== null || match.away_team_score !== null) && (
-                  <div className="mt-4 text-center">
-                    <span className="text-lg font-bold">
-                      {match.home_team_score || 0} - {match.away_team_score || 0}
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-    </div>
+                <div className="flex items-center space-x-2">
+                  <Link to={`/match/${match.id}`}>
+                    <Button variant="outline" size="sm">
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                  </Link>
+                  <Link to={`/edit-match/${match.id}`}>
+                    <Button variant="outline" size="sm">
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteMatch(match.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            {filteredMatches.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? 'No matches found matching your search.' : 'No matches created yet.'}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
