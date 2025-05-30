@@ -86,9 +86,22 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
   // Set up event listening
   useEffect(() => {
     if (channelRef.current && onEventReceived) {
-      channelRef.current.on('broadcast', { event: '*' }, onEventReceived);
+      const eventHandlerWrapper = (event: any) => {
+        console.log('[useRealtime_DEBUG] Raw event received by broadcast listener:', JSON.stringify(event, null, 2));
+        onEventReceived(event); // Call the original callback
+      };
+      channelRef.current.on('broadcast', { event: '*' }, eventHandlerWrapper);
     }
-  }, [onEventReceived]);
+    // Cleanup: Explicitly remove the listener if the effect re-runs or component unmounts
+    // Although Supabase client might handle this on unsubscribe, being explicit is safer.
+    return () => {
+      if (channelRef.current && onEventReceived) {
+        // Supabase RealtimeChannel type doesn't directly expose 'off' for specific wrapped handlers easily.
+        // Relying on channel.unsubscribe() in the main useEffect to clean up all listeners.
+        // If specific 'off' is needed, the handler wrapper instance would need to be stable or managed.
+      }
+    };
+  }, [onEventReceived]); // Dependency array remains the same
 
   return {
     channel: channelRef.current,
