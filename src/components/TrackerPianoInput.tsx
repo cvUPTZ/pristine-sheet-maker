@@ -163,20 +163,28 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       return;
     }
 
-    // If toggle behavior is enabled and this event type is already selected, deselect it
-    if (toggleBehaviorEnabled && selectedEventType === eventType.key) {
-      setSelectedEventType(null);
-      return;
-    }
-
-    // If toggle behavior is enabled, set as selected but don't record yet
     if (toggleBehaviorEnabled) {
-      setSelectedEventType(eventType.key);
-      return;
+      if (selectedEventType === null) {
+        // First click in two-click mode: select the event type
+        setSelectedEventType(eventType.key);
+      } else {
+        // Second click in two-click mode
+        if (selectedEventType === eventType.key) {
+          // Clicked the same event type again: record it and reset selection
+          recordEvent(eventType);
+          setSelectedEventType(null);
+        } else {
+          // Clicked a different event type: record the previously selected event, then select the new one
+          const previousEventKey = selectedEventType;
+          const previousEventTypeObj = assignedEventTypes.find(et => et.key === previousEventKey) || { key: previousEventKey, label: EVENT_TYPE_LABELS[previousEventKey as keyof typeof EVENT_TYPE_LABELS] || previousEventKey };
+          recordEvent(previousEventTypeObj);
+          setSelectedEventType(eventType.key);
+        }
+      }
+    } else {
+      // One-click mode: record immediately
+      recordEvent(eventType);
     }
-
-    // Record the event immediately (single-click behavior)
-    recordEvent(eventType);
   };
 
   const recordEvent = (eventType: EventType) => {
