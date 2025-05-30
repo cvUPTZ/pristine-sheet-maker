@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,7 @@ const MatchManagement: React.FC = () => {
         venue: match.location || undefined,
         home_team_formation: match.home_team_formation || undefined,
         away_team_formation: match.away_team_formation || undefined,
+        match_date: match.match_date || undefined,
         home_team_players: parsePlayerData(match.home_team_players),
         away_team_players: parsePlayerData(match.away_team_players)
       }));
@@ -91,6 +93,10 @@ const MatchManagement: React.FC = () => {
       console.error('Error deleting match:', error);
       toast.error('Failed to delete match');
     }
+  };
+
+  const handleEditMatch = (matchId: string) => {
+    navigate(`/edit-match/${matchId}`);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -167,7 +173,7 @@ const MatchManagement: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/match/${match.id}/edit`)}
+                      onClick={() => handleEditMatch(match.id)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>

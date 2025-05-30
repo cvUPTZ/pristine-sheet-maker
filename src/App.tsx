@@ -1,141 +1,75 @@
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import RequireAuth from './components/RequireAuth';
+import Header from './components/Header';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Admin from './pages/Admin';
+import Matches from './pages/Matches';
+import MatchDetails from './pages/MatchDetails';
+import CreateMatch from './pages/CreateMatch';
+import MatchAnalysisV2 from './pages/MatchAnalysisV2';
+import Tracker from './pages/Tracker';
+import { Toaster } from "@/components/ui/toaster"
+import EditMatch from '@/pages/EditMatch';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import { RequireAuth } from "./components/RequireAuth";
-import Dashboard from "./pages/Dashboard";
-import MatchAnalysisV2 from "./pages/MatchAnalysisV2";
-import Matches from "./pages/Matches";
-import Statistics from "./pages/Statistics";
-import Auth from "./pages/Auth";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin";
-import CreateMatch from "./pages/CreateMatch";
-import ProfileListPage from './pages/Admin/ProfileListPage';
-import TrackerInterface from "./pages/TrackerInterface";
-import Header from "./components/Header";
-import { useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { ToastAction } from "@/components/ui/toast";
-
-const queryClient = new QueryClient();
-
-interface MatchPayload {
-  id: string;
-  name?: string | null;
-  home_team_name?: string | null;
-  away_team_name?: string | null;
-  status?: string | null;
-  [key: string]: any;
-}
-
-const AppContent = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (user && user.app_metadata?.role === 'tracker') {
-      const channel = supabase
-        .channel('match-live-notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'matches',
-          },
-          (payload) => {
-            const oldMatch = payload.old as MatchPayload | null;
-            const newMatch = payload.new as MatchPayload;
-
-            if (newMatch?.status === 'live' && oldMatch?.status !== 'live') {
-              const matchId = newMatch.id;
-              const matchName = newMatch.name || `${newMatch.home_team_name || 'Home'} vs ${newMatch.away_team_name || 'Away'}`;
-
-              if (location.pathname === `/match/${matchId}`) {
-                return;
-              }
-
-              toast({
-                title: 'Match Live!',
-                description: `Match "${matchName}" has started.`,
-                action: (
-                  <ToastAction altText="Go to Match" onClick={() => navigate(`/match/${matchId}`)}>
-                    Go to Match
-                  </ToastAction>
-                ),
-                duration: 10000,
-              });
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            // console.log('Subscribed to match live notifications for tracker.'); // Removed
-          }
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('Match live notification channel error:', status, err);
-          }
-        });
-
-      return () => {
-        supabase.removeChannel(channel).then(status => {
-          // console.log('Unsubscribed from match live notifications. Status:', status); // Removed
-        });
-      };
-    }
-  }, [user, toast, navigate, location]);
-
+function App() {
   return (
-    <>
-      <Header />
-      <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
-        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
-        <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><MatchAnalysisV2 /></RequireAuth>} />
-        <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
-        <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
-        <Route path="/matches" element={<RequireAuth requiredRoles={['admin']}><Matches /></RequireAuth>} />
-        <Route path="/statistics" element={<RequireAuth requiredRoles={['admin']}><Statistics /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
-        <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
-        <Route 
-          path="/admin/profiles" 
-          element={
-            <RequireAuth requiredRoles={['admin']}>
-              <ProfileListPage />
-            </RequireAuth>
-          } 
-        />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
-  );
-};
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <Router>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
+        <div className="min-h-screen bg-background font-sans antialiased">
+          <Toaster />
+          <Header />
+          <main>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/profile" element={
+                <RequireAuth>
+                  <Profile />
+                </RequireAuth>
+              } />
+              <Route path="/admin" element={
+                <RequireAuth roles={['admin']}>
+                  <Admin />
+                </RequireAuth>
+              } />
+              <Route path="/matches" element={
+                <RequireAuth>
+                  <Matches />
+                </RequireAuth>
+              } />
+              <Route path="/match/:matchId" element={
+                <RequireAuth>
+                  <MatchDetails />
+                </RequireAuth>
+              } />
+              <Route path="/create-match" element={
+                <RequireAuth>
+                  <CreateMatch />
+                </RequireAuth>
+              } />
+              <Route path="/edit-match/:matchId" element={
+                <RequireAuth>
+                  <EditMatch />
+                </RequireAuth>
+              } />
+              <Route path="/match-analysis-v2/:matchId" element={
+                <RequireAuth>
+                  <MatchAnalysisV2 />
+                </RequireAuth>
+              } />
+              <Route path="/tracker/:matchId" element={<Tracker />} />
+            </Routes>
+          </main>
+        </div>
       </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </Router>
+  );
+}
 
 export default App;

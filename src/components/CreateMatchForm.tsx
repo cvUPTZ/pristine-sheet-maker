@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Plus, Trash2, ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
 
 interface CreateMatchFormProps {
-  onMatchCreated: (match: any) => void;
+  onMatchCreated?: (match: any) => void;
+  onMatchUpdated?: (match: any) => void;
+  matchId?: string;
+  isEditMode?: boolean;
 }
 
 interface TrackerUser {
@@ -116,8 +118,14 @@ const EVENT_TYPE_CATEGORIES = [
 
 const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2', '3-4-3'];
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => {
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ 
+  onMatchCreated, 
+  onMatchUpdated, 
+  matchId, 
+  isEditMode = false 
+}) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
@@ -136,12 +144,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     location: '',
     competition: '',
     matchType: 'regular',
+    status: 'draft',
     notes: ''
   });
 
   useEffect(() => {
     fetchTrackers();
-  }, []);
+    if (isEditMode && matchId) {
+      fetchMatchData();
+    }
+  }, [isEditMode, matchId]);
 
   // Generate players based on formation
   useEffect(() => {
@@ -207,6 +219,83 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     }
   };
 
+  const fetchMatchData = async () => {
+    if (!matchId) return;
+    
+    try {
+      setLoading(true);
+      const { data: match, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', matchId)
+        .single();
+
+      if (error) throw error;
+
+      // Parse player data
+      const homePlayersData = typeof match.home_team_players === 'string' 
+        ? JSON.parse(match.home_team_players) 
+        : match.home_team_players || [];
+      const awayPlayersData = typeof match.away_team_players === 'string' 
+        ? JSON.parse(match.away_team_players) 
+        : match.away_team_players || [];
+
+      setFormData({
+        name: match.name || '',
+        description: match.description || '',
+        homeTeamName: match.home_team_name || '',
+        awayTeamName: match.away_team_name || '',
+        homeTeamFormation: match.home_team_formation || '4-4-2',
+        awayTeamFormation: match.away_team_formation || '4-4-2',
+        matchDate: match.match_date || '',
+        location: match.location || '',
+        competition: match.competition || '',
+        matchType: match.match_type || 'regular',
+        status: match.status || 'draft',
+        notes: match.notes || ''
+      });
+
+      setHomeTeamPlayers(homePlayersData);
+      setAwayTeamPlayers(awayPlayersData);
+
+      // Fetch existing tracker assignments
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('match_tracker_assignments')
+        .select('*')
+        .eq('match_id', matchId);
+
+      if (!assignmentsError && assignments) {
+        // Group assignments by tracker
+        const groupedAssignments: { [key: string]: TrackerAssignment } = {};
+        
+        assignments.forEach(assignment => {
+          const trackerId = assignment.tracker_user_id;
+          if (!groupedAssignments[trackerId]) {
+            groupedAssignments[trackerId] = {
+              tracker_user_id: trackerId,
+              assigned_event_types: assignment.assigned_event_types || [],
+              player_ids: []
+            };
+          }
+          if (assignment.player_id) {
+            groupedAssignments[trackerId].player_ids.push(assignment.player_id);
+          }
+        });
+
+        setTrackerAssignments(Object.values(groupedAssignments));
+      }
+    } catch (error: any) {
+      console.error('Error fetching match data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load match data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -244,17 +333,57 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         location: formData.location,
         competition: formData.competition,
         match_type: formData.matchType,
-        notes: formData.notes,
-        status: 'draft'
+        status: formData.status,
+        notes: formData.notes
       };
 
-      const { data: match, error: matchError } = await supabase
-        .from('matches')
-        .insert(matchData)
-        .select()
-        .single();
+      let match;
+      if (isEditMode && matchId) {
+        // Update existing match
+        const { data, error } = await supabase
+          .from('matches')
+          .update(matchData)
+          .eq('id', matchId)
+          .select()
+          .single();
 
-      if (matchError) throw matchError;
+        if (error) throw error;
+        match = data;
+
+        // Delete existing tracker assignments
+        await supabase
+          .from('match_tracker_assignments')
+          .delete()
+          .eq('match_id', matchId);
+
+        toast({
+          title: "Success",
+          description: "Match updated successfully!",
+        });
+
+        if (onMatchUpdated) {
+          onMatchUpdated(match);
+        }
+      } else {
+        // Create new match
+        const { data, error } = await supabase
+          .from('matches')
+          .insert(matchData)
+          .select()
+          .single();
+
+        if (error) throw error;
+        match = data;
+
+        toast({
+          title: "Success",
+          description: "Match created successfully!",
+        });
+
+        if (onMatchCreated) {
+          onMatchCreated(match);
+        }
+      }
 
       // Create tracker assignments if any
       if (trackerAssignments.length > 0) {
@@ -274,33 +403,31 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
         if (assignmentError) throw assignmentError;
 
-        // Send notifications to assigned trackers
-        const { error: notificationError } = await supabase
-          .rpc('notify_assigned_trackers', {
-            p_match_id: match.id,
-            p_tracker_assignments: trackerAssignments.map(assignment => ({
-              tracker_user_id: assignment.tracker_user_id,
-              assigned_event_types: assignment.assigned_event_types,
-              player_ids: assignment.player_ids
-            }))
-          });
+        // Send notifications to assigned trackers (only for new matches)
+        if (!isEditMode) {
+          const { error: notificationError } = await supabase
+            .rpc('notify_assigned_trackers', {
+              p_match_id: match.id,
+              p_tracker_assignments: trackerAssignments.map(assignment => ({
+                tracker_user_id: assignment.tracker_user_id,
+                assigned_event_types: assignment.assigned_event_types,
+                player_ids: assignment.player_ids
+              }))
+            });
 
-        if (notificationError) {
-          console.error('Error sending notifications:', notificationError);
+          if (notificationError) {
+            console.error('Error sending notifications:', notificationError);
+          }
         }
       }
 
-      toast({
-        title: "Success",
-        description: "Match created successfully!",
-      });
-
-      onMatchCreated(match);
+      // Navigate back to admin page
+      navigate('/admin');
     } catch (error: any) {
-      console.error('Error creating match:', error);
+      console.error('Error saving match:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create match",
+        description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} match`,
         variant: "destructive",
       });
     } finally {
@@ -380,11 +507,25 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     return 'some';
   };
 
+  if (loading && isEditMode) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg">Loading match data...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Create New Match</h1>
-        <p className="text-gray-600">Set up teams, players, and assign trackers</p>
+        <h1 className="text-3xl font-bold">
+          {isEditMode ? 'Edit Match' : 'Create New Match'}
+        </h1>
+        <p className="text-gray-600">
+          {isEditMode ? 'Update match details and assignments' : 'Set up teams, players, and assign trackers'}
+        </p>
       </div>
       
       <form onSubmit={handleSubmit}>
@@ -435,7 +576,44 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="live">Live</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="matchType">Match Type</Label>
+                    <Select 
+                      value={formData.matchType} 
+                      onValueChange={(value) => setFormData({ ...formData, matchType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select match type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular</SelectItem>
+                        <SelectItem value="friendly">Friendly</SelectItem>
+                        <SelectItem value="tournament">Tournament</SelectItem>
+                        <SelectItem value="league">League</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div>
                     <Label htmlFor="matchDate">Match Date</Label>
                     <Input
@@ -445,7 +623,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                       onChange={(e) => setFormData({ ...formData, matchDate: e.target.value })}
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="location">Location</Label>
                     <Input
@@ -453,6 +633,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       placeholder="Enter location"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="competition">Competition</Label>
+                    <Input
+                      id="competition"
+                      value={formData.competition}
+                      onChange={(e) => setFormData({ ...formData, competition: e.target.value })}
+                      placeholder="Enter competition"
                     />
                   </div>
                 </div>
@@ -464,6 +654,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Enter match description"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Additional notes"
                   />
                 </div>
               </CardContent>
@@ -737,8 +937,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
           </TabsContent>
 
           <div className="flex justify-end space-x-2 mt-6">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => navigate('/admin')}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Match'}
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
             </Button>
           </div>
         </Tabs>
