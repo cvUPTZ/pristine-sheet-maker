@@ -90,9 +90,10 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: str
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
+  // Pass null for userId if user.id is not yet available.
   const { pushEvent } = useRealtime({
     channelName: 'tracker-admin-sync',
-    userId: user?.id || 'anonymous_tracker',
+    userId: user?.id || null,
     onEventReceived: () => {}, // Not used for sending, but required by hook
   });
   const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[]>([]);
@@ -129,15 +130,23 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     setUnsavedEventCount(0);
   };
 
+  // useEffect for fetching assignments - separated from status updates
   useEffect(() => {
-    if (!user?.id || !matchId) return;
+    // Guard: Do not fetch if essential IDs are missing. Also reset state.
+    if (!user?.id || !matchId) {
+      setLoading(false);
+      setError(null);
+      setAssignedEventTypes([]);
+      setAssignedPlayers([]);
+      return;
+    }
 
     const fetchAssignments = async () => {
       try {
         setLoading(true);
-        setError(null);
+        setError(null); // Clear previous errors before new fetch attempt
 
-        console.log('=== TRACKER DEBUG: Starting fetchAssignments ===');
+        console.log('=== TRACKER DEBUG: Starting fetchAssignments (User/Match specific) ===');
         console.log('User ID:', user.id);
         console.log('Match ID:', matchId);
 
@@ -320,30 +329,38 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     };
 
     fetchAssignments();
+    // Note: No cleanup function needed here as this effect is purely for data based on user/match.
+  }, [user?.id, matchId]); // Dependencies are only user.id and matchId
 
-    // Realtime: tracker_status active
-    if (user?.id && matchId && pushEvent) {
-      pushEvent({
-        type: 'broadcast',
-        event: 'tracker_event',
-        payload: {
-          trackerId: user.id,
-          matchId: matchId,
-          timestamp: Date.now(),
-          eventType: 'tracker_status',
-          payload: { status: 'active' },
-        } as TrackerSyncEvent,
-      });
+  // useEffect for tracker status (active/inactive) - depends on pushEvent
+  useEffect(() => {
+    if (!user?.id || !matchId || !pushEvent) {
+      return; // Do nothing if critical info or pushEvent is missing
     }
 
+    // Send 'active' status when component mounts or dependencies change
+    pushEvent({
+      type: 'broadcast',
+      event: 'tracker_event',
+      payload: {
+        trackerId: user.id,
+        matchId: matchId,
+        timestamp: Date.now(),
+        eventType: 'tracker_status',
+        payload: { status: 'active' },
+      } as TrackerSyncEvent,
+    });
+
+    // Send 'inactive' status when component unmounts or dependencies change before next effect run
     return () => {
-      // Realtime: tracker_status inactive
+      // Re-check critical values in cleanup as component might be unmounting due to logout, etc.
+      // or pushEvent might become null if useRealtime re-initializes.
       if (user?.id && matchId && pushEvent) {
         pushEvent({
           type: 'broadcast',
           event: 'tracker_event',
           payload: {
-            trackerId: user.id, // user.id might be stale in cleanup if not handled carefully, but useRealtime should ideally use a stable ID or handle this.
+            trackerId: user.id,
             matchId: matchId,
             timestamp: Date.now(),
             eventType: 'tracker_status',
@@ -352,7 +369,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         });
       }
     };
-  }, [user?.id, matchId, pushEvent]);
+  }, [user?.id, matchId, pushEvent]); // This effect explicitly depends on pushEvent
 
   const handleEventRecord = (eventType: EventType) => {
     if (!selectedPlayer) {
