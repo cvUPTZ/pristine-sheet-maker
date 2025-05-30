@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Team, MatchEvent, EventType } from '@/types';
+import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicator';
 
 interface MainTabContentV2Props {
   matchId: string;
@@ -38,6 +39,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         id: event.id,
         match_id: event.match_id,
         type: event.event_type as EventType,
+        event_type: event.event_type,
         timestamp: event.timestamp || 0,
         team: event.team as 'home' | 'away',
         coordinates: event.coordinates ? event.coordinates as { x: number; y: number } : { x: 0, y: 0 },
@@ -74,6 +76,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
   return (
     <div className="space-y-6">
+      {/* Tracker Presence Indicator */}
+      <TrackerPresenceIndicator matchId={matchId} />
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

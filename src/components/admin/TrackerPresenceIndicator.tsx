@@ -1,0 +1,309 @@
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRealtime } from '@/hooks/useRealtime';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+
+interface TrackerUser {
+  user_id: string;
+  email?: string;
+  full_name?: string;
+  online_at: string;
+  last_event_type?: string;
+  last_event_time?: number;
+  assigned_event_types?: string[];
+}
+
+interface TrackerPresenceIndicatorProps {
+  matchId: string;
+}
+
+const EVENT_COLORS = {
+  'pass': 'from-blue-500 to-blue-600',
+  'shot': 'from-red-500 to-red-600',
+  'goal': 'from-green-500 to-green-600',
+  'foul': 'from-yellow-500 to-yellow-600',
+  'save': 'from-purple-500 to-purple-600',
+  'offside': 'from-orange-500 to-orange-600',
+  'corner': 'from-teal-500 to-teal-600',
+  'sub': 'from-indigo-500 to-indigo-600',
+  'default': 'from-gray-500 to-gray-600'
+};
+
+const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ matchId }) => {
+  const { user } = useAuth();
+  const [trackers, setTrackers] = useState<TrackerUser[]>([]);
+  const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
+
+  const { onlineUsers, isOnline } = useRealtime({
+    channelName: `match:${matchId}:trackers`,
+    userId: user?.id || 'admin',
+    onEventReceived: (event) => {
+      if (event.type === 'event_recorded' && event.payload) {
+        const { created_by, event_type } = event.payload;
+        if (created_by && event_type) {
+          setRecentEvents(prev => new Map(prev.set(created_by, {
+            type: event_type,
+            time: Date.now()
+          })));
+        }
+      }
+    }
+  });
+
+  useEffect(() => {
+    fetchAssignedTrackers();
+  }, [matchId]);
+
+  useEffect(() => {
+    // Clean up old events every 30 seconds
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setRecentEvents(prev => {
+        const updated = new Map(prev);
+        for (const [userId, eventData] of updated) {
+          if (now - eventData.time > 30000) { // Remove events older than 30 seconds
+            updated.delete(userId);
+          }
+        }
+        return updated;
+      });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchAssignedTrackers = async () => {
+    try {
+      const { data: assignments } = await supabase
+        .from('match_tracker_assignments_view')
+        .select('*')
+        .eq('match_id', matchId);
+
+      if (assignments) {
+        const trackerMap = new Map<string, TrackerUser>();
+        
+        assignments.forEach(assignment => {
+          const userId = assignment.tracker_user_id;
+          if (!trackerMap.has(userId)) {
+            trackerMap.set(userId, {
+              user_id: userId,
+              email: assignment.tracker_email,
+              online_at: '',
+              assigned_event_types: []
+            });
+          }
+        });
+
+        setTrackers(Array.from(trackerMap.values()));
+      }
+    } catch (error) {
+      console.error('Error fetching assigned trackers:', error);
+    }
+  };
+
+  const getTrackerStatus = (trackerId: string) => {
+    const isOnlineNow = onlineUsers.some(user => user.user_id === trackerId);
+    const recentEvent = recentEvents.get(trackerId);
+    
+    return {
+      isOnline: isOnlineNow,
+      lastEventType: recentEvent?.type,
+      lastEventTime: recentEvent?.time,
+      isActivelyTracking: recentEvent && (Date.now() - recentEvent.time < 30000)
+    };
+  };
+
+  const getStatusColor = (status: ReturnType<typeof getTrackerStatus>) => {
+    if (!status.isOnline) return 'from-gray-400 to-gray-500';
+    if (status.isActivelyTracking && status.lastEventType) {
+      return EVENT_COLORS[status.lastEventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.default;
+    }
+    return 'from-green-400 to-green-500';
+  };
+
+  const getStatusText = (status: ReturnType<typeof getTrackerStatus>) => {
+    if (!status.isOnline) return 'Offline';
+    if (status.isActivelyTracking && status.lastEventType) {
+      return `Tracking ${status.lastEventType}`;
+    }
+    return 'Online';
+  };
+
+  return (
+    <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <motion.div
+            animate={{ rotate: isOnline ? 360 : 0 }}
+            transition={{ duration: 2, repeat: isOnline ? Infinity : 0, ease: "linear" }}
+            className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+          />
+          Tracker Status ({trackers.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <AnimatePresence>
+          {trackers.map((tracker, index) => {
+            const status = getTrackerStatus(tracker.user_id);
+            const statusColor = getStatusColor(status);
+            
+            return (
+              <motion.div
+                key={tracker.user_id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="relative"
+              >
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-md border border-slate-200 hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-center gap-3">
+                    {/* Status Indicator */}
+                    <motion.div
+                      className={`relative w-12 h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center`}
+                      animate={status.isActivelyTracking ? {
+                        scale: [1, 1.1, 1],
+                        boxShadow: [
+                          '0 0 0 0 rgba(59, 130, 246, 0.7)',
+                          '0 0 0 10px rgba(59, 130, 246, 0)',
+                          '0 0 0 0 rgba(59, 130, 246, 0)'
+                        ]
+                      } : {}}
+                      transition={{ duration: 1.5, repeat: status.isActivelyTracking ? Infinity : 0 }}
+                    >
+                      {status.isActivelyTracking && status.lastEventType ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        >
+                          <EnhancedEventTypeIcon 
+                            eventKey={status.lastEventType} 
+                            size={24} 
+                            isSelected={true}
+                            className="text-white"
+                          />
+                        </motion.div>
+                      ) : (
+                        <div className={`w-3 h-3 rounded-full ${status.isOnline ? 'bg-white' : 'bg-gray-300'}`} />
+                      )}
+                    </motion.div>
+
+                    {/* Tracker Info */}
+                    <div>
+                      <div className="font-medium text-slate-800">
+                        {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={status.isOnline ? "default" : "secondary"}
+                          className={`text-xs ${status.isOnline ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
+                        >
+                          {getStatusText(status)}
+                        </Badge>
+                        {status.lastEventTime && (
+                          <span className="text-xs text-slate-500">
+                            {Math.floor((Date.now() - status.lastEventTime) / 1000)}s ago
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Activity Indicator */}
+                  <AnimatePresence>
+                    {status.isActivelyTracking && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        className="flex items-center gap-1"
+                      >
+                        {[...Array(3)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className={`w-2 h-2 rounded-full bg-gradient-to-r ${statusColor}`}
+                            animate={{ 
+                              scale: [0.5, 1, 0.5],
+                              opacity: [0.3, 1, 0.3]
+                            }}
+                            transition={{ 
+                              duration: 1.5, 
+                              repeat: Infinity, 
+                              delay: i * 0.2 
+                            }}
+                          />
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Pulse Effect for Active Tracking */}
+                {status.isActivelyTracking && (
+                  <motion.div
+                    className={`absolute inset-0 rounded-xl bg-gradient-to-r ${statusColor} opacity-20`}
+                    animate={{
+                      scale: [1, 1.05, 1],
+                      opacity: [0.2, 0.1, 0.2]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        {trackers.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-8 text-slate-500"
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-200 flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
+            </div>
+            <p className="font-medium">No trackers assigned</p>
+            <p className="text-sm">Assign trackers to see their activity</p>
+          </motion.div>
+        )}
+
+        {/* Summary Stats */}
+        <motion.div 
+          className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-200"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <div className="text-center">
+            <div className="text-lg font-bold text-slate-800">
+              {onlineUsers.length}
+            </div>
+            <div className="text-xs text-slate-500">Online</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-green-600">
+              {Array.from(recentEvents.values()).filter(event => Date.now() - event.time < 30000).length}
+            </div>
+            <div className="text-xs text-slate-500">Active</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-slate-800">
+              {trackers.length}
+            </div>
+            <div className="text-xs text-slate-500">Total</div>
+          </div>
+        </motion.div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default TrackerPresenceIndicator;
