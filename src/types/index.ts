@@ -1,5 +1,5 @@
 
-export type EventType = 'pass' | 'shot' | 'foul' | 'goal' | 'save' | 'offside' | 'corner' | 'sub' | 'yellowCard' | 'redCard' | 'tackle' | 'interception' | 'cross' | 'clearance' | 'card' | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'assist' | 'substitution' | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'block' | 'ownGoal' | 'freeKick' | 'throwIn' | 'goalKick' | 'aerialDuel' | 'groundDuel';
+export type EventType = 'pass' | 'shot' | 'foul' | 'goal' | 'save' | 'offside' | 'corner' | 'substitution' | 'yellowCard' | 'redCard' | 'tackle' | 'interception' | 'cross' | 'clearance' | 'card' | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'assist' | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'block' | 'ownGoal' | 'freeKick' | 'throwIn' | 'goalKick' | 'aerialDuel' | 'groundDuel' | 'sub';
 
 export type Formation = string;
 
@@ -9,6 +9,8 @@ export interface FlowPlayerNode {
   x: number;
   y: number;
   passes: number;
+  fx?: number;
+  fy?: number;
 }
 
 export interface Player {
@@ -41,16 +43,20 @@ export interface ShotStatistics {
   onTarget: number;
   offTarget: number;
   total?: number;
+  won?: number;
 }
 
 export interface PassStatistics {
   successful: number;
   attempted: number;
+  total?: number;
 }
 
 export interface DuelStatistics {
   home: number;
   away: number;
+  won?: number;
+  total?: number;
 }
 
 export interface CrossStatistics {
@@ -83,8 +89,8 @@ export interface MatchEvent {
   match_id: string;
   teamId?: 'home' | 'away';
   team?: 'home' | 'away';
-  playerId?: number;
-  player_id?: number;
+  playerId?: number | undefined;
+  player_id?: number | undefined;
   player?: Player;
   type: EventType;
   event_type?: string;
@@ -99,7 +105,7 @@ export interface MatchEvent {
 
 export interface Match {
   id: string;
-  name?: string;
+  name?: string | undefined;
   status: string;
   match_date: string | null;
   matchDate?: string;
@@ -114,7 +120,7 @@ export interface Match {
   home_team_score?: number | null;
   away_team_score?: number | null;
   location?: string | null | undefined;
-  venue?: string;
+  venue?: string | null | undefined;
   competition?: string | null;
   notes?: string | null;
   created_at?: string | null;
@@ -140,3 +146,7 @@ export interface PlayerStatsTableProps {
 }
 
 export type UserRoleType = 'admin' | 'tracker' | 'user' | 'viewer';
+
+export interface SavedMatch extends Match {
+  // Additional properties for saved matches if needed
+}

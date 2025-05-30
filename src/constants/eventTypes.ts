@@ -7,7 +7,7 @@ export const EVENT_TYPES = [
   'penalty', 'free-kick', 'goal-kick', 'throw-in', 'interception',
   'possession', 'ballLost', 'ballRecovered', 'dribble', 'cross',
   'clearance', 'block', 'save', 'ownGoal', 'freeKick', 'throwIn',
-  'goalKick', 'aerialDuel', 'groundDuel'
+  'goalKick', 'aerialDuel', 'groundDuel', 'sub'
 ] as const;
 
 export const EVENT_CATEGORIES = {
@@ -33,7 +33,7 @@ export const EVENT_CATEGORIES = {
   },
   'Match Events': {
     description: 'General match occurrences',
-    events: ['substitution', 'offside', 'aerialDuel', 'groundDuel']
+    events: ['substitution', 'offside', 'aerialDuel', 'groundDuel', 'sub']
   }
 } as const;
 
@@ -103,6 +103,7 @@ export const EVENT_TYPE_CATEGORIES = [
     color: '#6B7280',
     events: [
       { key: 'substitution', label: 'Substitution' },
+      { key: 'sub', label: 'Sub' },
       { key: 'offside', label: 'Offside' },
       { key: 'aerialDuel', label: 'Aerial Duel' },
       { key: 'groundDuel', label: 'Ground Duel' }
@@ -133,7 +134,8 @@ export const KEYBOARD_MAPPINGS: Record<string, EventType> = {
   'v': 'save',
   'w': 'ownGoal',
   'e': 'aerialDuel',
-  'q': 'groundDuel'
+  'q': 'groundDuel',
+  'm': 'sub'
 };
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -167,7 +169,8 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'throwIn': 'Throw In',
   'goalKick': 'Goal Kick',
   'aerialDuel': 'Aerial Duel',
-  'groundDuel': 'Ground Duel'
+  'groundDuel': 'Ground Duel',
+  'sub': 'Sub'
 };
 
 export type EventCategory = keyof typeof EVENT_CATEGORIES;

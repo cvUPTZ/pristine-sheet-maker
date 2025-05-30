@@ -53,7 +53,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<AssignedPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pressedButtons, setPressedButtons] = useState<Set<string>>(new Set());
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     if (!user?.id || !matchId) return;
@@ -155,7 +155,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       return;
     }
 
+    if (isRecording) {
+      return; // Prevent multiple simultaneous recordings
+    }
+
     try {
+      setIsRecording(true);
+      
       // Ensure player_id is properly converted to integer
       const playerId = parseInt(String(selectedPlayer.id), 10);
       
@@ -179,14 +185,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       };
 
       console.log('TrackerPianoInput - Inserting event data:', eventData);
-      console.log('TrackerPianoInput - Data types:', {
-        match_id: typeof eventData.match_id,
-        event_type: typeof eventData.event_type,
-        timestamp: typeof eventData.timestamp,
-        player_id: typeof eventData.player_id,
-        team: typeof eventData.team,
-        created_by: typeof eventData.created_by
-      });
 
       const { error } = await supabase
         .from('match_events')
@@ -194,13 +192,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       if (error) throw error;
 
-      // Keep the button pressed by adding it to pressedButtons set
-      setPressedButtons(prev => new Set([...prev, eventType.key]));
-
       toast.success(`${eventType.label} recorded for ${selectedPlayer.player_name}`);
     } catch (err: any) {
       console.error('Error recording event:', err);
       toast.error('Failed to record event');
+    } finally {
+      setIsRecording(false);
     }
   };
 
@@ -263,9 +260,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 <Button
                   key={eventType.key}
                   onClick={() => handleEventRecord(eventType)}
-                  disabled={!selectedPlayer}
+                  disabled={!selectedPlayer || isRecording}
                   variant="default"
-                  className="h-16 flex flex-col gap-1"
+                  className="h-16 flex flex-col gap-1 hover:bg-primary/90 active:bg-primary/80"
                 >
                   <span className="font-medium">{eventType.label}</span>
                   {selectedPlayer && (
