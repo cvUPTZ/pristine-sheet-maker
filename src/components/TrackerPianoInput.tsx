@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { EVENT_TYPE_LABELS } from '@/constants/eventTypes';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const LOCAL_STORAGE_KEY_MATCH_EVENTS = 'matchEventsQueue';
 
@@ -24,6 +26,65 @@ interface AssignedPlayer {
 interface TrackerPianoInputProps {
   matchId: string;
 }
+
+const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: string; text: string; shadow: string }> = {
+  'pass': { 
+    bg: 'bg-gradient-to-br from-blue-500 to-blue-600', 
+    hover: 'hover:from-blue-600 hover:to-blue-700', 
+    border: 'border-blue-400', 
+    text: 'text-blue-700',
+    shadow: 'shadow-blue-200'
+  },
+  'shot': { 
+    bg: 'bg-gradient-to-br from-red-500 to-red-600', 
+    hover: 'hover:from-red-600 hover:to-red-700', 
+    border: 'border-red-400', 
+    text: 'text-red-700',
+    shadow: 'shadow-red-200'
+  },
+  'goal': { 
+    bg: 'bg-gradient-to-br from-green-500 to-green-600', 
+    hover: 'hover:from-green-600 hover:to-green-700', 
+    border: 'border-green-400', 
+    text: 'text-green-700',
+    shadow: 'shadow-green-200'
+  },
+  'foul': { 
+    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600', 
+    hover: 'hover:from-yellow-600 hover:to-yellow-700', 
+    border: 'border-yellow-400', 
+    text: 'text-yellow-700',
+    shadow: 'shadow-yellow-200'
+  },
+  'save': { 
+    bg: 'bg-gradient-to-br from-purple-500 to-purple-600', 
+    hover: 'hover:from-purple-600 hover:to-purple-700', 
+    border: 'border-purple-400', 
+    text: 'text-purple-700',
+    shadow: 'shadow-purple-200'
+  },
+  'offside': { 
+    bg: 'bg-gradient-to-br from-orange-500 to-orange-600', 
+    hover: 'hover:from-orange-600 hover:to-orange-700', 
+    border: 'border-orange-400', 
+    text: 'text-orange-700',
+    shadow: 'shadow-orange-200'
+  },
+  'corner': { 
+    bg: 'bg-gradient-to-br from-teal-500 to-teal-600', 
+    hover: 'hover:from-teal-600 hover:to-teal-700', 
+    border: 'border-teal-400', 
+    text: 'text-teal-700',
+    shadow: 'shadow-teal-200'
+  },
+  'sub': { 
+    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', 
+    hover: 'hover:from-indigo-600 hover:to-indigo-700', 
+    border: 'border-indigo-400', 
+    text: 'text-indigo-700',
+    shadow: 'shadow-indigo-200'
+  },
+};
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
@@ -348,9 +409,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="w-full bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
         <CardContent className="p-6">
-          <div className="text-center">Loading your assignments...</div>
+          <div className="animate-pulse text-center">
+            <div className="bg-slate-300 rounded-full mx-auto mb-4 w-16 h-16"></div>
+            <p className="text-slate-600 font-medium text-lg">Loading your assignments...</p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -358,9 +422,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   if (error) {
     return (
-      <Card>
+      <Card className="w-full bg-gradient-to-br from-red-50 to-rose-50 shadow-xl border-red-200">
         <CardContent className="p-6">
-          <div className="text-center text-red-600">{error}</div>
+          <div className="text-center">
+            <div className="bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 w-16 h-16">
+              <svg className="text-red-600 w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-red-800 mb-3 text-xl">Assignment Error</h3>
+            <p className="text-red-600">{error}</p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -373,14 +445,38 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   console.log('Selected player:', selectedPlayer);
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <Card className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white shadow-2xl border-0 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-700/20 animate-pulse"></div>
+        <CardContent className="p-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center w-12 h-12 shadow-lg">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5z"/>
+                <path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2zM7 11h2v2H7zM11 11h2v2h-2zM15 11h2v2h-2zM7 15h2v2H7zM11 15h2v2h-2zM15 15h2v2h-2z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Tracker Piano Input</h2>
+              <p className="text-white/90 text-sm">Fast event recording for assigned players</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-xl border-slate-200 bg-gradient-to-br from-white to-slate-50">
         <CardHeader>
-          <CardTitle>Your Tracker Assignment</CardTitle>
+          <CardTitle className="text-xl">Your Tracker Assignment</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {/* Toggle Behavior Control */}
-          <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+          <motion.div 
+            className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -405,10 +501,15 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 {toggleBehaviorEnabled ? "Switch to One-Click" : "Switch to Two-Click"}
               </Button>
             </div>
-          </div>
+          </motion.div>
 
           {/* Assignment Summary */}
-          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+          <motion.div 
+            className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
             <div>
               <h4 className="font-medium text-sm text-gray-600 mb-1">Assigned Event Types</h4>
               <p className="text-lg font-semibold">{assignedEventTypes.length}</p>
@@ -423,62 +524,121 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 {assignedPlayers.map(p => `#${p.jersey_number} ${p.player_name}`).join(', ')}
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Player Selection */}
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
             <h3 className="font-medium mb-2">Assigned Players</h3>
             <div className="flex flex-wrap gap-2">
               {assignedPlayers.map((player) => (
-                <Button
+                <motion.div
                   key={`${player.id}-${player.team_context}`}
-                  variant={selectedPlayer?.id === player.id && selectedPlayer?.team_context === player.team_context ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedPlayer(player)}
-                  className="flex items-center gap-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <Badge variant={player.team_context === 'home' ? 'default' : 'secondary'}>
-                    {player.team_context.toUpperCase()}
-                  </Badge>
-                  #{player.jersey_number} {player.player_name}
-                </Button>
+                  <Button
+                    variant={selectedPlayer?.id === player.id && selectedPlayer?.team_context === player.team_context ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedPlayer(player)}
+                    className="flex items-center gap-2"
+                  >
+                    <Badge variant={player.team_context === 'home' ? 'default' : 'secondary'}>
+                      {player.team_context.toUpperCase()}
+                    </Badge>
+                    #{player.jersey_number} {player.player_name}
+                  </Button>
+                </motion.div>
               ))}
             </div>
             {assignedPlayers.length === 0 && (
               <p className="text-muted-foreground text-sm">No players assigned</p>
             )}
-          </div>
+          </motion.div>
 
           {/* Event Type Buttons */}
-          <div>
-            <h3 className="font-medium mb-2">Assigned Event Types ({assignedEventTypes.length})</h3>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+          >
+            <h3 className="font-medium mb-4">Assigned Event Types ({assignedEventTypes.length})</h3>
             {assignedEventTypes.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {assignedEventTypes.map((eventType) => {
                   const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
+                  const colors = EVENT_TYPE_COLORS[eventType.key] || EVENT_TYPE_COLORS['pass'];
+                  
                   return (
-                    <Button
+                    <motion.div
                       key={eventType.key}
-                      onClick={() => handleEventRecord(eventType)}
-                      disabled={!selectedPlayer}
-                      variant={isSelected ? "default" : "outline"}
-                      className={`h-16 flex flex-col gap-1 transition-colors duration-75 ${
-                        isSelected 
-                          ? "bg-primary text-primary-foreground" 
-                          : "hover:bg-primary hover:text-primary-foreground"
-                      }`}
-                      type="button"
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative"
+                      layout
                     >
-                      <span className="font-medium">{eventType.label}</span>
-                      {selectedPlayer && (
-                        <span className="text-xs opacity-70">
-                          {selectedPlayer.player_name}
+                      <Button
+                        onClick={() => handleEventRecord(eventType)}
+                        disabled={!selectedPlayer}
+                        className={`w-full h-24 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 border-2 overflow-hidden relative ${
+                          isSelected 
+                            ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2` 
+                            : `bg-white hover:bg-slate-50 ${colors.text} border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100 shadow-lg hover:shadow-xl`
+                        }`}
+                        type="button"
+                      >
+                        {isSelected && (
+                          <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10"
+                            animate={{ x: ['-100%', '100%'] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                          />
+                        )}
+                        
+                        <div className={`transition-colors duration-300 z-10 relative ${
+                          isSelected ? 'text-white' : colors.text
+                        }`}>
+                          <EnhancedEventTypeIcon 
+                            eventKey={eventType.key} 
+                            size={28} 
+                            isSelected={isSelected}
+                          />
+                        </div>
+                        
+                        <span className="font-semibold text-center leading-tight z-10 relative text-xs">
+                          {eventType.label}
                         </span>
-                      )}
-                      {toggleBehaviorEnabled && isSelected && (
-                        <span className="text-xs">Click to record</span>
-                      )}
-                    </Button>
+                        
+                        {selectedPlayer && (
+                          <span className="text-xs opacity-70 z-10 relative">
+                            {selectedPlayer.player_name}
+                          </span>
+                        )}
+                        
+                        {toggleBehaviorEnabled && isSelected && (
+                          <span className="text-xs z-10 relative">Click to record</span>
+                        )}
+
+                        <motion.div
+                          className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 w-7 h-7 text-xs ${
+                            isSelected 
+                              ? 'bg-white text-slate-700 border-white shadow-lg' 
+                              : `${colors.bg.replace('gradient-to-br', 'solid')} text-white border-white shadow-md`
+                          }`}
+                          whileHover={{ scale: 1.1 }}
+                          animate={isSelected ? { 
+                            scale: [1, 1.1, 1],
+                            rotate: [0, 5, -5, 0]
+                          } : {}}
+                          transition={{ duration: 0.5, repeat: isSelected ? Infinity : 0, repeatDelay: 2 }}
+                        >
+                          {eventType.key.charAt(0).toUpperCase()}
+                        </motion.div>
+                      </Button>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -488,24 +648,43 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 <p className="text-xs text-gray-500 mt-1">Contact your admin to assign event types</p>
               </div>
             )}
-          </div>
+          </motion.div>
 
           {!selectedPlayer && assignedPlayers.length > 1 && (
-            <div className="text-center text-muted-foreground text-sm">
+            <motion.div 
+              className="text-center text-muted-foreground text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
               Select a player to record events
-            </div>
+            </motion.div>
           )}
 
           {/* Sync Button */}
-          <div className="mt-6">
+          <motion.div 
+            className="mt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+          >
             <Button
               onClick={handleSyncEvents}
               disabled={unsavedEventCount === 0}
-              className="w-full"
+              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
             >
-              Sync {unsavedEventCount} Event{unsavedEventCount !== 1 ? 's' : ''} to Database
+              <motion.div
+                className="flex items-center gap-2"
+                animate={unsavedEventCount > 0 ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Sync {unsavedEventCount} Event{unsavedEventCount !== 1 ? 's' : ''} to Database
+              </motion.div>
             </Button>
-          </div>
+          </motion.div>
         </CardContent>
       </Card>
     </div>
