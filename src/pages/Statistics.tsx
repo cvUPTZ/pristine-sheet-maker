@@ -87,7 +87,7 @@ const Statistics: React.FC = () => {
                   parsedBallTrackingData = JSON.parse(matchData.ball_tracking_data);
                   if (!Array.isArray(parsedBallTrackingData)) {
                     console.error('Parsed ball_tracking_data is not an array.');
-                    parsedBallTrackingData = [];
+                    parsedBallTrackingData = []; 
                   }
                 } catch (e) {
                   console.error('Failed to parse ball_tracking_data string:', e);
