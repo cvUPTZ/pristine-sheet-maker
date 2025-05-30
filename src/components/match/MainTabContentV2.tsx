@@ -24,8 +24,38 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    fetchEvents();
-  }, [matchId]);
+    fetchEvents(); // Initial fetch
+
+    const channel = supabase
+      .channel(`match-events-for-${matchId}`) // Unique channel name per match
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'match_events',
+          filter: `match_id=eq.${matchId}`,
+        },
+        (payload) => {
+          console.log('Realtime change to match_events received:', payload);
+          // Re-fetch all events to update counts and the recent events list
+          fetchEvents();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to match-events-for-${matchId}`);
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error(`Error subscribing to match-events-for-${matchId}:`, err);
+        }
+      });
+
+    return () => {
+      console.log(`Unsubscribing from match-events-for-${matchId}`);
+      supabase.removeChannel(channel);
+    };
+  }, [matchId]); // Keep matchId as a dependency. fetchEvents should be stable.
 
   const fetchEvents = async () => {
     try {
