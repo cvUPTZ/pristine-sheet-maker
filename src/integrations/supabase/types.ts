@@ -265,6 +265,7 @@ export type Database = {
           is_read: boolean | null
           match_id: string | null
           message: string
+          notification_data: Json | null
           title: string
           type: string | null
           user_id: string
@@ -275,6 +276,7 @@ export type Database = {
           is_read?: boolean | null
           match_id?: string | null
           message: string
+          notification_data?: Json | null
           title: string
           type?: string | null
           user_id: string
@@ -285,6 +287,7 @@ export type Database = {
           is_read?: boolean | null
           match_id?: string | null
           message?: string
+          notification_data?: Json | null
           title?: string
           type?: string | null
           user_id?: string
@@ -652,6 +655,10 @@ export type Database = {
       is_admin: {
         Args: { p_user_id: string }
         Returns: boolean
+      }
+      notify_assigned_trackers: {
+        Args: { p_match_id: string; p_tracker_assignments: Json }
+        Returns: undefined
       }
       remove_user_role: {
         Args: {

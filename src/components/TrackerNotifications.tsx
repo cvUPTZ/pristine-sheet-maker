@@ -13,11 +13,18 @@ import { formatDistanceToNow } from 'date-fns';
 interface Notification {
   id: string;
   match_id: string;
+  title: string;
   message: string;
+  type: string;
   is_read: boolean;
   created_at: string;
+  notification_data?: {
+    assigned_event_types?: string[];
+    assigned_player_ids?: number[];
+    assignment_type?: string;
+  };
   matches?: {
-    name: string | null; // Allow name to be null, as it can be from DB
+    name: string | null;
     home_team_name: string;
     away_team_name: string;
     status: string;
@@ -32,14 +39,14 @@ const TrackerNotifications: React.FC = () => {
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) {
-      setNotifications([]); // Clear notifications if no user
+      setNotifications([]);
       setLoading(false);
       return;
     }
 
     try {
       const { data, error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .select(`
           *,
           matches:match_id (
@@ -49,7 +56,7 @@ const TrackerNotifications: React.FC = () => {
             status
           )
         `)
-        .eq('tracker_id', user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -60,12 +67,12 @@ const TrackerNotifications: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]); // Dependency on user.id
+  }, [user?.id]);
 
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
 
@@ -84,9 +91,9 @@ const TrackerNotifications: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('match_notifications')
+        .from('notifications')
         .update({ is_read: true })
-        .eq('tracker_id', user.id)
+        .eq('user_id', user.id)
         .eq('is_read', false);
 
       if (error) throw error;
@@ -104,11 +111,11 @@ const TrackerNotifications: React.FC = () => {
 
   const handleViewMatch = (matchId: string, notificationId: string) => {
     markAsRead(notificationId);
-    navigate(`/match/${matchId}`);
+    navigate(`/tracker-interface?matchId=${matchId}&trackerUserId=${user?.id}`);
   };
 
   useEffect(() => {
-    if (user?.id) { // Only run if user.id is available
+    if (user?.id) {
       fetchNotifications();
 
       // Subscribe to real-time notifications
@@ -119,12 +126,12 @@ const TrackerNotifications: React.FC = () => {
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'match_notifications',
-            filter: `tracker_id=eq.${user.id}`, // user.id is confirmed here
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
           },
-          (payload) => { // payload can be used if needed
+          (payload) => {
             console.log('New notification received via Supabase RT:', payload);
-            fetchNotifications(); // Refetch all notifications
+            fetchNotifications();
             toast.info('New match notification received!');
           }
         )
@@ -147,11 +154,10 @@ const TrackerNotifications: React.FC = () => {
         }
       };
     } else {
-      // If no user.id, ensure notifications are cleared and not attempting to subscribe
       setNotifications([]);
       setLoading(false);
     }
-  }, [user?.id, fetchNotifications]); // Added fetchNotifications
+  }, [user?.id, fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -204,18 +210,39 @@ const TrackerNotifications: React.FC = () => {
                       {!notification.is_read && (
                         <div className="w-2 h-2 bg-primary rounded-full" />
                       )}
+                      <span className="font-medium">{notification.title}</span>
+                      <Badge variant={notification.matches?.status === 'published' ? 'secondary' : 'outline'}>
+                        {notification.type}
+                      </Badge>
+                    </div>
+                    
+                    <div className="mb-2">
                       <span className="font-medium">
                         {notification.matches?.name || 
                          `${notification.matches?.home_team_name} vs ${notification.matches?.away_team_name}`}
                       </span>
-                      <Badge variant={notification.matches?.status === 'published' ? 'secondary' : 'outline'}>
-                        {notification.matches?.status}
-                      </Badge>
                     </div>
+                    
                     <p className="text-sm text-muted-foreground mb-2">
                       {notification.message}
                     </p>
-                    <div className="text-xs text-muted-foreground">
+                    
+                    {notification.notification_data && (
+                      <div className="text-xs space-y-1">
+                        {notification.notification_data.assigned_event_types && (
+                          <div>
+                            <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
+                          </div>
+                        )}
+                        {notification.notification_data.assigned_player_ids && (
+                          <div>
+                            <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="text-xs text-muted-foreground mt-2">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </div>
                   </div>
@@ -235,7 +262,7 @@ const TrackerNotifications: React.FC = () => {
                       onClick={() => handleViewMatch(notification.match_id, notification.id)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
-                      View Match
+                      Start Tracking
                     </Button>
                   </div>
                 </div>
