@@ -8,7 +8,7 @@ import { Calendar, MapPin, Users, BarChart3, TrendingUp, Clock } from 'lucide-re
 import { supabase } from '@/integrations/supabase/client';
 import PlayerStatsTable from '@/components/visualizations/PlayerStatsTable';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
-import { Match, Statistics, MatchEvent } from '@/types';
+import type { Match, Statistics, MatchEvent, BallTrackingPoint } from '@/types';
 
 const Statistics: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -53,7 +53,7 @@ const Statistics: React.FC = () => {
             formation: (matchData.away_team_formation as any) || '4-3-3',
             players: []
           },
-          statistics: matchData.match_statistics || {
+          statistics: matchData.match_statistics as Statistics || {
             possession: { home: 0, away: 0 },
             shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
             corners: { home: 0, away: 0 },
@@ -65,7 +65,7 @@ const Statistics: React.FC = () => {
             duels: { home: {}, away: {} },
             crosses: { home: {}, away: {} }
           },
-          ballTrackingData: matchData.ball_tracking_data || []
+          ballTrackingData: matchData.ball_tracking_data as BallTrackingPoint[] || []
         };
 
         // Fetch events
