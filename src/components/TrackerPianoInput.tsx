@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -277,7 +276,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   onClick={() => handleEventRecord(eventType)}
                   disabled={!selectedPlayer}
                   variant="outline"
-                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
+                  className="h-16 flex flex-col gap-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-150 focus:outline-none focus:ring-0"
+                  type="button"
                 >
                   <span className="font-medium">{eventType.label}</span>
                   {selectedPlayer && (

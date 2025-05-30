@@ -1,4 +1,3 @@
-
 import { EventType } from '@/types';
 
 export const EVENT_TYPES = [
@@ -173,7 +172,6 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'sub': 'Sub'
 };
 
-// Add the missing EVENT_STYLES constant that CircularMenu is looking for
 export const EVENT_STYLES: Record<EventType, { color: string; description: string; icon?: string }> = {
   'pass': { color: '#3B82F6', description: 'Pass between players', icon: '⚽' },
   'shot': { color: '#EF4444', description: 'Shot on goal', icon: '🎯' },
