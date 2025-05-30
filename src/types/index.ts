@@ -1,14 +1,14 @@
 
-export type EventType = 'pass' | 'shot' | 'foul' | 'goal' | 'save' | 'offside' | 'corner' | 'sub' | 'yellowCard' | 'redCard' | 'tackle' | 'interception' | 'cross' | 'clearance' | 'card' | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'assist';
+export type EventType = 'pass' | 'shot' | 'foul' | 'goal' | 'save' | 'offside' | 'corner' | 'sub' | 'yellowCard' | 'redCard' | 'tackle' | 'interception' | 'cross' | 'clearance' | 'card' | 'penalty' | 'free-kick' | 'goal-kick' | 'throw-in' | 'assist' | 'substitution' | 'possession' | 'ballLost' | 'ballRecovered' | 'dribble' | 'block' | 'ownGoal' | 'freeKick' | 'throwIn' | 'goalKick' | 'aerialDuel' | 'groundDuel';
 
-export interface Formation {
+export type Formation = string;
+
+export interface FlowPlayerNode {
   id: string;
   name: string;
-  positions: Array<{
-    x: number;
-    y: number;
-    position: string;
-  }>;
+  x: number;
+  y: number;
+  passes: number;
 }
 
 export interface Player {
@@ -34,16 +34,28 @@ export interface BallTrackingPoint {
   y: number;
   timestamp: number;
   team?: 'home' | 'away';
+  player_id?: number;
 }
 
 export interface ShotStatistics {
   onTarget: number;
   offTarget: number;
+  total?: number;
 }
 
 export interface PassStatistics {
   successful: number;
   attempted: number;
+}
+
+export interface DuelStatistics {
+  home: number;
+  away: number;
+}
+
+export interface CrossStatistics {
+  home: number;
+  away: number;
 }
 
 export interface Statistics {
@@ -55,12 +67,15 @@ export interface Statistics {
   passes: { home: PassStatistics; away: PassStatistics };
   ballsPlayed: { home: number; away: number };
   ballsLost: { home: number; away: number };
+  duels: DuelStatistics;
+  crosses: CrossStatistics;
 }
 
 export interface TimeSegmentStatistics {
   startTime: number;
   endTime: number;
   timeSegment: string;
+  events?: any[];
 }
 
 export interface MatchEvent {
@@ -115,6 +130,13 @@ export interface Filter {
     from: Date | undefined;
     to: Date | undefined;
   };
+}
+
+export interface PlayerStatsTableProps {
+  homeTeam: Team;
+  awayTeam: Team;
+  events?: MatchEvent[];
+  stats?: { name: string; value: number; }[];
 }
 
 export type UserRoleType = 'admin' | 'tracker' | 'user' | 'viewer';

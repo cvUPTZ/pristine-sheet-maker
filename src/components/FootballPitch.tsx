@@ -1,12 +1,16 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Team, BallTrackingPoint } from '@/types';
 
 interface PitchProps {
   onCoordinateClick?: (x: number, y: number) => void;
+  homeTeam?: Team;
+  awayTeam?: Team;
+  ballTrackingData?: BallTrackingPoint[];
 }
 
-const FootballPitch: React.FC<PitchProps> = ({ onCoordinateClick }) => {
+const FootballPitch: React.FC<PitchProps> = ({ onCoordinateClick, homeTeam, awayTeam, ballTrackingData }) => {
   const handleClick = (event: React.MouseEvent<SVGElement>) => {
     if (!onCoordinateClick) return;
     

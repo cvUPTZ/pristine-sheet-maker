@@ -6,8 +6,10 @@ import { Team, MatchEvent, EventType } from '@/types';
 
 interface MainTabContentV2Props {
   matchId: string;
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: { name: string; formation?: string; };
+  awayTeam: { name: string; formation?: string; };
+  isTracking?: boolean;
+  onEventRecord?: (eventType: any, player?: any, details?: any) => void;
 }
 
 const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
@@ -34,11 +36,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
       const transformedEvents: MatchEvent[] = (data || []).map(event => ({
         id: event.id,
+        match_id: event.match_id,
         type: event.event_type as EventType,
         timestamp: event.timestamp || 0,
         team: event.team as 'home' | 'away',
-        coordinates: event.coordinates ? event.coordinates as { x: number; y: number } : undefined,
-        player: event.player_id ? findPlayerById(event.player_id, event.team as 'home' | 'away') : undefined,
+        coordinates: event.coordinates ? event.coordinates as { x: number; y: number } : { x: 0, y: 0 },
+        player_id: event.player_id,
+        created_by: event.created_by
       }));
 
       setEvents(transformedEvents);
@@ -47,11 +51,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const findPlayerById = (playerId: number, team: 'home' | 'away') => {
-    const teamPlayers = team === 'home' ? homeTeam.players : awayTeam.players;
-    return teamPlayers.find(player => player.id === playerId);
   };
 
   const handleEventDelete = async (eventId: string) => {
@@ -66,39 +65,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
       console.error('Error deleting event:', error);
-    }
-  };
-
-  const addEvent = async (eventData: Partial<MatchEvent>) => {
-    try {
-      const { data, error } = await supabase
-        .from('match_events')
-        .insert([{
-          match_id: matchId,
-          event_type: eventData.type as string,
-          timestamp: eventData.timestamp,
-          team: eventData.team,
-          player_id: eventData.player?.id,
-          coordinates: eventData.coordinates,
-          created_by: (await supabase.auth.getUser()).data.user?.id || ''
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newEvent: MatchEvent = {
-        id: data.id,
-        type: data.event_type as EventType,
-        timestamp: data.timestamp || 0,
-        team: data.team as 'home' | 'away',
-        coordinates: data.coordinates as { x: number; y: number } | undefined,
-        player: data.player_id ? findPlayerById(data.player_id, data.team as 'home' | 'away') : undefined,
-      };
-
-      setEvents(prev => [...prev, newEvent].sort((a, b) => a.timestamp - b.timestamp));
-    } catch (error) {
-      console.error('Error adding event:', error);
     }
   };
 
@@ -158,7 +124,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
                   <div>
                     <div className="font-medium capitalize">{event.type}</div>
                     <div className="text-sm text-gray-600">
-                      {event.player?.name || 'Unknown player'} - {Math.floor(event.timestamp / 60)}'
+                      Player ID: {event.player_id || 'Unknown'} - {Math.floor(event.timestamp / 60)}'
                     </div>
                   </div>
                 </div>
