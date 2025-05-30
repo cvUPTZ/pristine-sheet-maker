@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,7 +86,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         console.log('Raw assignments data:', assignments);
 
         if (!assignments || assignments.length === 0) {
-          setError('No assignments found for this match');
+          setError('No assignments found for this match. Please contact your admin to assign you to track specific players and event types.');
           setAssignedEventTypes([]);
           setAssignedPlayers([]);
           return;
@@ -98,7 +97,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         assignments.forEach(assignment => {
           console.log('Processing assignment:', assignment);
           if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
-            assignment.assigned_event_types.forEach(eventType => {
+            assignment.assigned_event_types.forEach((eventType: string) => {
               console.log('Adding event type:', eventType);
               allEventTypesSet.add(eventType);
             });
