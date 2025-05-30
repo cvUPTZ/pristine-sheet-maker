@@ -1,20 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, Users, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Match } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Plus, Search } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Match, Filter, Statistics, BallTrackingPoint } from '@/types';
+import { DateRange } from 'react-day-picker';
 
-const Matches = () => {
-  const { userRole } = useAuth();
+const Matches: React.FC = () => {
+  const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<Filter>({
+    searchTerm: '',
+    dateRange: { from: undefined, to: undefined }
+  });
 
   useEffect(() => {
     fetchMatches();
@@ -29,39 +36,29 @@ const Matches = () => {
 
       if (error) throw error;
 
-      const formattedMatches: Match[] = (data || []).map(match => ({
-        id: match.id,
+      const processedMatches: Match[] = (data || []).map(match => ({
+        ...match,
         name: match.name || undefined,
         matchDate: match.match_date || undefined,
         homeTeamName: match.home_team_name,
         awayTeamName: match.away_team_name,
         venue: match.location || undefined,
-        status: match.status,
-        home_team_name: match.home_team_name,
-        away_team_name: match.away_team_name,
-        home_team_formation: match.home_team_formation || undefined,
-        away_team_formation: match.away_team_formation || undefined,
-        match_date: match.match_date || undefined,
-        location: match.location || undefined,
-        created_at: match.created_at || undefined,
-        updated_at: match.updated_at || undefined,
-        created_by: match.created_by || undefined,
-        description: match.description || undefined,
-        match_type: match.match_type || undefined,
-        timer_status: match.timer_status || undefined,
-        timer_current_value: match.timer_current_value || undefined,
-        timer_last_started_at: match.timer_last_started_at || undefined,
-        home_team_score: match.home_team_score || undefined,
-        away_team_score: match.away_team_score || undefined,
-        competition: match.competition || undefined,
-        notes: match.notes || undefined,
-        home_team_players: match.home_team_players,
-        away_team_players: match.away_team_players,
-        match_statistics: match.match_statistics,
-        ball_tracking_data: match.ball_tracking_data
+        statistics: {
+          possession: { home: 0, away: 0 },
+          shots: { home: 0, away: 0 },
+          corners: { home: 0, away: 0 },
+          fouls: { home: 0, away: 0 },
+          offsides: { home: 0, away: 0 },
+          passes: { home: 0, away: 0 },
+          ballsPlayed: { home: 0, away: 0 },
+          ballsLost: { home: 0, away: 0 },
+          duels: { home: 0, away: 0 },
+          crosses: { home: 0, away: 0 }
+        } as Statistics,
+        ballTrackingData: [] as BallTrackingPoint[]
       }));
 
-      setMatches(formattedMatches);
+      setMatches(processedMatches);
     } catch (error) {
       console.error('Error fetching matches:', error);
     } finally {
@@ -69,104 +66,162 @@ const Matches = () => {
     }
   };
 
-  const filteredMatches = matches.filter(match =>
-    match.home_team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    match.away_team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (match.name && match.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setFilter(prev => ({
+      ...prev,
+      dateRange: {
+        from: range?.from,
+        to: range?.to
+      }
+    }));
+  };
+
+  const filteredMatches = matches.filter(match => {
+    const matchesSearch = !filter.searchTerm || 
+      match.home_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
+      match.away_team_name.toLowerCase().includes(filter.searchTerm.toLowerCase());
+
+    const matchesDateRange = !filter.dateRange.from || !filter.dateRange.to || !match.match_date ||
+      (new Date(match.match_date) >= filter.dateRange.from && 
+       new Date(match.match_date) <= filter.dateRange.to);
+
+    return matchesSearch && matchesDateRange;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'live':
-        return 'bg-red-500';
-      case 'completed':
-        return 'bg-green-500';
-      case 'scheduled':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-500';
+      case 'live': return 'bg-green-500';
+      case 'completed': return 'bg-blue-500';
+      case 'scheduled': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
     }
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4">
         <div className="text-center">Loading matches...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
-          <p className="text-muted-foreground">
-            View and manage football matches
-          </p>
-        </div>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Matches</h1>
+        <Button onClick={() => navigate('/create-match')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Match
+        </Button>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <Input
-          placeholder="Search matches..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredMatches.length === 0 ? (
-          <div className="col-span-full text-center text-muted-foreground py-8">
-            No matches found
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filter Matches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search teams..."
+                  value={filter.searchTerm}
+                  onChange={(e) => setFilter(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !filter.dateRange.from && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filter.dateRange.from ? (
+                    filter.dateRange.to ? (
+                      <>
+                        {format(filter.dateRange.from, "LLL dd, y")} -{" "}
+                        {format(filter.dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(filter.dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={filter.dateRange.from}
+                  selected={filter.dateRange}
+                  onSelect={handleDateRangeChange}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
-        ) : (
-          filteredMatches.map((match) => (
-            <Card key={match.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                  </CardTitle>
-                  <Badge className={`${getStatusColor(match.status)} text-white`}>
-                    {match.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
-                  <span>{match.home_team_name} vs {match.away_team_name}</span>
-                </div>
+        </CardContent>
+      </Card>
 
-                {match.match_date && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{new Date(match.match_date).toLocaleDateString()}</span>
-                  </div>
-                )}
-
+      {/* Matches Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredMatches.map((match) => (
+          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg">
+                  {match.home_team_name} vs {match.away_team_name}
+                </CardTitle>
+                <Badge className={getStatusColor(match.status)}>
+                  {match.status}
+                </Badge>
+              </div>
+              <CardDescription>
+                {match.match_date ? format(new Date(match.match_date), 'PPP') : 'Date TBD'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
                 {match.location && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{match.location}</span>
-                  </div>
+                  <p className="text-sm text-gray-600">📍 {match.location}</p>
                 )}
-
-                <div className="flex justify-between items-center pt-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/match-analysis-v2/${match.id}`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Link>
+                <div className="flex justify-between items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/match/${match.id}`)}
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/match-analysis-v2/${match.id}`)}
+                  >
+                    Analyze
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
+
+      {filteredMatches.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No matches found matching your criteria.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

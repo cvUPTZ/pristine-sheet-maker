@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
-import MainTabContentV2 from '@/components/match/MainTabContentV2';
+import MainTabContent from '@/components/match/MainTabContent';
 import { PianoInput } from '@/components/match/PianoInput';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { EventType, MatchEvent, Player as PlayerType, Team as TeamTypeImport, St
 import useMatchData, {
   TeamHeaderData as HookTeamHeaderData,
   MatchDataInHook,
-  Formation
+  MatchEvent as HookMatchEvent
 } from '@/hooks/useMatchData';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
@@ -34,7 +33,7 @@ interface Player {
 interface TeamType {
   id: string;
   name: string;
-  formation: Formation;
+  formation: string;
   players: Player[];
 }
 
@@ -43,19 +42,20 @@ const MatchAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
 
-  const DISABLE_COLLABORATION_FEATURE = true;
+  const DISABLE_COLLABORATION_FEATURE = true; // Set to true to disable
 
   let sendCollaborationEvent = (...args: any[]) => { 
     console.warn('Collaboration feature is disabled. sendEvent called but did nothing.', args); 
   };
 
   if (!DISABLE_COLLABORATION_FEATURE) {
-    const collaborationHookResult = useMatchCollaboration({
+    const collaborationHookResult = useMatchCollaboration({ // Hook is called conditionally
       matchId: matchId,
       userId: user?.id,
     });
     sendCollaborationEvent = collaborationHookResult.sendEvent;
   } else {
+    // Log that the feature is disabled if you want to see it in console
     console.log('[MatchAnalysis] Real-time collaboration feature is currently disabled for testing.');
   }
 
@@ -68,24 +68,17 @@ const MatchAnalysis: React.FC = () => {
     error: matchDataError
   } = useMatchData(matchId);
 
+  // Logging props and state from useMatchData
   console.log('[MatchAnalysis] matchId from params:', matchId);
   console.log('[MatchAnalysis] Hook data: isLoadingMatchData:', isLoadingMatchData, 'matchDataError:', matchDataError, 'matchDataFromHook:', matchDataFromHook, 'homeTeamHeaderDataFromHook:', homeTeamHeaderDataFromHook, 'awayTeamHeaderDataFromHook:', awayTeamHeaderDataFromHook);
 
   const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
+  const [activeTab, setActiveTab] = useState<string>('pitch');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<'home' | 'away'>('home');
-  const [statistics, setStatistics] = useState<Statistics>({
-    possession: { home: 0, away: 0 },
-    shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
-    corners: { home: 0, away: 0 },
-    fouls: { home: 0, away: 0 },
-    offsides: { home: 0, away: 0 },
-    passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
-    ballsPlayed: { home: 0, away: 0 },
-    ballsLost: { home: 0, away: 0 },
-    duels: { home: {}, away: {} },
-    crosses: { home: {}, away: {} }
-  });
+  const [ballTrackingPoints, setBallTrackingPoints] = useState<Array<{ x: number; y: number; timestamp: number }>>([]);
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [playerStats, setPlayerStats] = useState<any>({});
 
   const [assignedPlayerForMatch, setAssignedPlayerForMatch] = useState<AssignedPlayerForMatch | null>(null);
   const [assignedEventTypes, setAssignedEventTypes] = useState<string[]>([]);
@@ -95,13 +88,13 @@ const MatchAnalysis: React.FC = () => {
   const [homeTeamFull, setHomeTeamFull] = useState<TeamType>({
     id: 'home',
     name: 'Home Team',
-    formation: '4-3-3' as Formation,
+    formation: '4-3-3',
     players: Array.from({ length: 11 }, (_, i) => ({ id: i+1, name: `Home Player ${i+1}`, position: 'Forward', number: i+1 }))
   });
   const [awayTeamFull, setAwayTeamFull] = useState<TeamType>({
     id: 'away',
     name: 'Away Team',
-    formation: '4-4-2' as Formation,
+    formation: '4-4-2',
     players: Array.from({ length: 11 }, (_, i) => ({ id: i+12, name: `Away Player ${i+1}`, position: 'Midfielder', number: i+1 }))
   });
 
@@ -208,6 +201,7 @@ const MatchAnalysis: React.FC = () => {
   }
 
   if (matchDataError || !matchDataFromHook || !homeTeamHeaderDataFromHook || !awayTeamHeaderDataFromHook) {
+    // Log which condition(s) are true
     console.log('[MatchAnalysis] Displaying error/unavailable message. Conditions:');
     console.log('[MatchAnalysis] - matchDataError:', matchDataError);
     console.log('[MatchAnalysis] - !matchDataFromHook:', !matchDataFromHook);
@@ -216,6 +210,7 @@ const MatchAnalysis: React.FC = () => {
 
     let message: string;
     if (matchDataError) {
+      // Prioritize the error message from the hook
       const errorMessage = typeof matchDataError === 'string' ? matchDataError : ((matchDataError as Error)?.message);
       message = `Error: ${errorMessage || 'An unknown error occurred while fetching match data.'}`;
     } else if (!matchDataFromHook) {
@@ -225,6 +220,8 @@ const MatchAnalysis: React.FC = () => {
     } else if (!awayTeamHeaderDataFromHook) {
       message = 'Away team data could not be loaded. Please check match configuration.';
     } else {
+      // This case should ideally not be reached if one ofthe previous conditions is true,
+      // but it serves as a fallback.
       message = 'Match data is currently unavailable. Please try again later or contact support if the issue persists.';
     }
 
@@ -247,8 +244,8 @@ const MatchAnalysis: React.FC = () => {
         awayTeam={awayTeamHeaderDataFromHook}
         mode={mode}
         setMode={setMode}
-        handleToggleTracking={() => setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking')}
-        handleSave={() => {
+        onToggleTracking={() => setMode(prevMode => prevMode === 'tracking' ? 'piano' : 'tracking')}
+        onSave={() => {
           console.log('MatchHeader Save button clicked. Data saving logic to be implemented here.');
           toast.info('Save functionality is under development. Match data not yet saved.');
         }}
@@ -261,14 +258,13 @@ const MatchAnalysis: React.FC = () => {
             fullMatchRoster={null}
             assignedEventTypes={null}
             assignedPlayers={null}
-            onEventRecord={async (eventType, player, details) => {
+            onEventRecord={(eventType, player, details) => {
               if (player) {
                 const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
-                  match_id: matchId || '',
-                  team_id: player.team_context === 'home' ? 'home' : 'away',
-                  player_id: Number(player.id),
+                  matchId: matchId || '',
+                  teamId: player.team_context === 'home' ? 'home' : 'away',
+                  playerId: Number(player.id),
                   type: eventType.key as EventType,
-                  event_type: eventType.key,
                   timestamp: Date.now(),
                   coordinates: { x: 0, y: 0 },
                 };
@@ -280,10 +276,50 @@ const MatchAnalysis: React.FC = () => {
         )}
 
         {mode === 'tracking' && (
-          <MainTabContentV2
+          <MainTabContent
             matchId={matchDataFromHook.id}
-            homeTeam={homeTeamHeaderDataFromHook}
-            awayTeam={awayTeamHeaderDataFromHook}
+            userRole={userRole || ''}
+            assignedPlayerForMatch={assignedPlayerForMatch}
+            assignedEventTypes={assignedEventTypes}
+            
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            homeTeam={homeTeamFull}
+            awayTeam={awayTeamFull}
+            selectedPlayer={selectedPlayer}
+            selectedTeam={selectedTeamId}
+            setSelectedTeam={(teamId: 'home' | 'away') => {
+              setSelectedTeamId(teamId);
+              setSelectedPlayer(null);
+            }}
+            handlePlayerSelect={(player: Player) => setSelectedPlayer(player)}
+            ballTrackingPoints={ballTrackingPoints}
+            handlePitchClick={(coordinates: { x: number; y: number }) => console.log('Pitch clicked:', coordinates)}
+            addBallTrackingPoint={(point: { x: number; y: number }) => setBallTrackingPoints(prev => [...prev, { ...point, timestamp: Date.now() }])}
+            statistics={statistics}
+            setStatistics={(stats: Statistics) => setStatistics(stats)}
+            playerStats={playerStats}
+            handleUndo={() => console.log('Undo action triggered from MainTabContent')}
+            handleSave={() => console.log('Save action triggered from MainTabContent')}
+            timeSegments={timeSegments}
+            recordEvent={(eventType: EventType, playerId: string | number, teamIdStr: 'home' | 'away', coordinates?: { x: number; y: number }) => {
+              if (!matchId || !user?.id) {
+                toast.error("Error: Missing match or user information.");
+                return;
+              }
+              const actualTeamId = teamIdStr;
+              const eventData: Omit<MatchEvent, 'id' | 'status' | 'clientId' | 'optimisticCreationTime' | 'user_id'> = {
+                matchId: matchId,
+                teamId: actualTeamId,
+                playerId: Number(playerId),
+                type: eventType,
+                timestamp: Date.now(),
+                coordinates: coordinates || { x: 0, y: 0 },
+              };
+              sendCollaborationEvent(eventData);
+              toast.success(`Event ${eventType} recorded for player ${playerId}.`);
+            }}
+            events={eventsFromHook || []}
           />
         )}
 

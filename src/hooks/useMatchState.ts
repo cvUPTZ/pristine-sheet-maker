@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -46,13 +47,9 @@ export const useMatchState = (matchId: string) => {
         .from('matches')
         .select('*')
         .eq('id', matchId)
-        .maybeSingle(); // Use maybeSingle to avoid the "multiple or no rows" error
+        .single();
 
       if (error) throw error;
-
-      if (!data) {
-        throw new Error('Match not found');
-      }
 
       // Helper function to parse JSON data safely
       const parseJSONData = (data: any): any => {

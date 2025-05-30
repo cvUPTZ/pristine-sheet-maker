@@ -45,5 +45,3 @@ export const RequireAuth: React.FC<{
   // User is authenticated and has required role (if any)
   return <>{children}</>;
 };
-
-export default RequireAuth;

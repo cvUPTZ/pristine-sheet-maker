@@ -100,11 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       throw error;
     }
-
-    toast({
-      title: "Success",
-      description: "You have been signed in successfully.",
-    });
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {

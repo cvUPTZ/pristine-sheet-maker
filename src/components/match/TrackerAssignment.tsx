@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,10 +125,6 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
     }
   };
 
-  const isPlayerSelected = (playerId: number, teamId: 'home' | 'away') => {
-    return selectedPlayers.some(p => p.player_id === playerId && p.player_team_id === teamId);
-  };
-
   const handleSubmit = async () => {
     if (!selectedTracker || selectedEventTypes.length === 0 || selectedPlayers.length === 0) {
       toast({
@@ -142,16 +137,6 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
-      // Delete existing assignments for this match and tracker
-      const { error: deleteError } = await supabase
-        .from('match_tracker_assignments')
-        .delete()
-        .eq('match_id', matchId)
-        .eq('tracker_user_id', selectedTracker);
-
-      if (deleteError) throw deleteError;
-
-      // Create new assignments
       const assignments = selectedPlayers.map(player => ({
         match_id: matchId,
         tracker_user_id: selectedTracker,
@@ -340,7 +325,7 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
                     <div key={`home-${player.id}`} className="flex items-center space-x-2">
                       <Checkbox
                         id={`home-player-${player.id}`}
-                        checked={isPlayerSelected(player.id, 'home')}
+                        checked={selectedPlayers.some(p => p.player_id === player.id && p.player_team_id === 'home')}
                         onCheckedChange={(checked) => handlePlayerToggle(player.id, 'home', !!checked)}
                       />
                       <label
@@ -364,7 +349,7 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
                     <div key={`away-${player.id}`} className="flex items-center space-x-2">
                       <Checkbox
                         id={`away-player-${player.id}`}
-                        checked={isPlayerSelected(player.id, 'away')}
+                        checked={selectedPlayers.some(p => p.player_id === player.id && p.player_team_id === 'away')}
                         onCheckedChange={(checked) => handlePlayerToggle(player.id, 'away', !!checked)}
                       />
                       <label

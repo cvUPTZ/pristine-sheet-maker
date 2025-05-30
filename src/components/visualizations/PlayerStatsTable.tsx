@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Team } from '@/types';
+import { MatchEvent, Team } from '@/types';
 
 interface PlayerStatsTableProps {
   homeTeam: Team;
@@ -10,11 +10,13 @@ interface PlayerStatsTableProps {
 }
 
 const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ homeTeam, awayTeam }) => {
+  // Calculate basic stats from team data
   const getPlayerStats = (team: Team) => {
     return team.players.map(player => ({
       name: player.player_name || player.name || `Player ${player.jersey_number || player.number}`,
       number: player.jersey_number || player.number || 0,
       position: player.position || 'Unknown',
+      // Add more stats as needed
     }));
   };
 
