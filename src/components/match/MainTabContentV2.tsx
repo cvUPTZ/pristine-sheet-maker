@@ -75,27 +75,27 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-2 md:p-0">
       {/* Tracker Presence Indicator */}
       <TrackerPresenceIndicator matchId={matchId} />
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Events</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{events.length}</div>
+            <div className="text-xl md:text-2xl font-bold">{events.length}</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{homeTeam.name} Events</CardTitle>
+            <CardTitle className="text-sm font-medium truncate">{homeTeam.name} Events</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {events.filter(e => e.team === 'home').length}
             </div>
           </CardContent>
@@ -103,10 +103,10 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{awayTeam.name} Events</CardTitle>
+            <CardTitle className="text-sm font-medium truncate">{awayTeam.name} Events</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {events.filter(e => e.team === 'away').length}
             </div>
           </CardContent>
@@ -116,34 +116,34 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       {/* Events List */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Events</CardTitle>
+          <CardTitle className="text-base md:text-lg">Recent Events</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 max-h-64 md:max-h-96 overflow-y-auto">
             {events.slice(-10).reverse().map((event) => (
-              <div key={event.id} className="flex justify-between items-center p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
+              <div key={event.id} className="flex justify-between items-center p-2 md:p-3 border rounded-lg">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                  <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
                     event.team === 'home' ? 'bg-blue-500' : 'bg-red-500'
                   }`} />
-                  <div>
-                    <div className="font-medium capitalize">{event.type}</div>
-                    <div className="text-sm text-gray-600">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium capitalize text-sm md:text-base">{event.type}</div>
+                    <div className="text-xs md:text-sm text-gray-600 truncate">
                       Player ID: {event.player_id || 'Unknown'} - {Math.floor(event.timestamp / 60)}'
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => handleEventDelete(event.id)}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-600 hover:text-red-800 text-xs md:text-sm px-2 py-1 flex-shrink-0"
                 >
                   Delete
                 </button>
               </div>
             ))}
             {events.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No events recorded yet
+              <div className="text-center py-6 md:py-8 text-gray-500">
+                <p className="text-sm md:text-base">No events recorded yet</p>
               </div>
             )}
           </div>

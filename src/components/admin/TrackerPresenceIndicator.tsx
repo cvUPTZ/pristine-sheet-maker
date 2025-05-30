@@ -89,10 +89,10 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         
         assignments.forEach(assignment => {
           const userId = assignment.tracker_user_id;
-          if (!trackerMap.has(userId)) {
+          if (userId && !trackerMap.has(userId)) {
             trackerMap.set(userId, {
               user_id: userId,
-              email: assignment.tracker_email,
+              email: assignment.tracker_email || undefined,
               online_at: '',
               assigned_event_types: []
             });
@@ -136,17 +136,17 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
   return (
     <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="pb-2 md:pb-4">
+        <CardTitle className="flex items-center gap-2 text-sm md:text-base">
           <motion.div
             animate={{ rotate: isOnline ? 360 : 0 }}
             transition={{ duration: 2, repeat: isOnline ? Infinity : 0, ease: "linear" }}
-            className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+            className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0"
           />
-          Tracker Status ({trackers.length})
+          <span className="truncate">Tracker Status ({trackers.length})</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 md:space-y-4">
         <AnimatePresence>
           {trackers.map((tracker, index) => {
             const status = getTrackerStatus(tracker.user_id);
@@ -161,11 +161,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 className="relative"
               >
-                <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-md border border-slate-200 hover:shadow-lg transition-all duration-300">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between p-2 md:p-4 bg-white rounded-xl shadow-md border border-slate-200 hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     {/* Status Indicator */}
                     <motion.div
-                      className={`relative w-12 h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center`}
+                      className={`relative w-8 h-8 md:w-12 md:h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center flex-shrink-0`}
                       animate={status.isActivelyTracking ? {
                         scale: [1, 1.1, 1],
                         boxShadow: [
@@ -183,30 +183,31 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                         >
                           <EnhancedEventTypeIcon 
                             eventKey={status.lastEventType} 
-                            size={24} 
+                            size={16} 
                             isSelected={true}
-                            className="text-white"
+                            className="text-white md:w-6 md:h-6"
                           />
                         </motion.div>
                       ) : (
-                        <div className={`w-3 h-3 rounded-full ${status.isOnline ? 'bg-white' : 'bg-gray-300'}`} />
+                        <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${status.isOnline ? 'bg-white' : 'bg-gray-300'}`} />
                       )}
                     </motion.div>
 
                     {/* Tracker Info */}
-                    <div>
-                      <div className="font-medium text-slate-800">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-slate-800 text-xs md:text-sm truncate">
                         {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                         <Badge 
                           variant={status.isOnline ? "default" : "secondary"}
                           className={`text-xs ${status.isOnline ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
                         >
-                          {getStatusText(status)}
+                          <span className="hidden sm:inline">{getStatusText(status)}</span>
+                          <span className="sm:hidden">{status.isOnline ? 'On' : 'Off'}</span>
                         </Badge>
                         {status.lastEventTime && (
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-500 hidden md:inline">
                             {Math.floor((Date.now() - status.lastEventTime) / 1000)}s ago
                           </span>
                         )}
@@ -221,12 +222,12 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0, opacity: 0 }}
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1 flex-shrink-0"
                       >
                         {[...Array(3)].map((_, i) => (
                           <motion.div
                             key={i}
-                            className={`w-2 h-2 rounded-full bg-gradient-to-r ${statusColor}`}
+                            className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-gradient-to-r ${statusColor}`}
                             animate={{ 
                               scale: [0.5, 1, 0.5],
                               opacity: [0.3, 1, 0.3]
@@ -263,39 +264,39 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-8 text-slate-500"
+            className="text-center py-4 md:py-8 text-slate-500"
           >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-200 flex items-center justify-center">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-2 md:mb-4 rounded-full bg-slate-200 flex items-center justify-center">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
             </div>
-            <p className="font-medium">No trackers assigned</p>
-            <p className="text-sm">Assign trackers to see their activity</p>
+            <p className="font-medium text-sm md:text-base">No trackers assigned</p>
+            <p className="text-xs md:text-sm">Assign trackers to see their activity</p>
           </motion.div>
         )}
 
         {/* Summary Stats */}
         <motion.div 
-          className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-200"
+          className="grid grid-cols-3 gap-1 md:gap-2 pt-2 md:pt-4 border-t border-slate-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
           <div className="text-center">
-            <div className="text-lg font-bold text-slate-800">
+            <div className="text-sm md:text-lg font-bold text-slate-800">
               {onlineUsers.length}
             </div>
             <div className="text-xs text-slate-500">Online</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-green-600">
+            <div className="text-sm md:text-lg font-bold text-green-600">
               {Array.from(recentEvents.values()).filter(event => Date.now() - event.time < 30000).length}
             </div>
             <div className="text-xs text-slate-500">Active</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-slate-800">
+            <div className="text-sm md:text-lg font-bold text-slate-800">
               {trackers.length}
             </div>
             <div className="text-xs text-slate-500">Total</div>
