@@ -389,14 +389,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                         {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
                       </div>
                       <div className="flex items-center gap-1 md:gap-2 flex-wrap">
-                        <Badge 
-                          variant={(status.isOnline || status.currentStatus === 'active') ? "default" : "secondary"}
-                          className={`text-xs ${(status.isOnline || status.currentStatus === 'active') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
-                        >
-                          {console.log(`[REALTIME_RENDER_DEBUG] Rendering Badge for ${tracker.user_id} with text: ${status.activityText}`)}
-                          <span className="hidden sm:inline">{status.activityText}</span>
-                          <span className="sm:hidden">{(status.isOnline || status.currentStatus === 'active') ? 'On' : 'Off'}</span>
-                        </Badge>
+                        {/* Simplified rendering for status.activityText */}
+                        <div style={{ border: '1px solid red', padding: '2px', color: 'black' }}>
+                          {console.log(`[REALTIME_RENDER_DEBUG] Rendering simplified text for ${tracker.user_id} with text: ${status.activityText}`)}
+                          Tracker Action: {status.activityText}
+                        </div>
                         {status.lastActionTimestamp && ( // Use lastActionTimestamp
                           <span className="text-xs text-slate-500 hidden md:inline">
                             {Math.floor((Date.now() - status.lastActionTimestamp) / 1000)}s ago
