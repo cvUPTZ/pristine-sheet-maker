@@ -7,6 +7,7 @@ import Header from './components/Header';
 import Index from './pages/Index';
 import Auth from './pages/Auth';
 import Admin from './pages/Admin';
+import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
 import CreateMatch from './pages/CreateMatch';
 import MatchAnalysisV2 from './pages/MatchAnalysisV2';
@@ -25,23 +26,28 @@ function App() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/dashboard" element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              } />
               <Route path="/admin" element={
                 <RequireAuth requiredRoles={['admin']}>
                   <Admin />
                 </RequireAuth>
               } />
               <Route path="/matches" element={
-                <RequireAuth>
+                <RequireAuth requiredRoles={['admin', 'viewer']}>
                   <Matches />
                 </RequireAuth>
               } />
               <Route path="/create-match" element={
-                <RequireAuth>
+                <RequireAuth requiredRoles={['admin']}>
                   <CreateMatch />
                 </RequireAuth>
               } />
               <Route path="/edit-match/:matchId" element={
-                <RequireAuth>
+                <RequireAuth requiredRoles={['admin']}>
                   <EditMatch />
                 </RequireAuth>
               } />
