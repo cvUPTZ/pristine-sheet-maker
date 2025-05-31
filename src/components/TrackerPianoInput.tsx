@@ -8,7 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { EVENT_TYPE_LABELS } from '@/constants/eventTypes';
-import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+// Assuming EnhancedEventTypeIcon is correctly imported from its path
+// For this example, I'll use the provided path structure if it were in the same project.
+// Make sure this path is correct for your project structure.
+import { EnhancedEventTypeIcon, EventType as EnhancedEventType } from '@/components/match/EnhancedEventTypeIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const LOCAL_STORAGE_KEY_MATCH_EVENTS = 'matchEventsQueue';
@@ -30,62 +33,72 @@ interface TrackerPianoInputProps {
 }
 
 const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: string; text: string; shadow: string }> = {
-  'pass': { 
-    bg: 'bg-gradient-to-br from-blue-500 to-blue-600', 
-    hover: 'hover:from-blue-600 hover:to-blue-700', 
-    border: 'border-blue-400', 
+  'pass': {
+    bg: 'bg-gradient-to-br from-blue-500 to-blue-600',
+    hover: 'hover:from-blue-600 hover:to-blue-700',
+    border: 'border-blue-400',
     text: 'text-blue-700',
     shadow: 'shadow-blue-200'
   },
-  'shot': { 
-    bg: 'bg-gradient-to-br from-red-500 to-red-600', 
-    hover: 'hover:from-red-600 hover:to-red-700', 
-    border: 'border-red-400', 
+  'shot': {
+    bg: 'bg-gradient-to-br from-red-500 to-red-600',
+    hover: 'hover:from-red-600 hover:to-red-700',
+    border: 'border-red-400',
     text: 'text-red-700',
     shadow: 'shadow-red-200'
   },
-  'goal': { 
-    bg: 'bg-gradient-to-br from-green-500 to-green-600', 
-    hover: 'hover:from-green-600 hover:to-green-700', 
-    border: 'border-green-400', 
+  'goal': {
+    bg: 'bg-gradient-to-br from-green-500 to-green-600',
+    hover: 'hover:from-green-600 hover:to-green-700',
+    border: 'border-green-400',
     text: 'text-green-700',
     shadow: 'shadow-green-200'
   },
-  'foul': { 
-    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600', 
-    hover: 'hover:from-yellow-600 hover:to-yellow-700', 
-    border: 'border-yellow-400', 
+  'foul': {
+    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+    hover: 'hover:from-yellow-600 hover:to-yellow-700',
+    border: 'border-yellow-400',
     text: 'text-yellow-700',
     shadow: 'shadow-yellow-200'
   },
-  'save': { 
-    bg: 'bg-gradient-to-br from-purple-500 to-purple-600', 
-    hover: 'hover:from-purple-600 hover:to-purple-700', 
-    border: 'border-purple-400', 
+  'save': {
+    bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
+    hover: 'hover:from-purple-600 hover:to-purple-700',
+    border: 'border-purple-400',
     text: 'text-purple-700',
     shadow: 'shadow-purple-200'
   },
-  'offside': { 
-    bg: 'bg-gradient-to-br from-orange-500 to-orange-600', 
-    hover: 'hover:from-orange-600 hover:to-orange-700', 
-    border: 'border-orange-400', 
+  'offside': {
+    bg: 'bg-gradient-to-br from-orange-500 to-orange-600',
+    hover: 'hover:from-orange-600 hover:to-orange-700',
+    border: 'border-orange-400',
     text: 'text-orange-700',
     shadow: 'shadow-orange-200'
   },
-  'corner': { 
-    bg: 'bg-gradient-to-br from-teal-500 to-teal-600', 
-    hover: 'hover:from-teal-600 hover:to-teal-700', 
-    border: 'border-teal-400', 
+  'corner': {
+    bg: 'bg-gradient-to-br from-teal-500 to-teal-600',
+    hover: 'hover:from-teal-600 hover:to-teal-700',
+    border: 'border-teal-400',
     text: 'text-teal-700',
     shadow: 'shadow-teal-200'
   },
-  'sub': { 
-    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', 
-    hover: 'hover:from-indigo-600 hover:to-indigo-700', 
-    border: 'border-indigo-400', 
+  // 'sub' key is used in EVENT_TYPE_COLORS but EnhancedEventTypeIcon uses 'substitution'
+  // Ensuring consistency or mapping if needed. For now, assuming 'sub' is a valid eventKey for styling.
+  'substitution': { // Changed 'sub' to 'substitution' to match EnhancedEventTypeIcon keys
+    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+    hover: 'hover:from-indigo-600 hover:to-indigo-700',
+    border: 'border-indigo-400',
     text: 'text-indigo-700',
     shadow: 'shadow-indigo-200'
   },
+  // Add default or other keys if they might appear and need styling
+  'default': {
+    bg: 'bg-gradient-to-br from-gray-500 to-gray-600',
+    hover: 'hover:from-gray-600 hover:to-gray-700',
+    border: 'border-gray-400',
+    text: 'text-gray-700',
+    shadow: 'shadow-gray-200'
+  }
 };
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
@@ -171,13 +184,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           setError('No assignments found for this match. Please contact your admin to assign you to track specific players and event types.');
           setAssignedEventTypes([]);
           setAssignedPlayers([]);
+          setLoading(false); // Ensure loading is set to false
           return;
         }
 
         // Process assigned event types - get ALL event types from ALL assignments
         console.log('=== PROCESSING EVENT TYPES ===');
         const allEventTypesSet = new Set<string>();
-        
+
         assignments.forEach((assignment, index) => {
           console.log(`Processing assignment ${index + 1}:`, {
             id: assignment.id,
@@ -185,7 +199,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             player_id: assignment.player_id,
             player_team_id: assignment.player_team_id
           });
-          
+
           if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
             console.log(`Found ${assignment.assigned_event_types.length} event types in assignment ${index + 1}`);
             assignment.assigned_event_types.forEach((eventType: string) => {
@@ -258,19 +272,19 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         // Get assigned player IDs and team contexts from assignments
         console.log('=== PROCESSING ASSIGNED PLAYERS ===');
         const assignedPlayerData: AssignedPlayer[] = [];
-        
+
         assignments.forEach((assignment, index) => {
           const playerId = assignment.player_id;
           const teamContext = assignment.player_team_id;
-          
+
           console.log(`Processing player assignment ${index + 1}:`, {
             player_id: playerId,
             player_team_id: teamContext
           });
-          
+
           if (playerId && teamContext) {
             let player = null;
-            
+
             if (teamContext === 'home') {
               player = homeTeamPlayers.find(p => String(p.id) === String(playerId));
               console.log(`Looking for player ID ${playerId} in home team:`, player ? 'FOUND' : 'NOT FOUND');
@@ -278,7 +292,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               player = awayTeamPlayers.find(p => String(p.id) === String(playerId));
               console.log(`Looking for player ID ${playerId} in away team:`, player ? 'FOUND' : 'NOT FOUND');
             }
-            
+
             if (player) {
               const assignedPlayer: AssignedPlayer = {
                 id: String(player.id),
@@ -286,7 +300,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                 jersey_number: player.number || player.jersey_number,
                 team_context: teamContext as 'home' | 'away'
               };
-              
+
               // Avoid duplicates
               if (!assignedPlayerData.some(p => p.id === assignedPlayer.id && p.team_context === assignedPlayer.team_context)) {
                 assignedPlayerData.push(assignedPlayer);
@@ -438,7 +452,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
     // Ensure player_id is properly converted to integer
     const playerId = parseInt(String(selectedPlayer.id), 10);
-    
+
     // Validate player_id is a valid integer
     if (isNaN(playerId)) {
       console.error("Invalid player ID:", selectedPlayer.id);
@@ -460,7 +474,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
     addLocalEvent(eventData);
     toast.info(`${eventType.label} logged locally for ${selectedPlayer.player_name}`);
-    
+
     // Clear selection after recording if toggle behavior is enabled
     if (toggleBehaviorEnabled) {
       setSelectedEventType(null);
@@ -573,7 +587,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Toggle Behavior Control */}
-          <motion.div 
+          <motion.div
             className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -588,8 +602,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {toggleBehaviorEnabled 
-                    ? "First click selects event type, second click records it" 
+                  {toggleBehaviorEnabled
+                    ? "First click selects event type, second click records it"
                     : "Single click records event immediately"
                   }
                 </p>
@@ -606,7 +620,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           </motion.div>
 
           {/* Assignment Summary */}
-          <motion.div 
+          <motion.div
             className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -688,8 +702,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {assignedEventTypes.map((eventType) => {
                   const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
-                  const colors = EVENT_TYPE_COLORS[eventType.key] || EVENT_TYPE_COLORS['pass'];
-                  
+                  // Use eventType.key for colors; provide a fallback if key is not in EVENT_TYPE_COLORS
+                  const colors = EVENT_TYPE_COLORS[eventType.key as keyof typeof EVENT_TYPE_COLORS] || EVENT_TYPE_COLORS['default'];
+
                   return (
                     <motion.div
                       key={eventType.key}
@@ -702,8 +717,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                         onClick={() => handleEventRecord(eventType)}
                         disabled={!selectedPlayer}
                         className={`w-full h-24 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 border-2 overflow-hidden relative ${
-                          isSelected 
-                            ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2` 
+                          isSelected
+                            ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2`
                             : `bg-white hover:bg-slate-50 ${colors.text} border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100 shadow-lg hover:shadow-xl`
                         }`}
                         type="button"
@@ -715,39 +730,39 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
                           />
                         )}
-                        
+
                         <div className={`transition-colors duration-300 z-10 relative ${
                           isSelected ? 'text-white' : colors.text
                         }`}>
-                          <EnhancedEventTypeIcon 
-                            eventKey={eventType.key} 
-                            size={28} 
-                            isSelected={isSelected}
+                          <EnhancedEventTypeIcon
+                            eventKey={eventType.key as EnhancedEventType} // Cast to EnhancedEventType
+                            size={28}
+                            variant={isSelected ? 'selected' : 'default'} // UPDATED LINE
                           />
                         </div>
-                        
+
                         <span className="font-semibold text-center leading-tight z-10 relative text-xs">
                           {eventType.label}
                         </span>
-                        
+
                         {selectedPlayer && (
                           <span className="text-xs opacity-70 z-10 relative">
                             {selectedPlayer.player_name}
                           </span>
                         )}
-                        
+
                         {toggleBehaviorEnabled && isSelected && (
                           <span className="text-xs z-10 relative">Click to record</span>
                         )}
 
                         <motion.div
                           className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 w-7 h-7 text-xs ${
-                            isSelected 
-                              ? 'bg-white text-slate-700 border-white shadow-lg' 
+                            isSelected
+                              ? 'bg-white text-slate-700 border-white shadow-lg'
                               : `${colors.bg.replace('gradient-to-br', 'solid')} text-white border-white shadow-md`
                           }`}
                           whileHover={{ scale: 1.1 }}
-                          animate={isSelected ? { 
+                          animate={isSelected ? {
                             scale: [1, 1.1, 1],
                             rotate: [0, 5, -5, 0]
                           } : {}}
@@ -769,7 +784,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           </motion.div>
 
           {!selectedPlayer && assignedPlayers.length > 1 && (
-            <motion.div 
+            <motion.div
               className="text-center text-muted-foreground text-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -780,7 +795,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           )}
 
           {/* Sync Button */}
-          <motion.div 
+          <motion.div
             className="mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
