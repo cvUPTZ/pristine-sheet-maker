@@ -1,6 +1,6 @@
 // src/components/match/EnhancedEventTypeIcon.tsx
 import React, { memo, useMemo, useEffect, useRef, useState, CSSProperties } from 'react';
-import { EventType as GlobalEventType } from 'src/types/index';
+import * as AllTypes from 'src/types/index';
 import { getEventTypeIcon } from './getEventTypeIcon'; // Adjusted path
 
 // --- Helper: Intersection Observer Hook ---
@@ -295,12 +295,12 @@ interface EventTypeVisuals {
 }
 
 export interface DesignSystem {
-  colors: Record<Exclude<GlobalEventType, 'default'>, EventTypeVisuals['colorPalette']>;
+  colors: Record<Exclude<AllTypes.EventType, 'default'>, EventTypeVisuals['colorPalette']>;
   animations: { // General hover/focus animations
     hover?: AnimationStyle;
     focus?: AnimationStyle;
     // Event-specific animations can also be here or within colors object
-    eventSpecific?: Record<Exclude<GlobalEventType, 'default'>, AnimationStyle>;
+    eventSpecific?: Record<Exclude<AllTypes.EventType, 'default'>, AnimationStyle>;
   };
   // spacing: ResponsiveSpacingSystem; // Consumed via size prop
   // typography: SemanticTypography; // Less relevant for pure icons
@@ -309,7 +309,7 @@ export interface DesignSystem {
 }
 
 // --- Icon Registry ---
-const eventIcons: Record<GlobalEventType | 'default', React.FC<React.SVGProps<SVGSVGElement>>> = {
+const eventIcons: Record<AllTypes.EventType | 'default', React.FC<React.SVGProps<SVGSVGElement>>> = {
   pass: SvgPassIcon,
   shot: SvgShotIcon,
   goal: SvgGoalIcon,
@@ -463,7 +463,7 @@ export const defaultDesignSystem: DesignSystem = {
 
 // --- Enhanced Component Interface ---
 export interface EnhancedEventTypeIconProps {
-  eventKey: GlobalEventType | string;
+  eventKey: AllTypes.EventType | string;
   size?: IconSize;
   variant?: IconVariant;
   /** @deprecated Use `variant="selected"` instead */
@@ -522,19 +522,19 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
 
   const normalizedEventKey = useMemo(() => {
     const key = eventKey.toLowerCase();
-    // Validate if the key is a known GlobalEventType or 'default'
-    // isValidEventType checks against eventIcons keys, which are GlobalEventType | 'default'
+    // Validate if the key is a known AllTypes.EventType or 'default'
+    // isValidEventType checks against eventIcons keys, which are AllTypes.EventType | 'default'
     if (isValidEventType(key)) {
       return key;
     }
-    // If eventKey is a GlobalEventType but not in eventIcons (and not 'default'),
+    // If eventKey is a AllTypes.EventType but not in eventIcons (and not 'default'),
     // it's a candidate for fallback. We still want to treat it as a valid, non-default key.
-    const allGlobalEventTypes = Object.values(GlobalEventType) as string[]; // Needs GlobalEventType to be an enum or const object for this
-    // For now, assume eventKey is a valid GlobalEventType string if not in eventIcons for fallback.
+    const allGlobalEventTypes = Object.values(AllTypes.EventType) as string[]; // Needs AllTypes.EventType to be an enum or const object for this
+    // For now, assume eventKey is a valid AllTypes.EventType string if not in eventIcons for fallback.
     // A stricter check might involve comparing key against all defined GlobalEventTypes.
     // For this task, we pass it through if it's not 'default' and not in eventIcons.
     if (allGlobalEventTypes.includes(key) && key !== 'default') {
-        return key as GlobalEventType;
+        return key as AllTypes.EventType;
     }
     return 'default';
   }, [eventKey]);
@@ -543,7 +543,7 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
     if (normalizedEventKey === 'default') {
       return eventIcons.default;
     }
-    return eventIcons[normalizedEventKey as GlobalEventType]; // Might be undefined if not in eventIcons
+    return eventIcons[normalizedEventKey as AllTypes.EventType]; // Might be undefined if not in eventIcons
   }, [normalizedEventKey]);
 
   const finalVariant = useMemo(() => {
@@ -554,7 +554,7 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
   const currentPalette = useMemo(() => {
     // Ensure normalizedEventKey is not 'default' when accessing designSystem.colors
     if (normalizedEventKey === 'default') return null;
-    const dsColors = designSystem.colors[normalizedEventKey as Exclude<GlobalEventType, 'default'>];
+    const dsColors = designSystem.colors[normalizedEventKey as Exclude<AllTypes.EventType, 'default'>];
     if (!dsColors) return null;
 
     const modePalette = highContrast ? dsColors.highContrast : dsColors;
@@ -615,7 +615,7 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
       classes.push('transition-all duration-200 ease-in-out');
       // Ensure normalizedEventKey is not 'default' when accessing eventSpecific animations
       const eventAnim = normalizedEventKey !== 'default'
-        ? designSystem.animations.eventSpecific?.[normalizedEventKey as Exclude<GlobalEventType, 'default'>]
+        ? designSystem.animations.eventSpecific?.[normalizedEventKey as Exclude<AllTypes.EventType, 'default'>]
         : undefined;
       if (eventAnim?.className) classes.push(eventAnim.className);
       
@@ -735,16 +735,16 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
 EnhancedEventTypeIcon.displayName = 'EnhancedEventTypeIcon';
 
 // --- Utility Functions ---
-// getAvailableEventTypes now returns all GlobalEventTypes that have a custom icon.
-export const getAvailableCustomEventTypes = (): GlobalEventType[] => {
-  return Object.keys(eventIcons).filter(key => key !== 'default') as GlobalEventType[];
+// getAvailableEventTypes now returns all AllTypes.EventTypes that have a custom icon.
+export const getAvailableCustomEventTypes = (): AllTypes.EventType[] => {
+  return Object.keys(eventIcons).filter(key => key !== 'default') as AllTypes.EventType[];
 };
 
-// isValidEventType checks if a key is a valid GlobalEventType AND has a custom icon OR is 'default'.
+// isValidEventType checks if a key is a valid AllTypes.EventType AND has a custom icon OR is 'default'.
 // For fallback mechanism, we might not need this to be so strict,
-// as normalizedEventKey will handle falling back to 'default' if the key isn't a GlobalEventType at all.
-// The check for `eventIcons[normalizedEventKey as GlobalEventType]` is the main determinant for custom vs fallback.
-export const isValidEventType = (eventKey: string): eventKey is (GlobalEventType | 'default') => {
+// as normalizedEventKey will handle falling back to 'default' if the key isn't a AllTypes.EventType at all.
+// The check for `eventIcons[normalizedEventKey as AllTypes.EventType]` is the main determinant for custom vs fallback.
+export const isValidEventType = (eventKey: string): eventKey is (AllTypes.EventType | 'default') => {
   // This function checks if the eventKey is one of the keys in our eventIcons map (custom SVGs)
   // or if it's the special 'default' key.
   return eventKey in eventIcons;
