@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +47,7 @@ const MatchManagement: React.FC = () => {
         ...match,
         name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
         created_at: match.created_at || new Date().toISOString(),
+        updated_at: match.updated_at || undefined, // Convert null to undefined
         venue: match.location || undefined,
         home_team_players: parsePlayerData(match.home_team_players),
         away_team_players: parsePlayerData(match.away_team_players)

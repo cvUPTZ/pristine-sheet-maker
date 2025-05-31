@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
@@ -25,7 +26,7 @@ interface MatchSidebarProps {
   selectedPlayer: Player | null;
   onPlayerSelect: (player: any) => void; // Added this prop
   ballTrackingPoints: any[];
-  trackBallMovement: (coordinates: {
+  trackBallMovement?: (coordinates: {
     x: number;
     y: number;
   }) => void;
