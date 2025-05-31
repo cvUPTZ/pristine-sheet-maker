@@ -424,6 +424,10 @@ const MatchAnalysis: React.FC = () => {
     completeSetup(homeTeamData, awayTeamData);
   };
 
+  const handleSetActiveTab = (tab: string) => {
+    setActiveTab(tab as 'piano' | 'details' | 'video' | 'stats' | 'pitch' | 'timeline');
+  };
+
   const handleGoBack = () => {
     navigate('/matches');
   };
@@ -520,7 +524,7 @@ const MatchAnalysis: React.FC = () => {
             ballTrackingPoints={ballTrackingPoints}
             statistics={statistics}
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleSetActiveTab}
             teamPositions={teamPositions}
             setTeamPositions={setTeamPositions}
             isPassTrackingModeActive={isPassTrackingModeActive}
