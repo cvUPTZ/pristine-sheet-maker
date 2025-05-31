@@ -16,7 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Plus, Trash2, ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
 
 interface CreateMatchFormProps {
-  onMatchCreated: (match: any) => void;
+  matchId?: string;
+  onMatchSubmit: (match: any) => void;
 }
 
 interface TrackerUser {
@@ -116,9 +117,10 @@ const EVENT_TYPE_CATEGORIES = [
 
 const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2', '3-4-3'];
 
-const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => {
+const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmit }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(!!matchId);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
   const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
@@ -141,7 +143,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
   useEffect(() => {
     fetchTrackers();
-  }, []);
+    if (matchId) {
+      fetchMatchData(matchId);
+    }
+  }, [matchId]);
 
   // Generate players based on formation
   useEffect(() => {
@@ -174,6 +179,84 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
       setHomeTeamPlayers(players);
     } else {
       setAwayTeamPlayers(players);
+    }
+  };
+
+  const fetchMatchData = async (id: string) => {
+    setLoading(true);
+    try {
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          match_tracker_assignments (
+            tracker_user_id,
+            assigned_event_types,
+            player_id
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (matchError) throw matchError;
+      if (!matchData) throw new Error("Match not found");
+
+      setFormData({
+        name: matchData.name || '',
+        description: matchData.description || '',
+        homeTeamName: matchData.home_team_name || '',
+        awayTeamName: matchData.away_team_name || '',
+        homeTeamFormation: (matchData.home_team_formation as Formation) || '4-4-2',
+        awayTeamFormation: (matchData.away_team_formation as Formation) || '4-4-2',
+        matchDate: matchData.match_date ? new Date(matchData.match_date).toISOString().slice(0, 16) : '',
+        location: matchData.location || '',
+        competition: matchData.competition || '',
+        matchType: matchData.match_type || 'regular',
+        notes: matchData.notes || ''
+      });
+
+      // Ensure players are actual arrays before setting state
+      const homePlayers = Array.isArray(matchData.home_team_players)
+        ? matchData.home_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        : [];
+      const awayPlayers = Array.isArray(matchData.away_team_players)
+        ? matchData.away_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        : [];
+
+      setHomeTeamPlayers(homePlayers);
+      setAwayTeamPlayers(awayPlayers);
+
+      // Process tracker assignments
+      const assignments: TrackerAssignment[] = [];
+      if (matchData.match_tracker_assignments) {
+        const assignmentsMap = new Map<string, TrackerAssignment>();
+        matchData.match_tracker_assignments.forEach((assign: any) => {
+          if (!assignmentsMap.has(assign.tracker_user_id)) {
+            assignmentsMap.set(assign.tracker_user_id, {
+              tracker_user_id: assign.tracker_user_id,
+              assigned_event_types: [],
+              player_ids: []
+            });
+          }
+          const currentAssignment = assignmentsMap.get(assign.tracker_user_id)!;
+          currentAssignment.assigned_event_types = Array.from(new Set([...currentAssignment.assigned_event_types, ...assign.assigned_event_types]));
+          if (assign.player_id) {
+            currentAssignment.player_ids.push(assign.player_id);
+          }
+        });
+        assignments.push(...Array.from(assignmentsMap.values()));
+      }
+      setTrackerAssignments(assignments);
+
+    } catch (error: any) {
+      console.error('Error fetching match data:', error);
+      toast({
+        title: "Error",
+        description: `Failed to load match data: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -212,7 +295,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
     setLoading(true);
 
     try {
-      // Convert players to the format expected by the database
       const homePlayersJson = homeTeamPlayers.map(player => ({
         id: player.id,
         name: player.name || '',
@@ -245,36 +327,77 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
         competition: formData.competition,
         match_type: formData.matchType,
         notes: formData.notes,
-        status: 'draft'
+        status: 'draft', // Default status, can be updated later
+        ...(isEditMode && matchId ? { updated_at: new Date().toISOString() } : {})
       };
 
-      const { data: match, error: matchError } = await supabase
-        .from('matches')
-        .insert(matchData)
-        .select()
-        .single();
+      let match: any;
+      let matchError: any;
+
+      if (isEditMode && matchId) {
+        // Update existing match
+        const { data, error } = await supabase
+          .from('matches')
+          .update(matchData)
+          .eq('id', matchId)
+          .select()
+          .single();
+        match = data;
+        matchError = error;
+      } else {
+        // Create new match
+        const { data, error } = await supabase
+          .from('matches')
+          .insert(matchData)
+          .select()
+          .single();
+        match = data;
+        matchError = error;
+      }
 
       if (matchError) throw matchError;
+      if (!match) throw new Error(isEditMode ? "Failed to update match." : "Failed to create match.");
 
-      // Create tracker assignments if any
+      // Handle tracker assignments (delete existing and re-insert for simplicity in edit mode)
+      if (isEditMode && matchId) {
+        const { error: deleteError } = await supabase
+          .from('match_tracker_assignments')
+          .delete()
+          .eq('match_id', matchId);
+        if (deleteError) {
+          console.warn('Error deleting old tracker assignments:', deleteError);
+          // Potentially proceed, or throw error if critical
+        }
+      }
+
       if (trackerAssignments.length > 0) {
         const assignments = trackerAssignments.flatMap(assignment => 
-          assignment.player_ids.map(playerId => ({
-            match_id: match.id,
-            tracker_user_id: assignment.tracker_user_id,
-            player_id: playerId,
-            player_team_id: playerId <= homeTeamPlayers.length ? 'home' : 'away',
-            assigned_event_types: assignment.assigned_event_types
-          }))
-        );
+          assignment.player_ids.map(playerId => {
+            // Determine if player is home or away based on their ID presence in respective arrays
+            const isHomePlayer = homeTeamPlayers.some(p => p.id === playerId);
+            const isAwayPlayer = awayTeamPlayers.some(p => p.id === playerId);
+            let playerTeamId = 'unknown';
+            if (isHomePlayer) playerTeamId = 'home';
+            else if (isAwayPlayer) playerTeamId = 'away';
 
-        const { error: assignmentError } = await supabase
-          .from('match_tracker_assignments')
-          .insert(assignments);
+            return {
+              match_id: match.id,
+              tracker_user_id: assignment.tracker_user_id,
+              player_id: playerId,
+              player_team_id: playerTeamId,
+              assigned_event_types: assignment.assigned_event_types
+            };
+          })
+        ).filter(a => a.tracker_user_id && a.player_id); // Ensure tracker_user_id is present
 
-        if (assignmentError) throw assignmentError;
+        if (assignments.length > 0) {
+          const { error: assignmentError } = await supabase
+            .from('match_tracker_assignments')
+            .insert(assignments);
+          if (assignmentError) throw assignmentError;
+        }
 
-        // Send notifications to assigned trackers
+        // Send notifications (consider if this should only be for new assignments or changes)
         const { error: notificationError } = await supabase
           .rpc('notify_assigned_trackers', {
             p_match_id: match.id,
@@ -292,15 +415,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
       toast({
         title: "Success",
-        description: "Match created successfully!",
+        description: `Match ${isEditMode ? 'updated' : 'created'} successfully!`,
       });
 
-      onMatchCreated(match);
+      onMatchSubmit(match);
     } catch (error: any) {
-      console.error('Error creating match:', error);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} match:`, error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create match",
+        description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} match`,
         variant: "destructive",
       });
     } finally {
@@ -382,10 +505,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Create New Match</h1>
+      {/* Title is now handled in CreateMatch.tsx page */}
+      {/* <div className="mb-6">
+        <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Match' : 'Create New Match'}</h1>
         <p className="text-gray-600">Set up teams, players, and assign trackers</p>
-      </div>
+      </div> */}
       
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="basic" className="w-full">
@@ -738,7 +862,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ onMatchCreated }) => 
 
           <div className="flex justify-end space-x-2 mt-6">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Match'}
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
             </Button>
           </div>
         </Tabs>
