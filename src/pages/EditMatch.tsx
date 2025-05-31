@@ -45,14 +45,14 @@ const EditMatch: React.FC = () => {
           return;
         }
 
-        // Populate form with existing data
+        // Populate form with existing data, converting numbers to strings for form fields
         reset({
           name: match.name || '',
           homeTeamName: match.home_team_name || '',
           awayTeamName: match.away_team_name || '',
           status: match.status || 'draft',
-          homeTeamScore: match.home_team_score || 0,
-          awayTeamScore: match.away_team_score || 0,
+          homeTeamScore: match.home_team_score?.toString() || '0',
+          awayTeamScore: match.away_team_score?.toString() || '0',
           matchType: match.match_type || 'regular',
           description: match.description || '',
           notes: match.notes || '',
@@ -82,8 +82,8 @@ const EditMatch: React.FC = () => {
           home_team_name: data.homeTeamName,
           away_team_name: data.awayTeamName,
           status: data.status,
-          home_team_score: data.homeTeamScore,
-          away_team_score: data.awayTeamScore,
+          home_team_score: parseInt(data.homeTeamScore) || 0,
+          away_team_score: parseInt(data.awayTeamScore) || 0,
           match_type: data.matchType,
           description: data.description,
           notes: data.notes,
