@@ -22,41 +22,18 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [eventCounts, setEventCounts] = useState({
-    total: 0,
-    home: 0,
-    away: 0
-  });
   const isMobile = useIsMobile();
 
-  const updateEventCounts = useCallback((eventsList: MatchEvent[]) => {
-    const homeEvents = eventsList.filter(e => e.team === 'home');
-    const awayEvents = eventsList.filter(e => e.team === 'away');
-    
-    setEventCounts({
-      total: eventsList.length,
-      home: homeEvents.length,
-      away: awayEvents.length
-    });
-  }, []);
-
   const fetchEvents = useCallback(async () => {
-    if (!matchId) return;
-    
+    // setLoading(true); // Optional: set loading state at the beginning of fetch
     try {
-      console.log('[MainTabContentV2] Fetching events for match:', matchId);
       const { data, error } = await supabase
         .from('match_events')
         .select('*')
-        .eq('match_id', matchId)
+        .eq('match_id', matchId) // matchId is a dependency of useCallback
         .order('timestamp', { ascending: true });
 
-      if (error) {
-        console.error('[MainTabContentV2] Error fetching events:', error);
-        throw error;
-      }
-
-      console.log('[MainTabContentV2] Fetched events:', data?.length || 0);
+      if (error) throw error;
 
       const transformedEvents: MatchEvent[] = (data || []).map(event => ({
         id: event.id,
@@ -71,107 +48,62 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       }));
 
       setEvents(transformedEvents);
-      updateEventCounts(transformedEvents);
     } catch (error) {
-      console.error('[MainTabContentV2] Error fetching events:', error);
+      console.error('Error fetching events:', error);
     } finally {
       setLoading(false);
     }
-  }, [matchId, updateEventCounts]);
+  }, [matchId]); // Dependency: matchId
 
   const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('[MainTabContentV2] Realtime change received:', payload);
-    console.log('[MainTabContentV2] Event type:', payload.eventType);
-    
-    if (payload.eventType === 'INSERT') {
-      console.log('[MainTabContentV2] New event inserted:', payload.new);
-      
-      // Add the new event immediately for instant UI update
-      const newEvent: MatchEvent = {
-        id: payload.new.id,
-        match_id: payload.new.match_id,
-        type: payload.new.event_type as EventType,
-        event_type: payload.new.event_type,
-        timestamp: payload.new.timestamp || 0,
-        team: payload.new.team as 'home' | 'away',
-        coordinates: payload.new.coordinates ? payload.new.coordinates as { x: number; y: number } : { x: 0, y: 0 },
-        player_id: payload.new.player_id,
-        created_by: payload.new.created_by
-      };
-      
-      setEvents(prevEvents => {
-        const updatedEvents = [...prevEvents, newEvent].sort((a, b) => a.timestamp - b.timestamp);
-        updateEventCounts(updatedEvents);
-        return updatedEvents;
-      });
-    } else if (payload.eventType === 'DELETE') {
-      console.log('[MainTabContentV2] Event deleted:', payload.old);
-      
-      setEvents(prevEvents => {
-        const updatedEvents = prevEvents.filter(event => event.id !== payload.old.id);
-        updateEventCounts(updatedEvents);
-        return updatedEvents;
-      });
-    } else {
-      // For UPDATE or other events, re-fetch to ensure consistency
-      fetchEvents();
-    }
-  }, [fetchEvents, updateEventCounts]);
+    console.log('[MainTabContentV2 DEBUG] Realtime change to match_events received:', payload);
+    // Re-fetch all events to update counts and the recent events list
+    fetchEvents();
+  }, [fetchEvents]); // Dependency: memoized fetchEvents
 
   useEffect(() => {
-    if (!matchId) return;
+    fetchEvents(); // Initial fetch
 
-    console.log('[MainTabContentV2] Setting up subscription for matchId:', matchId);
-    
-    // Initial fetch
-    fetchEvents();
-
-    // Set up real-time subscription
     const channel = supabase
-      .channel(`match-events-realtime-${matchId}`)
+      .channel(`match-events-for-${matchId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'match_events',
           filter: `match_id=eq.${matchId}`,
         },
-        handleRealtimeEvent
+        handleRealtimeEvent // Use the memoized callback here
       )
       .subscribe((status, err) => {
-        console.log('[MainTabContentV2] Subscription status:', status);
         if (status === 'SUBSCRIBED') {
-          console.log(`[MainTabContentV2] Successfully subscribed to match-events-realtime-${matchId}`);
+          console.log(`Subscribed to match-events-for-${matchId}`);
         }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error(`[MainTabContentV2] Subscription error for match ${matchId}:`, status, err);
+        if (status === 'CHANNEL_ERROR') {
+          console.error(`Error subscribing to match-events-for-${matchId}:`, err);
         }
       });
 
     return () => {
-      console.log(`[MainTabContentV2] Cleaning up subscription for matchId: ${matchId}`);
+      console.log(`[MainTabContentV2 DEBUG] Cleaning up match_events subscription for matchId: ${matchId}. Channel:`, channel);
+      console.log(`Unsubscribing from match-events-for-${matchId}`); // Kept original log too
       supabase.removeChannel(channel);
     };
-  }, [matchId, fetchEvents, handleRealtimeEvent]);
+  }, [matchId, fetchEvents]); // Added fetchEvents to dependency array
 
   const handleEventDelete = async (eventId: string) => {
     try {
-      console.log('[MainTabContentV2] Deleting event:', eventId);
       const { error } = await supabase
         .from('match_events')
         .delete()
         .eq('id', eventId);
 
-      if (error) {
-        console.error('[MainTabContentV2] Error deleting event:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('[MainTabContentV2] Event deleted successfully');
-      // The real-time subscription will handle updating the UI
+      setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
-      console.error('[MainTabContentV2] Error deleting event:', error);
+      console.error('Error deleting event:', error);
     }
   };
 
@@ -199,7 +131,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
             <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="text-lg sm:text-xl md:text-2xl font-bold">{eventCounts.total}</div>
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">{events.length}</div>
           </CardContent>
         </Card>
         
@@ -211,7 +143,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">
-              {eventCounts.home}
+              {events.filter(e => e.team === 'home').length}
             </div>
           </CardContent>
         </Card>
@@ -224,7 +156,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">
-              {eventCounts.away}
+              {events.filter(e => e.team === 'away').length}
             </div>
           </CardContent>
         </Card>

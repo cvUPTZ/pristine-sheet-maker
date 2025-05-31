@@ -1,95 +1,141 @@
 
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlayCircle, Users, BarChart3, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import CreateMatchForm from '@/components/CreateMatchForm';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
-const Index: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
-            Football Match Tracker
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Professional football match analysis and real-time event tracking system
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/auth">
-              <Button size="lg" className="w-full sm:w-auto">
-                Get Started
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                Go to Dashboard
-              </Button>
-            </Link>
-          </div>
-        </div>
+interface Match {
+  id: string;
+  name: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string | null;
+  created_at: string | null;
+}
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <Card className="text-center hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <PlayCircle className="h-12 w-12 mx-auto text-blue-600 mb-2" />
-              <CardTitle className="text-lg">Live Tracking</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Real-time match event tracking with multiple trackers</p>
-            </CardContent>
-          </Card>
+const Index = () => {
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-          <Card className="text-center hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Users className="h-12 w-12 mx-auto text-green-600 mb-2" />
-              <CardTitle className="text-lg">Team Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Manage teams, players, and formations efficiently</p>
-            </CardContent>
-          </Card>
+  const fetchMatches = useCallback(async () => {
+    setLoading(true); // Ensure loading is true at the start of fetch
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-          <Card className="text-center hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <BarChart3 className="h-12 w-12 mx-auto text-purple-600 mb-2" />
-              <CardTitle className="text-lg">Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Comprehensive match statistics and visualizations</p>
-            </CardContent>
-          </Card>
+      if (error) {
+        console.error('Error fetching matches:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch matches",
+          variant: "destructive",
+        });
+        return;
+      }
 
-          <Card className="text-center hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Settings className="h-12 w-12 mx-auto text-orange-600 mb-2" />
-              <CardTitle className="text-lg">Admin Tools</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Complete administrative control and user management</p>
-            </CardContent>
-          </Card>
-        </div>
+      setMatches(data || []);
+    } catch (error) {
+      console.error('Error in fetchMatches:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]); // Added toast as it's used inside
 
-        {/* Quick Links */}
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Access</h2>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/matches">
-              <Button variant="outline">View Matches</Button>
-            </Link>
-            <Link to="/statistics">
-              <Button variant="outline">Statistics</Button>
-            </Link>
-            <Link to="/admin">
-              <Button variant="outline">Admin Panel</Button>
-            </Link>
-          </div>
-        </div>
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]); // Now correctly depends on fetchMatches
+
+  const handleMatchCreated = (newMatch: Match) => {
+    setMatches(prev => [newMatch, ...prev]);
+    navigate(`/match/${newMatch.id}`);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'live': return 'bg-red-500';
+      case 'completed': return 'bg-green-500';
+      case 'scheduled': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">Loading matches...</div>
       </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Football Matches</h1>
+      </div>
+
+      {(userRole === 'admin' || userRole === 'tracker') && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Match</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CreateMatchForm onMatchCreated={handleMatchCreated} />
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {matches.map((match) => (
+          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg">
+                  {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                </CardTitle>
+                <span className={`px-2 py-1 rounded-full text-xs text-white ${getStatusColor(match.status)}`}>
+                  {match.status}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  <strong>Teams:</strong> {match.home_team_name} vs {match.away_team_name}
+                </div>
+                {match.match_date && (
+                  <div className="text-sm text-muted-foreground">
+                    <strong>Date:</strong> {new Date(match.match_date).toLocaleDateString()}
+                  </div>
+                )}
+                <Button 
+                  onClick={() => navigate(`/match/${match.id}`)}
+                  className="w-full mt-4"
+                >
+                  View Match
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {matches.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-muted-foreground">No matches found. Create your first match to get started!</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

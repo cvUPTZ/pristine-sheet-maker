@@ -1,20 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { TimerReset, Play, Pause } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+// Icons are removed as controls are removed from this component
+// import { TimerReset, Play, Pause, Plus, Minus } from 'lucide-react'; 
+// useToast is removed as this component will no longer show toasts for local actions
+// import { useToast } from '@/components/ui/use-toast';
 
 interface MatchTimerProps {
-  matchId?: string;
   dbTimerValue?: number | null; // from match.current_timer_value
   timerStatus?: string | null; // from match.timer_status: 'stopped', 'running', 'paused'
   timerLastStartedAt?: string | null; // from match.timer_last_started_at (ISO string)
 }
 
 const MatchTimer: React.FC<MatchTimerProps> = ({ 
-  matchId,
   dbTimerValue = 0, 
   timerStatus = 'stopped', 
   timerLastStartedAt 
@@ -45,69 +43,6 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
     };
   }, [dbTimerValue, timerStatus, timerLastStartedAt]);
 
-  const handleTimerToggle = async () => {
-    if (!matchId) return;
-
-    try {
-      const newStatus = timerStatus === 'running' ? 'paused' : 'running';
-      const now = new Date().toISOString();
-      
-      let newTimerValue = dbTimerValue || 0;
-
-      if (newStatus === 'paused' && timerLastStartedAt) {
-        const elapsedSinceLastStart = (Date.now() - new Date(timerLastStartedAt).getTime()) / 1000;
-        newTimerValue = (dbTimerValue || 0) + elapsedSinceLastStart;
-      }
-
-      const updateData: any = {
-        timer_status: newStatus,
-        updated_at: now
-      };
-
-      if (newStatus === 'running') {
-        updateData.timer_last_started_at = now;
-      } else {
-        updateData.timer_current_value = Math.floor(newTimerValue);
-        updateData.timer_last_started_at = null;
-      }
-
-      const { error } = await supabase
-        .from('matches')
-        .update(updateData)
-        .eq('id', matchId);
-
-      if (error) throw error;
-
-      toast.success(`Timer ${newStatus === 'running' ? 'started' : 'paused'}`);
-    } catch (error) {
-      console.error('Error toggling timer:', error);
-      toast.error('Failed to update timer');
-    }
-  };
-
-  const handleTimerReset = async () => {
-    if (!matchId) return;
-
-    try {
-      const { error } = await supabase
-        .from('matches')
-        .update({
-          timer_status: 'stopped',
-          timer_current_value: 0,
-          timer_last_started_at: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', matchId);
-
-      if (error) throw error;
-
-      toast.success('Timer reset');
-    } catch (error) {
-      console.error('Error resetting timer:', error);
-      toast.error('Failed to reset timer');
-    }
-  };
-
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.floor(totalSeconds % 60);
@@ -133,30 +68,6 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
               {timerStatus ? timerStatus.charAt(0).toUpperCase() + timerStatus.slice(1) : 'Unknown'}
             </span>
           </div>
-          {matchId && (
-            <div className="flex gap-2 mt-3 w-full">
-              <Button 
-                onClick={handleTimerToggle}
-                variant={timerStatus === 'running' ? 'destructive' : 'default'}
-                className="flex-1 text-xs"
-                size="sm"
-              >
-                {timerStatus === 'running' ? (
-                  <><Pause className="h-3 w-3 mr-1" /> Pause</>
-                ) : (
-                  <><Play className="h-3 w-3 mr-1" /> Start</>
-                )}
-              </Button>
-              <Button 
-                onClick={handleTimerReset}
-                variant="outline"
-                size="sm"
-                className="px-2"
-              >
-                <TimerReset className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
