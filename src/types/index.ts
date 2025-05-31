@@ -198,7 +198,7 @@ export interface Match {
   home_team_formation?: string | null;
   away_team_formation?: string | null;
   match_date?: string | null;
-  location?: string;
+  location?: string | null; // Changed from string to string | null
   created_at?: string;
   updated_at?: string;
   created_by?: string;

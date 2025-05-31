@@ -1,15 +1,18 @@
-
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MatchEvent, Team } from '@/types';
+import { Team, MatchEvent } from '@/types';
 
 interface PlayerStatsTableProps {
   homeTeam: Team;
   awayTeam: Team;
+  events?: MatchEvent[]; // Made optional since it's not always provided
 }
 
-const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ homeTeam, awayTeam }) => {
+const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({
+  homeTeam,
+  awayTeam,
+  events = [] // Default to empty array
+}) => {
   // Calculate basic stats from team data
   const getPlayerStats = (team: Team) => {
     return team.players.map(player => ({

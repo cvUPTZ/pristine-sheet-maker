@@ -90,10 +90,10 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: str
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
-  // Pass null for userId if user.id is not yet available.
+  // Pass empty string as fallback instead of null
   const { pushEvent } = useRealtime({
     channelName: 'tracker-admin-sync',
-    userId: user?.id || null,
+    userId: user?.id || '',
     onEventReceived: () => {}, // Not used for sending, but required by hook
   });
   const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[]>([]);

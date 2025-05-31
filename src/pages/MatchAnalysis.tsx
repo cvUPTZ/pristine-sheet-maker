@@ -173,7 +173,7 @@ const MatchAnalysis: React.FC = () => {
         console.log('Timer status from DB:', matchData.timer_status);
         
         const validTimerStatuses: Array<'stopped' | 'running' | 'paused'> = ['stopped', 'running', 'paused'];
-        if (matchData.timer_status && validTimerStatuses.includes(matchData.timer_status)) {
+        if (matchData.timer_status && validTimerStatuses.includes(matchData.timer_status as 'stopped' | 'running' | 'paused')) {
           setTimerStatus(matchData.timer_status as 'stopped' | 'running' | 'paused');
         } else {
           setTimerStatus('stopped');
@@ -527,6 +527,10 @@ const MatchAnalysis: React.FC = () => {
             potentialPasser={potentialPasser}
             ballPathHistory={ballPathHistory}
             togglePassTrackingMode={togglePassTrackingMode}
+            isRunning={timerStatus === 'running'}
+            dbTimerValue={currentTimerValue}
+            timerStatus={timerStatus}
+            timerLastStartedAt={timerLastStartedAt}
           />
         </div>
 

@@ -96,6 +96,9 @@ const Statistics: React.FC = () => {
             homeTeam={homeTeam || { id: 'home', name: 'Home', formation: '4-4-2', players: [] }}
             awayTeam={awayTeam || { id: 'away', name: 'Away', formation: '4-3-3', players: [] }}
             events={[]}
+            ballTrackingPoints={ballTrackingData}
+            timeSegments={[]}
+            ballTrackingData={ballTrackingData}
           />
           {ballTrackingData.length > 0 && homeTeam && awayTeam && (
             <Card>

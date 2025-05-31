@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
@@ -24,7 +23,7 @@ interface MatchSidebarProps {
 
   mode: 'piano' | 'tracking';
   selectedPlayer: Player | null;
-  handleActionSelect: (action: string) => void;
+  onPlayerSelect: (player: any) => void; // Added this prop
   ballTrackingPoints: any[];
   trackBallMovement: (coordinates: {
     x: number;
@@ -46,6 +45,14 @@ interface MatchSidebarProps {
   calculateTimeSegments?: () => TimeSegmentStatistics[];
   isPassTrackingModeActive: boolean;
   togglePassTrackingMode: () => void;
+  // Additional props
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
+  teamPositions?: any;
+  setTeamPositions?: (positions: any) => void;
+  potentialPasser?: any;
+  ballPathHistory?: any;
+  toggleBallTrackingMode?: () => void;
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
@@ -57,7 +64,7 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   setElapsedTime,
   mode,
   selectedPlayer,
-  handleActionSelect,
+  onPlayerSelect,
   ballTrackingPoints,
   trackBallMovement,
   homeTeam,
@@ -67,7 +74,14 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
   setTimeSegments,
   calculateTimeSegments,
   isPassTrackingModeActive,
-  togglePassTrackingMode
+  togglePassTrackingMode,
+  activeTab,
+  setActiveTab,
+  teamPositions,
+  setTeamPositions,
+  potentialPasser,
+  ballPathHistory,
+  toggleBallTrackingMode
 }) => {
   const { toast } = useToast();
   const [hasCalculatedSegments, setHasCalculatedSegments] = useState(false);
