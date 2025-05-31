@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, MatchEvent, EventType } from '@/types';
+import { Team, MatchEvent, EventType } from '@/types'; // EventType is GlobalEventType
 import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 
 interface MainTabContentV2Props {
   matchId: string;
@@ -307,33 +308,36 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
           <div className="space-y-1 sm:space-y-2 max-h-48 sm:max-h-64 md:max-h-96 overflow-y-auto">
             {events.slice(-10).reverse().map((event) => (
-              <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+              <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${
-                    event.team === 'home' ? 'bg-blue-500' : 'bg-red-500'
-                  }`} />
+                  {/* Replace the colored dot with EnhancedEventTypeIcon */}
+                  <EnhancedEventTypeIcon
+                    eventKey={event.type} // event.type is already GlobalEventType
+                    size="sm" // Equivalent to 20px, good for lists
+                    // Consider adding highContrast or other props if theme requires
+                  />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium capitalize text-xs sm:text-sm md:text-base truncate">
-                      {event.type}
+                    <div className="font-medium capitalize text-xs sm:text-sm md:text-base truncate dark:text-slate-200">
+                      {event.type} {/* Display event type string */}
                     </div>
-                    <div className="text-xs sm:text-sm text-gray-600 truncate">
-                      {event.player_id ? `Player ${event.player_id}` : 'Team event'} - {Math.floor(event.timestamp / 60)}'
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-400 truncate">
+                      {event.player_id ? `P${event.player_id}` : (event.team ? `${event.team.charAt(0).toUpperCase()}` : 'Event')} - {Math.floor(event.timestamp / 60)}'
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => handleEventDelete(event.id)}
-                  className="text-red-600 hover:text-red-800 text-xs sm:text-sm px-2 py-1 flex-shrink-0 rounded hover:bg-red-50 transition-colors"
+                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs sm:text-sm px-2 py-1 flex-shrink-0 rounded hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors"
                 >
-                  {isMobile ? '×' : 'Delete'}
+                  {isMobile ? '×' : 'Del'}
                 </button>
               </div>
             ))}
             {events.length === 0 && (
-              <div className="text-center py-6 sm:py-8 md:py-12 text-gray-500">
+              <div className="text-center py-6 sm:py-8 md:py-12 text-gray-500 dark:text-slate-400">
                 <p className="text-xs sm:text-sm md:text-base">No events recorded yet</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-1">
-                  Events will appear here as they are tracked
+                <p className="text-xs sm:text-sm text-gray-400 dark:text-slate-500 mt-1">
+                  Events will appear here as they are tracked.
                 </p>
               </div>
             )}

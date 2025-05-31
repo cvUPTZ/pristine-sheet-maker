@@ -32,74 +32,7 @@ interface TrackerPianoInputProps {
   matchId: string;
 }
 
-const EVENT_TYPE_COLORS: Record<string, { bg: string; hover: string; border: string; text: string; shadow: string }> = {
-  'pass': {
-    bg: 'bg-gradient-to-br from-blue-500 to-blue-600',
-    hover: 'hover:from-blue-600 hover:to-blue-700',
-    border: 'border-blue-400',
-    text: 'text-blue-700',
-    shadow: 'shadow-blue-200'
-  },
-  'shot': {
-    bg: 'bg-gradient-to-br from-red-500 to-red-600',
-    hover: 'hover:from-red-600 hover:to-red-700',
-    border: 'border-red-400',
-    text: 'text-red-700',
-    shadow: 'shadow-red-200'
-  },
-  'goal': {
-    bg: 'bg-gradient-to-br from-green-500 to-green-600',
-    hover: 'hover:from-green-600 hover:to-green-700',
-    border: 'border-green-400',
-    text: 'text-green-700',
-    shadow: 'shadow-green-200'
-  },
-  'foul': {
-    bg: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-    hover: 'hover:from-yellow-600 hover:to-yellow-700',
-    border: 'border-yellow-400',
-    text: 'text-yellow-700',
-    shadow: 'shadow-yellow-200'
-  },
-  'save': {
-    bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
-    hover: 'hover:from-purple-600 hover:to-purple-700',
-    border: 'border-purple-400',
-    text: 'text-purple-700',
-    shadow: 'shadow-purple-200'
-  },
-  'offside': {
-    bg: 'bg-gradient-to-br from-orange-500 to-orange-600',
-    hover: 'hover:from-orange-600 hover:to-orange-700',
-    border: 'border-orange-400',
-    text: 'text-orange-700',
-    shadow: 'shadow-orange-200'
-  },
-  'corner': {
-    bg: 'bg-gradient-to-br from-teal-500 to-teal-600',
-    hover: 'hover:from-teal-600 hover:to-teal-700',
-    border: 'border-teal-400',
-    text: 'text-teal-700',
-    shadow: 'shadow-teal-200'
-  },
-  // 'sub' key is used in EVENT_TYPE_COLORS but EnhancedEventTypeIcon uses 'substitution'
-  // Ensuring consistency or mapping if needed. For now, assuming 'sub' is a valid eventKey for styling.
-  'substitution': { // Changed 'sub' to 'substitution' to match EnhancedEventTypeIcon keys
-    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
-    hover: 'hover:from-indigo-600 hover:to-indigo-700',
-    border: 'border-indigo-400',
-    text: 'text-indigo-700',
-    shadow: 'shadow-indigo-200'
-  },
-  // Add default or other keys if they might appear and need styling
-  'default': {
-    bg: 'bg-gradient-to-br from-gray-500 to-gray-600',
-    hover: 'hover:from-gray-600 hover:to-gray-700',
-    border: 'border-gray-400',
-    text: 'text-gray-700',
-    shadow: 'shadow-gray-200'
-  }
-};
+// EVENT_TYPE_COLORS constant is removed
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
@@ -702,8 +635,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {assignedEventTypes.map((eventType) => {
                   const isSelected = toggleBehaviorEnabled && selectedEventType === eventType.key;
-                  // Use eventType.key for colors; provide a fallback if key is not in EVENT_TYPE_COLORS
-                  const colors = EVENT_TYPE_COLORS[eventType.key as keyof typeof EVENT_TYPE_COLORS] || EVENT_TYPE_COLORS['default'];
+                  // EVENT_TYPE_COLORS is removed. Styling will be generic or icon-driven.
 
                   return (
                     <motion.div
@@ -716,50 +648,44 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                       <Button
                         onClick={() => handleEventRecord(eventType)}
                         disabled={!selectedPlayer}
-                        className={`w-full h-24 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 border-2 overflow-hidden relative ${
+                        className={`w-full h-24 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1 border-2 overflow-hidden relative group ${
                           isSelected
-                            ? `${colors.bg} ${colors.hover} text-white ${colors.border} shadow-xl ${colors.shadow} ring-2 ring-white ring-offset-2`
-                            : `bg-white hover:bg-slate-50 ${colors.text} border-slate-200 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-100 shadow-lg hover:shadow-xl`
+                            ? 'bg-slate-100 dark:bg-slate-700 border-blue-500 dark:border-blue-400 shadow-xl ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400' // Selected state: subtle bg, primary ring
+                            : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 shadow-lg hover:shadow-md disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200'
                         }`}
                         type="button"
                       >
-                        {isSelected && (
-                          <motion.div
-                            className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10"
-                            animate={{ x: ['-100%', '100%'] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                          />
-                        )}
+                        {/* Visual cue for selection can be the ring and icon's variant */}
 
-                        <div className={`transition-colors duration-300 z-10 relative ${
-                          isSelected ? 'text-white' : colors.text
-                        }`}>
-                          <EnhancedEventTypeIcon
-                            eventKey={eventType.key as EnhancedEventType} // Cast to EnhancedEventType
-                            size={28}
-                            variant={isSelected ? 'selected' : 'default'} // UPDATED LINE
-                          />
-                        </div>
+                        {/* EnhancedEventTypeIcon now drives its own styling based on variant */}
+                        <EnhancedEventTypeIcon
+                          eventKey={eventType.key as EnhancedEventType}
+                          size={28}
+                          variant={isSelected ? 'selected' : 'default'}
+                          // highContrast={...} // if needed from props
+                          // designSystem={...} // if custom design system needed
+                        />
 
-                        <span className="font-semibold text-center leading-tight z-10 relative text-xs">
+                        <span className={`font-semibold text-center leading-tight text-xs ${isSelected ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
                           {eventType.label}
                         </span>
 
                         {selectedPlayer && (
-                          <span className="text-xs opacity-70 z-10 relative">
+                          <span className={`text-xs opacity-80 ${isSelected ? 'text-blue-500 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             {selectedPlayer.player_name}
                           </span>
                         )}
 
                         {toggleBehaviorEnabled && isSelected && (
-                          <span className="text-xs z-10 relative">Click to record</span>
+                          <span className="text-xs text-blue-600 dark:text-blue-300">Click to record</span>
                         )}
 
+                        {/* Simplified top-right badge, consider removing or making it more neutral if not driven by icon colors */}
                         <motion.div
-                          className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 w-7 h-7 text-xs ${
+                          className={`absolute -top-1 -right-1 rounded-full p-0 flex items-center justify-center font-bold border-2 w-6 h-6 text-xs ${
                             isSelected
-                              ? 'bg-white text-slate-700 border-white shadow-lg'
-                              : `${colors.bg.replace('gradient-to-br', 'solid')} text-white border-white shadow-md`
+                              ? 'bg-blue-500 text-white border-white dark:border-slate-900 shadow-md'
+                              : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-white dark:border-slate-800 shadow-sm group-hover:bg-slate-300 dark:group-hover:bg-slate-500'
                           }`}
                           whileHover={{ scale: 1.1 }}
                           animate={isSelected ? {
