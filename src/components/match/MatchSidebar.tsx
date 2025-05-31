@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import MatchTimer from '@/components/MatchTimer';
 import { Card } from '@/components/ui/card';
@@ -12,6 +11,9 @@ import { Link } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MatchSidebarProps {
+  // Match ID for timer controls
+  matchId?: string;
+
   // Props for DB-driven timer
   dbTimerValue?: number | null;
   timerStatus?: string | null;
@@ -57,6 +59,7 @@ interface MatchSidebarProps {
 }
 
 const MatchSidebar: React.FC<MatchSidebarProps> = ({
+  matchId,
   dbTimerValue,
   timerStatus,
   timerLastStartedAt,
@@ -123,6 +126,7 @@ const MatchSidebar: React.FC<MatchSidebarProps> = ({
     <div className="space-y-2 sm:space-y-4">
       <Card className="p-3 sm:p-4 bg-white shadow-md">
         <MatchTimer 
+          matchId={matchId}
           dbTimerValue={dbTimerValue}
           timerStatus={timerStatus}
           timerLastStartedAt={timerLastStartedAt}

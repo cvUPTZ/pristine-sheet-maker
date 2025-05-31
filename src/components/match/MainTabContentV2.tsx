@@ -22,7 +22,23 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventCounts, setEventCounts] = useState({
+    total: 0,
+    home: 0,
+    away: 0
+  });
   const isMobile = useIsMobile();
+
+  const updateEventCounts = useCallback((eventsList: MatchEvent[]) => {
+    const homeEvents = eventsList.filter(e => e.team === 'home');
+    const awayEvents = eventsList.filter(e => e.team === 'away');
+    
+    setEventCounts({
+      total: eventsList.length,
+      home: homeEvents.length,
+      away: awayEvents.length
+    });
+  }, []);
 
   const fetchEvents = useCallback(async () => {
     if (!matchId) return;
@@ -55,22 +71,52 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       }));
 
       setEvents(transformedEvents);
+      updateEventCounts(transformedEvents);
     } catch (error) {
       console.error('[MainTabContentV2] Error fetching events:', error);
     } finally {
       setLoading(false);
     }
-  }, [matchId]);
+  }, [matchId, updateEventCounts]);
 
   const handleRealtimeEvent = useCallback((payload: any) => {
     console.log('[MainTabContentV2] Realtime change received:', payload);
     console.log('[MainTabContentV2] Event type:', payload.eventType);
-    console.log('[MainTabContentV2] New record:', payload.new);
-    console.log('[MainTabContentV2] Old record:', payload.old);
     
-    // Always re-fetch to ensure we have the latest data
-    fetchEvents();
-  }, [fetchEvents]);
+    if (payload.eventType === 'INSERT') {
+      console.log('[MainTabContentV2] New event inserted:', payload.new);
+      
+      // Add the new event immediately for instant UI update
+      const newEvent: MatchEvent = {
+        id: payload.new.id,
+        match_id: payload.new.match_id,
+        type: payload.new.event_type as EventType,
+        event_type: payload.new.event_type,
+        timestamp: payload.new.timestamp || 0,
+        team: payload.new.team as 'home' | 'away',
+        coordinates: payload.new.coordinates ? payload.new.coordinates as { x: number; y: number } : { x: 0, y: 0 },
+        player_id: payload.new.player_id,
+        created_by: payload.new.created_by
+      };
+      
+      setEvents(prevEvents => {
+        const updatedEvents = [...prevEvents, newEvent].sort((a, b) => a.timestamp - b.timestamp);
+        updateEventCounts(updatedEvents);
+        return updatedEvents;
+      });
+    } else if (payload.eventType === 'DELETE') {
+      console.log('[MainTabContentV2] Event deleted:', payload.old);
+      
+      setEvents(prevEvents => {
+        const updatedEvents = prevEvents.filter(event => event.id !== payload.old.id);
+        updateEventCounts(updatedEvents);
+        return updatedEvents;
+      });
+    } else {
+      // For UPDATE or other events, re-fetch to ensure consistency
+      fetchEvents();
+    }
+  }, [fetchEvents, updateEventCounts]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -139,9 +185,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     );
   }
 
-  const homeEvents = events.filter(e => e.team === 'home');
-  const awayEvents = events.filter(e => e.team === 'away');
-
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6 p-1 sm:p-2 md:p-0">
       {/* Tracker Presence Indicator */}
@@ -156,7 +199,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
             <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="text-lg sm:text-xl md:text-2xl font-bold">{events.length}</div>
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">{eventCounts.total}</div>
           </CardContent>
         </Card>
         
@@ -168,7 +211,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">
-              {homeEvents.length}
+              {eventCounts.home}
             </div>
           </CardContent>
         </Card>
@@ -181,7 +224,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">
-              {awayEvents.length}
+              {eventCounts.away}
             </div>
           </CardContent>
         </Card>

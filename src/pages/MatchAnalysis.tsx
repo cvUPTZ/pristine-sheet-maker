@@ -515,6 +515,7 @@ const MatchAnalysis: React.FC = () => {
           </div>
           
           <MatchSidebar
+            matchId={matchId}
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             selectedPlayer={selectedPlayer}
