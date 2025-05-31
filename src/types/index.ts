@@ -46,6 +46,7 @@ export interface Player {
   position: string;
   number: number;
   jersey_number?: number;
+  teamId?: string;
 }
 
 export interface Team {
@@ -105,6 +106,21 @@ export interface PlayerStatistics {
   playerId: string | number;
   playerName: string;
   team: 'home' | 'away';
+  teamId?: string;
+  player?: Player;
+  ballsPlayed?: number;
+  ballsLost?: number;
+  ballsRecovered?: number;
+  passesCompleted?: number;
+  passesAttempted?: number;
+  possessionTime?: number;
+  contacts?: number;
+  lossRatio?: number;
+  goals?: number;
+  assists?: number;
+  passes?: number;
+  shots?: number;
+  fouls?: number;
   events: {
     passes: { successful: number; attempted: number };
     shots: { onTarget: number; offTarget: number };
@@ -170,6 +186,7 @@ export interface MatchEvent {
   optimisticCreationTime?: number;
   player?: Player;
   description?: string;
+  relatedPlayerId?: string | number;
 }
 
 export interface Match {
@@ -180,7 +197,7 @@ export interface Match {
   away_team_name: string;
   home_team_formation?: string | null;
   away_team_formation?: string | null;
-  match_date?: string;
+  match_date?: string | null;
   location?: string;
   created_at?: string;
   updated_at?: string;
@@ -207,12 +224,19 @@ export interface Match {
 }
 
 export interface TrackerSyncEvent {
-  trackerId: string; // ID of the user performing the tracking
-  matchId: string;   // ID of the match being tracked
-  timestamp: number; // Unix timestamp of the event
+  trackerId: string;
+  matchId: string;
+  timestamp: number;
   eventType: 'tracker_status' | 'tracker_action';
   payload: {
-    status?: 'active' | 'inactive' | 'paused'; // For tracker_status
-    currentAction?: string; // e.g., "marking_pass", "focused_on_player_X", "editing_event_Y"
+    status?: 'active' | 'inactive' | 'paused';
+    currentAction?: string;
   };
+}
+
+export interface AssignedPlayerForMatch {
+  id: string | number;
+  name: string;
+  teamId: 'home' | 'away';
+  teamName: string;
 }

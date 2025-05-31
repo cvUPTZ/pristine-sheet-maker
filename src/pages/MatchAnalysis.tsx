@@ -15,8 +15,7 @@ import { useMatchState } from '@/hooks/useMatchState';
 import { useMatchCollaboration } from '@/hooks/useMatchCollaboration';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, Player } from '@/types';
-import { AssignedPlayerForMatch } from '@/components/match/DedicatedTrackerUI';
+import { Team, Player, Formation, AssignedPlayerForMatch } from '@/types';
 import { toast } from 'sonner';
 
 type PlayerType = Player;
@@ -106,20 +105,22 @@ const MatchAnalysis: React.FC = () => {
 
         setMatch(matchData);
 
-        const homeTeamPlayers = Array.isArray(matchData.home_team_players) ? matchData.home_team_players as Player[] : [];
-        const awayTeamPlayers = Array.isArray(matchData.away_team_players) ? matchData.away_team_players as Player[] : [];
+        const homeTeamPlayers = Array.isArray(matchData.home_team_players) ? 
+          (matchData.home_team_players as unknown as Player[]) : [];
+        const awayTeamPlayers = Array.isArray(matchData.away_team_players) ? 
+          (matchData.away_team_players as unknown as Player[]) : [];
 
         const homeTeamData: Team = {
           id: 'home',
           name: matchData.home_team_name || 'Home Team',
-          formation: matchData.home_team_formation || '4-4-2',
+          formation: (matchData.home_team_formation || '4-4-2') as Formation,
           players: homeTeamPlayers
         };
 
         const awayTeamData: Team = {
           id: 'away',
           name: matchData.away_team_name || 'Away Team',
-          formation: matchData.away_team_formation || '4-3-3',
+          formation: (matchData.away_team_formation || '4-3-3') as Formation,
           players: awayTeamPlayers
         };
 
@@ -133,24 +134,39 @@ const MatchAnalysis: React.FC = () => {
           passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
           ballsPlayed: { home: 0, away: 0 },
           ballsLost: { home: 0, away: 0 },
-          duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
-          cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
+          duels: { home: { won: 0, total: 0 }, away: { won: 0, total: 0 } },
           crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-          dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
           corners: { home: 0, away: 0 },
           offsides: { home: 0, away: 0 },
-          freeKicks: { home: 0, away: 0 },
+          fouls: { home: 0, away: 0 },
         };
         
         console.log('Match statistics from DB:', matchData.match_statistics);
         console.log('Initial stats for fallback:', initialStats);
-        setStatistics(matchData.match_statistics || initialStats);
+        
+        if (matchData.match_statistics && typeof matchData.match_statistics === 'object') {
+          setStatistics(matchData.match_statistics);
+        } else {
+          setStatistics(initialStats);
+        }
+        
         console.log('Ball tracking data from DB:', matchData.ball_tracking_data);
-        setBallTrackingPoints(matchData.ball_tracking_data || []);
+        if (Array.isArray(matchData.ball_tracking_data)) {
+          setBallTrackingPoints(matchData.ball_tracking_data);
+        } else {
+          setBallTrackingPoints([]);
+        }
+        
         console.log('Timer current value from DB:', matchData.timer_current_value);
         setCurrentTimerValue(matchData.timer_current_value || 0);
         console.log('Timer status from DB:', matchData.timer_status);
-        setTimerStatus(matchData.timer_status || 'stopped');
+        
+        if (matchData.timer_status && ['stopped', 'running', 'paused'].includes(matchData.timer_status)) {
+          setTimerStatus(matchData.timer_status as 'stopped' | 'running' | 'paused');
+        } else {
+          setTimerStatus('stopped');
+        }
+        
         console.log('Timer last started at from DB:', matchData.timer_last_started_at);
         setTimerLastStartedAt(matchData.timer_last_started_at || null);
 
@@ -191,7 +207,7 @@ const MatchAnalysis: React.FC = () => {
           if (error) {
             console.error('Error fetching player assignment:', error.message);
             setAssignedPlayerInfo(null);
-          } else if (data) {
+          } else if (data && data.player_id !== null) {
             setAssignedPlayerInfo({ playerId: data.player_id, playerTeamId: data.player_team_id });
           } else {
             console.log('No player assigned to this tracker for this match.');
@@ -217,10 +233,10 @@ const MatchAnalysis: React.FC = () => {
     let teamName = '';
 
     if (playerTeamId === 'home' && homeTeam?.players) {
-      foundPlayer = homeTeam.players.find(p => p.id === playerId);
+      foundPlayer = homeTeam.players.find(p => Number(p.id) === playerId);
       teamName = homeTeam.name;
     } else if (playerTeamId === 'away' && awayTeam?.players) {
-      foundPlayer = awayTeam.players.find(p => p.id === playerId);
+      foundPlayer = awayTeam.players.find(p => Number(p.id) === playerId);
       teamName = awayTeam.name;
     }
 

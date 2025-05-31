@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Team, Player, Formation } from '@/types';
 import FormationSelector from './FormationSelector';
-import { getPositionName, generatePlayersForFormation } from '@/utils/formationUtils';
+import { generatePlayersForFormation } from '@/utils/formationUtils';
 import { toast } from 'sonner';
 
 interface TeamSetupWithFormationProps {
@@ -67,7 +67,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     
     // Generate new players based on the formation
     const startId = teamId === 'home' ? 1 : 100;
-    const newPlayers = generatePlayersForFormation(teamId, formation, startId);
+    const newPlayers = generatePlayersForFormation(formation, startId);
     
     onTeamsChange({
       ...teams,
@@ -86,8 +86,8 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     
     const team = teams[teamId]!;
     const playerId = teamId === 'home' ? 
-      Math.max(...team.players.map(p => p.id), 0) + 1 : 
-      Math.max(...team.players.map(p => p.id), 100) + 1;
+      Math.max(...team.players.map(p => Number(p.id)), 0) + 1 : 
+      Math.max(...team.players.map(p => Number(p.id)), 100) + 1;
       
     const newPlayer: Player = {
       id: playerId,
@@ -105,7 +105,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     } as { home: Team, away: Team });
   };
   
-  const updatePlayer = (teamId: 'home' | 'away', playerId: number, updates: Partial<Player>) => {
+  const updatePlayer = (teamId: 'home' | 'away', playerId: string | number, updates: Partial<Player>) => {
     if (!teams[teamId]) return;
     
     const team = teams[teamId]!;
@@ -122,7 +122,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     } as { home: Team, away: Team });
   };
   
-  const removePlayer = (teamId: 'home' | 'away', playerId: number) => {
+  const removePlayer = (teamId: 'home' | 'away', playerId: string | number) => {
     if (!teams[teamId]) return;
     
     const team = teams[teamId]!;
@@ -190,10 +190,10 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
                 <Button onClick={() => addPlayer('home')} size="sm">Add Player</Button>
               </div>
               
-              {teams.home.players.length === 0 ? (
+              {teams.home && teams.home.players.length === 0 ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
-                  <Button onClick={() => updateTeamFormation('home', teams.home.formation as Formation || '4-4-2')}>
+                  <Button onClick={() => updateTeamFormation('home', teams.home!.formation as Formation || '4-4-2')}>
                     Generate Players for {teams.home.formation || '4-4-2'}
                   </Button>
                 </div>
@@ -265,10 +265,10 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
                 <Button onClick={() => addPlayer('away')} size="sm">Add Player</Button>
               </div>
               
-              {teams.away.players.length === 0 ? (
+              {teams.away && teams.away.players.length === 0 ? (
                 <div className="text-center py-8 border rounded-md">
                   <p className="text-muted-foreground mb-4">No players added yet</p>
-                  <Button onClick={() => updateTeamFormation('away', teams.away.formation as Formation || '4-3-3')}>
+                  <Button onClick={() => updateTeamFormation('away', teams.away!.formation as Formation || '4-3-3')}>
                     Generate Players for {teams.away.formation || '4-3-3'}
                   </Button>
                 </div>

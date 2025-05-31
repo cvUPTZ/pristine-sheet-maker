@@ -38,14 +38,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     players: []
   };
 
-  const handleHomeTeamUpdate = (team: Team) => {
-    updateTeams(team, safeAwayTeam);
-  };
-
-  const handleAwayTeamUpdate = (team: Team) => {
-    updateTeams(safeHomeTeam, team);
-  };
-
   const handleStartMatch = () => {
     if (!safeHomeTeam.players?.length || !safeAwayTeam.players?.length) {
       toast.error("Each team must have at least one player.");
@@ -66,6 +58,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     toast.success("Simulated teams loaded successfully.");
   };
 
+  const handleTeamsChange = (teams: { home: Team; away: Team }) => {
+    updateTeams(teams.home, teams.away);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 md:p-4">
       <div className="max-w-4xl mx-auto">
@@ -83,18 +79,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
         
         <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-            <TeamSetupWithFormation 
-              team={safeHomeTeam}
-              onTeamUpdate={handleHomeTeamUpdate}
-              teamType="home"
-            />
-            <TeamSetupWithFormation 
-              team={safeAwayTeam}
-              onTeamUpdate={handleAwayTeamUpdate}
-              teamType="away"
-            />
-          </div>
+          <TeamSetupWithFormation
+            teams={{ home: safeHomeTeam, away: safeAwayTeam }}
+            onTeamsChange={handleTeamsChange}
+            onConfirm={handleStartMatch}
+          />
           
           <div className="px-6 pb-6 pt-0 flex justify-center gap-4">
             <Button 
@@ -103,12 +92,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
               className="w-full md:w-auto"
             >
               Load Simulated Teams
-            </Button>
-            <Button 
-              onClick={handleStartMatch}
-              className="w-full md:w-auto"
-            >
-              Start Match
             </Button>
           </div>
         </Card>

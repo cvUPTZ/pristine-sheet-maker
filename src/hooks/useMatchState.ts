@@ -29,13 +29,11 @@ const initialMatchState: MatchState = {
     passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
     ballsPlayed: { home: 0, away: 0 },
     ballsLost: { home: 0, away: 0 },
-    duels: { home: { won: 0, lost: 0, aerial: 0 }, away: { won: 0, lost: 0, aerial: 0 } },
-    cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } },
+    duels: { home: { won: 0, total: 0 }, away: { won: 0, total: 0 } },
     crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-    dribbles: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
-    freeKicks: { home: 0, away: 0 },
+    fouls: { home: 0, away: 0 },
   },
   timeSegments: [],
   playerStats: [],
@@ -45,8 +43,6 @@ const initialMatchState: MatchState = {
 export const useMatchState = () => {
   const [events, setEvents] = useState<MatchEvent[]>(initialMatchState.events);
   const [statistics, setStatistics] = useState<Statistics>(initialMatchState.statistics);
-  // const [timeSegments, setTimeSegments] = useState<TimeSegmentStatistics[]>(initialMatchState.timeSegments); // Will be replaced by useMemo
-  // const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>(initialMatchState.playerStats); // Will be replaced by useMemo
   const [ballTrackingPoints, setBallTrackingPoints] = useState<BallTrackingPoint[]>(initialMatchState.ballTrackingPoints);
   const [homeTeam, setHomeTeam] = useState<Team>({ id: 'home', name: 'Home Team', players: [], formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState<Team>({ id: 'away', name: 'Away Team', players: [], formation: '4-4-2' });
@@ -159,13 +155,14 @@ export const useMatchState = () => {
   ) => {
     const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
-      matchId: 'current-match',
-      teamId,
-      playerId,
+      match_id: 'current-match',
+      team_id: teamId,
+      player_id: playerId,
       type: eventType,
       timestamp: Date.now(),
       coordinates,
-      status: 'confirmed'
+      status: 'confirmed',
+      event_type: eventType
     };
 
     addEvent(newEvent);
@@ -181,14 +178,15 @@ export const useMatchState = () => {
   ) => {
     const passEvent: MatchEvent = {
       id: `event-${Date.now()}`,
-      matchId: 'current-match',
-      teamId: passerTeamIdStr,
-      playerId: passer.id,
+      match_id: 'current-match',
+      team_id: passerTeamIdStr,
+      player_id: Number(passer.id),
       type: 'pass',
       timestamp: Date.now(),
       coordinates: passerCoords,
       status: 'confirmed',
-      relatedPlayerId: receiver.id
+      relatedPlayerId: receiver.id,
+      event_type: 'pass'
     };
 
     addEvent(passEvent);
@@ -204,8 +202,8 @@ export const useMatchState = () => {
   };
 
   const calculatePossession = () => {
-    const homeEvents = events.filter((event) => event.teamId === homeTeam.id);
-    const awayEvents = events.filter((event) => event.teamId === awayTeam.id);
+    const homeEvents = events.filter((event) => event.team_id === homeTeam.id);
+    const awayEvents = events.filter((event) => event.team_id === awayTeam.id);
 
     const totalEvents = events.length;
     const homePossession = totalEvents > 0 ? (homeEvents.length / totalEvents) * 100 : 50;
@@ -235,138 +233,53 @@ export const useMatchState = () => {
     }));
 
     return segments.map((segment, index) => ({
-      id: `segment-${index}`,
+      startTime: segment.start * 60000,
+      endTime: segment.end * 60000,
       timeSegment: `${segment.start}-${segment.end}min`,
+      events: events.filter(e => e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000),
       possession: {
-        home: 50, // Simplified for now, needs calculation based on events in this segment
-        away: 50, // Simplified for now, needs calculation based on events in this segment
+        home: 50,
+        away: 50,
       },
-      ballsPlayed: { // Example: calculation for balls played in this segment
-        home: events.filter(e => e.teamId === homeTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
-        away: events.filter(e => e.teamId === awayTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
+      ballsPlayed: {
+        home: events.filter(e => e.team_id === homeTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
+        away: events.filter(e => e.team_id === awayTeam.id && e.timestamp >= segment.start * 60000 && e.timestamp < segment.end * 60000).length,
       },
       ballsGiven: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
+        home: 0,
+        away: 0,
       },
       ballsRecovered: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
+        home: 0,
+        away: 0,
       },
       recoveryTime: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
+        home: 0,
+        away: 0,
       },
-      contacts: {
-        home: 0, // Needs calculation
-        away: 0, // Needs calculation
-      },
-      // Cumulative stats would ideally be calculated based on previous segments' cumulative stats + current segment's stats
-      cumulativePossession: { home: 50, away: 50, },
-      cumulativeBallsPlayed: { home: 0, away: 0, },
-      cumulativeBallsGiven: { home: 0, away: 0, },
-      cumulativeBallsRecovered: { home: 0, away: 0, },
-      cumulativeRecoveryTime: { home: 0, away: 0, },
-      cumulativeContacts: { home: 0, away: 0, },
-      possessionDifference: { home: 0, away: 0, },
-      ballsPlayedDifference: { home: 0, away: 0, },
-      ballsGivenDifference: { home: 0, away: 0, },
-      ballsRecoveredDifference: { home: 0, away: 0, },
+      cumulativePossession: { home: 50, away: 50 },
+      cumulativeBallsPlayed: { home: 0, away: 0 },
+      cumulativeBallsGiven: { home: 0, away: 0 },
+      cumulativeBallsRecovered: { home: 0, away: 0 },
+      cumulativeRecoveryTime: { home: 0, away: 0 },
+      possessionDifference: { home: 0, away: 0 },
+      ballsPlayedDifference: { home: 0, away: 0 },
+      ballsGivenDifference: { home: 0, away: 0 },
     }));
   }, [events, homeTeam.id, awayTeam.id]);
-
-  // const generateTimeSegmentStatistics = (): TimeSegmentStatistics[] => { // Inlined into timeSegments useMemo
-  //   const segmentLength = 5; // minutes
-  //   const matchDuration = 90; // minutes
-  //   const numberOfSegments = matchDuration / segmentLength;
-  // 
-  //   const segments = Array.from({ length: numberOfSegments }, (_, i) => ({
-  //     start: i * segmentLength,
-  //     end: (i + 1) * segmentLength,
-  //   }));
-  // 
-  //   return segments.map((segment, index) => ({
-  //     id: `segment-${index}`,
-  //     timeSegment: `${segment.start}-${segment.end}min`,
-  //     possession: {
-  //       home: 50,
-  //       away: 50,
-  //     },
-  //     ballsPlayed: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsGiven: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsRecovered: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     recoveryTime: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     contacts: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativePossession: {
-  //       home: 50,
-  //       away: 50,
-  //     },
-  //     cumulativeBallsPlayed: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeBallsGiven: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeBallsRecovered: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeRecoveryTime: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     cumulativeContacts: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     possessionDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsPlayedDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsGivenDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //     ballsRecoveredDifference: {
-  //       home: 0,
-  //       away: 0,
-  //     },
-  //   }));
-  // };
 
   const playerStats = useMemo(() => {
     const playerStats: PlayerStatistics[] = [];
     const allPlayers: Player[] = [...homeTeam.players, ...awayTeam.players];
 
     allPlayers.forEach(player => {
-      const playerEvents = events.filter(event => event.playerId === player.id);
+      const playerEvents = events.filter(event => event.player_id === Number(player.id));
       const ballsPlayed = playerEvents.length;
       const ballsLost = playerEvents.filter(event => event.type === 'foul').length;
       const ballsRecovered = playerEvents.filter(event => event.type === 'tackle').length;
-      const passesCompleted = playerEvents.filter(event => event.type === 'pass' && event.status === 'confirmed').length; // Assuming only confirmed passes count
-      const passesAttempted = playerEvents.filter(event => event.type === 'pass').length; // All pass attempts
-      const possessionTime = ballsPlayed * 2; // This is a simplification, actual possession time is complex
+      const passesCompleted = playerEvents.filter(event => event.type === 'pass' && event.status === 'confirmed').length;
+      const passesAttempted = playerEvents.filter(event => event.type === 'pass').length;
+      const possessionTime = ballsPlayed * 2;
       const contacts = ballsPlayed + ballsLost + ballsRecovered;
       const lossRatio = ballsPlayed > 0 ? ballsLost / ballsPlayed : 0;
       const goals = playerEvents.filter(event => event.type === 'goal').length;
@@ -374,11 +287,14 @@ export const useMatchState = () => {
       const shots = playerEvents.filter(event => event.type === 'shot').length;
       const fouls = playerEvents.filter(event => event.type === 'foul').length;
 
+      const isHomePlayer = homeTeam.players.find(p => p.id === player.id);
+      const teamId = isHomePlayer ? 'home' : 'away';
+
       playerStats.push({
         playerId: player.id,
         playerName: player.name,
-        teamId: player.teamId || (homeTeam.players.find(p => p.id === player.id) ? homeTeam.id : awayTeam.id),
-        team: homeTeam.players.find(p => p.id === player.id) ? homeTeam.name : awayTeam.name,
+        teamId: teamId,
+        team: teamId,
         player: player,
         ballsPlayed: ballsPlayed,
         ballsLost: ballsLost,
@@ -390,9 +306,18 @@ export const useMatchState = () => {
         lossRatio: lossRatio,
         goals: goals,
         assists: assists,
-        passes: passesAttempted, // Total passes attempted
+        passes: passesAttempted,
         shots: shots,
         fouls: fouls,
+        events: {
+          passes: { successful: passesCompleted, attempted: passesAttempted },
+          shots: { onTarget: 0, offTarget: shots },
+          tackles: { successful: ballsRecovered, attempted: ballsRecovered },
+          fouls: fouls,
+          cards: { yellow: 0, red: 0 },
+          goals: goals,
+          assists: assists,
+        }
       });
     });
     return playerStats;
@@ -440,10 +365,6 @@ export const useMatchState = () => {
     setTeams,
     confirmEvent,
     updateEvent,
-    // generateTimeSegmentStatistics, // Removed
-    // generatePlayerStatistics, // Removed (inlined into playerStats useMemo)
-    // calculateTimeSegments, // Removed (inlined into timeSegments useMemo)
-    // setTimeSegments, // Removed
     setBallTrackingPoints,
     setMatchEvents,
     setMatch,
