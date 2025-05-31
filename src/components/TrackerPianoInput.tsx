@@ -660,7 +660,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                         {/* EnhancedEventTypeIcon now drives its own styling based on variant */}
                         <EnhancedEventTypeIcon
                           eventKey={eventType.key as EnhancedEventType}
-                          size={28}
+                          size={36}
                           variant={isSelected ? 'selected' : 'default'}
                           // highContrast={...} // if needed from props
                           // designSystem={...} // if custom design system needed
