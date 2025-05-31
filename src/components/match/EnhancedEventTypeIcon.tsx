@@ -1,195 +1,251 @@
+// src/components/match/EnhancedEventTypeIcon.tsx
+import React, { memo, useMemo } from 'react';
 
-import React from 'react';
-import { motion } from 'framer-motion';
+// --- Enhanced SVG Icon Components ---
+const SvgPassIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
 
-interface EnhancedEventTypeIconProps {
-  eventKey: string;
-  size?: number;
-  className?: string;
+const SvgShotIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="9" />
+    <line x1="12" y1="2" x2="12" y2="4" />
+    <line x1="12" y1="20" x2="12" y2="22" />
+    <line x1="2" y1="12" x2="4" y2="12" />
+    <line x1="20" y1="12" x2="22" y2="12" />
+  </svg>
+);
+
+const SvgGoalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
+const SvgFoulIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const SvgSaveIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <polyline points="17 21 17 13 7 13 7 21" />
+    <polyline points="7 3 7 8 15 8" />
+  </svg>
+);
+
+const SvgOffsideIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="3" x2="21" y2="21" />
+    <path d="M12 19V5" />
+    <path d="M5 12H19" />
+  </svg>
+);
+
+const SvgCornerIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 3L3 10l7.5 2.5L13 21l8-18z" />
+  </svg>
+);
+
+const SvgSubIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="10" y1="10" x2="14" y2="10" />
+    <line x1="12" y1="16" x2="12" y2="20" />
+    <line x1="10" y1="18" x2="14" y2="18" />
+  </svg>
+);
+
+const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="16" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+  </svg>
+);
+
+// --- Enhanced Type Definitions ---
+export type EventType = 
+  | 'pass'
+  | 'shot'
+  | 'goal'
+  | 'foul'
+  | 'save'
+  | 'offside'
+  | 'corner'
+  | 'sub'
+  | 'default';
+
+export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
+
+export type IconVariant = 'default' | 'selected' | 'disabled' | 'highlighted';
+
+// --- Icon Registry ---
+const eventIcons: Record<EventType, React.FC<React.SVGProps<SVGSVGElement>>> = {
+  pass: SvgPassIcon,
+  shot: SvgShotIcon,
+  goal: SvgGoalIcon,
+  foul: SvgFoulIcon,
+  save: SvgSaveIcon,
+  offside: SvgOffsideIcon,
+  corner: SvgCornerIcon,
+  sub: SvgSubIcon,
+  default: SvgDefaultIcon,
+};
+
+// --- Size Mapping ---
+const sizeMap: Record<Exclude<IconSize, number>, number> = {
+  xs: 16,
+  sm: 20,
+  md: 24,
+  lg: 32,
+  xl: 48,
+};
+
+// --- Variant Styles ---
+const variantStyles: Record<IconVariant, string> = {
+  default: 'text-gray-600 dark:text-gray-400',
+  selected: 'text-white',
+  disabled: 'text-gray-300 dark:text-gray-600 opacity-50',
+  highlighted: 'text-blue-600 dark:text-blue-400',
+};
+
+// --- Enhanced Component Interface ---
+export interface EnhancedEventTypeIconProps {
+  /** The event type key to determine which icon to render */
+  eventKey: EventType | string;
+  /** Size of the icon - can be a preset string or custom number */
+  size?: IconSize;
+  /** Visual variant of the icon */
+  variant?: IconVariant;
+  /** Legacy prop for backward compatibility */
   isSelected?: boolean;
+  /** Additional CSS classes */
+  className?: string;
+  /** Accessibility label for screen readers */
+  'aria-label'?: string;
+  /** Whether the icon should have a title tooltip */
+  title?: string;
+  /** Custom stroke width for the SVG */
+  strokeWidth?: number;
+  /** Animation classes for hover/focus states */
+  animationClass?: string;
+  /** Whether to show a loading state */
+  loading?: boolean;
+  /** Click handler */
+  onClick?: (event: React.MouseEvent<SVGSVGElement>) => void;
+  /** Additional SVG props */
+  svgProps?: Omit<React.SVGProps<SVGSVGElement>, 'width' | 'height' | 'className' | 'onClick'>;
 }
 
-export function EnhancedEventTypeIcon({ 
-  eventKey, 
-  size = 24, 
-  className = '', 
-  isSelected = false 
-}: EnhancedEventTypeIconProps) {
-  const iconProps = {
-    width: size,
-    height: size,
-    className: `transition-all duration-300 ${className}`,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const
-  };
+// --- Enhanced Component ---
+export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(({
+  eventKey,
+  size = 'md',
+  variant = 'default',
+  isSelected = false,
+  className = '',
+  'aria-label': ariaLabel,
+  title,
+  strokeWidth = 2,
+  animationClass = '',
+  loading = false,
+  onClick,
+  svgProps = {},
+}) => {
+  // Compute the actual size value
+  const actualSize = useMemo(() => 
+    typeof size === 'number' ? size : sizeMap[size],
+    [size]
+  );
 
-  const getAnimation = () => {
-    switch (eventKey) {
-      case 'pass':
-        return {
-          rotate: isSelected ? [0, 360] : 0,
-          transition: { duration: 0.6, ease: "easeInOut" }
-        };
-      case 'shot':
-        return {
-          scale: isSelected ? [1, 1.2, 1] : 1,
-          transition: { duration: 0.4, ease: "easeInOut" }
-        };
-      case 'goal':
-        return {
-          scale: isSelected ? [1, 1.3, 1] : 1,
-          rotate: isSelected ? [0, 15, -15, 0] : 0,
-          transition: { duration: 0.8, ease: "easeInOut" }
-        };
-      case 'foul':
-        return {
-          x: isSelected ? [0, -2, 2, -2, 2, 0] : 0,
-          transition: { duration: 0.5, ease: "easeInOut" }
-        };
-      case 'save':
-        return {
-          y: isSelected ? [0, -3, 0] : 0,
-          transition: { duration: 0.4, ease: "easeInOut" }
-        };
-      case 'corner':
-        return {
-          rotate: isSelected ? [0, 90, 180, 270, 360] : 0,
-          transition: { duration: 0.8, ease: "easeInOut" }
-        };
-      case 'offside':
-        return {
-          x: isSelected ? [0, 10, 0] : 0,
-          transition: { duration: 0.6, ease: "easeInOut" }
-        };
-      case 'sub':
-        return {
-          rotateY: isSelected ? [0, 180] : 0,
-          transition: { duration: 0.6, ease: "easeInOut" }
-        };
-      default:
-        return {
-          scale: isSelected ? [1, 1.1, 1] : 1,
-          transition: { duration: 0.3, ease: "easeInOut" }
-        };
-    }
-  };
+  // Determine the icon component to use
+  const IconComponent = useMemo(() => {
+    const normalizedKey = eventKey.toLowerCase() as EventType;
+    return eventIcons[normalizedKey] || eventIcons.default;
+  }, [eventKey]);
 
-  const renderIcon = () => {
-    switch (eventKey) {
-      case 'pass':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 2L22 12L12 22L2 12Z" fill="currentColor" fillOpacity="0.1"/>
-            <path d="M8 12L16 12"/>
-            <path d="M13 8L16 12L13 16"/>
-            <circle cx="7" cy="12" r="2" fill="currentColor"/>
-          </svg>
-        );
-      
-      case 'shot':
-        return (
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.1"/>
-            <circle cx="12" cy="12" r="6"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-            <path d="M12 2V6"/>
-            <path d="M12 18V22"/>
-            <path d="M22 12H18"/>
-            <path d="M6 12H2"/>
-          </svg>
-        );
-      
-      case 'goal':
-        return (
-          <svg {...iconProps}>
-            <path d="M6 3H18L21 8V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V8L6 3Z" fill="currentColor" fillOpacity="0.2"/>
-            <path d="M6 3H18L21 8V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V8L6 3Z"/>
-            <circle cx="12" cy="13" r="3" fill="currentColor"/>
-            <path d="M9 10L15 10"/>
-            <path d="M9 16L15 16"/>
-          </svg>
-        );
-      
-      case 'foul':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 9V13"/>
-            <circle cx="12" cy="17" r="1" fill="currentColor"/>
-            <path d="M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z" fill="currentColor" fillOpacity="0.1"/>
-            <path d="M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"/>
-          </svg>
-        );
-      
-      case 'save':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 22C17 17 20 13 20 8.5C20 5.5 17.5 3 14.5 3C13.35 3 12.34 3.5 12 4.16C11.66 3.5 10.65 3 9.5 3C6.5 3 4 5.5 4 8.5C4 13 7 17 12 22Z" fill="currentColor" fillOpacity="0.2"/>
-            <path d="M12 22C17 17 20 13 20 8.5C20 5.5 17.5 3 14.5 3C13.35 3 12.34 3.5 12 4.16C11.66 3.5 10.65 3 9.5 3C6.5 3 4 5.5 4 8.5C4 13 7 17 12 22Z"/>
-            <path d="M9 11L11 13L15 9"/>
-          </svg>
-        );
-      
-      case 'offside':
-        return (
-          <svg {...iconProps}>
-            <path d="M4 15L8 9L16 9L20 15" fill="currentColor" fillOpacity="0.1"/>
-            <path d="M4 15L8 9L16 9L20 15"/>
-            <path d="M12 9V21"/>
-            <circle cx="12" cy="6" r="2" fill="currentColor"/>
-            <path d="M8 21L16 21"/>
-          </svg>
-        );
-      
-      case 'corner':
-        return (
-          <svg {...iconProps}>
-            <path d="M3 3V8H8" fill="none"/>
-            <path d="M3 3L8 8"/>
-            <path d="M21 3V8H16" fill="none"/>
-            <path d="M21 3L16 8"/>
-            <path d="M3 21V16H8" fill="none"/>
-            <path d="M3 21L8 16"/>
-            <path d="M21 21V16H16" fill="none"/>
-            <path d="M21 21L16 16"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-          </svg>
-        );
-      
-      case 'sub':
-        return (
-          <svg {...iconProps}>
-            <circle cx="9" cy="7" r="2" fill="currentColor" fillOpacity="0.3"/>
-            <circle cx="15" cy="7" r="2" fill="currentColor" fillOpacity="0.3"/>
-            <path d="M9 14V20"/>
-            <path d="M15 14V20"/>
-            <path d="M9 14C9 11.79 10.79 10 13 10H11C13.21 10 15 11.79 15 14"/>
-            <path d="M7 17L11 17"/>
-            <path d="M13 17L17 17"/>
-            <path d="M10 15L14 19"/>
-            <path d="M14 15L10 19"/>
-          </svg>
-        );
-      
-      default:
-        return (
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.1"/>
-            <path d="M12 6V12L16 14"/>
-          </svg>
-        );
-    }
-  };
+  // Compute the final variant (handle legacy isSelected prop)
+  const finalVariant = useMemo(() => {
+    if (isSelected) return 'selected';
+    return variant;
+  }, [variant, isSelected]);
+
+  // Build the className string
+  const iconClassName = useMemo(() => {
+    const baseClasses = [
+      'transition-colors duration-200',
+      animationClass,
+      variantStyles[finalVariant],
+      className
+    ].filter(Boolean).join(' ');
+
+    return loading ? `${baseClasses} animate-pulse` : baseClasses;
+  }, [animationClass, finalVariant, className, loading]);
+
+  // Accessibility props
+  const accessibilityProps = useMemo(() => ({
+    'aria-label': ariaLabel || `${eventKey} event icon`,
+    role: onClick ? 'button' : 'img',
+    ...(onClick && { 
+      tabIndex: 0,
+      'aria-pressed': isSelected,
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(e as any);
+        }
+      }
+    })
+  }), [ariaLabel, eventKey, onClick, isSelected]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div 
+        className={`${iconClassName} bg-gray-200 dark:bg-gray-700 rounded`}
+        style={{ width: actualSize, height: actualSize }}
+        {...accessibilityProps}
+      />
+    );
+  }
 
   return (
-    <motion.div
-      animate={getAnimation()}
-      className="flex items-center justify-center"
-    >
-      {renderIcon()}
-    </motion.div>
+    <IconComponent
+      width={actualSize}
+      height={actualSize}
+      className={iconClassName}
+      strokeWidth={strokeWidth}
+      onClick={onClick}
+      {...accessibilityProps}
+      {...(title && { title })}
+      {...svgProps}
+    />
   );
-}
+});
+
+EnhancedEventTypeIcon.displayName = 'EnhancedEventTypeIcon';
+
+// --- Utility Functions ---
+export const getAvailableEventTypes = (): EventType[] => {
+  return Object.keys(eventIcons) as EventType[];
+};
+
+export const isValidEventType = (eventKey: string): eventKey is EventType => {
+  return eventKey.toLowerCase() in eventIcons;
+};
+
+// --- Default Export ---
+export default EnhancedEventTypeIcon;
