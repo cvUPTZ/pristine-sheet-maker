@@ -70,7 +70,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       }
 
       onUserCreated();
-      setFormData({ email: '', password: '', fullName: '', role: 'user' });
+      setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating user:', error);
