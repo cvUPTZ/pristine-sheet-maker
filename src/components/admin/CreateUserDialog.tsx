@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -35,7 +34,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     email: '',
     password: '',
     fullName: '',
-    role: 'user',
+    role: 'user', // Changed from 'user' to match backend expectations
   });
   const [loading, setLoading] = useState(false);
 
@@ -47,41 +46,83 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Basic password validation
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
     setLoading(true);
     
     try {
+      // Get the auth token - try multiple possible storage keys
+      let authToken = localStorage.getItem('supabase.auth.token');
+      if (!authToken) {
+        // Try alternative token storage patterns
+        const authData = localStorage.getItem('sb-auth-token');
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData);
+            authToken = parsed.access_token;
+          } catch (e) {
+            console.warn('Failed to parse auth token from localStorage');
+          }
+        }
+      }
+
+      if (!authToken) {
+        // Try to get from session storage as fallback
+        authToken = sessionStorage.getItem('supabase.auth.token');
+      }
+
+      if (!authToken) {
+        toast.error('Authentication token not found. Please log in again.');
+        return;
+      }
+
       const response = await fetch('/functions/v1/create-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.toLowerCase().trim(), // Normalize email
           password: formData.password,
-          fullName: formData.fullName,
+          fullName: formData.fullName.trim(),
           role: formData.role,
         }),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create user');
+        throw new Error(responseData.error || `HTTP ${response.status}: Failed to create user`);
       }
 
+      toast.success('User created successfully!');
       onUserCreated();
-      setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
+      // Reset form
+      setFormData({ email: '', password: '', fullName: '', role: 'user' });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = () => {
-    setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
+    setFormData({ email: '', password: '', fullName: '', role: 'user' });
   };
 
   return (
@@ -103,6 +144,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
                 placeholder="Enter full name"
                 required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -114,6 +156,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="Enter email address"
                 required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -123,8 +166,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                placeholder="Enter password"
+                placeholder="Enter password (min. 6 characters)"
                 required
+                disabled={loading}
+                minLength={6}
               />
             </div>
             <div className="grid gap-2">
@@ -132,6 +177,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
+                disabled={loading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a role" />
@@ -146,7 +192,12 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleReset}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleReset}
+              disabled={loading}
+            >
               Reset
             </Button>
             <Button type="submit" disabled={loading}>
