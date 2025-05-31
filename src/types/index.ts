@@ -101,6 +101,22 @@ export interface CrossStats {
   successful?: number;
 }
 
+export interface PlayerStatistics {
+  playerId: string | number;
+  playerName: string;
+  team: 'home' | 'away';
+  events: {
+    passes: { successful: number; attempted: number };
+    shots: { onTarget: number; offTarget: number };
+    tackles: { successful: number; attempted: number };
+    fouls: number;
+    cards: { yellow: number; red: number };
+    goals: number;
+    assists: number;
+    [key: string]: any;
+  };
+}
+
 export interface Statistics {
   possession: { home: number; away: number };
   shots: { home: ShotStats; away: ShotStats };
@@ -162,8 +178,8 @@ export interface Match {
   status: string;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation?: string;
-  away_team_formation?: string;
+  home_team_formation?: string | null;
+  away_team_formation?: string | null;
   match_date?: string;
   location?: string;
   created_at?: string;
