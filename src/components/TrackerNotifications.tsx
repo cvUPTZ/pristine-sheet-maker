@@ -31,7 +31,7 @@ interface Notification {
   type: string;
   is_read: boolean;
   created_at: string;
-  notification_data?: NotificationData;
+  data?: Record<string, any>; // Renamed from notification_data and type changed
   matches?: MatchInfo;
 }
 
@@ -60,19 +60,19 @@ const TrackerNotifications: React.FC = () => {
           type,
           is_read,
           created_at,
-          notification_data,
+          data, // Changed from notification_data to data
           user_id
         `)
         .eq('user_id', user.id)
-        .not('match_id', 'is', null)
+        // .not('match_id', 'is', null) // Removed filter to include all notification types
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      // Get match information for each notification
-      const notificationsWithMatches: Notification[] = [];
+      const processedNotifications: Notification[] = [];
       
       for (const notification of data || []) {
+        let matchInfo: MatchInfo | undefined = undefined;
         if (notification.match_id) {
           const { data: matchData, error: matchError } = await supabase
             .from('matches')
@@ -80,23 +80,29 @@ const TrackerNotifications: React.FC = () => {
             .eq('id', notification.match_id)
             .single();
 
-          if (!matchError && matchData) {
-            notificationsWithMatches.push({
-              id: notification.id,
-              match_id: notification.match_id,
-              title: notification.title || '',
-              message: notification.message || '',
-              type: notification.type || 'general',
-              is_read: notification.is_read || false,
-              created_at: notification.created_at || new Date().toISOString(),
-              notification_data: notification.notification_data as NotificationData,
-              matches: matchData
-            });
+          if (matchError) {
+            console.warn(`Error fetching match data for notification ${notification.id}:`, matchError);
+            // Decide if you want to include the notification even if match data fails
+            // For now, we'll include it without match specific data if fetching fails
+          } else if (matchData) {
+            matchInfo = matchData;
           }
         }
+
+        processedNotifications.push({
+          id: notification.id,
+          match_id: notification.match_id, // Will be null if not present
+          title: notification.title || '',
+          message: notification.message || '',
+          type: notification.type || 'general',
+          is_read: notification.is_read || false,
+          created_at: notification.created_at || new Date().toISOString(),
+          data: notification.data as Record<string, any> | undefined, // Use notification.data
+          matches: matchInfo
+        });
       }
       
-      setNotifications(notificationsWithMatches);
+      setNotifications(processedNotifications);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to load notifications');
@@ -262,28 +268,58 @@ const TrackerNotifications: React.FC = () => {
                       </Badge>
                     </div>
                     
-                    <div className="mb-2">
-                      <span className="font-medium text-sm sm:text-base">
-                        {notification.matches?.name || 
-                         `${notification.matches?.home_team_name} vs ${notification.matches?.away_team_name}`}
-                      </span>
-                    </div>
+                    {/* Display match name if available */}
+                    {notification.matches && (
+                      <div className="mb-2">
+                        <span className="font-medium text-sm sm:text-base">
+                          {notification.matches.name ||
+                           `${notification.matches.home_team_name} vs ${notification.matches.away_team_name}`}
+                        </span>
+                      </div>
+                    )}
                     
                     <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">
                       {notification.message}
                     </p>
                     
-                    {notification.notification_data && (
-                      <div className="text-xs space-y-1 mb-2">
-                        {notification.notification_data.assigned_event_types && (
-                          <div className="break-words">
-                            <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
+                    {/* Conditional rendering for notification.data based on type */}
+                    {notification.data && (
+                      <div className="text-xs space-y-1 mb-2 bg-muted/50 p-2 rounded-md">
+                        {notification.type === 'low_battery' && notification.data.battery_level !== undefined && (
+                          <p><strong>Battery Critical:</strong> {String(notification.data.battery_level)}%</p>
+                        )}
+                        {notification.type === 'match_reminder' && notification.data.match_name && (
+                           <p>Reminder for <strong>{String(notification.data.match_name)}</strong> starting at {new Date(String(notification.data.start_time)).toLocaleTimeString()}</p>
+                        )}
+                        {notification.type === 'tracker_absence' && (
+                          <div>
+                            <p><strong>Replacement Assignment:</strong></p>
+                            <p>Match ID: {String(notification.data.match_id)}</p>
+                            {notification.data.absent_tracker_id && <p>Original Tracker: {String(notification.data.absent_tracker_id)}</p>}
                           </div>
                         )}
-                        {notification.notification_data.assigned_player_ids && (
-                          <div>
-                            <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
-                          </div>
+                        {/* Fallback for 'assignment' type or types with assigned_event_types/assigned_player_ids */}
+                        {(notification.type === 'assignment' || // Assuming 'assignment' is a type
+                          (!['low_battery', 'match_reminder', 'tracker_absence'].includes(notification.type) &&
+                           (notification.data.assigned_event_types || notification.data.assigned_player_ids))
+                        ) && (
+                          <>
+                            {Array.isArray(notification.data.assigned_event_types) && notification.data.assigned_event_types.length > 0 && (
+                              <div className="break-words">
+                                <strong>Event Types:</strong> {notification.data.assigned_event_types.join(', ')}
+                              </div>
+                            )}
+                            {Array.isArray(notification.data.assigned_player_ids) && notification.data.assigned_player_ids.length > 0 && (
+                              <div>
+                                <strong>Players:</strong> {notification.data.assigned_player_ids.length} assigned
+                              </div>
+                            )}
+                             {notification.data.assignment_type && (
+                              <div>
+                                <strong>Assignment Type:</strong> {String(notification.data.assignment_type)}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
@@ -293,7 +329,7 @@ const TrackerNotifications: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex gap-1 sm:gap-2 flex-col sm:flex-row flex-shrink-0">
+                  <div className="flex gap-1 sm:gap-2 flex-col sm:flex-row flex-shrink-0 items-start">
                     {!notification.is_read && (
                       <Button
                         variant="outline"
@@ -305,15 +341,18 @@ const TrackerNotifications: React.FC = () => {
                         <span className="hidden sm:inline sm:ml-1">Read</span>
                       </Button>
                     )}
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleViewMatch(notification.match_id, notification.id)}
-                      className="h-8 sm:h-9 text-xs"
-                    >
-                      <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="ml-1">{isMobile ? "Track" : "Start Tracking"}</span>
-                    </Button>
+                    {/* Conditionally render "Start Tracking" button if there's a match_id */}
+                    {notification.match_id && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleViewMatch(notification.match_id!, notification.id)}
+                        className="h-8 sm:h-9 text-xs"
+                      >
+                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="ml-1">{isMobile ? "Track" : "Start Tracking"}</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
