@@ -24,7 +24,7 @@ interface MatchSidebarProps {
 
   mode: 'piano' | 'tracking';
   selectedPlayer: Player | null;
-  onPlayerSelect: (player: any) => void; // Added this prop
+  onPlayerSelect: (player: any) => void;
   ballTrackingPoints: any[];
   trackBallMovement?: (coordinates: {
     x: number;

@@ -49,6 +49,10 @@ const PitchView: React.FC<PitchViewProps> = ({
     }
   };
 
+  const handlePlayerClick = (playerId: number) => {
+    console.log('Player clicked:', playerId);
+  };
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -84,10 +88,11 @@ const PitchView: React.FC<PitchViewProps> = ({
       {/* Pitch */}
       <div className="border rounded-lg p-4 bg-white">
         <Pitch
-          homeTeam={normalizedHomeTeam}
-          awayTeam={normalizedAwayTeam}
-          ballTrackingData={normalizedBallData}
-          onCoordinateClick={handlePitchClick}
+          players={selectedTeam === 'home' ? normalizedHomeTeam.players : normalizedAwayTeam.players}
+          events={normalizedBallData}
+          formation={selectedTeam === 'home' ? normalizedHomeTeam.formation : normalizedAwayTeam.formation}
+          onPlayerClick={handlePlayerClick}
+          selectedTeam={selectedTeam}
         />
       </div>
     </div>
