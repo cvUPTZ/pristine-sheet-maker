@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Team, MatchEvent, EventType } from '@/types';
@@ -25,6 +25,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   const isMobile = useIsMobile();
 
   const fetchEvents = useCallback(async () => {
+    console.log(`[MainTabContentV2 DEBUG] fetchEvents triggered for matchId: ${matchId}`);
     // setLoading(true); // Optional: set loading state at the beginning of fetch
     try {
       const { data, error } = await supabase
@@ -35,19 +36,10 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
       if (error) throw error;
 
-      const transformedEvents: MatchEvent[] = (data || []).map(event => ({
-        id: event.id,
-        match_id: event.match_id,
-        type: event.event_type as EventType,
-        event_type: event.event_type,
-        timestamp: event.timestamp || 0,
-        team: event.team as 'home' | 'away',
-        coordinates: event.coordinates ? event.coordinates as { x: number; y: number } : { x: 0, y: 0 },
-        player_id: event.player_id,
-        created_by: event.created_by
-      }));
-
+      // Ensure to use transformSupabaseEvent which should include event_data
+      const transformedEvents: MatchEvent[] = (data || []).map(transformSupabaseEvent);
       setEvents(transformedEvents);
+      console.log(`[MainTabContentV2 DEBUG] fetchEvents completed. Number of events fetched: ${transformedEvents.length}`);
     } catch (error) {
       console.error('Error fetching events:', error);
     } finally {
@@ -55,11 +47,65 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     }
   }, [matchId]); // Dependency: matchId
 
+  const transformSupabaseEvent = (dbEvent: any): MatchEvent => ({
+    id: dbEvent.id,
+    match_id: dbEvent.match_id,
+    type: dbEvent.event_type as EventType,
+    event_type: dbEvent.event_type,
+    timestamp: dbEvent.timestamp || 0,
+    team: dbEvent.team as 'home' | 'away',
+    coordinates: dbEvent.coordinates ? dbEvent.coordinates as { x: number; y: number } : { x: 0, y: 0 },
+    player_id: dbEvent.player_id,
+    created_by: dbEvent.created_by,
+    event_data: dbEvent.event_data // Crucial: Make sure event_data is included for stats
+  });
+
   const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('[MainTabContentV2 DEBUG] Realtime change to match_events received:', payload);
-    // Re-fetch all events to update counts and the recent events list
-    fetchEvents();
-  }, [fetchEvents]); // Dependency: memoized fetchEvents
+    console.log('[MainTabContentV2 DEBUG] handleRealtimeEvent called. Full payload:', JSON.stringify(payload, null, 2));
+
+    setEvents(prevEvents => {
+      let newEvents = [...prevEvents];
+      switch (payload.eventType) {
+        case 'INSERT': {
+          const newEvent = transformSupabaseEvent(payload.new);
+          // Avoid duplicates, though Supabase often handles this for single subscriptions
+          if (!newEvents.find(e => e.id === newEvent.id)) {
+            newEvents.push(newEvent);
+            // Sort by timestamp to maintain order, important for recent events display
+            newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] INSERT processed. New event added. Total events:', newEvents.length);
+          } else {
+            console.log('[MainTabContentV2 DEBUG] INSERT skipped, event already exists:', newEvent.id);
+          }
+          break;
+        }
+        case 'UPDATE': {
+          const updatedEvent = transformSupabaseEvent(payload.new);
+          const index = newEvents.findIndex(e => e.id === updatedEvent.id);
+          if (index !== -1) {
+            newEvents[index] = updatedEvent;
+            newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] UPDATE processed. Event updated. Total events:', newEvents.length);
+          } else {
+            // If not found, it could be an event not yet in state, add it (optional, depends on desired behavior)
+            // newEvents.push(updatedEvent);
+            // newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] UPDATE received for an event not in current state:', updatedEvent.id);
+          }
+          break;
+        }
+        case 'DELETE': {
+          const oldEventId = payload.old.id;
+          newEvents = newEvents.filter(e => e.id !== oldEventId);
+          console.log('[MainTabContentV2 DEBUG] DELETE processed. Event removed. Total events:', newEvents.length);
+          break;
+        }
+        default:
+          console.log('[MainTabContentV2 DEBUG] Unknown eventType in payload:', payload.eventType);
+      }
+      return newEvents;
+    });
+  }, []); // No dependencies as setEvents with functional update is used
 
   useEffect(() => {
     fetchEvents(); // Initial fetch
@@ -78,10 +124,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to match-events-for-${matchId}`);
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error(`Error subscribing to match-events-for-${matchId}:`, err);
+          console.log(`[MainTabContentV2 DEBUG] Successfully SUBSCRIBED to match-events-for-${matchId}`);
+        } else if (status === 'TIMED_OUT') {
+          console.error(`[MainTabContentV2 DEBUG] TIMED_OUT subscribing to match-events-for-${matchId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[MainTabContentV2 DEBUG] CHANNEL_ERROR subscribing to match-events-for-${matchId}:`, err);
+        } else {
+          console.log(`[MainTabContentV2 DEBUG] Subscription status for match-events-for-${matchId}: ${status}`, err ? JSON.stringify(err) : '');
         }
       });
 
@@ -90,9 +139,17 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       console.log(`Unsubscribing from match-events-for-${matchId}`); // Kept original log too
       supabase.removeChannel(channel);
     };
-  }, [matchId, fetchEvents]); // Added fetchEvents to dependency array
+  }, [matchId, fetchEvents, handleRealtimeEvent]); // Added handleRealtimeEvent
 
   const handleEventDelete = async (eventId: string) => {
+    // Optimistic UI update (already in place) + DB deletion
+    // The realtime listener for DELETE will also fire, make sure it's handled gracefully
+    // (current implementation of handleRealtimeEvent for DELETE should be fine)
+    setEvents(prev => prev.filter(event => event.id !== eventId));
+    // This local optimistic update can be removed if we solely rely on real-time DELETE event
+    // However, keeping it provides immediate feedback to the user.
+    // The real-time handler will then try to remove it again, which is harmless.
+
     try {
       const { error } = await supabase
         .from('match_events')
@@ -101,11 +158,49 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
       if (error) throw error;
 
-      setEvents(prev => prev.filter(event => event.id !== eventId));
+      // No need to call setEvents here again if optimistic update is kept,
+      // or if we rely purely on the realtime update.
+      // setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
       console.error('Error deleting event:', error);
+      // Potentially revert optimistic update if DB delete fails
+      // fetchEvents(); // Or re-fetch to ensure consistency
     }
   };
+
+  // --- Advanced Statistics Calculations ---
+  const advancedStats = useMemo(() => {
+    const calculatePassCompletion = (team: 'home' | 'away') => {
+      const teamPasses = events.filter(e => e.team === team && e.type === 'pass');
+      const totalPasses = teamPasses.length;
+      if (totalPasses === 0) return { rate: NaN, total: 0, successful: 0 }; // Return NaN for rate if no passes
+      const successfulPasses = teamPasses.filter(e => e.event_data?.success === true).length;
+      return { rate: (successfulPasses / totalPasses) * 100, total: totalPasses, successful: successfulPasses };
+    };
+
+    const calculateShotsOnTarget = (team: 'home' | 'away') => {
+      const teamShots = events.filter(e => e.team === team && e.type === 'shot');
+      const totalShots = teamShots.length;
+      if (totalShots === 0) return { rate: NaN, total: 0, onTarget: 0 }; // Return NaN for rate if no shots
+      const shotsOnTarget = teamShots.filter(e => e.event_data?.on_target === true).length;
+      return { rate: (shotsOnTarget / totalShots) * 100, total: totalShots, onTarget: shotsOnTarget };
+    };
+
+    const homePassCompletion = calculatePassCompletion('home');
+    const awayPassCompletion = calculatePassCompletion('away');
+    const homeShotsOnTarget = calculateShotsOnTarget('home');
+    const awayShotsOnTarget = calculateShotsOnTarget('away');
+
+    // console.log('[MainTabContentV2 DEBUG] Advanced stats calculated:', { homePassCompletion, awayPassCompletion, homeShotsOnTarget, awayShotsOnTarget });
+
+    return {
+      homePassCompletionRate: homePassCompletion.rate,
+      awayPassCompletionRate: awayPassCompletion.rate,
+      homeShotsOnTargetRate: homeShotsOnTarget.rate,
+      awayShotsOnTargetRate: awayShotsOnTarget.rate,
+    };
+  }, [events]);
+  // --- End Advanced Statistics Calculations ---
 
   if (loading) {
     return (
@@ -125,7 +220,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
         <Card className="min-w-0">
           <CardHeader className="pb-2 p-3 sm:p-4">
             <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
@@ -157,6 +252,48 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">
               {events.filter(e => e.team === 'away').length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+        <Card>
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Passing Accuracy</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.homePassCompletionRate) ? 'N/A' : `${advancedStats.homePassCompletionRate.toFixed(1)}%`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.awayPassCompletionRate) ? 'N/A' : `${advancedStats.awayPassCompletionRate.toFixed(1)}%`}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Shooting Accuracy</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.homeShotsOnTargetRate) ? 'N/A' : `${advancedStats.homeShotsOnTargetRate.toFixed(1)}%`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.awayShotsOnTargetRate) ? 'N/A' : `${advancedStats.awayShotsOnTargetRate.toFixed(1)}%`}
+              </span>
             </div>
           </CardContent>
         </Card>
