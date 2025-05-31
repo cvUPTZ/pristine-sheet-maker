@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,58 +36,44 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     email: '',
     password: '',
     fullName: '',
-    role: 'user', // Changed from 'user' to match backend expectations
+    role: 'user',
   });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password || !formData.fullName) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast.error('Please enter a valid email address');
       return;
     }
 
-    // Basic password validation
     if (formData.password.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
     }
 
     setLoading(true);
-    
+
     try {
-      // Get the auth token - try multiple possible storage keys
-      let authToken = localStorage.getItem('supabase.auth.token');
-      if (!authToken) {
-        // Try alternative token storage patterns
-        const authData = localStorage.getItem('sb-auth-token');
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData);
-            authToken = parsed.access_token;
-          } catch (e) {
-            console.warn('Failed to parse auth token from localStorage');
-          }
-        }
-      }
+      // ✅ Get auth token directly from Supabase session
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!authToken) {
-        // Try to get from session storage as fallback
-        authToken = sessionStorage.getItem('supabase.auth.token');
-      }
-
-      if (!authToken) {
+      if (sessionError || !session || !session.access_token) {
         toast.error('Authentication token not found. Please log in again.');
         return;
       }
+
+      const authToken = session.access_token;
 
       const response = await fetch('/functions/v1/create-user', {
         method: 'POST',
@@ -94,7 +82,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          email: formData.email.toLowerCase().trim(), // Normalize email
+          email: formData.email.toLowerCase().trim(),
           password: formData.password,
           fullName: formData.fullName.trim(),
           role: formData.role,
@@ -109,8 +97,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
       toast.success('User created successfully!');
       onUserCreated();
-      // Reset form
-      setFormData({ email: '', password: '', fullName: '', role: 'user' });
+      setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating user:', error);
@@ -122,7 +109,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   };
 
   const handleReset = () => {
-    setFormData({ email: '', password: '', fullName: '', role: 'user' });
+    setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
   };
 
   return (
@@ -192,9 +179,9 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={handleReset}
               disabled={loading}
             >
