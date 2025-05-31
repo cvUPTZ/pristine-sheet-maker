@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
+import { useBatteryMonitor } from '@/hooks/useBatteryMonitor'; // Import the battery monitor hook
 
 interface LiveMatch {
   id: string;
@@ -33,6 +34,9 @@ const TrackerInterface: React.FC = () => {
   const isMobile = useIsMobile();
   const isSmall = useBreakpoint('sm');
   const isMedium = useBreakpoint('md');
+
+  // Call the battery monitor hook
+  useBatteryMonitor(user?.id);
 
   useEffect(() => {
     fetchLiveMatches();
