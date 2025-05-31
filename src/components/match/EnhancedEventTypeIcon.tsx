@@ -262,8 +262,6 @@ const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 
 // --- Enhanced Type Definitions ---
-export type EventType = GlobalEventType; // Standardized to global type
-
 export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 export type IconVariant = 'default' | 'selected' | 'disabled' | 'highlighted';
 
@@ -297,12 +295,12 @@ interface EventTypeVisuals {
 }
 
 export interface DesignSystem {
-  colors: Record<Exclude<EventType, 'default'>, EventTypeVisuals['colorPalette']>;
+  colors: Record<Exclude<GlobalEventType, 'default'>, EventTypeVisuals['colorPalette']>;
   animations: { // General hover/focus animations
     hover?: AnimationStyle;
     focus?: AnimationStyle;
     // Event-specific animations can also be here or within colors object
-    eventSpecific?: Record<Exclude<EventType, 'default'>, AnimationStyle>;
+    eventSpecific?: Record<Exclude<GlobalEventType, 'default'>, AnimationStyle>;
   };
   // spacing: ResponsiveSpacingSystem; // Consumed via size prop
   // typography: SemanticTypography; // Less relevant for pure icons
@@ -465,7 +463,7 @@ export const defaultDesignSystem: DesignSystem = {
 
 // --- Enhanced Component Interface ---
 export interface EnhancedEventTypeIconProps {
-  eventKey: EventType | string;
+  eventKey: GlobalEventType | string;
   size?: IconSize;
   variant?: IconVariant;
   /** @deprecated Use `variant="selected"` instead */
