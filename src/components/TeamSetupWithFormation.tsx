@@ -67,7 +67,7 @@ const TeamSetupWithFormation: React.FC<TeamSetupWithFormationProps> = ({ teams, 
     
     // Generate new players based on the formation
     const startId = teamId === 'home' ? 1 : 100;
-    const newPlayers = generatePlayersForFormation(formation, startId);
+    const newPlayers = generatePlayersForFormation(formation, startId.toString());
     
     onTeamsChange({
       ...teams,
