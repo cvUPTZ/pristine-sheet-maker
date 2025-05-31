@@ -81,7 +81,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   };
 
   const handleReset = () => {
-    setFormData({ email: '', password: '', fullName: '', role: 'user' });
+    setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
   };
 
   return (
