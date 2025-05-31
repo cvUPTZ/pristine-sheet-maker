@@ -1,11 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, Trash2 } from 'lucide-react';
+import { Users, Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import CreateUserDialog from './CreateUserDialog';
 
 type UserRole = 'admin' | 'tracker' | 'teacher' | 'user';
 
@@ -19,6 +21,7 @@ interface UserProfile {
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateUser, setShowCreateUser] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -99,14 +102,10 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'tracker': return 'bg-blue-100 text-blue-800';
-      case 'teacher': return 'bg-green-100 text-green-800';
-      case 'user': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const handleUserCreated = () => {
+    setShowCreateUser(false);
+    fetchUsers(); // Refresh the user list
+    toast.success('User created successfully');
   };
 
   if (loading) {
@@ -114,80 +113,92 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 sm:p-6">
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            User Management
-          </CardTitle>
-          <Button className="bg-gray-900 text-white hover:bg-gray-800">
-            Create New User
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2 text-sm font-medium text-gray-500">ID</th>
-                <th className="text-left py-2 text-sm font-medium text-gray-500">Name</th>
-                <th className="text-left py-2 text-sm font-medium text-gray-500">Email</th>
-                <th className="text-left py-2 text-sm font-medium text-gray-500">Role</th>
-                <th className="text-left py-2 text-sm font-medium text-gray-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 text-sm text-gray-600 font-mono">
-                    {user.id.substring(0, 8)}...
-                  </td>
-                  <td className="py-3 text-sm">
-                    {user.full_name || 'No name'}
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">
-                    {user.email}
-                  </td>
-                  <td className="py-3">
-                    <Select
-                      value={user.role}
-                      onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
-                    >
-                      <SelectTrigger className="w-28 h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="tracker">Tracker</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
-                        <SelectItem value="user">User</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="py-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteUser(user.id)}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                    >
-                      Delete User
-                    </Button>
-                  </td>
+    <>
+      <Card>
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+              User Management
+            </CardTitle>
+            <Button 
+              onClick={() => setShowCreateUser(true)}
+              className="bg-gray-900 text-white hover:bg-gray-800 flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create User
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 text-sm font-medium text-gray-500">ID</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-500">Name</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-500">Email</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-500">Role</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-500">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {users.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No users found
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 text-sm text-gray-600 font-mono">
+                      {user.id.substring(0, 8)}...
+                    </td>
+                    <td className="py-3 text-sm">
+                      {user.full_name || 'No name'}
+                    </td>
+                    <td className="py-3 text-sm text-gray-600">
+                      {user.email}
+                    </td>
+                    <td className="py-3">
+                      <Select
+                        value={user.role}
+                        onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
+                      >
+                        <SelectTrigger className="w-28 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="tracker">Tracker</SelectItem>
+                          <SelectItem value="teacher">Teacher</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="py-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteUser(user.id)}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                      >
+                        Delete User
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {users.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No users found
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <CreateUserDialog 
+        open={showCreateUser}
+        onOpenChange={setShowCreateUser}
+        onUserCreated={handleUserCreated}
+      />
+    </>
   );
 };
 
