@@ -30,6 +30,7 @@ import {
   StopCircle,
   type LucideIcon
 } from 'lucide-react';
+import { EventType as GlobalEventType } from 'src/types/index';
 
 // Enhanced interface with more customization options
 export interface IconProps {
@@ -49,27 +50,6 @@ export enum EventCategory {
   TACTICAL = 'tactical'
 }
 
-// Comprehensive event type definitions
-export type EventType = 
-  // Ball Actions
-  | 'pass' | 'shot' | 'goal' | 'assist' | 'cross' | 'header' | 'volley'
-  | 'penalty' | 'free_kick' | 'corner' | 'throw_in' | 'kick_off'
-  | 'save' | 'block' | 'clearance' | 'interception' | 'tackle'
-  
-  // Player Actions
-  | 'substitution' | 'sub' | 'injury' | 'treatment' | 'return'
-  
-  // Disciplinary
-  | 'foul' | 'yellow_card' | 'red_card' | 'booking' | 'warning'
-  | 'offside' | 'handball' | 'unsporting_behavior'
-  
-  // Match State
-  | 'kick_off' | 'half_time' | 'full_time' | 'extra_time' | 'penalty_shootout'
-  | 'var_check' | 'var_decision' | 'goal_cancelled' | 'goal_awarded'
-  
-  // Tactical
-  | 'formation_change' | 'timeout' | 'captain_change';
-
 // Event metadata for additional context
 export interface EventMetadata {
   category: EventCategory;
@@ -78,8 +58,9 @@ export interface EventMetadata {
   aliases: string[];
 }
 
-// Comprehensive event mapping with metadata
-const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }> = {
+// Comprehensive event mapping with metadata. Keys are camelCase.
+// This map defines the local EventType for this file.
+const EVENT_MAP = {
   // Ball Actions
   pass: {
     icon: ArrowRight,
@@ -153,13 +134,14 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['penalty', 'pk', 'penalty_kick']
     }
   },
-  free_kick: {
+  // Mapped from free_kick. GlobalEventType has 'freeKick' and 'free-kick'.
+  freeKick: {
     icon: Play,
     metadata: {
       category: EventCategory.BALL_ACTION,
       severity: 'medium',
       description: 'Free kick',
-      aliases: ['free_kick', 'freekick', 'fk']
+      aliases: ['free_kick', 'freekick', 'fk', 'free-kick']
     }
   },
   corner: {
@@ -171,16 +153,17 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['corner', 'corner_kick']
     }
   },
-  throw_in: {
+  // Mapped from throw_in. GlobalEventType has 'throwIn' and 'throw-in'.
+  throwIn: {
     icon: RotateCcw,
     metadata: {
       category: EventCategory.BALL_ACTION,
       severity: 'low',
       description: 'Throw in',
-      aliases: ['throw_in', 'throw', 'throwin']
+      aliases: ['throw_in', 'throw', 'throwin', 'throw-in']
     }
   },
-  kick_off: {
+  kickOff: { // Restored and camelCased
     icon: Play,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -242,19 +225,19 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       category: EventCategory.PLAYER_ACTION,
       severity: 'medium',
       description: 'Player substitution',
-      aliases: ['substitution', 'sub', 'change']
+      aliases: ['substitution', 'change'] // 'sub' key will map to 'sub' GlobalEventType
     }
   },
-  sub: {
+  sub: { // 'sub' is a GlobalEventType, maps to local 'sub'
     icon: ArrowUpDown,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
       severity: 'medium',
-      description: 'Player substitution',
-      aliases: ['substitution', 'sub', 'change']
+      description: 'Player substitution (short)',
+      aliases: ['sub', 'substitution']
     }
   },
-  injury: {
+  injury: { // Restored
     icon: Heart,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
@@ -263,7 +246,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['injury', 'hurt', 'injured']
     }
   },
-  treatment: {
+  treatment: { // Restored
     icon: UserMinus,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
@@ -272,7 +255,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['treatment', 'medical']
     }
   },
-  return: {
+  returnToField: { // Restored as returnToField (from 'return')
     icon: UserPlus,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
@@ -292,7 +275,8 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['foul', 'violation']
     }
   },
-  yellow_card: {
+  // Mapped from yellow_card
+  yellowCard: {
     icon: Square,
     metadata: {
       category: EventCategory.DISCIPLINARY,
@@ -301,7 +285,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['yellow_card', 'yellow', 'booking', 'caution']
     }
   },
-  red_card: {
+  redCard: { // Was red_card
     icon: XCircle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
@@ -310,16 +294,25 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['red_card', 'red', 'ejection', 'dismissal']
     }
   },
-  booking: {
+  card: { // Generic card, maps to GlobalEventType 'card'
+    icon: Square,
+    metadata: {
+      category: EventCategory.DISCIPLINARY,
+      severity: 'high',
+      description: 'Card shown (generic)',
+      aliases: ['card', 'booked'] // 'booking' alias handled by specific 'booking' type if needed
+    }
+  },
+  booking: { // Restored
     icon: Square,
     metadata: {
       category: EventCategory.DISCIPLINARY,
       severity: 'high',
       description: 'Player booked',
-      aliases: ['booking', 'booked', 'card']
+      aliases: ['booking'] // Could add 'yellow_card_booking' if specific
     }
   },
-  warning: {
+  warning: { // Restored
     icon: AlertTriangle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
@@ -337,7 +330,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['offside', 'offside_violation']
     }
   },
-  handball: {
+  handball: { // Restored
     icon: Ban,
     metadata: {
       category: EventCategory.DISCIPLINARY,
@@ -346,7 +339,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['handball', 'hand_ball']
     }
   },
-  unsporting_behavior: {
+  unsportingBehavior: { // Restored and camelCased from unsporting_behavior
     icon: XCircle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
@@ -356,8 +349,8 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
     }
   },
 
-  // Match State
-  half_time: {
+  // Match State (Restored and camelCased where needed)
+  halfTime: {
     icon: Pause,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -366,7 +359,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['half_time', 'halftime', 'ht']
     }
   },
-  full_time: {
+  fullTime: {
     icon: StopCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -375,7 +368,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['full_time', 'fulltime', 'ft', 'end']
     }
   },
-  extra_time: {
+  extraTime: {
     icon: Timer,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -384,7 +377,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['extra_time', 'overtime', 'et']
     }
   },
-  penalty_shootout: {
+  penaltyShootout: {
     icon: Target,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -393,7 +386,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['penalty_shootout', 'penalties', 'pso']
     }
   },
-  var_check: {
+  varCheck: {
     icon: Clock,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -402,7 +395,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['var_check', 'var', 'video_review']
     }
   },
-  var_decision: {
+  varDecision: {
     icon: CheckCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -411,7 +404,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['var_decision', 'var_result']
     }
   },
-  goal_cancelled: {
+  goalCancelled: {
     icon: XCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -420,7 +413,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['goal_cancelled', 'goal_disallowed', 'no_goal']
     }
   },
-  goal_awarded: {
+  goalAwarded: {
     icon: Trophy,
     metadata: {
       category: EventCategory.MATCH_STATE,
@@ -430,8 +423,8 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
     }
   },
 
-  // Tactical
-  formation_change: {
+  // Tactical (Restored and camelCased where needed)
+  formationChange: {
     icon: Users,
     metadata: {
       category: EventCategory.TACTICAL,
@@ -440,7 +433,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['formation_change', 'tactical_change']
     }
   },
-  timeout: {
+  timeout: { // Already camelCase
     icon: Pause,
     metadata: {
       category: EventCategory.TACTICAL,
@@ -449,7 +442,7 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
       aliases: ['timeout', 'break']
     }
   },
-  captain_change: {
+  captainChange: {
     icon: ArrowUpDown,
     metadata: {
       category: EventCategory.TACTICAL,
@@ -459,6 +452,9 @@ const EVENT_MAP: Record<EventType, { icon: LucideIcon; metadata: EventMetadata }
     }
   }
 };
+
+// This defines the local EventType based on the keys of the extended EVENT_MAP
+export type EventType = keyof typeof EVENT_MAP;
 
 // Enhanced function with better error handling and flexibility
 export function getEventTypeIcon(
@@ -477,14 +473,20 @@ export function getEventTypeIcon(
   const normalizedKey = eventKey.toLowerCase().trim();
   
   // Find event by key or alias
-  const eventEntry = Object.entries(EVENT_MAP).find(([key, value]) => {
-    return key === normalizedKey || 
-           value.metadata.aliases.some(alias => 
-             alias.toLowerCase() === normalizedKey
-           );
-  });
+  let eventConfig = EVENT_MAP[normalizedKey as EventType]; // Direct lookup with local EventType
+
+  if (!eventConfig) {
+    // Search in aliases if not found as a primary key
+    for (const mapKey in EVENT_MAP) {
+      const currentEvent = EVENT_MAP[mapKey as EventType];
+      if (currentEvent.metadata.aliases.some(alias => alias.toLowerCase() === normalizedKey)) {
+        eventConfig = currentEvent;
+        break;
+      }
+    }
+  }
   
-  const IconComponent = eventEntry ? eventEntry[1].icon : ArrowRight;
+  const IconComponent = eventConfig ? eventConfig.icon : ArrowRight; // Default icon
   
   // Build icon props based on variant and customization
   const iconProps = {
@@ -492,9 +494,9 @@ export function getEventTypeIcon(
     className: `event-icon event-icon--${variant} ${className}`.trim(),
     strokeWidth,
     ...(color && { color }),
-    'data-event-type': normalizedKey,
-    'data-event-category': eventEntry?.[1].metadata.category || 'unknown',
-    'data-event-severity': eventEntry?.[1].metadata.severity || 'low'
+    'data-event-type': normalizedKey, // Keep original key for data attribute if needed
+    'data-event-category': eventConfig?.metadata.category || 'unknown',
+    'data-event-severity': eventConfig?.metadata.severity || 'low'
   };
 
   return <IconComponent {...iconProps} />;
@@ -503,26 +505,42 @@ export function getEventTypeIcon(
 // Utility functions for working with events
 export function getEventMetadata(eventKey: string): EventMetadata | null {
   const normalizedKey = eventKey.toLowerCase().trim();
-  const eventEntry = Object.entries(EVENT_MAP).find(([key, value]) => {
-    return key === normalizedKey || 
-           value.metadata.aliases.some(alias => 
-             alias.toLowerCase() === normalizedKey
-           );
-  });
-  
-  return eventEntry ? eventEntry[1].metadata : null;
+  let eventConfig = EVENT_MAP[normalizedKey as EventType];
+
+  if (!eventConfig) {
+    for (const mapKey in EVENT_MAP) {
+      const currentEvent = EVENT_MAP[mapKey as EventType];
+      if (currentEvent.metadata.aliases.some(alias => alias.toLowerCase() === normalizedKey)) {
+        eventConfig = currentEvent;
+        break;
+      }
+    }
+  }
+  return eventConfig ? eventConfig.metadata : null;
 }
 
 export function getEventsByCategory(category: EventCategory): EventType[] {
-  return Object.entries(EVENT_MAP)
-    .filter(([, value]) => value.metadata.category === category)
-    .map(([key]) => key as EventType);
+  const events: EventType[] = [];
+  for (const mapKey in EVENT_MAP) {
+    const eventTypeKey = mapKey as EventType;
+    const eventConfig = EVENT_MAP[eventTypeKey];
+    if (eventConfig && eventConfig.metadata.category === category) {
+      events.push(eventTypeKey);
+    }
+  }
+  return events;
 }
 
 export function getEventsBySeverity(severity: 'low' | 'medium' | 'high' | 'critical'): EventType[] {
-  return Object.entries(EVENT_MAP)
-    .filter(([, value]) => value.metadata.severity === severity)
-    .map(([key]) => key as EventType);
+  const events: EventType[] = [];
+  for (const mapKey in EVENT_MAP) {
+    const eventTypeKey = mapKey as EventType;
+    const eventConfig = EVENT_MAP[eventTypeKey];
+    if (eventConfig && eventConfig.metadata.severity === severity) {
+      events.push(eventTypeKey);
+    }
+  }
+  return events;
 }
 
 export function getAllSupportedEvents(): EventType[] {
@@ -531,12 +549,17 @@ export function getAllSupportedEvents(): EventType[] {
 
 export function isValidEventType(eventKey: string): boolean {
   const normalizedKey = eventKey.toLowerCase().trim();
-  return Object.entries(EVENT_MAP).some(([key, value]) => {
-    return key === normalizedKey || 
-           value.metadata.aliases.some(alias => 
-             alias.toLowerCase() === normalizedKey
-           );
-  });
+  if (EVENT_MAP[normalizedKey as EventType]) { // Check primary keys
+    return true;
+  }
+  // Check aliases
+  for (const mapKey in EVENT_MAP) {
+    const currentEvent = EVENT_MAP[mapKey as EventType];
+    if (currentEvent.metadata.aliases.some(alias => alias.toLowerCase() === normalizedKey)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // React component for displaying event info

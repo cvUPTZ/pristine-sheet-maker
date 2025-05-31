@@ -1,5 +1,7 @@
 // src/components/match/EnhancedEventTypeIcon.tsx
 import React, { memo, useMemo, useEffect, useRef, useState, CSSProperties } from 'react';
+import { EventType as GlobalEventType } from 'src/types/index';
+import { getEventTypeIcon } from './getEventTypeIcon'; // Adjusted path
 
 // --- Helper: Intersection Observer Hook ---
 interface IntersectionObserverHookOptions extends IntersectionObserverInit {
@@ -45,6 +47,9 @@ function useIntersectionObserver(
 
 // --- Enhanced SVG Icon Components (New designs based on requirements) ---
 // Note: These are simplified representations. Production SVGs would be more detailed.
+
+// TODO: Consider moving individual SVG components to their own files or a dedicated directory
+// if this file becomes too large or if SVGs are used elsewhere.
 
 const SvgPassIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} viewBox="0 0 24 24">
@@ -138,6 +143,46 @@ const SvgCardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+// --- Newly Added Custom SVG Icons ---
+
+const SvgTackleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12l-4-4l-4 4"/>
+    <path d="M18 12v9"/>
+    <path d="M4 16l4-4l-4-4"/>
+    <path d="M8 12H2"/>
+  </svg>
+);
+
+const SvgAssistIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14M17 10l-5 5-5-5"/>
+    <circle cx="12" cy="12" r="3" opacity="0.5"/>
+  </svg>
+);
+
+const SvgYellowCardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  // Similar to SvgCardIcon but typically filled with yellow by design system
+  <svg {...props} viewBox="0 0 24 24">
+    <rect x="6" y="3" width="12" height="18" rx="2" fill="currentColor"/>
+  </svg>
+);
+
+const SvgRedCardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  // Similar to SvgCardIcon but typically filled with red by design system
+  <svg {...props} viewBox="0 0 24 24">
+    <rect x="6" y="3" width="12" height="18" rx="2" fill="currentColor"/>
+  </svg>
+);
+
+const SvgPenaltyIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"/>
+    <circle cx="12" cy="12" r="3" fill="currentColor"/>
+    <path d="M12 16.5V22" strokeLinecap="round"/>
+  </svg>
+);
+
 const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" strokeWidth="2">
     <circle cx="12" cy="12" r="10" />
@@ -148,17 +193,7 @@ const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 
 // --- Enhanced Type Definitions ---
-export type EventType = 
-  | 'pass'
-  | 'shot'
-  | 'goal'
-  | 'foul'
-  | 'save'
-  | 'offside'
-  | 'corner'
-  | 'substitution'
-  | 'card'
-  | 'default';
+export type EventType = GlobalEventType; // Standardized to global type
 
 export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 export type IconVariant = 'default' | 'selected' | 'disabled' | 'highlighted';
@@ -207,7 +242,7 @@ export interface DesignSystem {
 }
 
 // --- Icon Registry ---
-const eventIcons: Record<EventType, React.FC<React.SVGProps<SVGSVGElement>>> = {
+const eventIcons: Record<GlobalEventType | 'default', React.FC<React.SVGProps<SVGSVGElement>>> = {
   pass: SvgPassIcon,
   shot: SvgShotIcon,
   goal: SvgGoalIcon,
@@ -216,7 +251,13 @@ const eventIcons: Record<EventType, React.FC<React.SVGProps<SVGSVGElement>>> = {
   offside: SvgOffsideIcon,
   corner: SvgCornerIcon,
   substitution: SvgSubstitutionIcon,
-  card: SvgCardIcon,
+  card: SvgCardIcon, // Generic card
+  // Adding new custom SVGs
+  tackle: SvgTackleIcon,
+  assist: SvgAssistIcon,
+  yellowCard: SvgYellowCardIcon, // Specific yellow card
+  redCard: SvgRedCardIcon,     // Specific red card
+  penalty: SvgPenaltyIcon,
   default: SvgDefaultIcon,
 };
 
@@ -265,7 +306,28 @@ export const defaultDesignSystem: DesignSystem = {
       default: { base: '#e83e8c', textOnBase: '#FFFFFF' }, // Pink (e.g. for generic card icon)
       // Specific card colors (yellow/red) might be handled by passing fill prop or specific event keys like 'card-yellow'
       highContrast: { default: { base: '#F6B', textOnBase: '#000' } }
-    }, 
+    },
+    // Colors for new icons
+    tackle: {
+      default: { base: '#795548', textOnBase: '#FFFFFF' }, // Brown
+      highContrast: { default: { base: '#8D6E63', textOnBase: '#000' } }
+    },
+    assist: {
+      default: { base: '#4CAF50', textOnBase: '#FFFFFF' }, // Green
+      highContrast: { default: { base: '#66BB6A', textOnBase: '#000' } }
+    },
+    yellowCard: { // Specific color for yellowCard event type
+      default: { base: '#FFEB3B', textOnBase: '#000000' }, // Yellow
+      highContrast: { default: { base: '#FFF176', textOnBase: '#000' } }
+    },
+    redCard: { // Specific color for redCard event type
+      default: { base: '#F44336', textOnBase: '#FFFFFF' }, // Red
+      highContrast: { default: { base: '#E57373', textOnBase: '#000' } }
+    },
+    penalty: {
+      default: { base: '#9C27B0', textOnBase: '#FFFFFF' }, // Purple
+      highContrast: { default: { base: '#BA68C8', textOnBase: '#000' } }
+    },
   },
   animations: {
     hover: { className: 'transform scale-110 brightness-110' }, // Example, assumes Tailwind/CSS
@@ -280,6 +342,12 @@ export const defaultDesignSystem: DesignSystem = {
       corner: { className: 'animate-corner-arc' },
       substitution: { className: 'animate-substitution-swap' },
       card: { className: 'animate-card-flip' },
+      // Animations for new icons (can be simple or unique)
+      tackle: { className: 'animate-tackle-impact' },
+      assist: { className: 'animate-assist-appear' },
+      yellowCard: { className: 'animate-card-flip' }, // Can reuse card animation
+      redCard: { className: 'animate-card-flip' },   // Can reuse card animation
+      penalty: { className: 'animate-penalty-focus' },
     }
   },
   defaultIconColor: '#6c757d', // Grey for default/fallback
@@ -347,13 +415,29 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
 
   const normalizedEventKey = useMemo(() => {
     const key = eventKey.toLowerCase();
-    return isValidEventType(key) ? key : 'default';
+    // Validate if the key is a known GlobalEventType or 'default'
+    // isValidEventType checks against eventIcons keys, which are GlobalEventType | 'default'
+    if (isValidEventType(key)) {
+      return key;
+    }
+    // If eventKey is a GlobalEventType but not in eventIcons (and not 'default'),
+    // it's a candidate for fallback. We still want to treat it as a valid, non-default key.
+    const allGlobalEventTypes = Object.values(GlobalEventType) as string[]; // Needs GlobalEventType to be an enum or const object for this
+    // For now, assume eventKey is a valid GlobalEventType string if not in eventIcons for fallback.
+    // A stricter check might involve comparing key against all defined GlobalEventTypes.
+    // For this task, we pass it through if it's not 'default' and not in eventIcons.
+    if (allGlobalEventTypes.includes(key) && key !== 'default') {
+        return key as GlobalEventType;
+    }
+    return 'default';
   }, [eventKey]);
-  
-  const IconComponent = useMemo(() => 
-    eventIcons[normalizedEventKey] || eventIcons.default,
-    [normalizedEventKey]
-  );
+
+  const CustomIconComponent = useMemo(() => {
+    if (normalizedEventKey === 'default') {
+      return eventIcons.default;
+    }
+    return eventIcons[normalizedEventKey as GlobalEventType]; // Might be undefined if not in eventIcons
+  }, [normalizedEventKey]);
 
   const finalVariant = useMemo(() => {
     if (isSelected) return 'selected'; // Legacy prop handling
@@ -361,8 +445,10 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
   }, [variant, isSelected]);
 
   const currentPalette = useMemo(() => {
-    const dsColors = designSystem.colors[normalizedEventKey as Exclude<EventType, 'default'>];
-    if (!dsColors) return null; // Should not happen if normalizedEventKey is valid non-default
+    // Ensure normalizedEventKey is not 'default' when accessing designSystem.colors
+    if (normalizedEventKey === 'default') return null;
+    const dsColors = designSystem.colors[normalizedEventKey as Exclude<GlobalEventType, 'default'>];
+    if (!dsColors) return null;
 
     const modePalette = highContrast ? dsColors.highContrast : dsColors;
     return modePalette[finalVariant] || modePalette.default;
@@ -420,7 +506,10 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
     
     if (animationEnabled && !loading) {
       classes.push('transition-all duration-200 ease-in-out');
-      const eventAnim = designSystem.animations.eventSpecific?.[normalizedEventKey as Exclude<EventType, 'default'>];
+      // Ensure normalizedEventKey is not 'default' when accessing eventSpecific animations
+      const eventAnim = normalizedEventKey !== 'default'
+        ? designSystem.animations.eventSpecific?.[normalizedEventKey as Exclude<GlobalEventType, 'default'>]
+        : undefined;
       if (eventAnim?.className) classes.push(eventAnim.className);
       
       if (onClick) { // Add hover/focus animations only if interactive
@@ -465,19 +554,47 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
   }
   
   // Main render logic
-  const iconContent = (
-    <IconComponent
-      width={actualSize}
-      height={actualSize}
-      strokeWidth={strokeWidth}
-      // Fill and stroke are primarily controlled by `currentColor` via CSS `color` property on wrapper.
-      // Specific icons might override parts using CSS variables like --icon-accent-color.
-      // SVG props can override if absolutely necessary.
-      fill={normalizedEventKey === 'card' && cardColorOverride ? cardColorOverride : "currentColor"}
-      stroke={ (svgProps.fill && svgProps.fill !== 'none') ? "none" : "currentColor" } // Heuristic for stroke
-      {...svgProps} // Spread additional SVG props; careful about overrides
-    />
-  );
+  let iconContent: JSX.Element | null = null;
+
+  if (CustomIconComponent) {
+    iconContent = (
+      <CustomIconComponent
+        width={actualSize}
+        height={actualSize}
+        strokeWidth={strokeWidth}
+        fill={ (normalizedEventKey === 'yellowCard' || normalizedEventKey === 'redCard' || (normalizedEventKey === 'card' && cardColorOverride))
+               ? (cardColorOverride || iconStyle.color) // Use cardColorOverride or styled color for cards
+               : (svgProps.fill && svgProps.fill !== 'none' ? svgProps.fill : "currentColor")
+             }
+        stroke={ (svgProps.fill && svgProps.fill !== 'none') ? "none" : (svgProps.stroke || "currentColor") }
+        {...svgProps}
+      />
+    );
+  } else if (normalizedEventKey !== 'default') {
+    // Fallback to getEventTypeIcon
+    // Ensure props passed to getEventTypeIcon are suitable.
+    // getEventTypeIcon expects IconProps: { size, className, color, strokeWidth, variant }
+    // We use actualSize, iconStyle.color, and strokeWidth from EnhancedEventTypeIcon.
+    iconContent = getEventTypeIcon(normalizedEventKey, {
+      size: actualSize,
+      color: iconStyle.color, // Use the color determined by the design system
+      strokeWidth: strokeWidth,
+      // className: '', // Potentially pass a specific class for fallback icons
+      // variant: 'default', // Or map from Enhanced's variant
+    });
+  } else {
+    // This case should ideally be covered by CustomIconComponent if normalizedEventKey is 'default'
+    // but as a failsafe:
+    const DefaultIcon = eventIcons.default;
+    iconContent = (
+      <DefaultIcon
+        width={actualSize}
+        height={actualSize}
+        strokeWidth={strokeWidth}
+        {...svgProps}
+      />
+    );
+  }
 
   if (onClick) {
     return (
@@ -511,11 +628,18 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
 EnhancedEventTypeIcon.displayName = 'EnhancedEventTypeIcon';
 
 // --- Utility Functions ---
-export const getAvailableEventTypes = (): EventType[] => {
-  return Object.keys(eventIcons) as EventType[];
+// getAvailableEventTypes now returns all GlobalEventTypes that have a custom icon.
+export const getAvailableCustomEventTypes = (): GlobalEventType[] => {
+  return Object.keys(eventIcons).filter(key => key !== 'default') as GlobalEventType[];
 };
 
-export const isValidEventType = (eventKey: string): eventKey is EventType => {
+// isValidEventType checks if a key is a valid GlobalEventType AND has a custom icon OR is 'default'.
+// For fallback mechanism, we might not need this to be so strict,
+// as normalizedEventKey will handle falling back to 'default' if the key isn't a GlobalEventType at all.
+// The check for `eventIcons[normalizedEventKey as GlobalEventType]` is the main determinant for custom vs fallback.
+export const isValidEventType = (eventKey: string): eventKey is (GlobalEventType | 'default') => {
+  // This function checks if the eventKey is one of the keys in our eventIcons map (custom SVGs)
+  // or if it's the special 'default' key.
   return eventKey in eventIcons;
 };
 
