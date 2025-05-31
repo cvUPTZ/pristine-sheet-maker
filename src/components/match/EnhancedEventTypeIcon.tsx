@@ -183,6 +183,75 @@ const SvgPenaltyIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+// --- SVGs for cross, clearance, block, interception, freeKick, throwIn, dribble ---
+
+const SvgCrossIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 3L8 21"/>
+    <path d="M8 3L16 21"/>
+    <path d="M12 12L21 3"/>
+    <path d="M3 3L12 12"/>
+  </svg>
+);
+
+const SvgClearanceIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12h18M3 12l6-6M3 12l6 6"/>
+    <path d="M18 12l-6-6M18 12l-6 6" opacity="0.5"/>
+    <line x1="10" y1="12" x2="21" y2="12" strokeDasharray="4 2"/>
+  </svg>
+);
+
+const SvgBlockIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+    <path d="M2 17l10 5 10-5"/>
+    <path d="M2 12l10 5 10-5"/>
+     <line x1="12" y1="22" x2="12" y2="12" />
+     <line x1="22" y1="7" x2="2" y2="7" />
+  </svg>
+);
+
+const SvgInterceptionIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 4L3 12"/>
+    <path d="M21 20L3 12"/>
+    <path d="M12 12h9"/>
+    <path d="M3 12h3l3 3V9l-3 3"/>
+  </svg>
+);
+
+const SvgFreeKickIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 15c2.76 0 5-2.24 5-5s-2.24-5-5-5c-.77 0-1.49.17-2.14.46"/>
+    <path d="M5 12H3"/>
+    <path d="M7.86 7.86L6.45 6.45"/>
+  </svg>
+);
+
+const SvgThrowInIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 12m-2 0a2 2 0 104 0 2 2 0 10-4 0"/>
+    <path d="M8 22L16 22"/>
+    <path d="M12 16V22"/>
+    <path d="M10 12L12 2L14 12"/>
+    <path d="M9 7h6"/>
+  </svg>
+);
+
+const SvgDribbleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="6" r="2"/>
+    <path d="M12 8v5"/>
+    <path d="M10 13h4"/>
+    <path d="M12 18l-2-5h4z"/>
+    <circle cx="7" cy="20" r="2" strokeDasharray="2 2"/>
+    <path d="M9 18.5A5 5 0 0 0 12 15a5 5 0 0 1 3 3.5"/>
+  </svg>
+);
+
+
 const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" strokeWidth="2">
     <circle cx="12" cy="12" r="10" />
@@ -258,6 +327,14 @@ const eventIcons: Record<GlobalEventType | 'default', React.FC<React.SVGProps<SV
   yellowCard: SvgYellowCardIcon, // Specific yellow card
   redCard: SvgRedCardIcon,     // Specific red card
   penalty: SvgPenaltyIcon,
+  // Adding the 7 new SVGs from this task
+  cross: SvgCrossIcon,
+  clearance: SvgClearanceIcon,
+  block: SvgBlockIcon,
+  interception: SvgInterceptionIcon,
+  freeKick: SvgFreeKickIcon,
+  throwIn: SvgThrowInIcon,
+  dribble: SvgDribbleIcon,
   default: SvgDefaultIcon,
 };
 
@@ -270,70 +347,97 @@ const sizeMap: Record<Exclude<IconSize, number>, number> = {
 // In a real app, this would be provided via context or props from a central theme.
 export const defaultDesignSystem: DesignSystem = {
   colors: {
-    pass: { 
+    pass: { // Blue
       default: { base: '#007bff', textOnBase: '#FFFFFF' }, 
       highContrast: { default: { base: '#0AF', textOnBase: '#000' } }
-    }, // Blue
-    shot: { 
+    },
+    shot: { // Amber
       default: { base: '#ffc107', textOnBase: '#000000' }, 
       highContrast: { default: { base: '#FF0', textOnBase: '#000' } }
-    }, // Amber
-    goal: { 
+    },
+    goal: { // Green (Emerald)
       default: { base: '#28a745', textOnBase: '#FFFFFF' }, 
       highContrast: { default: { base: '#0F0', textOnBase: '#000' } }
-    }, // Emerald
-    foul: { 
-      default: { base: '#dc3545', textOnBase: '#FFFFFF', accent: '#FFFF00' }, 
-      highContrast: { default: { base: '#F00', textOnBase: '#FFF', accent: '#FF0'} }
-    }, // Red
-    save: { 
+    },
+    foul: { // Orange-Red (was Red, changed for distinctness from redCard)
+      default: { base: '#F25C05', textOnBase: '#FFFFFF', accent: '#FFFF00' },
+      highContrast: { default: { base: '#E65100', textOnBase: '#FFF', accent: '#FF0'} }
+    },
+    save: { // Violet
       default: { base: '#6f42c1', textOnBase: '#FFFFFF', accent: '#FFFFFF' }, 
       highContrast: { default: { base: '#F0F', textOnBase: '#000', accent: '#000' } }
-    }, // Violet
-    offside: { 
+    },
+    offside: { // Orange
       default: { base: '#fd7e14', textOnBase: '#FFFFFF' }, 
       highContrast: { default: { base: '#FA0', textOnBase: '#000' } }
-    }, // Orange
-    corner: { 
+    },
+    corner: { // Cyan
       default: { base: '#17a2b8', textOnBase: '#FFFFFF' }, 
       highContrast: { default: { base: '#0FF', textOnBase: '#000' } }
-    }, // Cyan
-    substitution: { 
+    },
+    substitution: { // Lime Green
       default: { base: '#82c91e', textOnBase: '#000000' }, 
       highContrast: { default: { base: '#AF0', textOnBase: '#000' } }
-    }, // Lime
-    card: { 
-      default: { base: '#e83e8c', textOnBase: '#FFFFFF' }, // Pink (e.g. for generic card icon)
-      // Specific card colors (yellow/red) might be handled by passing fill prop or specific event keys like 'card-yellow'
+    },
+    card: { // Pink (generic card)
+      default: { base: '#e83e8c', textOnBase: '#FFFFFF' },
       highContrast: { default: { base: '#F6B', textOnBase: '#000' } }
     },
-    // Colors for new icons
-    tackle: {
-      default: { base: '#795548', textOnBase: '#FFFFFF' }, // Brown
+    tackle: { // Brown
+      default: { base: '#795548', textOnBase: '#FFFFFF' },
       highContrast: { default: { base: '#8D6E63', textOnBase: '#000' } }
     },
-    assist: {
-      default: { base: '#4CAF50', textOnBase: '#FFFFFF' }, // Green
-      highContrast: { default: { base: '#66BB6A', textOnBase: '#000' } }
+    assist: { // Teal-Blue (was Green, changed for distinctness from goal)
+      default: { base: '#20c997', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#00BFA5', textOnBase: '#000' } }
     },
-    yellowCard: { // Specific color for yellowCard event type
-      default: { base: '#FFEB3B', textOnBase: '#000000' }, // Yellow
+    yellowCard: { // Yellow
+      default: { base: '#FFEB3B', textOnBase: '#000000' },
       highContrast: { default: { base: '#FFF176', textOnBase: '#000' } }
     },
-    redCard: { // Specific color for redCard event type
-      default: { base: '#F44336', textOnBase: '#FFFFFF' }, // Red
+    redCard: { // Red
+      default: { base: '#F44336', textOnBase: '#FFFFFF' },
       highContrast: { default: { base: '#E57373', textOnBase: '#000' } }
     },
-    penalty: {
-      default: { base: '#9C27B0', textOnBase: '#FFFFFF' }, // Purple
-      highContrast: { default: { base: '#BA68C8', textOnBase: '#000' } }
+    penalty: { // Steel Blue (was Purple, changed for distinctness from save)
+      default: { base: '#4682B4', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#5A9BD5', textOnBase: '#000' } }
+    },
+    // Colors for the 7 new icons from the current task
+    cross: { // Forest Green
+      default: { base: '#228B22', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#388E3C', textOnBase: '#000' } }
+    },
+    clearance: { // Sky Blue
+      default: { base: '#87CEEB', textOnBase: '#000000' },
+      highContrast: { default: { base: '#ADD8E6', textOnBase: '#000' } }
+    },
+    block: { // Slate Gray
+      default: { base: '#708090', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#778899', textOnBase: '#000' } }
+    },
+    interception: { // Indigo
+      default: { base: '#4B0082', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#5C00A3', textOnBase: '#FFF' } }
+    },
+    freeKick: { // Gold
+      default: { base: '#FFD700', textOnBase: '#000000' },
+      highContrast: { default: { base: '#FFEC8B', textOnBase: '#000' } }
+    },
+    throwIn: { // Maroon
+      default: { base: '#800000', textOnBase: '#FFFFFF' },
+      highContrast: { default: { base: '#A52A2A', textOnBase: '#FFF' } }
+    },
+    dribble: { // Turquoise
+      default: { base: '#40E0D0', textOnBase: '#000000' },
+      highContrast: { default: { base: '#7FFFD4', textOnBase: '#000' } }
     },
   },
   animations: {
     hover: { className: 'transform scale-110 brightness-110' }, // Example, assumes Tailwind/CSS
     focus: { className: 'ring-2 ring-offset-1' }, // Example
     eventSpecific: {
-      pass: { className: 'animate-pass-flow' }, // Define these CSS animations elsewhere
+      pass: { className: 'animate-pass-flow' },
       shot: { className: 'animate-shot-pulse' },
       goal: { className: 'animate-goal-celebrate' },
       foul: { className: 'animate-foul-shake' },
@@ -342,12 +446,17 @@ export const defaultDesignSystem: DesignSystem = {
       corner: { className: 'animate-corner-arc' },
       substitution: { className: 'animate-substitution-swap' },
       card: { className: 'animate-card-flip' },
-      // Animations for new icons (can be simple or unique)
       tackle: { className: 'animate-tackle-impact' },
       assist: { className: 'animate-assist-appear' },
-      yellowCard: { className: 'animate-card-flip' }, // Can reuse card animation
-      redCard: { className: 'animate-card-flip' },   // Can reuse card animation
+      yellowCard: { className: 'animate-card-flip' },
+      redCard: { className: 'animate-card-flip' },
       penalty: { className: 'animate-penalty-focus' },
+      // Animations for a subset of the 7 new icons
+      cross: { className: 'animate-cross-arc' },
+      clearance: { className: 'animate-clearance-burst' },
+      block: { className: 'animate-block-firm' },
+      interception: { className: 'animate-interception-grab' },
+      // freeKick, throwIn, dribble can be added later or use default/no animation
     }
   },
   defaultIconColor: '#6c757d', // Grey for default/fallback
@@ -665,8 +774,37 @@ function getContrastColor(hexcolor: string): string {
  * 
  * .animate-shot-pulse { animation: shot-pulse 1.5s infinite ease-in-out; }
  * @keyframes shot-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
+ *
+ * /* CSS definitions for new animations */
+ * @keyframes cross-arc {
+ *   0%, 100% { transform: rotate(0deg); }
+ *   50% { transform: rotate(10deg) scale(1.05); }
+ * }
+ * .animate-cross-arc { animation: cross-arc 1.8s ease-in-out infinite; }
+ *
+ * @keyframes clearance-burst {
+ *   0% { transform: scale(1); opacity: 1; }
+ *   50% { transform: scale(1.2); opacity: 0.7; }
+ *   100% { transform: scale(0.9); opacity: 0; }
+ * }
+ * .animate-clearance-burst { animation: clearance-burst 1s ease-out; }
  * 
- * ...and so on for other event types.
+ * @keyframes block-firm {
+ *   0% { transform: scale(1); }
+ *   50% { transform: scale(1.1); filter: brightness(1.1); }
+ *   100% { transform: scale(1); }
+ * }
+ * .animate-block-firm { animation: block-firm 0.6s ease-in-out; }
+ *
+ * @keyframes interception-grab {
+ *   0% { transform: scaleX(1)translateX(0); }
+ *   40% { transform: scaleX(0.8) translateX(5px); }
+ *   70% { transform: scaleX(1.1) translateX(-2px); }
+ *   100% { transform: scaleX(1) translateX(0); }
+ * }
+ * .animate-interception-grab { animation: interception-grab 0.7s ease-out; }
+ *
+ * /* ...and so on for other event types. */
  * 
  * For 1000+ concurrent icons, consider:
  * 1. SVG Sprites: Reduces DOM nodes if SVGs are complex, use <use xlink:href="..."></use>.

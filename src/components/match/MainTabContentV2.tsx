@@ -313,7 +313,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
                   {/* Replace the colored dot with EnhancedEventTypeIcon */}
                   <EnhancedEventTypeIcon
                     eventKey={event.type} // event.type is already GlobalEventType
-                    size="sm" // Equivalent to 20px, good for lists
+                    size="md" // Equivalent to 24px, good for lists
                     // Consider adding highContrast or other props if theme requires
                   />
                   <div className="min-w-0 flex-1">
