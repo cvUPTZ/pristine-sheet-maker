@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,6 @@ interface UserProfile {
   role: string | null;
   created_at: string;
   updated_at: string | null;
-  custom_permissions: RolePermissions | null;
   effective_permissions?: RolePermissions;
 }
 
@@ -88,24 +88,13 @@ const AccessManagement: React.FC = () => {
     try {
       setError(null);
       
-      // First, try to fetch from the view which includes effective permissions
-      let { data, error } = await supabase
-        .from('user_permissions_view')
-        .select('*')
+      // Query the profiles table directly with available columns
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, created_at, updated_at')
         .order('email');
 
-      // If view doesn't exist or fails, fall back to direct table query
-      if (error) {
-        console.warn('View query failed, falling back to direct table query:', error);
-        
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name, role, created_at, updated_at, custom_permissions')
-          .order('email');
-
-        if (fallbackError) throw fallbackError;
-        data = fallbackData;
-      }
+      if (error) throw error;
 
       if (!data) {
         setUsers([]);
@@ -119,7 +108,7 @@ const AccessManagement: React.FC = () => {
         return {
           ...user,
           role: user.role || 'user',
-          effective_permissions: user.custom_permissions || roleDefaults
+          effective_permissions: roleDefaults
         };
       });
 
@@ -149,7 +138,7 @@ const AccessManagement: React.FC = () => {
           return { 
             ...user, 
             role: newRole,
-            effective_permissions: user.custom_permissions || newRolePermissions
+            effective_permissions: newRolePermissions
           };
         }
         return user;
@@ -165,26 +154,22 @@ const AccessManagement: React.FC = () => {
   const savePermissions = async (userId: string, newPermissions: RolePermissions) => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ custom_permissions: newPermissions })
-        .eq('id', userId);
-
-      if (error) throw error;
+      // For now, we'll just store this in local state since custom_permissions column doesn't exist
+      // In a real implementation, you'd need to add this column to the database
+      console.log('Would save permissions for user:', userId, newPermissions);
 
       // Update local state
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { 
               ...user, 
-              custom_permissions: newPermissions,
               effective_permissions: newPermissions
             }
           : user
       ));
 
       setHasUnsavedChanges(false);
-      toast.success('Permissions saved successfully');
+      toast.success('Permissions updated (note: custom permissions require database setup)');
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast.error('Failed to save permissions');
@@ -199,14 +184,6 @@ const AccessManagement: React.FC = () => {
 
     setSaving(true);
     try {
-      // Clear custom permissions (set to null)
-      const { error } = await supabase
-        .from('profiles')
-        .update({ custom_permissions: null })
-        .eq('id', userId);
-
-      if (error) throw error;
-
       const userRole = (user.role || 'user') as UserRole;
       const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
       
@@ -215,7 +192,6 @@ const AccessManagement: React.FC = () => {
         u.id === userId 
           ? { 
               ...u, 
-              custom_permissions: null,
               effective_permissions: roleDefaults
             }
           : u
@@ -257,10 +233,6 @@ const AccessManagement: React.FC = () => {
       case 'user': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const hasCustomPermissions = (user: UserProfile) => {
-    return user.custom_permissions !== null && user.custom_permissions !== undefined;
   };
 
   if (loading) {
@@ -312,11 +284,6 @@ const AccessManagement: React.FC = () => {
                     <p className="text-xs sm:text-sm text-gray-600 truncate">
                       {user.email || 'No email'}
                     </p>
-                    {hasCustomPermissions(user) && (
-                      <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
-                        Custom Permissions
-                      </Badge>
-                    )}
                   </div>
                   <Badge className={`${getRoleBadgeColor(user.role || 'user')} text-xs flex-shrink-0`}>
                     {user.role || 'user'}
@@ -393,11 +360,7 @@ const AccessManagement: React.FC = () => {
                   }
                 </p>
                 <p className="text-gray-600">
-                  Role: {selectedUserData.role || 'user'} | 
-                  {hasCustomPermissions(selectedUserData) 
-                    ? ` Using custom permissions (overrides ${selectedUserData.role || 'user'} defaults)`
-                    : ` Using ${selectedUserData.role || 'user'} role default permissions`
-                  }
+                  Role: {selectedUserData.role || 'user'} | Using {selectedUserData.role || 'user'} role default permissions
                 </p>
               </div>
 
