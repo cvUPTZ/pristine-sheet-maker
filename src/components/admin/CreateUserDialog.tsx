@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -8,7 +9,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,7 +62,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setLoading(true);
 
     try {
-      // ✅ Get auth token directly from Supabase session
+      // Get auth token directly from Supabase session
       const {
         data: { session },
         error: sessionError,
@@ -75,7 +75,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
       const authToken = session.access_token;
 
-      const response = await fetch('/functions/v1/create-user', {
+      // Use the correct function URL format for Supabase
+      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +100,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
       toast.success('User created successfully!');
       onUserCreated();
-      setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
+      setFormData({ email: '', password: '', fullName: '', role: 'user' });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating user:', error);
@@ -109,7 +112,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   };
 
   const handleReset = () => {
-    setFormData({ email: '', password: '', fullName: '', role: 'tracker' });
+    setFormData({ email: '', password: '', fullName: '', role: 'user' });
   };
 
   return (

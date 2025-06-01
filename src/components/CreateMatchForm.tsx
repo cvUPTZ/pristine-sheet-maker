@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -806,7 +805,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           <Label className="text-sm text-muted-foreground">Home Team</Label>
                           <div className="space-y-1">
                             {homeTeamPlayers.map((player) => (
-                              <div key={player.id} className="flex items-center space-x-2">
+                              <div key={`home-${player.id}-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`home-player-${index}-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
@@ -829,7 +828,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           <Label className="text-sm text-muted-foreground">Away Team</Label>
                           <div className="space-y-1">
                             {awayTeamPlayers.map((player) => (
-                              <div key={player.id} className="flex items-center space-x-2">
+                              <div key={`away-${player.id}-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`away-player-${index}-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
