@@ -114,7 +114,7 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
-      // For general assignments, we don't require player_team_id since it's a general assignment
+      // For general assignments, we insert without player_team_id and player_id
       const { error } = await supabase
         .from('match_tracker_assignments')
         .insert({
