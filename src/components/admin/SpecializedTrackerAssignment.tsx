@@ -89,7 +89,20 @@ const SpecializedTrackerAssignment: React.FC<SpecializedTrackerAssignmentProps> 
 
       if (error) throw error;
 
-      setAssignments(data || []);
+      // Transform the data to match our Assignment interface
+      const transformedAssignments: Assignment[] = (data || [])
+        .filter(item => item.id && item.tracker_user_id && item.player_id)
+        .map(item => ({
+          id: item.id!,
+          tracker_user_id: item.tracker_user_id!,
+          player_id: item.player_id!,
+          player_team_id: (item.player_team_id as 'home' | 'away') || 'home',
+          assigned_event_types: item.assigned_event_types || [],
+          tracker_name: item.tracker_name || undefined,
+          tracker_email: item.tracker_email || undefined,
+        }));
+
+      setAssignments(transformedAssignments);
     } catch (error: any) {
       console.error('Error fetching assignments:', error);
       toast.error('Failed to fetch assignments');
