@@ -155,7 +155,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             homePlayers.push(player);
           }
         } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => String(p.id) === String(assignment.player_id));
+          const player = fullMatchRoster?.away?.find(p => String(assignment.player_id) === String(assignment.player_id));
           if (player && !awayPlayers.some(p => p.id === player.id)) {
             awayPlayers.push(player);
           }
@@ -431,11 +431,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                     }}
                     transition={{ duration: 0.6 }}
                   >
-                    <EnhancedEventTypeIcon 
-                      eventType={lastRecordedEvent.eventType.key as EventType}
-                      size={24}
-                      className="text-white"
-                    />
+                    <span className="text-white text-lg">⚽</span>
                   </motion.div>
                   <div className="flex-1">
                     <div className="font-semibold text-blue-800 dark:text-blue-200">
@@ -562,7 +558,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         </motion.div>
       )}
 
-      {/* Event Types - New SVG Design */}
+      {/* Event Types - Enhanced SVG Design */}
       {assignedEventTypes.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
