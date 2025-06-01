@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,8 +8,8 @@ import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon'
 
 interface MainTabContentV2Props {
   matchId: string;
-  homeTeam: { name: string; formation?: string; };
-  awayTeam: { name: string; formation?: string; };
+  homeTeam?: { name?: string; formation?: string; } | null;
+  awayTeam?: { name?: string; formation?: string; } | null;
   isTracking?: boolean;
   onEventRecord?: (eventType: any, player?: any, details?: any) => void;
 }
@@ -21,6 +20,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   awayTeam,
 }) => {
   console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
+  
+  // Add safety checks and default values
+  const safeHomeTeam = homeTeam || { name: 'Home Team' };
+  const safeAwayTeam = awayTeam || { name: 'Away Team' };
+  const homeTeamName = safeHomeTeam.name || 'Home Team';
+  const awayTeamName = safeAwayTeam.name || 'Away Team';
+  
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [renderTrigger, setRenderTrigger] = useState(0);
@@ -237,7 +243,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         <Card className="min-w-0">
           <CardHeader className="pb-2 p-3 sm:p-4">
             <CardTitle className="text-xs sm:text-sm font-medium truncate">
-              {isMobile ? homeTeam.name.substring(0, 10) + (homeTeam.name.length > 10 ? '...' : '') : homeTeam.name} Events
+              {isMobile ? homeTeamName.substring(0, 10) + (homeTeamName.length > 10 ? '...' : '') : homeTeamName} Events
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
@@ -250,7 +256,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         <Card className="min-w-0 sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2 p-3 sm:p-4">
             <CardTitle className="text-xs sm:text-sm font-medium truncate">
-              {isMobile ? awayTeam.name.substring(0, 10) + (awayTeam.name.length > 10 ? '...' : '') : awayTeam.name} Events
+              {isMobile ? awayTeamName.substring(0, 10) + (awayTeamName.length > 10 ? '...' : '') : awayTeamName} Events
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
@@ -269,13 +275,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeamName.substring(0,10) + "..." : homeTeamName}:</span>
               <span className="text-sm sm:text-base font-semibold">
                 {isNaN(advancedStats.homePassCompletionRate) ? 'N/A' : `${advancedStats.homePassCompletionRate.toFixed(1)}%`}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeamName.substring(0,10) + "..." : awayTeamName}:</span>
               <span className="text-sm sm:text-base font-semibold">
                 {isNaN(advancedStats.awayPassCompletionRate) ? 'N/A' : `${advancedStats.awayPassCompletionRate.toFixed(1)}%`}
               </span>
@@ -288,13 +294,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeamName.substring(0,10) + "..." : homeTeamName}:</span>
               <span className="text-sm sm:text-base font-semibold">
                 {isNaN(advancedStats.homeShotsOnTargetRate) ? 'N/A' : `${advancedStats.homeShotsOnTargetRate.toFixed(1)}%`}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeamName.substring(0,10) + "..." : awayTeamName}:</span>
               <span className="text-sm sm:text-base font-semibold">
                 {isNaN(advancedStats.awayShotsOnTargetRate) ? 'N/A' : `${advancedStats.awayShotsOnTargetRate.toFixed(1)}%`}
               </span>
