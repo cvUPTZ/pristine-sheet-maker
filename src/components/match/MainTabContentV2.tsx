@@ -27,17 +27,15 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
   const fetchEvents = useCallback(async () => {
     console.log(`[MainTabContentV2 DEBUG] fetchEvents triggered for matchId: ${matchId}`);
-    // setLoading(true); // Optional: set loading state at the beginning of fetch
     try {
       const { data, error } = await supabase
         .from('match_events')
         .select('*')
-        .eq('match_id', matchId) // matchId is a dependency of useCallback
+        .eq('match_id', matchId)
         .order('timestamp', { ascending: true });
 
       if (error) throw error;
 
-      // Ensure to use transformSupabaseEvent which should include event_data
       const transformedEvents: MatchEvent[] = (data || []).map(transformSupabaseEvent);
       setEvents(transformedEvents);
       console.log(`[MainTabContentV2 DEBUG] fetchEvents completed. Number of events fetched: ${transformedEvents.length}`);
@@ -46,7 +44,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     } finally {
       setLoading(false);
     }
-  }, [matchId]); // Dependency: matchId
+  }, [matchId]);
 
   const transformSupabaseEvent = (dbEvent: any): MatchEvent => ({
     id: dbEvent.id,
@@ -58,21 +56,23 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     coordinates: dbEvent.coordinates ? dbEvent.coordinates as { x: number; y: number } : { x: 0, y: 0 },
     player_id: dbEvent.player_id,
     created_by: dbEvent.created_by,
-    event_data: dbEvent.event_data // Crucial: Make sure event_data is included for stats
+    event_data: dbEvent.event_data
   });
 
   const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('[MainTabContentV2 DEBUG] handleRealtimeEvent called. Full payload:', JSON.stringify(payload, null, 2));
+    console.log('[MainTabContentV2 DEBUG] Real-time event received:', payload);
 
     setEvents(prevEvents => {
       let newEvents = [...prevEvents];
+      
       switch (payload.eventType) {
         case 'INSERT': {
           const newEvent = transformSupabaseEvent(payload.new);
-          // Avoid duplicates, though Supabase often handles this for single subscriptions
+          console.log('[MainTabContentV2 DEBUG] Processing INSERT for event:', newEvent);
+          
+          // Check if event already exists to avoid duplicates
           if (!newEvents.find(e => e.id === newEvent.id)) {
             newEvents.push(newEvent);
-            // Sort by timestamp to maintain order, important for recent events display
             newEvents.sort((a, b) => a.timestamp - b.timestamp);
             console.log('[MainTabContentV2 DEBUG] INSERT processed. New event added. Total events:', newEvents.length);
           } else {
@@ -88,9 +88,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
             newEvents.sort((a, b) => a.timestamp - b.timestamp);
             console.log('[MainTabContentV2 DEBUG] UPDATE processed. Event updated. Total events:', newEvents.length);
           } else {
-            // If not found, it could be an event not yet in state, add it (optional, depends on desired behavior)
-            // newEvents.push(updatedEvent);
-            // newEvents.sort((a, b) => a.timestamp - b.timestamp);
             console.log('[MainTabContentV2 DEBUG] UPDATE received for an event not in current state:', updatedEvent.id);
           }
           break;
@@ -104,15 +101,20 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         default:
           console.log('[MainTabContentV2 DEBUG] Unknown eventType in payload:', payload.eventType);
       }
+      
       return newEvents;
     });
-  }, []); // No dependencies as setEvents with functional update is used
+  }, []);
 
   useEffect(() => {
-    fetchEvents(); // Initial fetch
+    console.log('[MainTabContentV2 DEBUG] Setting up real-time subscription for matchId:', matchId);
+    
+    // Initial fetch
+    fetchEvents();
 
+    // Set up real-time subscription
     const channel = supabase
-      .channel(`match-events-for-${matchId}`)
+      .channel(`match-events-${matchId}`)
       .on(
         'postgres_changes',
         {
@@ -121,35 +123,27 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           table: 'match_events',
           filter: `match_id=eq.${matchId}`,
         },
-        handleRealtimeEvent // Use the memoized callback here
+        (payload) => {
+          console.log('[MainTabContentV2 DEBUG] Real-time payload received:', payload);
+          handleRealtimeEvent(payload);
+        }
       )
       .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`[MainTabContentV2 DEBUG] Successfully SUBSCRIBED to match-events-for-${matchId}`);
-        } else if (status === 'TIMED_OUT') {
-          console.error(`[MainTabContentV2 DEBUG] TIMED_OUT subscribing to match-events-for-${matchId}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`[MainTabContentV2 DEBUG] CHANNEL_ERROR subscribing to match-events-for-${matchId}:`, err);
-        } else {
-          console.log(`[MainTabContentV2 DEBUG] Subscription status for match-events-for-${matchId}: ${status}`, err ? JSON.stringify(err) : '');
+        console.log('[MainTabContentV2 DEBUG] Subscription status:', status);
+        if (err) {
+          console.error('[MainTabContentV2 DEBUG] Subscription error:', err);
         }
       });
 
     return () => {
-      console.log(`[MainTabContentV2 DEBUG] Cleaning up match_events subscription for matchId: ${matchId}. Channel:`, channel);
-      console.log(`Unsubscribing from match-events-for-${matchId}`); // Kept original log too
+      console.log('[MainTabContentV2 DEBUG] Cleaning up subscription for matchId:', matchId);
       supabase.removeChannel(channel);
     };
-  }, [matchId, fetchEvents, handleRealtimeEvent]); // Added handleRealtimeEvent
+  }, [matchId, fetchEvents, handleRealtimeEvent]);
 
   const handleEventDelete = async (eventId: string) => {
-    // Optimistic UI update (already in place) + DB deletion
-    // The realtime listener for DELETE will also fire, make sure it's handled gracefully
-    // (current implementation of handleRealtimeEvent for DELETE should be fine)
+    // Optimistic update
     setEvents(prev => prev.filter(event => event.id !== eventId));
-    // This local optimistic update can be removed if we solely rely on real-time DELETE event
-    // However, keeping it provides immediate feedback to the user.
-    // The real-time handler will then try to remove it again, which is harmless.
 
     try {
       const { error } = await supabase
@@ -158,23 +152,19 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         .eq('id', eventId);
 
       if (error) throw error;
-
-      // No need to call setEvents here again if optimistic update is kept,
-      // or if we rely purely on the realtime update.
-      // setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
       console.error('Error deleting event:', error);
-      // Potentially revert optimistic update if DB delete fails
-      // fetchEvents(); // Or re-fetch to ensure consistency
+      // Revert optimistic update on error
+      fetchEvents();
     }
   };
 
-  // --- Advanced Statistics Calculations ---
+  // Advanced Statistics Calculations
   const advancedStats = useMemo(() => {
     const calculatePassCompletion = (team: 'home' | 'away') => {
       const teamPasses = events.filter(e => e.team === team && e.type === 'pass');
       const totalPasses = teamPasses.length;
-      if (totalPasses === 0) return { rate: NaN, total: 0, successful: 0 }; // Return NaN for rate if no passes
+      if (totalPasses === 0) return { rate: NaN, total: 0, successful: 0 };
       const successfulPasses = teamPasses.filter(e => e.event_data?.success === true).length;
       return { rate: (successfulPasses / totalPasses) * 100, total: totalPasses, successful: successfulPasses };
     };
@@ -182,7 +172,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     const calculateShotsOnTarget = (team: 'home' | 'away') => {
       const teamShots = events.filter(e => e.team === team && e.type === 'shot');
       const totalShots = teamShots.length;
-      if (totalShots === 0) return { rate: NaN, total: 0, onTarget: 0 }; // Return NaN for rate if no shots
+      if (totalShots === 0) return { rate: NaN, total: 0, onTarget: 0 };
       const shotsOnTarget = teamShots.filter(e => e.event_data?.on_target === true).length;
       return { rate: (shotsOnTarget / totalShots) * 100, total: totalShots, onTarget: shotsOnTarget };
     };
@@ -192,8 +182,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     const homeShotsOnTarget = calculateShotsOnTarget('home');
     const awayShotsOnTarget = calculateShotsOnTarget('away');
 
-    // console.log('[MainTabContentV2 DEBUG] Advanced stats calculated:', { homePassCompletion, awayPassCompletion, homeShotsOnTarget, awayShotsOnTarget });
-
     return {
       homePassCompletionRate: homePassCompletion.rate,
       awayPassCompletionRate: awayPassCompletion.rate,
@@ -201,7 +189,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       awayShotsOnTargetRate: awayShotsOnTarget.rate,
     };
   }, [events]);
-  // --- End Advanced Statistics Calculations ---
 
   if (loading) {
     return (
@@ -310,15 +297,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
             {events.slice(-10).reverse().map((event) => (
               <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  {/* Replace the colored dot with EnhancedEventTypeIcon */}
                   <EnhancedEventTypeIcon
-                    eventKey={event.type} // event.type is already GlobalEventType
-                    size="md" // Equivalent to 24px, good for lists
-                    // Consider adding highContrast or other props if theme requires
+                    eventKey={event.type}
+                    size="md"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium capitalize text-xs sm:text-sm md:text-base truncate dark:text-slate-200">
-                      {event.type} {/* Display event type string */}
+                      {event.type}
                     </div>
                     <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-400 truncate">
                       {event.player_id ? `P${event.player_id}` : (event.team ? `${event.team.charAt(0).toUpperCase()}` : 'Event')} - {Math.floor(event.timestamp / 60)}'
