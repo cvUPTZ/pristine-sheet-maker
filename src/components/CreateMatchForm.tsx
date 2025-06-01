@@ -137,6 +137,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     location: '',
     competition: '',
     matchType: 'regular',
+    status: 'draft',
     notes: ''
   });
 
@@ -211,6 +212,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         location: matchData.location || '',
         competition: matchData.competition || '',
         matchType: matchData.match_type || 'regular',
+        status: matchData.status || 'draft',
         notes: matchData.notes || ''
       });
 
@@ -325,8 +327,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         location: formData.location,
         competition: formData.competition,
         match_type: formData.matchType,
+        status: formData.status,
         notes: formData.notes,
-        status: 'draft', // Default status, can be updated later
         ...(isEditMode && matchId ? { updated_at: new Date().toISOString() } : {})
       };
 
@@ -552,7 +554,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="matchDate">Match Date</Label>
                     <Input
@@ -572,6 +574,49 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                       placeholder="Enter location"
                     />
                   </div>
+
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                        <SelectItem value="live">Live</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="competition">Competition</Label>
+                    <Input
+                      id="competition"
+                      value={formData.competition}
+                      onChange={(e) => setFormData({ ...formData, competition: e.target.value })}
+                      placeholder="Enter competition name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="matchType">Match Type</Label>
+                    <Select value={formData.matchType} onValueChange={(value) => setFormData({ ...formData, matchType: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select match type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular</SelectItem>
+                        <SelectItem value="friendly">Friendly</SelectItem>
+                        <SelectItem value="tournament">Tournament</SelectItem>
+                        <SelectItem value="league">League</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div>
@@ -581,6 +626,16 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Enter match description"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Additional notes"
                   />
                 </div>
               </CardContent>
@@ -799,7 +854,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           <Label className="text-sm text-muted-foreground">Home Team</Label>
                           <div className="space-y-1">
                             {homeTeamPlayers.map((player) => (
-                              <div key={`home-${player.id}-${index}`} className="flex items-center space-x-2">
+                              <div key={`home-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`home-player-assignment-${index}-player-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
@@ -822,7 +877,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           <Label className="text-sm text-muted-foreground">Away Team</Label>
                           <div className="space-y-1">
                             {awayTeamPlayers.map((player) => (
-                              <div key={`away-${player.id}-${index}`} className="flex items-center space-x-2">
+                              <div key={`away-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`away-player-assignment-${index}-player-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
