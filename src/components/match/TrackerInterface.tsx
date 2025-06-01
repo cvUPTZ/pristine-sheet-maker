@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -9,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
 import useBatteryMonitor from '@/hooks/useBatteryMonitor';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
+import { useTrackerStatus } from '@/hooks/useTrackerStatus';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -23,9 +23,12 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
+  
+  // Use the enhanced tracker status hook
+  const { broadcastStatus, cleanup } = useTrackerStatus(matchId, trackerUserId);
 
   // Use the realtime match hook to handle presence
-  const { broadcastStatus } = useRealtimeMatch({ 
+  const { broadcastStatus: legacyBroadcast } = useRealtimeMatch({ 
     matchId,
     onEventReceived: (event) => {
       console.log('[TrackerInterface] New event received:', event);
@@ -73,26 +76,56 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     fetchMatchInfo();
   }, [trackerUserId, matchId]);
 
-  // Broadcast tracker status when component mounts/unmounts
+  // Enhanced status broadcasting with battery and network info
   useEffect(() => {
     if (!trackerUserId || !matchId) return;
 
     console.log('[TrackerInterface] Tracker joining match:', { trackerUserId, matchId });
     
-    // Broadcast that tracker is active
-    broadcastStatus('active');
+    const getNetworkQuality = (): 'excellent' | 'good' | 'poor' => {
+      // Simple network quality estimation based on connection type
+      const connection = (navigator as any).connection;
+      if (!connection) return 'good';
+      
+      if (connection.effectiveType === '4g') return 'excellent';
+      if (connection.effectiveType === '3g') return 'good';
+      return 'poor';
+    };
+
+    // Enhanced status broadcast
+    const broadcastEnhancedStatus = () => {
+      broadcastStatus({
+        status: 'active',
+        timestamp: Date.now(),
+        battery_level: batteryStatus.level || undefined,
+        network_quality: getNetworkQuality()
+      });
+      
+      // Also use legacy broadcast for backward compatibility
+      legacyBroadcast('active');
+    };
+
+    // Initial broadcast
+    broadcastEnhancedStatus();
 
     // Set up periodic activity updates
-    const interval = setInterval(() => {
-      broadcastStatus('active');
-    }, 30000); // Every 30 seconds
+    const interval = setInterval(broadcastEnhancedStatus, 30000); // Every 30 seconds
 
     return () => {
       console.log('[TrackerInterface] Tracker leaving match');
       clearInterval(interval);
-      broadcastStatus('inactive');
+      
+      // Broadcast inactive status
+      broadcastStatus({
+        status: 'inactive',
+        timestamp: Date.now(),
+        battery_level: batteryStatus.level || undefined
+      });
+      
+      legacyBroadcast('inactive');
+      cleanup();
     };
-  }, [trackerUserId, matchId, broadcastStatus]);
+  }, [trackerUserId, matchId, broadcastStatus, legacyBroadcast, batteryStatus.level, cleanup]);
 
   if (loading) {
     return (
