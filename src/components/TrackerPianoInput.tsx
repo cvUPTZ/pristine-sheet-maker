@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -426,7 +425,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <EnhancedEventTypeIcon
-                    eventKey={eventType.key}
+                    eventType={eventType.key}
                     size="md"
                   />
                   <span className="text-xs font-medium text-center">
