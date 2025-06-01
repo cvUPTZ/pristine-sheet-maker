@@ -134,79 +134,200 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     return session;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
 
-    if (!validateForm()) {
+
+
+
+
+
+
+
+
+
+
+
+
+  // Replace your handleSubmit function with this alternative approach
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!formData.email || !formData.password || !formData.fullName) {
+    toast.error('Please fill in all required fields');
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    toast.error('Please enter a valid email address');
+    return;
+  }
+
+  if (formData.password.length < 6) {
+    toast.error('Password must be at least 6 characters long');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // Get auth token for the request
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      toast.error('Session error. Please log in again.');
       return;
     }
 
-    setLoading(true);
+    if (!session || !session.access_token) {
+      toast.error('Authentication token not found. Please log in again.');
+      return;
+    }
 
-    try {
-      // Get authentication session
-      const session = await getAuthSession();
+    console.log('Making direct fetch request...');
 
-      console.log('Calling create-user function with data:', {
+    // Use direct fetch instead of supabase.functions.invoke
+    const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+    console.log('Function URL:', functionUrl);
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': supabase.supabaseKey, // Add the anon key
+      },
+      body: JSON.stringify({
         email: formData.email.toLowerCase().trim(),
+        password: formData.password,
         fullName: formData.fullName.trim(),
         role: formData.role,
-        // Don't log password for security
-      });
+      }),
+    });
 
-      // Call the Edge Function to create the user
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
-          email: formData.email.toLowerCase().trim(),
-          password: formData.password,
-          fullName: formData.fullName.trim(),
-          role: formData.role,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    console.log('Response status:', response.status);
+    console.log('Response headers:', [...response.headers.entries()]);
 
-      console.log('Function response:', { data, error });
-
-      if (error) {
-        console.error('Function error:', error);
-        
-        // Handle specific error types
-        if (error.message?.includes('Failed to fetch')) {
-          throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
-        } else if (error.message?.includes('FunctionsFetchError')) {
-          throw new Error('Server connection failed. Please try again later.');
-        } else {
-          throw new Error(error.message || 'Failed to create user');
-        }
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      toast.success('User created successfully!');
-      onUserCreated();
-      handleReset();
-      onOpenChange(false);
-      
-    } catch (error) {
-      console.error('Error creating user:', error);
-      let errorMessage = 'Failed to create user';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Response error:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-  };
+
+    const result = await response.json();
+    console.log('Success response:', result);
+
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    toast.success('User created successfully!');
+    onUserCreated();
+    setFormData({ email: '', password: '', fullName: '', role: 'user' });
+    onOpenChange(false);
+
+  } catch (error) {
+    console.error('Error creating user:', error);
+    
+    let errorMessage = 'Failed to create user';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to server. Please check your internet connection.';
+      } else if (error.message.includes('HTTP 404')) {
+        errorMessage = 'Edge function not found. Please ensure it is deployed.';
+      } else if (error.message.includes('HTTP 401')) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (error.message.includes('HTTP 403')) {
+        errorMessage = 'Access denied. You need admin privileges.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    toast.error(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+  
+
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+
+  //   if (!validateForm()) {
+  //     return;
+  //   }
+
+  //   setLoading(true);
+
+  //   try {
+  //     // Get authentication session
+  //     const session = await getAuthSession();
+
+  //     console.log('Calling create-user function with data:', {
+  //       email: formData.email.toLowerCase().trim(),
+  //       fullName: formData.fullName.trim(),
+  //       role: formData.role,
+  //       // Don't log password for security
+  //     });
+
+  //     // Call the Edge Function to create the user
+  //     const { data, error } = await supabase.functions.invoke('create-user', {
+  //       body: {
+  //         email: formData.email.toLowerCase().trim(),
+  //         password: formData.password,
+  //         fullName: formData.fullName.trim(),
+  //         role: formData.role,
+  //       },
+  //       headers: {
+  //         Authorization: `Bearer ${session.access_token}`,
+  //         'Content-Type': 'application/json',
+  //       },
+  //     });
+
+  //     console.log('Function response:', { data, error });
+
+  //     if (error) {
+  //       console.error('Function error:', error);
+        
+  //       // Handle specific error types
+  //       if (error.message?.includes('Failed to fetch')) {
+  //         throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
+  //       } else if (error.message?.includes('FunctionsFetchError')) {
+  //         throw new Error('Server connection failed. Please try again later.');
+  //       } else {
+  //         throw new Error(error.message || 'Failed to create user');
+  //       }
+  //     }
+
+  //     if (data?.error) {
+  //       throw new Error(data.error);
+  //     }
+
+  //     toast.success('User created successfully!');
+  //     onUserCreated();
+  //     handleReset();
+  //     onOpenChange(false);
+      
+  //   } catch (error) {
+  //     console.error('Error creating user:', error);
+  //     let errorMessage = 'Failed to create user';
+      
+  //     if (error instanceof Error) {
+  //       errorMessage = error.message;
+  //     } else if (typeof error === 'string') {
+  //       errorMessage = error;
+  //     }
+      
+  //     toast.error(errorMessage);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleReset = () => {
     setFormData({ email: '', password: '', fullName: '', role: 'user' });
