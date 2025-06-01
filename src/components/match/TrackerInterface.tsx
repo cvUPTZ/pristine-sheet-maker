@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
 import useBatteryMonitor from '@/hooks/useBatteryMonitor';
+import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -21,6 +23,14 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
+
+  // Use the realtime match hook to handle presence
+  const { broadcastStatus } = useRealtimeMatch({ 
+    matchId,
+    onEventReceived: (event) => {
+      console.log('[TrackerInterface] New event received:', event);
+    }
+  });
 
   useEffect(() => {
     // Initialize push notifications
@@ -62,6 +72,46 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
     fetchMatchInfo();
   }, [trackerUserId, matchId]);
+
+  // Broadcast tracker status when component mounts/unmounts
+  useEffect(() => {
+    if (!trackerUserId || !matchId) return;
+
+    console.log('[TrackerInterface] Tracker joining match:', { trackerUserId, matchId });
+    
+    // Broadcast that tracker is active
+    broadcastStatus('active');
+
+    // Update database activity
+    const updateActivity = async () => {
+      try {
+        await supabase
+          .from('match_tracker_activity')
+          .upsert({
+            match_id: matchId,
+            user_id: trackerUserId,
+            last_active_at: new Date().toISOString()
+          });
+        console.log('[TrackerInterface] Activity updated in database');
+      } catch (error) {
+        console.error('[TrackerInterface] Error updating activity:', error);
+      }
+    };
+
+    updateActivity();
+
+    // Set up periodic activity updates
+    const interval = setInterval(() => {
+      updateActivity();
+      broadcastStatus('active');
+    }, 30000); // Every 30 seconds
+
+    return () => {
+      console.log('[TrackerInterface] Tracker leaving match');
+      clearInterval(interval);
+      broadcastStatus('inactive');
+    };
+  }, [trackerUserId, matchId, broadcastStatus]);
 
   if (loading) {
     return (
