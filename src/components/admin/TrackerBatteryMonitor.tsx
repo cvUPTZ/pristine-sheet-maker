@@ -42,16 +42,7 @@ const TrackerBatteryMonitor: React.FC = () => {
 
       if (trackersError) throw trackersError;
 
-      // Try to get battery status from tracker_device_status table first
-      const { data: deviceStatusData, error: deviceStatusError } = await supabase
-        .from('tracker_device_status')
-        .select('user_id, battery_level, last_updated_at');
-
-      if (deviceStatusError) {
-        console.log('tracker_device_status table not available, falling back to notifications');
-      }
-
-      // Fallback: Get battery status from notifications (for backwards compatibility)
+      // Get battery status from notifications
       const { data: batteryData, error: batteryError } = await supabase
         .from('notifications')
         .select('user_id, created_at, message')
@@ -64,25 +55,18 @@ const TrackerBatteryMonitor: React.FC = () => {
 
       // Combine the data
       const trackersWithBattery = (trackersData || []).map(tracker => {
-        // First try device status table
         let batteryLevel: number | null = null;
         let lastUpdatedAt: string | null = null;
 
-        const deviceStatus = deviceStatusData?.find(d => d.user_id === tracker.id);
-        if (deviceStatus) {
-          batteryLevel = deviceStatus.battery_level;
-          lastUpdatedAt = deviceStatus.last_updated_at;
-        } else {
-          // Fallback to notifications
-          const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
-          if (latestBatteryInfo) {
-            // Try to extract battery level from message
-            const match = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
-            if (match) {
-              batteryLevel = parseInt(match[1]);
-            }
-            lastUpdatedAt = latestBatteryInfo.created_at;
+        // Get latest battery info from notifications
+        const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
+        if (latestBatteryInfo) {
+          // Try to extract battery level from message
+          const match = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
+          if (match) {
+            batteryLevel = parseInt(match[1]);
           }
+          lastUpdatedAt = latestBatteryInfo.created_at;
         }
 
         return {

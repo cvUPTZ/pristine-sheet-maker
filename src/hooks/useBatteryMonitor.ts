@@ -26,36 +26,21 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
       setLevel(batteryLevel);
       setCharging(battery.charging);
 
-      // Report to tracker_device_status table first
+      // Store battery status in notifications table
       try {
-        const { error: deviceStatusError } = await supabase
-          .from('tracker_device_status')
-          .upsert({
+        const { error } = await supabase
+          .from('notifications')
+          .insert({
             user_id: userId,
-            battery_level: batteryLevel,
-            last_updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id'
+            title: 'Battery Status Update',
+            message: `Battery level: ${batteryLevel}%, charging: ${battery.charging}`,
+            type: 'battery_status'
           });
 
-        if (deviceStatusError) {
-          console.log('tracker_device_status table not available, using notifications fallback');
-          
-          // Fallback to notifications table
-          const { error: notificationError } = await supabase
-            .from('notifications')
-            .insert({
-              user_id: userId,
-              title: 'Battery Status Update',
-              message: `Battery level: ${batteryLevel}%, charging: ${battery.charging}`,
-              type: 'battery_status'
-            });
-
-          if (notificationError) {
-            console.error('Error updating battery status to notifications:', notificationError);
-          }
+        if (error) {
+          console.error('Error updating battery status:', error);
         } else {
-          console.log('Battery status updated to device status table:', { level: batteryLevel, charging: battery.charging });
+          console.log('Battery status updated:', { level: batteryLevel, charging: battery.charging });
         }
       } catch (error) {
         console.error('Error updating battery status:', error);
