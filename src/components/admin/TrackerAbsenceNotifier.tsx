@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { UserX, Users } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TrackerAbsenceNotifierProps {
   matchId: string;
@@ -23,7 +22,6 @@ const TrackerAbsenceNotifier: React.FC<TrackerAbsenceNotifierProps> = ({
   const [availableTrackers, setAvailableTrackers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
   React.useEffect(() => {
     fetchAvailableTrackers();
@@ -96,22 +94,22 @@ const TrackerAbsenceNotifier: React.FC<TrackerAbsenceNotifierProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-lg mx-auto">
-      <CardHeader className="p-3 sm:p-6">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <UserX className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <UserX className="h-5 w-5 text-red-500" />
           Tracker Absence Alert
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
-        <p className="text-sm sm:text-base text-gray-600">
+      <CardContent className="space-y-4">
+        <p className="text-sm text-gray-600">
           A tracker is absent for this match. Please assign a replacement tracker.
         </p>
         
         <div className="space-y-2">
           <label className="text-sm font-medium">Select Replacement Tracker:</label>
           <Select value={selectedReplacement} onValueChange={setSelectedReplacement}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger>
               <SelectValue placeholder="Choose a replacement tracker" />
             </SelectTrigger>
             <SelectContent>
@@ -119,7 +117,7 @@ const TrackerAbsenceNotifier: React.FC<TrackerAbsenceNotifierProps> = ({
                 <SelectItem key={tracker.id} value={tracker.id}>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <span className="truncate">{tracker.full_name || tracker.email}</span>
+                    {tracker.full_name || tracker.email}
                   </div>
                 </SelectItem>
               ))}
@@ -127,21 +125,15 @@ const TrackerAbsenceNotifier: React.FC<TrackerAbsenceNotifierProps> = ({
           </Select>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+        <div className="flex gap-2">
           <Button 
             onClick={handleAssignReplacement} 
             disabled={loading || !selectedReplacement}
-            className="w-full sm:flex-1 text-sm"
-            size={isMobile ? "sm" : "default"}
+            className="flex-1"
           >
             {loading ? 'Assigning...' : 'Assign Replacement'}
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            className="w-full sm:w-auto text-sm"
-            size={isMobile ? "sm" : "default"}
-          >
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
         </div>
