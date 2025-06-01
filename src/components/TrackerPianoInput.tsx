@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,25 +6,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { EVENT_TYPES } from '@/constants/eventTypes';
+import { EVENT_TYPES, EVENT_STYLES } from '@/constants/eventTypes';
 import { Undo2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TrackerPianoInputProps {
   matchId: string;
-  trackerId: string;
+  trackerId?: string;
 }
 
 interface RecentAction {
   id: string;
   event_type: string;
   timestamp: Date;
-}
-
-interface EventType {
-  id: string;
-  name: string;
-  icon: string;
 }
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerId }) => {
@@ -68,7 +63,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerI
         .from('match_events')
         .select('id, event_type, created_at')
         .eq('match_id', matchId)
-        .eq('created_by', trackerId)
+        .eq('created_by', trackerId || 'unknown')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -102,7 +97,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerI
         event_type: selectedEventType,
         team: selectedTeam || null,
         player_id: selectedPlayer,
-        created_by: trackerId,
+        created_by: trackerId || 'unknown',
         coordinates: null, // Piano input doesn't include coordinates
         timestamp: Date.now()
       };
@@ -200,17 +195,20 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerI
         <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6">
           {/* Event Type Selection */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-            {EVENT_TYPES.map((eventType: EventType) => (
-              <Button
-                key={eventType.id}
-                variant={selectedEventType === eventType.id ? "default" : "outline"}
-                onClick={() => setSelectedEventType(eventType.id)}
-                className="h-auto p-2 sm:p-3 flex flex-col items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-              >
-                <span className="text-lg sm:text-xl">{eventType.icon}</span>
-                <span className="text-center leading-tight">{eventType.name}</span>
-              </Button>
-            ))}
+            {EVENT_TYPES.map((eventType) => {
+              const eventStyle = EVENT_STYLES[eventType as keyof typeof EVENT_STYLES];
+              return (
+                <Button
+                  key={eventType}
+                  variant={selectedEventType === eventType ? "default" : "outline"}
+                  onClick={() => setSelectedEventType(eventType)}
+                  className="h-auto p-2 sm:p-3 flex flex-col items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                >
+                  <span className="text-lg sm:text-xl">{eventStyle?.icon || '⚽'}</span>
+                  <span className="text-center leading-tight">{eventStyle?.description || eventType}</span>
+                </Button>
+              );
+            })}
           </div>
 
           {/* Team Selection */}

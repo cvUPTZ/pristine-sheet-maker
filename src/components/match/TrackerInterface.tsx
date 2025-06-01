@@ -98,7 +98,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       </Card>
       
       <div className="w-full">
-        <TrackerPianoInput matchId={matchId} />
+        <TrackerPianoInput matchId={matchId} trackerId={trackerUserId} />
       </div>
     </div>
   );

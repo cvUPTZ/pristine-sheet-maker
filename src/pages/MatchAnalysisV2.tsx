@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -337,7 +336,7 @@ const MatchAnalysisV2: React.FC = () => {
               <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
                 Piano Input
               </h2>
-              <TrackerPianoInput matchId={matchId} />
+              <TrackerPianoInput matchId={matchId} trackerId={user?.id} />
             </CardContent>
           </Card>
         </TabsContent>
