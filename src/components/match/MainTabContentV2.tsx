@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { Team, MatchEvent, EventType } from '@/types'; // EventType is GlobalEventType
 import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 
 interface MainTabContentV2Props {
   matchId: string;
@@ -20,138 +20,18 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
   homeTeam,
   awayTeam,
 }) => {
-  console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  console.log('[MainTabContentV2] Rendering with matchId:', matchId);
   const isMobile = useIsMobile();
 
-  const fetchEvents = useCallback(async () => {
-    console.log(`[MainTabContentV2 DEBUG] fetchEvents triggered for matchId: ${matchId}`);
-    try {
-      const { data, error } = await supabase
-        .from('match_events')
-        .select('*')
-        .eq('match_id', matchId)
-        .order('timestamp', { ascending: true });
-
-      if (error) throw error;
-
-      const transformedEvents: MatchEvent[] = (data || []).map(transformSupabaseEvent);
-      setEvents(transformedEvents);
-      console.log(`[MainTabContentV2 DEBUG] fetchEvents completed. Number of events fetched: ${transformedEvents.length}`);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    } finally {
-      setLoading(false);
+  const { events, loading, isConnected } = useRealtimeMatch({
+    matchId,
+    onEventReceived: (event) => {
+      console.log('[MainTabContentV2] New event received:', event);
     }
-  }, [matchId]);
-
-  const transformSupabaseEvent = (dbEvent: any): MatchEvent => ({
-    id: dbEvent.id,
-    match_id: dbEvent.match_id,
-    type: dbEvent.event_type as EventType,
-    event_type: dbEvent.event_type,
-    timestamp: dbEvent.timestamp || 0,
-    team: dbEvent.team as 'home' | 'away',
-    coordinates: dbEvent.coordinates ? dbEvent.coordinates as { x: number; y: number } : { x: 0, y: 0 },
-    player_id: dbEvent.player_id,
-    created_by: dbEvent.created_by,
-    event_data: dbEvent.event_data
   });
-
-  const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('[MainTabContentV2 DEBUG] Real-time event received:', payload);
-
-    setEvents(prevEvents => {
-      let newEvents = [...prevEvents];
-      
-      switch (payload.eventType) {
-        case 'INSERT': {
-          const newEvent = transformSupabaseEvent(payload.new);
-          console.log('[MainTabContentV2 DEBUG] Processing INSERT for event:', newEvent);
-          
-          // Check if event already exists to avoid duplicates
-          if (!newEvents.find(e => e.id === newEvent.id)) {
-            newEvents.push(newEvent);
-            newEvents.sort((a, b) => a.timestamp - b.timestamp);
-            console.log('[MainTabContentV2 DEBUG] INSERT processed. New event added. Total events:', newEvents.length);
-          } else {
-            console.log('[MainTabContentV2 DEBUG] INSERT skipped, event already exists:', newEvent.id);
-          }
-          break;
-        }
-        case 'UPDATE': {
-          const updatedEvent = transformSupabaseEvent(payload.new);
-          const index = newEvents.findIndex(e => e.id === updatedEvent.id);
-          if (index !== -1) {
-            newEvents[index] = updatedEvent;
-            newEvents.sort((a, b) => a.timestamp - b.timestamp);
-            console.log('[MainTabContentV2 DEBUG] UPDATE processed. Event updated. Total events:', newEvents.length);
-          } else {
-            console.log('[MainTabContentV2 DEBUG] UPDATE received for an event not in current state:', updatedEvent.id);
-          }
-          break;
-        }
-        case 'DELETE': {
-          const oldEventId = payload.old.id;
-          newEvents = newEvents.filter(e => e.id !== oldEventId);
-          console.log('[MainTabContentV2 DEBUG] DELETE processed. Event removed. Total events:', newEvents.length);
-          break;
-        }
-        default:
-          console.log('[MainTabContentV2 DEBUG] Unknown eventType in payload:', payload.eventType);
-      }
-      
-      return newEvents;
-    });
-  }, []);
-
-  useEffect(() => {
-    console.log('[MainTabContentV2 DEBUG] Setting up real-time subscription for matchId:', matchId);
-    
-    // Initial fetch
-    fetchEvents();
-
-    // Set up real-time subscription with proper event handling
-    const channel = supabase
-      .channel(`match-events-${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'match_events',
-          filter: `match_id=eq.${matchId}`,
-        },
-        (payload) => {
-          console.log('[MainTabContentV2 DEBUG] Raw Supabase payload received:', payload);
-          // Transform the Supabase payload to match our expected format
-          const transformedPayload = {
-            eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old
-          };
-          console.log('[MainTabContentV2 DEBUG] Transformed payload:', transformedPayload);
-          handleRealtimeEvent(transformedPayload);
-        }
-      )
-      .subscribe((status, err) => {
-        console.log('[MainTabContentV2 DEBUG] Subscription status:', status);
-        if (err) {
-          console.error('[MainTabContentV2 DEBUG] Subscription error:', err);
-        }
-      });
-
-    return () => {
-      console.log('[MainTabContentV2 DEBUG] Cleaning up subscription for matchId:', matchId);
-      supabase.removeChannel(channel);
-    };
-  }, [matchId, fetchEvents, handleRealtimeEvent]);
 
   const handleEventDelete = async (eventId: string) => {
     // Optimistic update
-    setEvents(prev => prev.filter(event => event.id !== eventId));
-
     try {
       const { error } = await supabase
         .from('match_events')
@@ -161,8 +41,6 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting event:', error);
-      // Revert optimistic update on error
-      fetchEvents();
     }
   };
 
@@ -209,8 +87,13 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6 p-1 sm:p-2 md:p-0">
-      {/* Tracker Presence Indicator */}
+      {/* Connection Status */}
       <div className="w-full">
+        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          {isConnected ? 'Connected' : 'Disconnected'}
+          <span>• {events.length} events</span>
+        </div>
         <TrackerPresenceIndicator matchId={matchId} />
       </div>
 

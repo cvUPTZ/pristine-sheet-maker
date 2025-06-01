@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { useRealtime } from '@/hooks/useRealtime';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 import { EventType } from '@/types';
+import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -46,6 +46,21 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Use the centralized real-time system
+  const { broadcastStatus } = useRealtimeMatch({
+    matchId,
+    onEventReceived: (event) => {
+      console.log('[TrackerPianoInput] Event received via real-time:', event);
+      if (event.created_by === user?.id) {
+        setLastRecordedEvent({
+          eventType: { key: event.type, label: event.type },
+          player: selectedPlayer,
+          timestamp: Date.now()
+        });
+      }
+    }
+  });
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -191,6 +206,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
 
     setIsRecording(true);
+    
+    // Broadcast that we're recording
+    broadcastStatus('recording', `recording_${eventType.key}`);
 
     try {
       let teamContext = null;
@@ -234,7 +252,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       }
 
       console.log('Event recorded successfully:', data);
-      setLastRecordedEvent({ eventType, player, timestamp: Date.now() });
+      
+      // Broadcast that we're back to active status
+      broadcastStatus('active', `recorded_${eventType.key}`);
       
       toast({
         title: "Event Recorded",
@@ -243,6 +263,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       
     } catch (error: any) {
       console.error("Error in recordEvent:", error);
+      broadcastStatus('active'); // Reset status on error
       toast({
         title: "Error",
         description: error.message || "Failed to record event",

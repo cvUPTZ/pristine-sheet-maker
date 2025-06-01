@@ -1,27 +1,10 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRealtime } from '@/hooks/useRealtime';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { TrackerSyncEvent } from '@/types';
+import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
-
-interface TrackerUser {
-  user_id: string;
-  email?: string;
-  full_name?: string;
-  online_at: string;
-  last_event_type?: string;
-  last_event_time?: number;
-  assigned_event_types?: string[];
-  lastKnownAction?: string;
-  lastActionTimestamp?: number;
-  currentStatus?: 'active' | 'inactive' | 'paused';
-  statusTimestamp?: number;
-}
 
 interface TrackerPresenceIndicatorProps {
   matchId: string;
@@ -40,219 +23,29 @@ const EVENT_COLORS = {
 };
 
 const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ matchId }) => {
-  const { user } = useAuth();
-  const [trackers, setTrackers] = useState<TrackerUser[]>([]);
-  const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
+  const { trackers, isConnected } = useRealtimeMatch({ matchId });
 
-  const handleEventReceived = useCallback((event: any) => {
-    if (event.type === 'broadcast' && event.event === 'broadcast' && event.payload) {
-      const syncEvent = event.payload as TrackerSyncEvent;
-
-      if (syncEvent.matchId && syncEvent.matchId !== matchId) {
-        return;
-      }
-
-      setTrackers(prevTrackers => {
-        return prevTrackers.map(t => {
-          if (t.user_id === syncEvent.trackerId) {
-            if (syncEvent.eventType === 'tracker_status') {
-              return {
-                ...t,
-                currentStatus: syncEvent.payload.status,
-                statusTimestamp: syncEvent.timestamp
-              };
-            } else if (syncEvent.eventType === 'tracker_action') {
-              return {
-                ...t,
-                lastKnownAction: syncEvent.payload.currentAction || 'unknown_action',
-                lastActionTimestamp: syncEvent.timestamp,
-                currentStatus: t.currentStatus === 'inactive' ? 'active' : t.currentStatus,
-                statusTimestamp: syncEvent.timestamp
-              };
-            }
-          }
-          return t;
-        });
-      });
-    } else if (event.type === 'event_recorded' && event.payload) {
-      const { created_by, event_type } = event.payload;
-      if (created_by && event_type) {
-        setTrackers(prevTrackers => prevTrackers.map(t => {
-          if (t.user_id === created_by) {
-            return {
-              ...t,
-              last_event_type: event_type,
-              last_event_time: Date.now(),
-              lastKnownAction: `recorded_${event_type}`,
-              lastActionTimestamp: Date.now(),
-              currentStatus: 'active',
-              statusTimestamp: Date.now()
-            };
-          }
-          return t;
-        }));
-      }
+  const getStatusColor = (tracker: any) => {
+    if (tracker.status === 'recording') {
+      const action = tracker.current_action || '';
+      const eventType = action.split('_')[1];
+      return EVENT_COLORS[eventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.default;
     }
-  }, [matchId, setTrackers]);
-
-  const { onlineUsers, isOnline } = useRealtime({
-    channelName: "tracker-admin-sync",
-    userId: user?.id || 'admin_listener_tracker_sync',
-    onEventReceived: handleEventReceived,
-  });
-
-  useEffect(() => {
-    fetchAssignedTrackers();
-  }, [matchId]);
-
-  useEffect(() => {
-    setTrackers(prevTrackers =>
-      prevTrackers.map(t => {
-        const isUserOnlineInPresence = onlineUsers.some(ou => ou.user_id === t.user_id);
-        if (isUserOnlineInPresence) {
-          const fiveSecondsAgo = Date.now() - 5000;
-          if (t.currentStatus !== 'inactive' || (t.statusTimestamp || 0) < fiveSecondsAgo) {
-            return {
-              ...t,
-              currentStatus: 'active',
-              statusTimestamp: t.statusTimestamp || Date.now()
-            };
-          }
-        }
-        return t;
-      })
-    );
-  }, [onlineUsers, matchId]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const staleThreshold = 5 * 60 * 1000;
-      const activeThreshold = 30 * 1000;
-
-      setRecentEvents(prev => {
-        const updated = new Map(prev);
-        for (const [userId, eventData] of updated) {
-          if (now - eventData.time > activeThreshold) {
-            updated.delete(userId);
-          }
-        }
-        return updated;
-      });
-
-      setTrackers(prevTrackers => prevTrackers.map(t => {
-        let updatedTracker = { ...t };
-        if (t.lastActionTimestamp && (now - t.lastActionTimestamp > staleThreshold)) {
-          updatedTracker.lastKnownAction = undefined;
-        }
-        return updatedTracker;
-      }));
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchAssignedTrackers = async () => {
-    try {
-      const { data: assignments } = await supabase
-        .from('match_tracker_assignments_view')
-        .select('*')
-        .eq('match_id', matchId);
-
-      if (assignments) {
-        const trackerMap = new Map<string, TrackerUser>();
-        
-        assignments.forEach(assignment => {
-          const userId = assignment.tracker_user_id;
-          if (userId && !trackerMap.has(userId)) {
-            trackerMap.set(userId, {
-              user_id: userId,
-              email: assignment.tracker_email || undefined,
-              online_at: '',
-              assigned_event_types: []
-            });
-          }
-        });
-
-        setTrackers(Array.from(trackerMap.values()));
-      }
-    } catch (error) {
-      console.error('Error fetching assigned trackers:', error);
-    }
-  };
-
-  const getTrackerStatus = (trackerId: string) => {
-    const tracker = trackers.find(t => t.user_id === trackerId);
-    if (!tracker) {
-      return { isOnline: false, activityText: 'Unknown', isActivelyTracking: false };
-    }
-
-    const now = Date.now();
-    const isOnlineFromStatus = tracker.currentStatus === 'active';
-    const isActiveBasedOnTimestamp = (tracker.statusTimestamp && (now - tracker.statusTimestamp < 60000)) ||
-                                     (tracker.lastActionTimestamp && (now - tracker.lastActionTimestamp < 60000));
-
-    const isOnlineNow = isOnlineFromStatus && isActiveBasedOnTimestamp;
-
-    let activityText = tracker.currentStatus === 'inactive' ? 'Offline' : (isOnlineNow ? 'Online' : 'Status Unknown');
-    let isActivelyTracking = false;
-
-    if (tracker.lastKnownAction && tracker.lastActionTimestamp && (now - tracker.lastActionTimestamp < 30000)) {
-      activityText = tracker.lastKnownAction;
-      isActivelyTracking = true;
-    } else if (tracker.currentStatus === 'active' && tracker.statusTimestamp && (now - tracker.statusTimestamp < 30000)) {
-      activityText = 'Active';
-      isActivelyTracking = true;
-    } else if (tracker.currentStatus === 'paused') {
-      activityText = 'Paused';
-    }
-
-    const recentEvent = recentEvents.get(trackerId);
-    if (!isActivelyTracking && recentEvent && (now - recentEvent.time < 30000)) {
-        activityText = `Tracking ${recentEvent.type}`;
-        isActivelyTracking = true;
-    }
-
-    return {
-      isOnline: isOnlineNow || isActivelyTracking,
-      activityText,
-      isActivelyTracking,
-      lastKnownAction: tracker.lastKnownAction,
-      lastActionTimestamp: tracker.lastActionTimestamp,
-      currentStatus: tracker.currentStatus,
-      statusTimestamp: tracker.statusTimestamp,
-      colorHint: tracker.lastKnownAction?.split('_')[1] || (isActivelyTracking ? tracker.currentStatus : 'offline')
-    };
-  };
-
-  const getStatusColor = (tracker: TrackerUser) => {
-    const status = getTrackerStatus(tracker.user_id);
-
-    if (status.currentStatus === 'inactive' && (Date.now() - (status.statusTimestamp || 0) > 30000)) return 'from-gray-400 to-gray-500';
-    if (status.currentStatus === 'paused') return 'from-yellow-400 to-yellow-500';
-
-    if (status.isActivelyTracking) {
-      const actionParts = status.lastKnownAction?.split('_');
-      let eventKeyForColor = actionParts && actionParts.length > 1 ? actionParts[1] : null;
-      if (actionParts && actionParts[0] === 'arming' && actionParts.length > 2) eventKeyForColor = actionParts[2];
-
-      if (eventKeyForColor && EVENT_COLORS[eventKeyForColor as keyof typeof EVENT_COLORS]) {
-        return EVENT_COLORS[eventKeyForColor as keyof typeof EVENT_COLORS];
-      }
-      if (status.colorHint && EVENT_COLORS[status.colorHint as keyof typeof EVENT_COLORS]) {
-         return EVENT_COLORS[status.colorHint as keyof typeof EVENT_COLORS];
-      }
-      return 'from-green-400 to-green-500';
-    }
-
-    if (status.isOnline) return 'from-green-400 to-green-500';
-
+    if (tracker.status === 'active') return 'from-green-400 to-green-500';
     return 'from-gray-400 to-gray-500';
   };
 
-  const getStatusText = (tracker: TrackerUser) => {
-    const status = getTrackerStatus(tracker.user_id);
-    return status.activityText;
+  const getStatusText = (tracker: any) => {
+    if (tracker.status === 'recording' && tracker.current_action) {
+      const action = tracker.current_action.split('_');
+      return action.length > 1 ? `Recording ${action[1]}` : 'Recording';
+    }
+    return tracker.status === 'active' ? 'Active' : 'Offline';
+  };
+
+  const isActivelyTracking = (tracker: any) => {
+    return tracker.status === 'recording' || 
+           (tracker.status === 'active' && Date.now() - tracker.last_activity < 30000);
   };
 
   return (
@@ -260,8 +53,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardHeader className="pb-2 md:pb-4">
         <CardTitle className="flex items-center gap-2 text-sm md:text-base">
           <motion.div
-            animate={{ rotate: isOnline ? 360 : 0 }}
-            transition={{ duration: 2, repeat: isOnline ? Infinity : 0, ease: "linear" }}
+            animate={{ rotate: isConnected ? 360 : 0 }}
+            transition={{ duration: 2, repeat: isConnected ? Infinity : 0, ease: "linear" }}
             className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0"
           />
           <span className="truncate">Tracker Status ({trackers.length})</span>
@@ -270,12 +63,13 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardContent className="space-y-2 md:space-y-4">
         <AnimatePresence>
           {trackers.map((tracker, index) => {
-            const status = getTrackerStatus(tracker.user_id);
             const statusColor = getStatusColor(tracker);
+            const statusText = getStatusText(tracker);
+            const isActive = isActivelyTracking(tracker);
             
             return (
               <motion.div
-                key={`${tracker.user_id}-${tracker.lastActionTimestamp}-${tracker.currentStatus}`}
+                key={tracker.user_id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -286,29 +80,29 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     <motion.div
                       className={`relative w-8 h-8 md:w-12 md:h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center flex-shrink-0`}
-                      animate={status.isActivelyTracking ? {
+                      animate={isActive ? {
                         scale: [1, 1.05, 1],
-                        boxShadow: statusColor.includes('gray') ? undefined : [
-                          `0 0 0 0px ${statusColor.split(' ')[1].replace('to-', 'from-')}/50`,
-                          `0 0 0 5px ${statusColor.split(' ')[1].replace('to-', 'from-')}/0`,
-                          `0 0 0 0px ${statusColor.split(' ')[1].replace('to-', 'from-')}/0`,
+                        boxShadow: [
+                          `0 0 0 0px rgba(59, 130, 246, 0.5)`,
+                          `0 0 0 5px rgba(59, 130, 246, 0.2)`,
+                          `0 0 0 0px rgba(59, 130, 246, 0)`,
                         ]
                       } : {}}
-                      transition={{ duration: 1.5, repeat: status.isActivelyTracking ? Infinity : 0 }}
+                      transition={{ duration: 1.5, repeat: isActive ? Infinity : 0 }}
                     >
-                      {status.isActivelyTracking && (status.lastKnownAction || status.colorHint) ? (
+                      {tracker.status === 'recording' && tracker.current_action ? (
                         <motion.div
-                          animate={{ rotate: status.lastKnownAction?.includes("selected_player") ? 0 : 360 }}
+                          animate={{ rotate: 360 }}
                           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                         >
                           <EnhancedEventTypeIcon 
-                            eventType={status.colorHint as any || 'default'}
+                            eventType={tracker.current_action.split('_')[1] as any || 'default'}
                             size={16} 
                             className="text-white md:w-6 md:h-6"
                           />
                         </motion.div>
                       ) : (
-                        <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${status.isOnline || status.currentStatus === 'active' ? 'bg-white' : 'bg-gray-300'}`} />
+                        <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${tracker.status === 'active' ? 'bg-white' : 'bg-gray-300'}`} />
                       )}
                     </motion.div>
 
@@ -318,26 +112,21 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                       </div>
                       <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                         <Badge
-                          variant={(status.isOnline || status.currentStatus === 'active') ? "default" : "secondary"}
-                          className={`text-xs ${(status.isOnline || status.currentStatus === 'active') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
+                          variant={tracker.status === 'active' || tracker.status === 'recording' ? "default" : "secondary"}
+                          className={`text-xs ${(tracker.status === 'active' || tracker.status === 'recording') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
                         >
-                          <span className="hidden sm:inline">{status.activityText}</span>
-                          <span className="sm:hidden">{(status.isOnline || status.currentStatus === 'active') ? 'On' : 'Off'}</span>
+                          <span className="hidden sm:inline">{statusText}</span>
+                          <span className="sm:hidden">{tracker.status === 'active' || tracker.status === 'recording' ? 'On' : 'Off'}</span>
                         </Badge>
-                        {status.lastActionTimestamp && (
-                          <span className="text-xs text-slate-500 hidden md:inline">
-                            {Math.floor((Date.now() - status.lastActionTimestamp) / 1000)}s ago
-                          </span>
-                        )}
-                        {status.currentStatus && status.activityText !== status.currentStatus && (status.currentStatus === 'paused' || status.currentStatus === 'inactive') && (
-                           <Badge variant="outline" className="text-xs hidden sm:inline">{status.currentStatus}</Badge>
-                        )}
+                        <span className="text-xs text-slate-500 hidden md:inline">
+                          {Math.floor((Date.now() - tracker.last_activity) / 1000)}s ago
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   <AnimatePresence>
-                    {status.isActivelyTracking && !statusColor.includes('gray') && (
+                    {isActive && (
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
@@ -364,7 +153,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                   </AnimatePresence>
                 </div>
 
-                {status.isActivelyTracking && !statusColor.includes('gray') && (
+                {isActive && (
                   <motion.div
                     className={`absolute inset-0 rounded-xl bg-gradient-to-r ${statusColor} opacity-10 pointer-events-none`}
                     animate={{
@@ -403,15 +192,15 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         >
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-slate-800">
-                {trackers.filter(t => t.currentStatus === 'active' && (Date.now() - (t.statusTimestamp || 0) < 60000)).length}
+              {trackers.filter(t => t.status === 'active' || t.status === 'recording').length}
             </div>
-              <div className="text-xs text-slate-500">Currently Active</div>
+            <div className="text-xs text-slate-500">Active</div>
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-green-600">
-                {trackers.filter(t => t.lastKnownAction && (Date.now() - (t.lastActionTimestamp || 0) < 30000)).length}
+              {trackers.filter(t => t.status === 'recording').length}
             </div>
-              <div className="text-xs text-slate-500">Recent Actions</div>
+            <div className="text-xs text-slate-500">Recording</div>
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-slate-800">
