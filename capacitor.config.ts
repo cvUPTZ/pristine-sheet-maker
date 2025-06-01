@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.74280347ef154f4a8bd78fa8910fd688',
+  appId: 'com.lovable.matchscribeanalytics',
   appName: 'match-scribe-analytics',
   webDir: 'dist',
   bundledWebRuntime: false,
