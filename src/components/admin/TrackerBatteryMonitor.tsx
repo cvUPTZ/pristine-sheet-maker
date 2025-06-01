@@ -35,6 +35,7 @@ const TrackerBatteryMonitor: React.FC = () => {
   }, []);
 
   const fetchTrackerData = async () => {
+    console.log('Fetching tracker data...');
     try {
       // Get tracker profiles first
       const { data: trackersData, error: trackersError } = await supabase
@@ -42,29 +43,37 @@ const TrackerBatteryMonitor: React.FC = () => {
         .select('id, email, full_name')
         .eq('role', 'tracker');
 
-      if (trackersError) throw trackersError;
+      if (trackersError) {
+        console.error('Error fetching trackers:', trackersError);
+        throw trackersError;
+      }
 
-      // Get battery status from notifications
+      console.log('Tracker profiles:', trackersData);
+
+      // Get battery status from notifications (since tracker_device_status doesn't exist in types)
       const { data: batteryData, error: batteryError } = await supabase
         .from('notifications')
-        .select('user_id, created_at, message')
+        .select('user_id, created_at, message, type')
         .eq('type', 'battery_status')
         .order('created_at', { ascending: false });
 
       if (batteryError) {
         console.error('Error fetching battery data:', batteryError);
+        // Don't throw here, just log and continue without battery data
       }
+
+      console.log('Battery notifications:', batteryData);
 
       // Combine the data
       const trackersWithBattery = (trackersData || []).map(tracker => {
         let batteryLevel: number | null = null;
         let lastUpdatedAt: string | null = null;
 
-        // Get latest battery info from notifications
+        // Get latest battery info from notifications for this specific user
         const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
-        if (latestBatteryInfo) {
+        if (latestBatteryInfo?.message) {
           // Try to extract battery level from message
-          const match = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
+          const match = latestBatteryInfo.message.match(/Battery level: (\d+)%/);
           if (match) {
             batteryLevel = parseInt(match[1]);
           }
@@ -81,6 +90,7 @@ const TrackerBatteryMonitor: React.FC = () => {
         };
       });
 
+      console.log('Combined tracker data:', trackersWithBattery);
       setTrackers(trackersWithBattery);
     } catch (error) {
       console.error('Error fetching tracker data:', error);
@@ -95,8 +105,6 @@ const TrackerBatteryMonitor: React.FC = () => {
   };
 
   const sendLowBatteryNotification = async (trackerId: string, batteryLevel: number) => {
-    if (batteryLevel === null) return;
-    
     try {
       const { error } = await supabase
         .from('notifications')

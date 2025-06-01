@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { eventTypes } from '@/constants/eventTypes';
+import { EVENT_TYPES } from '@/constants/eventTypes';
 import { Undo2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -19,6 +18,12 @@ interface RecentAction {
   id: string;
   event_type: string;
   timestamp: Date;
+}
+
+interface EventType {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerId }) => {
@@ -195,7 +200,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerI
         <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6">
           {/* Event Type Selection */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-            {eventTypes.map((eventType) => (
+            {EVENT_TYPES.map((eventType: EventType) => (
               <Button
                 key={eventType.id}
                 variant={selectedEventType === eventType.id ? "default" : "outline"}
