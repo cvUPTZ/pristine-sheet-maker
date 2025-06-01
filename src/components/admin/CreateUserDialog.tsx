@@ -67,10 +67,23 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (sessionError || !session || !session.access_token) {
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        toast.error('Session error. Please log in again.');
+        return;
+      }
+
+      if (!session || !session.access_token) {
         toast.error('Authentication token not found. Please log in again.');
         return;
       }
+
+      console.log('Calling create-user function with data:', {
+        email: formData.email.toLowerCase().trim(),
+        fullName: formData.fullName.trim(),
+        role: formData.role,
+        // Don't log password
+      });
 
       // Call the Edge Function to create the user
       const { data, error } = await supabase.functions.invoke('create-user', {
@@ -82,12 +95,23 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      console.log('Function response:', { data, error });
+
       if (error) {
         console.error('Function error:', error);
-        throw new Error(error.message || 'Failed to create user');
+        
+        // Handle specific error types
+        if (error.message?.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
+        } else if (error.message?.includes('FunctionsFetchError')) {
+          throw new Error('Server connection failed. Please try again later.');
+        } else {
+          throw new Error(error.message || 'Failed to create user');
+        }
       }
 
       if (data?.error) {
@@ -100,7 +124,14 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating user:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
+      let errorMessage = 'Failed to create user';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast.error(errorMessage);
     } finally {
       setLoading(false);
