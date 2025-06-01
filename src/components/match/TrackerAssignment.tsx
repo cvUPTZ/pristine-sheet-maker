@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -125,13 +126,13 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
-      // For general assignments, we insert without player_team_id and player_id (they will be null)
+      // For general assignments, we use a default team value since player_team_id is required in the schema
       const { error } = await supabase
         .from('match_tracker_assignments')
         .insert({
           match_id: matchId,
-          tracker_user_id: selectedTracker
-          // Omit player_team_id, player_id, and assigned_event_types - they will be null by default
+          tracker_user_id: selectedTracker,
+          player_team_id: 'home' // Default value for general assignments
         });
 
       if (error) throw error;
@@ -240,3 +241,4 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 };
 
 export default TrackerAssignment;
+
