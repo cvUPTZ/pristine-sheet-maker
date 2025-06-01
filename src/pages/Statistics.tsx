@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, TrendingUp, Users, Activity, Target } from 'lucide-react';
-import { Statistics as StatsType } from '@/types';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
@@ -14,15 +12,26 @@ import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface Statistics {
+  possession: { home: number; away: number };
+  passes: { home: { total: number; successful: number }; away: { total: number; successful: number } };
+  shots: { home: { total: number; onTarget: number; offTarget: number }; away: { total: number; onTarget: number; offTarget: number } };
+  fouls: { home: number; away: number };
+  corners: { home: number; away: number };
+  offsides: { home: number; away: number };
+  throws: { home: number; away: number };
+  cards: { home: { yellow: number; red: number }; away: { yellow: number; red: number } };
+}
+
 const Statistics = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
-  const [statistics, setStatistics] = useState<StatsType>({
+  const [statistics, setStatistics] = useState<Statistics>({
     possession: { home: 0, away: 0 },
     passes: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-    shots: { home: { total: 0, onTarget: 0 }, away: { total: 0, onTarget: 0 } },
+    shots: { home: { total: 0, onTarget: 0, offTarget: 0 }, away: { total: 0, onTarget: 0, offTarget: 0 } },
     fouls: { home: 0, away: 0 },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
@@ -81,7 +90,9 @@ const Statistics = () => {
       if (matchError) throw matchError;
 
       if (matchData?.match_statistics) {
-        setStatistics(matchData.match_statistics as StatsType);
+        // Safely cast the JSON data to Statistics type
+        const stats = matchData.match_statistics as unknown as Statistics;
+        setStatistics(stats);
       }
 
       // Process ball tracking data
@@ -90,7 +101,7 @@ const Statistics = () => {
           ? matchData.ball_tracking_data 
           : [];
         
-        const ballDataFiltered = ballTrackingArray.filter(point => 
+        const ballDataFiltered = ballTrackingArray.filter((point: any) => 
           point && 
           typeof point.x === 'number' && 
           typeof point.y === 'number' &&
@@ -235,12 +246,6 @@ const Statistics = () => {
 
           {/* Visualizations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <MatchStatsVisualizer 
-              statistics={statistics}
-              homeTeamName={selectedMatchData.home_team_name}
-              awayTeamName={selectedMatchData.away_team_name}
-            />
-            
             <MatchRadarChart 
               statistics={statistics}
               homeTeamName={selectedMatchData.home_team_name}
@@ -250,12 +255,13 @@ const Statistics = () => {
 
           {ballData.length > 0 && (
             <>
-              <BallFlowVisualization ballData={ballData} />
-              <PlayerHeatmap ballData={ballData} />
+              <BallFlowVisualization 
+                ballTrackingPoints={ballData}
+                homeTeam={{ id: 'home', name: selectedMatchData.home_team_name, players: [], formation: '4-4-2' }}
+                awayTeam={{ id: 'away', name: selectedMatchData.away_team_name, players: [], formation: '4-4-2' }}
+              />
             </>
           )}
-
-          <TeamTimeSegmentCharts statistics={statistics} />
         </>
       )}
     </div>
