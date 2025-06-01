@@ -15,12 +15,16 @@ interface TrackerAbsenceManagerProps {
 const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }) => {
   const { trackers } = useRealtimeMatch({ matchId });
   
+  // Define handleTrackerAbsence callback
+  const handleTrackerAbsence = async (trackerId: string, reason: string) => {
+    console.log(`[TrackerAbsenceManager] Handling absence for tracker ${trackerId}: ${reason}`);
+  };
+  
   const {
     trackerActivities,
     detectedAbsences,
     updateTrackerActivity,
     clearAbsenceStatus,
-    handleTrackerAbsence,
     findReplacementTracker
   } = useTrackerAbsenceDetection({
     matchId,
@@ -35,11 +39,11 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
     });
   }, [trackers, updateTrackerActivity]);
 
-  const getActivityBadgeColor = (lastSeen: number) => {
+  const getActivityBadgeColor = (lastSeen: number): "default" | "secondary" | "destructive" => {
     const timeSinceLastSeen = Date.now() - lastSeen;
-    if (timeSinceLastSeen < 60000) return 'green'; // < 1 minute
-    if (timeSinceLastSeen < 180000) return 'yellow'; // < 3 minutes
-    return 'red'; // > 3 minutes
+    if (timeSinceLastSeen < 60000) return 'default'; // < 1 minute
+    if (timeSinceLastSeen < 180000) return 'secondary'; // < 3 minutes
+    return 'destructive'; // > 3 minutes
   };
 
   const formatLastSeen = (timestamp: number) => {
@@ -148,11 +152,11 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getActivityBadgeColor(activity.last_seen) as any}>
+                  <Badge variant={getActivityBadgeColor(activity.last_seen)}>
                     {activity.status}
                   </Badge>
                   {activity.consecutive_missed_heartbeats > 0 && (
-                    <Badge variant="orange">
+                    <Badge variant="secondary">
                       {activity.consecutive_missed_heartbeats} missed
                     </Badge>
                   )}

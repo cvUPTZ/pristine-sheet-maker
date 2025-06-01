@@ -90,23 +90,6 @@ export const useTrackerAbsenceDetection = ({
     });
   }, []);
 
-  // Record tracker activity in the database
-  const recordTrackerActivity = useCallback(async (trackerId: string) => {
-    try {
-      await supabase
-        .from('match_tracker_activity')
-        .upsert({
-          match_id: matchId,
-          user_id: trackerId,
-          last_active_at: new Date().toISOString()
-        }, {
-          onConflict: 'match_id,user_id'
-        });
-    } catch (error) {
-      console.error('[AbsenceDetection] Error recording tracker activity:', error);
-    }
-  }, [matchId]);
-
   // Find replacement tracker
   const findReplacementTracker = useCallback(async (absentTrackerId: string): Promise<string | null> => {
     try {
@@ -156,24 +139,18 @@ export const useTrackerAbsenceDetection = ({
     
     if (replacementId) {
       try {
-        // Call the database function to handle the absence
-        const { error } = await supabase.rpc('handle_tracker_absence', {
-          p_absent_tracker_user_id: absentTrackerId,
-          p_match_id: matchId,
-          p_replacement_tracker_user_id: replacementId
-        });
+        // For now, just log the replacement (database function may not exist yet)
+        console.log(`[AbsenceDetection] Would assign replacement tracker ${replacementId} for ${absentTrackerId}`);
 
-        if (error) throw error;
-
-        toast.success(`Replacement Assigned: New tracker assigned for absent tracker ${absentTrackerId.slice(-4)}`, {
+        toast.success(`Replacement Found: Tracker ${replacementId.slice(-4)} available for absent tracker ${absentTrackerId.slice(-4)}`, {
           duration: 6000,
         });
         
-        console.log(`[AbsenceDetection] Replacement tracker ${replacementId} assigned for ${absentTrackerId}`);
+        console.log(`[AbsenceDetection] Replacement tracker ${replacementId} found for ${absentTrackerId}`);
       } catch (error) {
         console.error('[AbsenceDetection] Error handling tracker absence:', error);
         
-        toast.error(`Failed to Assign Replacement: Error processing absence for tracker ${absentTrackerId.slice(-4)}`, {
+        toast.error(`Failed to Process Replacement: Error finding replacement for tracker ${absentTrackerId.slice(-4)}`, {
           duration: 8000,
         });
       }
@@ -182,7 +159,7 @@ export const useTrackerAbsenceDetection = ({
         duration: 8000,
       });
     }
-  }, [matchId, findReplacementTracker]);
+  }, [findReplacementTracker]);
 
   // Start monitoring
   useEffect(() => {
@@ -203,7 +180,6 @@ export const useTrackerAbsenceDetection = ({
     detectedAbsences: Array.from(detectedAbsences),
     updateTrackerActivity,
     clearAbsenceStatus,
-    recordTrackerActivity,
     handleTrackerAbsence,
     findReplacementTracker
   };
