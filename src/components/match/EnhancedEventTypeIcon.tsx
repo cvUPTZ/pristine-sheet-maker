@@ -783,7 +783,7 @@ function getContrastColor(hexcolor: string): string {
  * @keyframes clearance-burst {
  *   0% { transform: scale(1); opacity: 1; }
  *   50% { transform: scale(1.2); opacity: 0.7; }
- *   100% { transform: scale(0.9); opacity: 0; }
+ *   100% { transform: scale(0.9); opacity: 1; }
  * }
  * .animate-clearance-burst { animation: clearance-burst 1s ease-out; }
  * 
@@ -818,3 +818,124 @@ function getContrastColor(hexcolor: string): string {
  */
 
 export default EnhancedEventTypeIcon;
+
+// CSS classes for styling (can be imported separately)
+export const eventIconStyles = `
+.event-icon {
+  transition: all 0.2s ease;
+}
+
+.event-icon--filled {
+  fill: currentColor;
+}
+
+.event-icon--outline {
+  fill: none;
+  stroke: currentColor;
+}
+
+.event-icon-with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.event-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.event-tooltip {
+  position: relative;
+}
+
+/* Severity-based styling */
+.event-icon[data-event-severity="critical"] {
+  color: #dc2626;
+}
+
+.event-icon[data-event-severity="high"] {
+  color: #ea580c;
+}
+
+.event-icon[data-event-severity="medium"] {
+  color: #ca8a04;
+}
+
+.event-icon[data-event-severity="low"] {
+  color: #16a34a;
+}
+
+/* Category-based styling */
+.event-icon[data-event-category="disciplinary"] {
+  color: #dc2626;
+}
+
+.event-icon[data-event-category="ball_action"] {
+  color: #2563eb;
+}
+
+.event-icon[data-event-category="match_state"] {
+  color: #7c3aed;
+}
+
+.event-icon[data-event-category="tactical"] {
+  color: #059669;
+}
+
+.event-icon[data-event-category="player_action"] {
+  color: #dc2626;
+}
+
+/* Animation keyframes */
+@keyframes pass-flow {
+  0% { transform: translateX(-2px) rotate(-5deg); }
+  50% { transform: translateX(2px) rotate(5deg); }
+  100% { transform: translateX(-2px) rotate(-5deg); }
+}
+
+@keyframes shot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+}
+
+@keyframes goal-celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.2) rotate(5deg); }
+  50% { transform: scale(1.3) rotate(-5deg); }
+  75% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes cross-arc {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(10deg) scale(1.05); }
+}
+
+@keyframes clearance-burst {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+@keyframes block-firm {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); filter: brightness(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes interception-grab {
+  0% { transform: scaleX(1) translateX(0); }
+  40% { transform: scaleX(0.8) translateX(5px); }
+  70% { transform: scaleX(1.1) translateX(-2px); }
+  100% { transform: scaleX(1) translateX(0); }
+}
+
+.animate-pass-flow { animation: pass-flow 2s infinite linear; }
+.animate-shot-pulse { animation: shot-pulse 1.5s infinite ease-in-out; }
+.animate-goal-celebrate { animation: goal-celebrate 0.8s ease-out; }
+.animate-cross-arc { animation: cross-arc 1.8s ease-in-out infinite; }
+.animate-clearance-burst { animation: clearance-burst 1s ease-out; }
+.animate-block-firm { animation: block-firm 0.6s ease-in-out; }
+.animate-interception-grab { animation: interception-grab 0.7s ease-out; }
+`;
