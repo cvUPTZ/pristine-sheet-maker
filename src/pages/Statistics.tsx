@@ -1,17 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, TrendingUp, Users, Activity, Target } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart } from 'lucide-react';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
 import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
 import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
+import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
+import AdvancedStatsTable from '@/components/analytics/AdvancedStatsTable';
+import StatisticsDisplay from '@/components/StatisticsDisplay';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Statistics } from '@/types/index';
+import type { Statistics, MatchEvent, PlayerStatistics } from '@/types/index';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -31,6 +36,8 @@ const Statistics = () => {
     crosses: { home: {}, away: {} }
   });
   const [ballData, setBallData] = useState<any[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,16 +82,51 @@ const Statistics = () => {
       // Fetch match details with statistics and ball tracking data
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
-        .select('match_statistics, ball_tracking_data, home_team_name, away_team_name')
+        .select('match_statistics, ball_tracking_data, home_team_name, away_team_name, home_team_players, away_team_players')
         .eq('id', matchId)
         .single();
 
       if (matchError) throw matchError;
 
-      if (matchData?.match_statistics) {
-        // Safely cast the JSON data to Statistics type
-        const stats = matchData.match_statistics as unknown as Statistics;
-        setStatistics(stats);
+      // Fetch match events
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('timestamp', { ascending: true });
+
+      if (eventsError) {
+        console.error('Error fetching events:', eventsError);
+      } else {
+        const formattedEvents: MatchEvent[] = (eventsData || []).map(event => ({
+          id: event.id,
+          match_id: event.match_id,
+          timestamp: event.timestamp || 0,
+          event_type: event.event_type,
+          type: event.event_type as any,
+          event_data: event.event_data || {},
+          created_at: event.created_at,
+          tracker_id: event.tracker_id,
+          team_id: event.team_id,
+          player_id: event.player_id,
+          team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
+          coordinates: event.coordinates || { x: 0, y: 0 },
+          created_by: event.created_by,
+        }));
+        setEvents(formattedEvents);
+
+        // Calculate statistics from events if not available
+        if (!matchData?.match_statistics || Object.keys(matchData.match_statistics).length === 0) {
+          const calculatedStats = calculateStatisticsFromEvents(formattedEvents);
+          setStatistics(calculatedStats);
+        } else {
+          const stats = matchData.match_statistics as unknown as Statistics;
+          setStatistics(stats);
+        }
+
+        // Calculate player statistics
+        const calculatedPlayerStats = calculatePlayerStatistics(formattedEvents, matchData);
+        setPlayerStats(calculatedPlayerStats);
       }
 
       // Process ball tracking data
@@ -118,6 +160,110 @@ const Statistics = () => {
     }
   };
 
+  const calculateStatisticsFromEvents = (events: MatchEvent[]): Statistics => {
+    const homeEvents = events.filter(e => e.team === 'home');
+    const awayEvents = events.filter(e => e.team === 'away');
+
+    const calculateTeamStats = (teamEvents: MatchEvent[]) => {
+      const passes = teamEvents.filter(e => e.type === 'pass');
+      const shots = teamEvents.filter(e => e.type === 'shot');
+      const fouls = teamEvents.filter(e => e.type === 'foul');
+      const corners = teamEvents.filter(e => e.type === 'corner');
+      
+      return {
+        passes: {
+          successful: passes.filter(e => e.event_data?.success === true).length,
+          attempted: passes.length
+        },
+        shots: {
+          onTarget: shots.filter(e => e.event_data?.on_target === true).length,
+          offTarget: shots.filter(e => e.event_data?.on_target === false).length
+        },
+        fouls: fouls.length,
+        corners: corners.length
+      };
+    };
+
+    const homeStats = calculateTeamStats(homeEvents);
+    const awayStats = calculateTeamStats(awayEvents);
+
+    // Calculate possession based on event distribution
+    const totalEvents = homeEvents.length + awayEvents.length;
+    const homePossession = totalEvents > 0 ? Math.round((homeEvents.length / totalEvents) * 100) : 50;
+    const awayPossession = 100 - homePossession;
+
+    return {
+      possession: { home: homePossession, away: awayPossession },
+      passes: { home: homeStats.passes, away: awayStats.passes },
+      shots: { home: homeStats.shots, away: awayStats.shots },
+      fouls: { home: homeStats.fouls, away: awayStats.fouls },
+      corners: { home: homeStats.corners, away: awayStats.corners },
+      offsides: { home: 0, away: 0 },
+      ballsPlayed: { home: homeEvents.length, away: awayEvents.length },
+      ballsLost: { home: 0, away: 0 },
+      duels: { home: { won: 0, total: 0 }, away: { won: 0, total: 0 } },
+      crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } }
+    };
+  };
+
+  const calculatePlayerStatistics = (events: MatchEvent[], matchData: any): PlayerStatistics[] => {
+    const playerStatsMap = new Map<string | number, PlayerStatistics>();
+
+    events.forEach(event => {
+      if (!event.player_id) return;
+
+      const playerId = event.player_id;
+      if (!playerStatsMap.has(playerId)) {
+        playerStatsMap.set(playerId, {
+          playerId,
+          playerName: `Player ${playerId}`,
+          team: event.team || 'home',
+          events: {
+            passes: { successful: 0, attempted: 0 },
+            shots: { onTarget: 0, offTarget: 0 },
+            tackles: { successful: 0, attempted: 0 },
+            fouls: 0,
+            cards: { yellow: 0, red: 0 },
+            goals: 0,
+            assists: 0
+          }
+        });
+      }
+
+      const playerStats = playerStatsMap.get(playerId)!;
+
+      switch (event.type) {
+        case 'pass':
+          playerStats.events.passes.attempted++;
+          if (event.event_data?.success === true) {
+            playerStats.events.passes.successful++;
+          }
+          break;
+        case 'shot':
+          if (event.event_data?.on_target === true) {
+            playerStats.events.shots.onTarget++;
+          } else {
+            playerStats.events.shots.offTarget++;
+          }
+          break;
+        case 'goal':
+          playerStats.events.goals++;
+          break;
+        case 'foul':
+          playerStats.events.fouls++;
+          break;
+        case 'yellowCard':
+          playerStats.events.cards.yellow++;
+          break;
+        case 'redCard':
+          playerStats.events.cards.red++;
+          break;
+      }
+    });
+
+    return Array.from(playerStatsMap.values());
+  };
+
   const selectedMatchData = matches.find(m => m.id === selectedMatch);
 
   if (loading) {
@@ -144,7 +290,7 @@ const Statistics = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">Match Statistics</h1>
+          <h1 className="text-2xl font-bold">Match Statistics & Analytics</h1>
         </div>
         
         <Select value={selectedMatch} onValueChange={setSelectedMatch}>
@@ -171,12 +317,26 @@ const Statistics = () => {
               <CardDescription>
                 {selectedMatchData.match_date && `Match Date: ${new Date(selectedMatchData.match_date).toLocaleDateString()}`}
                 {selectedMatchData.status && ` • Status: ${selectedMatchData.status}`}
+                {` • ${events.length} events recorded`}
               </CardDescription>
             </CardHeader>
           </Card>
 
           {/* Key Metrics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{events.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Home: {events.filter(e => e.team === 'home').length} • Away: {events.filter(e => e.team === 'away').length}
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Passes</CardTitle>
@@ -219,41 +379,133 @@ const Statistics = () => {
                 </p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Fouls</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {(statistics.fouls?.home || 0) + (statistics.fouls?.away || 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Home: {statistics.fouls?.home || 0} • Away: {statistics.fouls?.away || 0}
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Visualizations */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <MatchRadarChart 
-              statistics={statistics}
-              homeTeamName={selectedMatchData.home_team_name}
-              awayTeamName={selectedMatchData.away_team_name}
-            />
-          </div>
+          {/* Tabbed Analytics */}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              <TabsTrigger value="players">Players</TabsTrigger>
+              <TabsTrigger value="flow">Ball Flow</TabsTrigger>
+            </TabsList>
 
-          {ballData.length > 0 && (
-            <>
-              <BallFlowVisualization 
-                ballTrackingPoints={ballData}
-                homeTeam={{ id: 'home', name: selectedMatchData.home_team_name, players: [], formation: '4-4-2' }}
-                awayTeam={{ id: 'away', name: selectedMatchData.away_team_name, players: [], formation: '4-4-2' }}
+            <TabsContent value="overview" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <MatchRadarChart 
+                  statistics={statistics}
+                  homeTeamName={selectedMatchData.home_team_name}
+                  awayTeamName={selectedMatchData.away_team_name}
+                />
+                <StatisticsDisplay
+                  statistics={statistics}
+                  homeTeamName={selectedMatchData.home_team_name}
+                  awayTeamName={selectedMatchData.away_team_name}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="performance" className="space-y-6">
+              <TeamPerformanceRadar
+                statistics={statistics}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
               />
-            </>
-          )}
+            </TabsContent>
+
+            <TabsContent value="advanced" className="space-y-6">
+              <AdvancedStatsTable
+                statistics={statistics}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
+              />
+            </TabsContent>
+
+            <TabsContent value="players" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Player Performance
+                  </CardTitle>
+                  <CardDescription>Individual player statistics and performance metrics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Player</th>
+                          <th className="text-center py-2">Team</th>
+                          <th className="text-center py-2">Passes</th>
+                          <th className="text-center py-2">Shots</th>
+                          <th className="text-center py-2">Goals</th>
+                          <th className="text-center py-2">Fouls</th>
+                          <th className="text-center py-2">Cards</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {playerStats.map((player, index) => (
+                          <tr key={index} className="border-b">
+                            <td className="py-3 font-medium">{player.playerName}</td>
+                            <td className="py-3 text-center">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                player.team === 'home' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {player.team}
+                              </span>
+                            </td>
+                            <td className="py-3 text-center">
+                              {player.events.passes.successful}/{player.events.passes.attempted}
+                            </td>
+                            <td className="py-3 text-center">
+                              {player.events.shots.onTarget + player.events.shots.offTarget}
+                            </td>
+                            <td className="py-3 text-center">{player.events.goals}</td>
+                            <td className="py-3 text-center">{player.events.fouls}</td>
+                            <td className="py-3 text-center">
+                              <span className="text-yellow-600">{player.events.cards.yellow}</span>
+                              {player.events.cards.red > 0 && (
+                                <span className="text-red-600 ml-1">{player.events.cards.red}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {playerStats.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-gray-500">
+                              No player data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="flow" className="space-y-6">
+              {ballData.length > 0 ? (
+                <BallFlowVisualization 
+                  ballTrackingPoints={ballData}
+                  homeTeam={{ id: 'home', name: selectedMatchData.home_team_name, players: [], formation: '4-4-2' }}
+                  awayTeam={{ id: 'away', name: selectedMatchData.away_team_name, players: [], formation: '4-4-2' }}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="h-64 flex items-center justify-center">
+                    <div className="text-center">
+                      <PieChart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <p className="text-gray-500">No ball tracking data available</p>
+                      <p className="text-sm text-gray-400">Enable ball tracking during match recording</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
