@@ -15,7 +15,7 @@ interface Match {
   status: string;
   home_team_name: string;
   away_team_name: string;
-  match_date: string;
+  match_date: string | null;
 }
 
 interface TrackerAssignment {
@@ -42,7 +42,7 @@ interface MatrixData {
 const MatchTrackingMatrix: React.FC = () => {
   const [matrixData, setMatrixData] = useState<MatrixData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMatch, setSelectedMatch] = useState<string>('');
+  const [selectedMatch, setSelectedMatch] = useState<string>('all');
 
   useEffect(() => {
     fetchMatrixData();
@@ -163,7 +163,7 @@ const MatchTrackingMatrix: React.FC = () => {
                 <SelectValue placeholder="Filter by match" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Matches</SelectItem>
+                <SelectItem value="all">All Matches</SelectItem>
                 {matrixData.map(data => (
                   <SelectItem key={data.match.id} value={data.match.id}>
                     {data.match.name}
@@ -207,7 +207,7 @@ const MatchTrackingMatrix: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {matrixData
-                  .filter(data => !selectedMatch || data.match.id === selectedMatch)
+                  .filter(data => selectedMatch === 'all' || data.match.id === selectedMatch)
                   .map((data) => (
                     <TableRow key={data.match.id}>
                       <TableCell>
