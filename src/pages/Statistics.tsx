@@ -13,6 +13,9 @@ import BallFlowVisualization from '@/components/visualizations/BallFlowVisualiza
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
 import AdvancedStatsTable from '@/components/analytics/AdvancedStatsTable';
+import PlayerPerformanceChart from '@/components/analytics/PlayerPerformanceChart';
+import EventTimelineChart from '@/components/analytics/EventTimelineChart';
+import MatchHeatMap from '@/components/analytics/MatchHeatMap';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -98,21 +101,41 @@ const Statistics = () => {
       if (eventsError) {
         console.error('Error fetching events:', eventsError);
       } else {
-        const formattedEvents: MatchEvent[] = (eventsData || []).map(event => ({
-          id: event.id,
-          match_id: event.match_id,
-          timestamp: event.timestamp || 0,
-          event_type: event.event_type,
-          type: event.event_type as any,
-          event_data: event.event_data || {},
-          created_at: event.created_at,
-          tracker_id: event.tracker_id,
-          team_id: event.team_id,
-          player_id: event.player_id,
-          team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
-          coordinates: event.coordinates || { x: 0, y: 0 },
-          created_by: event.created_by,
-        }));
+        const formattedEvents: MatchEvent[] = (eventsData || []).map(event => {
+          // Parse coordinates safely
+          let coordinates = { x: 0, y: 0 };
+          if (event.coordinates) {
+            try {
+              if (typeof event.coordinates === 'string') {
+                coordinates = JSON.parse(event.coordinates);
+              } else if (typeof event.coordinates === 'object' && event.coordinates !== null) {
+                coordinates = event.coordinates as { x: number; y: number };
+              }
+            } catch (e) {
+              console.warn('Failed to parse coordinates:', event.coordinates);
+            }
+          }
+
+          // Ensure coordinates have x and y properties
+          if (!coordinates.x) coordinates.x = 0;
+          if (!coordinates.y) coordinates.y = 0;
+
+          return {
+            id: event.id,
+            match_id: event.match_id,
+            timestamp: event.timestamp || 0,
+            event_type: event.event_type,
+            type: event.event_type as any,
+            event_data: {}, // Database doesn't have this field, so we'll use empty object
+            created_at: event.created_at,
+            tracker_id: null, // Database doesn't have this field
+            team_id: null, // Database doesn't have this field  
+            player_id: event.player_id,
+            team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
+            coordinates,
+            created_by: event.created_by,
+          };
+        });
         setEvents(formattedEvents);
 
         // Calculate statistics from events if not available
@@ -404,9 +427,19 @@ const Statistics = () => {
                   awayTeamName={selectedMatchData.away_team_name}
                 />
               </div>
+              <EventTimelineChart
+                events={events}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
+              />
             </TabsContent>
 
             <TabsContent value="performance" className="space-y-6">
+              <PlayerPerformanceChart
+                playerStats={playerStats}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
+              />
               <TeamPerformanceRadar
                 statistics={statistics}
                 homeTeamName={selectedMatchData.home_team_name}
@@ -415,6 +448,11 @@ const Statistics = () => {
             </TabsContent>
 
             <TabsContent value="advanced" className="space-y-6">
+              <MatchHeatMap
+                events={events}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
+              />
               <AdvancedStatsTable
                 statistics={statistics}
                 homeTeamName={selectedMatchData.home_team_name}
