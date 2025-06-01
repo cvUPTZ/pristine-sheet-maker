@@ -21,8 +21,9 @@ interface MatchRadarChartProps {
 }
 
 const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamName, awayTeamName }) => {
-  // Helper functions to safely get stats
-  const getShotStats = (shots: ShotStats): ShotStats => {
+  // Helper functions to safely get stats with default values
+  const getShotStats = (shots?: ShotStats): ShotStats => {
+    if (!shots) return { onTarget: 0, offTarget: 0, total: 0 };
     return {
       onTarget: shots.onTarget || 0,
       offTarget: shots.offTarget || 0,
@@ -30,37 +31,41 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
     };
   };
 
-  const getPassStats = (passes: PassStats): PassStats => {
+  const getPassStats = (passes?: PassStats): PassStats => {
+    if (!passes) return { successful: 0, attempted: 0 };
     return {
       successful: passes.successful || 0,
       attempted: passes.attempted || 0
     };
   };
 
-  const getDuelStats = (duels: DuelStats): DuelStats => {
+  const getDuelStats = (duels?: DuelStats): DuelStats => {
+    if (!duels) return { won: 0, total: 0 };
     return {
       won: duels.won || 0,
       total: duels.total || 0
     };
   };
 
-  const getCrossStats = (crosses: CrossStats): CrossStats => {
+  const getCrossStats = (crosses?: CrossStats): CrossStats => {
+    if (!crosses) return { total: 0, successful: 0 };
     return {
       total: crosses.total || 0,
       successful: crosses.successful || 0
     };
   };
 
-  // Prepare data for radar chart
+  // Prepare data for radar chart with safe property access
   const prepareRadarData = () => {
-    const homeShots = getShotStats(statistics.shots.home);
-    const awayShots = getShotStats(statistics.shots.away);
-    const homePasses = getPassStats(statistics.passes.home);
-    const awayPasses = getPassStats(statistics.passes.away);
-    const homeDuels = getDuelStats(statistics.duels.home);
-    const awayDuels = getDuelStats(statistics.duels.away);
-    const homeCrosses = getCrossStats(statistics.crosses.home);
-    const awayCrosses = getCrossStats(statistics.crosses.away);
+    // Safely access nested properties with fallbacks
+    const homeShots = getShotStats(statistics?.shots?.home);
+    const awayShots = getShotStats(statistics?.shots?.away);
+    const homePasses = getPassStats(statistics?.passes?.home);
+    const awayPasses = getPassStats(statistics?.passes?.away);
+    const homeDuels = getDuelStats(statistics?.duels?.home);
+    const awayDuels = getDuelStats(statistics?.duels?.away);
+    const homeCrosses = getCrossStats(statistics?.crosses?.home);
+    const awayCrosses = getCrossStats(statistics?.crosses?.away);
     
     return [
       {
@@ -89,14 +94,14 @@ const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamN
       },
       {
         stat: 'Possession',
-        [homeTeamName]: statistics.possession?.home || 50,
-        [awayTeamName]: statistics.possession?.away || 50,
+        [homeTeamName]: statistics?.possession?.home || 50,
+        [awayTeamName]: statistics?.possession?.away || 50,
         fullMark: 100,
       },
       {
         stat: 'Fouls',
-        [homeTeamName]: statistics.ballsLost?.home || 0,
-        [awayTeamName]: statistics.ballsLost?.away || 0,
+        [homeTeamName]: statistics?.fouls?.home || 0,
+        [awayTeamName]: statistics?.fouls?.away || 0,
         fullMark: 10,
       },
       {
