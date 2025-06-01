@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +11,7 @@ import EventAssignments from '@/components/admin/EventAssignments';
 import PlayerAssignments from '@/components/admin/PlayerAssignments';
 import AuditLogs from '@/components/admin/AuditLogs';
 import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
+import MatchTrackingMatrix from '@/components/admin/MatchTrackingMatrix';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Match {
@@ -76,12 +78,15 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-7 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-8 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
           <TabsTrigger value="matches" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Matches
+          </TabsTrigger>
+          <TabsTrigger value="matrix" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            {isMobile ? 'Matrix' : 'Tracking Matrix'}
           </TabsTrigger>
           <TabsTrigger value="events" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Events' : 'Event Assignments'}
@@ -115,6 +120,10 @@ const Admin: React.FC = () => {
         
         <TabsContent value="matches" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <MatchManagement />
+        </TabsContent>
+
+        <TabsContent value="matrix" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <MatchTrackingMatrix />
         </TabsContent>
 
         <TabsContent value="events" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
