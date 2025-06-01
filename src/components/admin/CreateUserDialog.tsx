@@ -26,6 +26,69 @@ interface CreateUserDialogProps {
   onUserCreated: () => void;
 }
 
+
+// Add this temporary test function to your component to debug connectivity
+const testFunctionConnectivity = async () => {
+  try {
+    console.log('Testing function connectivity...');
+    
+    // Get session first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      console.error('Session error:', sessionError);
+      return;
+    }
+
+    console.log('Session found, testing function...');
+    
+    // Test with a simple OPTIONS request first
+    const optionsResponse = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+      method: 'OPTIONS',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    console.log('OPTIONS response status:', optionsResponse.status);
+    console.log('OPTIONS response headers:', [...optionsResponse.headers.entries()]);
+    
+    if (optionsResponse.ok) {
+      console.log('OPTIONS request successful - function endpoint exists');
+      
+      // Now test the actual function call
+      const testData = {
+        email: 'test@example.com',
+        password: 'test123456',
+        fullName: 'Test User',
+        role: 'user'
+      };
+      
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testData),
+      });
+      
+      console.log('POST response status:', response.status);
+      const responseText = await response.text();
+      console.log('POST response body:', responseText);
+      
+    } else {
+      console.error('OPTIONS request failed - function might not be deployed');
+    }
+    
+  } catch (error) {
+    console.error('Direct fetch test failed:', error);
+  }
+};
+
+// Call this function in your component to test
+testFunctionConnectivity();
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   open,
   onOpenChange,
