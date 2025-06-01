@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 interface TrackerAbsenceDetectionOptions {
   matchId: string;
-  inactivityThreshold?: number; // in milliseconds
+  inactivityThreshold?: number;
   onTrackerAbsent?: (trackerId: string, reason: string) => void;
 }
 
@@ -18,14 +18,13 @@ interface TrackerActivityInfo {
 
 export const useTrackerAbsenceDetection = ({
   matchId,
-  inactivityThreshold = 180000, // 3 minutes default
+  inactivityThreshold = 180000,
   onTrackerAbsent
 }: TrackerAbsenceDetectionOptions) => {
   const [trackerActivities, setTrackerActivities] = useState<Map<string, TrackerActivityInfo>>(new Map());
   const [detectedAbsences, setDetectedAbsences] = useState<Set<string>>(new Set());
   const intervalRef = useRef<NodeJS.Timeout>();
 
-  // Update tracker activity when we receive heartbeats
   const updateTrackerActivity = useCallback((trackerId: string, status: 'active' | 'inactive' | 'recording') => {
     setTrackerActivities(prev => {
       const newMap = new Map(prev);
@@ -42,7 +41,6 @@ export const useTrackerAbsenceDetection = ({
     });
   }, []);
 
-  // Check for absent trackers
   const checkForAbsentTrackers = useCallback(() => {
     const now = Date.now();
     const newAbsences = new Set<string>();
@@ -61,7 +59,6 @@ export const useTrackerAbsenceDetection = ({
         
         console.log(`[AbsenceDetection] Tracker ${trackerId} detected as absent: ${reason}`);
         
-        // Notify about the absence
         toast.warning(`Tracker Absence Detected: Tracker ${trackerId.slice(-4)} - ${reason}`, {
           id: `absence-${trackerId}`,
           duration: 8000,
@@ -76,7 +73,6 @@ export const useTrackerAbsenceDetection = ({
     }
   }, [trackerActivities, inactivityThreshold, detectedAbsences, onTrackerAbsent]);
 
-  // Clear absence status when tracker becomes active again
   const clearAbsenceStatus = useCallback((trackerId: string) => {
     setDetectedAbsences(prev => {
       const newSet = new Set(prev);
@@ -90,10 +86,8 @@ export const useTrackerAbsenceDetection = ({
     });
   }, []);
 
-  // Find replacement tracker
   const findReplacementTracker = useCallback(async (absentTrackerId: string): Promise<string | null> => {
     try {
-      // Get all tracker users
       const { data: trackerUsers, error: trackersError } = await supabase
         .from('profiles')
         .select('id, email')
@@ -101,7 +95,6 @@ export const useTrackerAbsenceDetection = ({
 
       if (trackersError) throw trackersError;
 
-      // Get current match assignments
       const { data: assignments, error: assignmentsError } = await supabase
         .from('match_tracker_assignments')
         .select('tracker_id')
@@ -111,7 +104,6 @@ export const useTrackerAbsenceDetection = ({
 
       const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_id) || []);
       
-      // Find available trackers (not assigned to this match and not the absent one)
       const availableTrackers = trackerUsers?.filter(tracker => 
         tracker.id !== absentTrackerId && 
         !assignedTrackerIds.has(tracker.id) &&
@@ -119,7 +111,6 @@ export const useTrackerAbsenceDetection = ({
       ) || [];
 
       if (availableTrackers.length > 0) {
-        // Return the first available tracker
         return availableTrackers[0].id;
       }
 
@@ -130,16 +121,13 @@ export const useTrackerAbsenceDetection = ({
     }
   }, [matchId, detectedAbsences]);
 
-  // Handle tracker absence with replacement logic
   const handleTrackerAbsence = useCallback(async (absentTrackerId: string, reason: string) => {
     console.log(`[AbsenceDetection] Handling absence for tracker ${absentTrackerId}: ${reason}`);
     
-    // Try to find a replacement
     const replacementId = await findReplacementTracker(absentTrackerId);
     
     if (replacementId) {
       try {
-        // For now, just log the replacement (database function may not exist yet)
         console.log(`[AbsenceDetection] Would assign replacement tracker ${replacementId} for ${absentTrackerId}`);
 
         toast.success(`Replacement Found: Tracker ${replacementId.slice(-4)} available for absent tracker ${absentTrackerId.slice(-4)}`, {
@@ -161,12 +149,10 @@ export const useTrackerAbsenceDetection = ({
     }
   }, [findReplacementTracker]);
 
-  // Start monitoring
   useEffect(() => {
     if (!matchId) return;
 
-    // Set up periodic absence checking
-    intervalRef.current = setInterval(checkForAbsentTrackers, 30000); // Check every 30 seconds
+    intervalRef.current = setInterval(checkForAbsentTrackers, 30000);
 
     return () => {
       if (intervalRef.current) {

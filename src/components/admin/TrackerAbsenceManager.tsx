@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Users } from 'lucide-react';
@@ -42,13 +43,6 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
     });
   }, [trackers, updateTrackerActivity]);
 
-  const formatLastSeen = (timestamp: number) => {
-    const minutes = Math.floor((Date.now() - timestamp) / 60000);
-    if (minutes < 1) return 'Just now';
-    if (minutes === 1) return '1 minute ago';
-    return `${minutes} minutes ago`;
-  };
-
   const handleManualAbsence = async (trackerId: string) => {
     await handleTrackerAbsence(trackerId, 'Manually marked as absent');
   };
@@ -61,12 +55,8 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
   const handleAssignReplacement = async (absentTrackerId: string, replacementId: string) => {
     setIsAssigningReplacement(true);
     try {
-      // Here you would implement the actual replacement logic
       console.log(`Assigning replacement ${replacementId} for absent tracker ${absentTrackerId}`);
-      
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       setShowReplacementFinder('');
     } catch (error) {
       console.error('Error assigning replacement:', error);
@@ -83,7 +73,7 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
     ? Math.round(trackerActivities.reduce((sum, t) => sum + (Date.now() - t.last_seen) / 1000, 0) / trackerActivities.length)
     : 0;
 
-  // Mock available trackers for replacement (in real app, this would come from API)
+  // Mock available trackers for replacement
   const availableTrackers = [
     { id: 'tracker-backup-1', email: 'backup1@example.com', lastSeen: Date.now() - 30000, batteryLevel: 85 },
     { id: 'tracker-backup-2', email: 'backup2@example.com', lastSeen: Date.now() - 60000, batteryLevel: 65 },
@@ -91,7 +81,6 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
 
   return (
     <div className="space-y-6">
-      {/* Summary Dashboard */}
       <AbsenceSummaryDashboard
         totalTrackers={totalTrackers}
         activeTrackers={activeTrackers}
@@ -99,7 +88,6 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
         averageResponseTime={averageResponseTime}
       />
 
-      {/* Replacement Finder */}
       <AnimatePresence>
         {showReplacementFinder && (
           <motion.div
@@ -117,7 +105,6 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
         )}
       </AnimatePresence>
 
-      {/* Main Tracker Management */}
       <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-orange-800">
@@ -126,7 +113,6 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Active Tracker Activities */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
               <Users className="h-4 w-4" />
