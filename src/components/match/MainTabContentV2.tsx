@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -298,7 +297,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
               <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <EnhancedEventTypeIcon
-                    eventKey={event.type}
+                    eventType={event.type}
                     size="md"
                   />
                   <div className="min-w-0 flex-1">

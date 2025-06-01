@@ -54,9 +54,9 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
   const fetchTrackerUsers = async () => {
     try {
-      // Use user_profiles_with_role view to get tracker users
+      // Use profiles table directly instead of non-existent view
       const { data, error } = await supabase
-        .from('user_profiles_with_role')
+        .from('profiles')
         .select('id, email, full_name')
         .eq('role', 'tracker')
         .order('full_name');
