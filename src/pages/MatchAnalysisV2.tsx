@@ -1,366 +1,354 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import MatchHeader from '@/components/match/MatchHeader';
-import TrackerAssignment from '@/components/match/TrackerAssignment';
-import MainTabContentV2 from '@/components/match/MainTabContentV2';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import TrackerPianoInput from '@/components/TrackerPianoInput';
-import { EventType } from '@/types/matchForm';
-import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
-import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
+import { Team, MatchEvent, EventType } from '@/types'; // EventType is GlobalEventType
+import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 
-const MatchAnalysisV2: React.FC = () => {
-  const { matchId } = useParams<{ matchId: string }>();
-  const { userRole, user } = useAuth();
-  const [mode, setMode] = useState<'piano' | 'tracking'>('piano');
-  const [homeTeam, setHomeTeam] = useState({ name: 'Home Team', formation: '4-4-2' });
-  const [awayTeam, setAwayTeam] = useState({ name: 'Away Team', formation: '4-3-3' });
-  const [isTracking, setIsTracking] = useState(false);
-  const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[] | null>(null);
-  const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
-  const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
-  const { toast } = useToast();
+interface MainTabContentV2Props {
+  matchId: string;
+  homeTeam: { name: string; formation?: string; };
+  awayTeam: { name: string; formation?: string; };
+  isTracking?: boolean;
+  onEventRecord?: (eventType: any, player?: any, details?: any) => void;
+}
+
+const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
+  matchId,
+  homeTeam,
+  awayTeam,
+}) => {
+  console.log('[MainTabContentV2 DEBUG] Component rendering. matchId:', matchId);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [renderTrigger, setRenderTrigger] = useState(0);
   const isMobile = useIsMobile();
-  const isSmall = useBreakpoint('sm');
 
-  const fetchMatchDetails = useCallback(async () => {
-    if (!matchId) {
-      console.error("Match ID is missing.");
-      return;
-    }
-
+  const fetchEvents = useCallback(async () => {
+    console.log(`[MainTabContentV2 DEBUG] fetchEvents triggered for matchId: ${matchId}`);
+    // setLoading(true); // Optional: set loading state at the beginning of fetch
     try {
-      const { data: matchData, error: matchError } = await supabase
-        .from('matches')
-        .select('home_team_name, away_team_name, home_team_formation, away_team_formation, home_team_players, away_team_players')
-        .eq('id', matchId)
-        .single();
-
-      if (matchError) {
-        console.error("Error fetching match details:", matchError);
-        toast({
-          title: "Error",
-          description: "Failed to fetch match details",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setHomeTeam({
-        name: matchData.home_team_name,
-        formation: matchData.home_team_formation || '4-4-2'
-      });
-
-      setAwayTeam({
-        name: matchData.away_team_name,
-        formation: matchData.away_team_formation || '4-3-3'
-      });
-
-      // Parse player data safely
-      const parsePlayerData = (data: any): PlayerForPianoInput[] => {
-        if (typeof data === 'string') {
-          try {
-            return JSON.parse(data);
-          } catch {
-            return [];
-          }
-        }
-        return Array.isArray(data) ? data : [];
-      };
-
-      const homePlayers = parsePlayerData(matchData.home_team_players);
-      const awayPlayers = parsePlayerData(matchData.away_team_players);
-      setFullMatchRoster({ home: homePlayers, away: awayPlayers });
-
-    } catch (error: any) {
-      console.error("Error fetching match details:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch match details",
-        variant: "destructive",
-      });
-    }
-  }, [matchId, toast]);
-
-  const fetchTrackerAssignments = useCallback(async () => {
-    if (!matchId || !user?.id) {
-      console.error("Match ID or user ID is missing.");
-      return;
-    }
-
-    try {
-      console.log('Fetching tracker assignments for:', { matchId, userId: user.id });
-      
-      const { data, error } = await supabase
-        .from('match_tracker_assignments')
-        .select('*')
-        .eq('match_id', matchId)
-        .eq('tracker_user_id', user.id);
-
-      if (error) {
-        console.error("Error fetching tracker assignments:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch tracker assignments",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Tracker assignments data:', data);
-
-      if (!data || data.length === 0) {
-        console.log("No tracker assignments found for this user and match.");
-        setAssignedEventTypes([]);
-        setAssignedPlayers({ home: [], away: [] });
-        return;
-      }
-
-      // Aggregate assigned event types
-      const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types || [])));
-      const assignedEventTypesData: EventType[] = eventTypes
-        .filter(key => key)
-        .map(key => ({ key, label: key }));
-      setAssignedEventTypes(assignedEventTypesData);
-      console.log('Assigned event types:', assignedEventTypesData);
-
-      // Aggregate assigned players
-      const homePlayers: PlayerForPianoInput[] = [];
-      const awayPlayers: PlayerForPianoInput[] = [];
-
-      data.forEach(assignment => {
-        if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => String(p.id) === String(assignment.player_id));
-          if (player && !homePlayers.some(p => p.id === player.id)) {
-            homePlayers.push(player);
-          }
-        } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => String(p.id) === String(assignment.player_id));
-          if (player && !awayPlayers.some(p => p.id === player.id)) {
-            awayPlayers.push(player);
-          }
-        }
-      });
-
-      setAssignedPlayers({ home: homePlayers, away: awayPlayers });
-      console.log('Assigned players:', { home: homePlayers, away: awayPlayers });
-
-    } catch (error: any) {
-      console.error("Error fetching tracker assignments:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch tracker assignments",
-        variant: "destructive",
-      });
-    }
-  }, [matchId, user?.id, toast, fullMatchRoster]);
-
-  useEffect(() => {
-    fetchMatchDetails();
-  }, [fetchMatchDetails]);
-
-  useEffect(() => {
-    if (fullMatchRoster) {
-      fetchTrackerAssignments();
-    }
-  }, [fetchTrackerAssignments, fullMatchRoster]);
-
-  const handleToggleTracking = () => {
-    setIsTracking(!isTracking);
-  };
-
-  const handleSave = () => {
-    toast({
-      title: "Match Saved",
-      description: "Your match progress has been saved.",
-    });
-  };
-
-  const handleEventRecord = async (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('handleEventRecord called with:', { 
-      eventType, 
-      player, 
-      details, 
-      user: user?.id,
-      matchId 
-    });
-    
-    if (!matchId) {
-      console.error("Match ID is missing.");
-      throw new Error("Match ID is missing");
-    }
-
-    if (!user?.id) {
-      console.error("User not authenticated");
-      throw new Error("User not authenticated");
-    }
-
-    if (!eventType) {
-      console.error("Event type is missing");
-      throw new Error("Event type is missing");
-    }
-
-    try {
-      // Determine team context
-      let teamContext = null;
-      if (player && assignedPlayers) {
-        if (assignedPlayers.home?.some(p => p.id === player.id)) {
-          teamContext = 'home';
-        } else if (assignedPlayers.away?.some(p => p.id === player.id)) {
-          teamContext = 'away';
-        }
-      }
-
-      // Ensure player_id is properly converted to integer or null
-      const playerId = player ? parseInt(String(player.id), 10) : null;
-      
-      // Validate player_id is a valid integer
-      if (player && (isNaN(playerId!) || playerId === null)) {
-        console.error("Invalid player ID:", player.id);
-        throw new Error("Invalid player ID");
-      }
-
-      // Use seconds since epoch for timestamp to fit in bigint
-      const timestampInSeconds = Math.floor(Date.now() / 1000);
-
-      const eventData = {
-        match_id: matchId,
-        event_type: eventType.key,
-        timestamp: timestampInSeconds,
-        player_id: playerId,
-        team: teamContext,
-        coordinates: details?.coordinates || null,
-        created_by: user.id
-      };
-
-      console.log('Inserting event data:', eventData);
-
       const { data, error } = await supabase
         .from('match_events')
-        .insert([eventData])
-        .select();
+        .select('*')
+        .eq('match_id', matchId) // matchId is a dependency of useCallback
+        .order('timestamp', { ascending: true });
 
-      if (error) {
-        console.error("Error recording event:", error);
-        throw new Error(`Failed to record event: ${error.message}`);
+      if (error) throw error;
+
+      // Ensure to use transformSupabaseEvent which should include event_data
+      const transformedEvents: MatchEvent[] = (data || []).map(transformSupabaseEvent);
+      setEvents(transformedEvents);
+      console.log(`[MainTabContentV2 DEBUG] fetchEvents completed. Number of events fetched: ${transformedEvents.length}`);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [matchId]); // Dependency: matchId
+
+  const transformSupabaseEvent = (dbEvent: any): MatchEvent => ({
+    id: dbEvent.id,
+    match_id: dbEvent.match_id,
+    type: dbEvent.event_type as EventType,
+    event_type: dbEvent.event_type,
+    timestamp: dbEvent.timestamp || 0,
+    team: dbEvent.team as 'home' | 'away',
+    coordinates: dbEvent.coordinates ? dbEvent.coordinates as { x: number; y: number } : { x: 0, y: 0 },
+    player_id: dbEvent.player_id,
+    created_by: dbEvent.created_by,
+    event_data: dbEvent.event_data // Crucial: Make sure event_data is included for stats
+  });
+
+  const handleRealtimeEvent = useCallback((payload: any) => {
+    console.log('[MainTabContentV2 DEBUG] handleRealtimeEvent called. Full payload:', JSON.stringify(payload, null, 2));
+
+    setEvents(prevEvents => {
+      let newEvents = [...prevEvents];
+      switch (payload.eventType) {
+        case 'INSERT': {
+          const newEvent = transformSupabaseEvent(payload.new);
+          // Avoid duplicates, though Supabase often handles this for single subscriptions
+          if (!newEvents.find(e => e.id === newEvent.id)) {
+            newEvents.push(newEvent);
+            // Sort by timestamp to maintain order, important for recent events display
+            newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] INSERT processed. New event added. Total events:', newEvents.length);
+          } else {
+            console.log('[MainTabContentV2 DEBUG] INSERT skipped, event already exists:', newEvent.id);
+          }
+          break;
+        }
+        case 'UPDATE': {
+          const updatedEvent = transformSupabaseEvent(payload.new);
+          const index = newEvents.findIndex(e => e.id === updatedEvent.id);
+          if (index !== -1) {
+            newEvents[index] = updatedEvent;
+            newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] UPDATE processed. Event updated. Total events:', newEvents.length);
+          } else {
+            // If not found, it could be an event not yet in state, add it (optional, depends on desired behavior)
+            // newEvents.push(updatedEvent);
+            // newEvents.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('[MainTabContentV2 DEBUG] UPDATE received for an event not in current state:', updatedEvent.id);
+          }
+          break;
+        }
+        case 'DELETE': {
+          const oldEventId = payload.old.id;
+          newEvents = newEvents.filter(e => e.id !== oldEventId);
+          console.log('[MainTabContentV2 DEBUG] DELETE processed. Event removed. Total events:', newEvents.length);
+          break;
+        }
+        default:
+          console.log('[MainTabContentV2 DEBUG] Unknown eventType in payload:', payload.eventType);
       }
+      return newEvents;
+    });
+    // Add this line immediately after the setEvents call:
+    setRenderTrigger(prev => prev + 1);
+  }, []); // No dependencies as setEvents with functional update is used
 
-      console.log('Event recorded successfully:', data);
-      
-    } catch (error: any) {
-      console.error("Error in handleEventRecord:", error);
-      throw error;
+  useEffect(() => {
+    fetchEvents(); // Initial fetch
+
+    const channel = supabase
+      .channel(`match-events-for-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_events',
+          filter: `match_id=eq.${matchId}`,
+        },
+        handleRealtimeEvent // Use the memoized callback here
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[MainTabContentV2 DEBUG] Successfully SUBSCRIBED to match-events-for-${matchId}`);
+        } else if (status === 'TIMED_OUT') {
+          console.error(`[MainTabContentV2 DEBUG] TIMED_OUT subscribing to match-events-for-${matchId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[MainTabContentV2 DEBUG] CHANNEL_ERROR subscribing to match-events-for-${matchId}:`, err);
+        } else {
+          console.log(`[MainTabContentV2 DEBUG] Subscription status for match-events-for-${matchId}: ${status}`, err ? JSON.stringify(err) : '');
+        }
+      });
+
+    return () => {
+      console.log(`[MainTabContentV2 DEBUG] Cleaning up match_events subscription for matchId: ${matchId}. Channel:`, channel);
+      console.log(`Unsubscribing from match-events-for-${matchId}`); // Kept original log too
+      supabase.removeChannel(channel);
+    };
+  }, [matchId, fetchEvents, handleRealtimeEvent]); // Added handleRealtimeEvent
+
+  const handleEventDelete = async (eventId: string) => {
+    // Optimistic UI update (already in place) + DB deletion
+    // The realtime listener for DELETE will also fire, make sure it's handled gracefully
+    // (current implementation of handleRealtimeEvent for DELETE should be fine)
+    setEvents(prev => prev.filter(event => event.id !== eventId));
+    // This local optimistic update can be removed if we solely rely on real-time DELETE event
+    // However, keeping it provides immediate feedback to the user.
+    // The real-time handler will then try to remove it again, which is harmless.
+
+    try {
+      const { error } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('id', eventId);
+
+      if (error) throw error;
+
+      // No need to call setEvents here again if optimistic update is kept,
+      // or if we rely purely on the realtime update.
+      // setEvents(prev => prev.filter(event => event.id !== eventId));
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      // Potentially revert optimistic update if DB delete fails
+      // fetchEvents(); // Or re-fetch to ensure consistency
     }
   };
 
-  if (!matchId) {
+  // --- Advanced Statistics Calculations ---
+  const advancedStats = useMemo(() => {
+    const calculatePassCompletion = (team: 'home' | 'away') => {
+      const teamPasses = events.filter(e => e.team === team && e.type === 'pass');
+      const totalPasses = teamPasses.length;
+      if (totalPasses === 0) return { rate: NaN, total: 0, successful: 0 }; // Return NaN for rate if no passes
+      const successfulPasses = teamPasses.filter(e => e.event_data?.success === true).length;
+      return { rate: (successfulPasses / totalPasses) * 100, total: totalPasses, successful: successfulPasses };
+    };
+
+    const calculateShotsOnTarget = (team: 'home' | 'away') => {
+      const teamShots = events.filter(e => e.team === team && e.type === 'shot');
+      const totalShots = teamShots.length;
+      if (totalShots === 0) return { rate: NaN, total: 0, onTarget: 0 }; // Return NaN for rate if no shots
+      const shotsOnTarget = teamShots.filter(e => e.event_data?.on_target === true).length;
+      return { rate: (shotsOnTarget / totalShots) * 100, total: totalShots, onTarget: shotsOnTarget };
+    };
+
+    const homePassCompletion = calculatePassCompletion('home');
+    const awayPassCompletion = calculatePassCompletion('away');
+    const homeShotsOnTarget = calculateShotsOnTarget('home');
+    const awayShotsOnTarget = calculateShotsOnTarget('away');
+
+    // console.log('[MainTabContentV2 DEBUG] Advanced stats calculated:', { homePassCompletion, awayPassCompletion, homeShotsOnTarget, awayShotsOnTarget });
+
+    return {
+      homePassCompletionRate: homePassCompletion.rate,
+      awayPassCompletionRate: awayPassCompletion.rate,
+      homeShotsOnTargetRate: homeShotsOnTarget.rate,
+      awayShotsOnTargetRate: awayShotsOnTarget.rate,
+    };
+  }, [events]);
+  // --- End Advanced Statistics Calculations ---
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="text-center p-4 sm:p-6">
-            <p className="text-base sm:text-lg font-semibold">Match ID is missing.</p>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center p-4 sm:p-8">
+        <div className="text-center">
+          <div className="text-sm sm:text-base">Loading events...</div>
+        </div>
       </div>
     );
   }
 
-  // Determine available tabs based on user role
-  const isAdmin = userRole === 'admin';
-  const defaultTab = isAdmin ? 'main' : 'piano';
-
   return (
-    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-7xl">
-      <div className="mb-3 sm:mb-4">
-        <MatchHeader
-          mode={mode}
-          setMode={setMode}
-          homeTeam={homeTeam}
-          awayTeam={awayTeam}
-          handleToggleTracking={handleToggleTracking}
-          handleSave={handleSave}
-        />
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 p-1 sm:p-2 md:p-0">
+      {/* Tracker Presence Indicator */}
+      <div className="w-full">
+        <TrackerPresenceIndicator matchId={matchId} />
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className={`
-          grid w-full gap-1 h-auto p-1 mb-3 sm:mb-4
-          ${isAdmin 
-            ? (isMobile ? "grid-cols-1" : isSmall ? "grid-cols-2" : "grid-cols-3")
-            : "grid-cols-1"
-          }
-        `}>
-          {isAdmin && (
-            <TabsTrigger 
-              value="main" 
-              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-            >
-              {isMobile ? "Main" : "Main Dashboard"}
-            </TabsTrigger>
-          )}
-          <TabsTrigger 
-            value="piano" 
-            className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-          >
-            {isMobile ? "Piano" : "Piano Input"}
-          </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger 
-              value="tracker" 
-              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-            >
-              {isMobile ? "Assign" : "Assign Tracker"}
-            </TabsTrigger>
-          )}
-        </TabsList>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+        <Card className="min-w-0">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">{events.length}</div>
+          </CardContent>
+        </Card>
         
-        {isAdmin && (
-          <TabsContent value="main" className="mt-2 sm:mt-4">
-            <MainTabContentV2
-              matchId={matchId}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              isTracking={isTracking}
-              onEventRecord={handleEventRecord}
-            />
-          </TabsContent>
-        )}
+        <Card className="min-w-0">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+              {isMobile ? homeTeam.name.substring(0, 10) + (homeTeam.name.length > 10 ? '...' : '') : homeTeam.name} Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">
+              {events.filter(e => e.team === 'home').length}
+            </div>
+          </CardContent>
+        </Card>
         
-        <TabsContent value="piano" className="mt-2 sm:mt-4">
-          <Card>
-            <CardContent className="p-2 sm:p-3 lg:p-6">
-              <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                Piano Input
-              </h2>
-              <TrackerPianoInput matchId={matchId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {isAdmin && (
-          <TabsContent value="tracker" className="mt-2 sm:mt-4">
-            <Card>
-              <CardContent className="p-2 sm:p-3 lg:p-6">
-                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                  Tracker Assignment
-                </h2>
-                <TrackerAssignment
-                  matchId={matchId}
-                  homeTeamPlayers={fullMatchRoster?.home || []}
-                  awayTeamPlayers={fullMatchRoster?.away || []}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+        <Card className="min-w-0 sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+              {isMobile ? awayTeam.name.substring(0, 10) + (awayTeam.name.length > 10 ? '...' : '') : awayTeam.name} Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold">
+              {events.filter(e => e.team === 'away').length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+        <Card>
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Passing Accuracy</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.homePassCompletionRate) ? 'N/A' : `${advancedStats.homePassCompletionRate.toFixed(1)}%`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.awayPassCompletionRate) ? 'N/A' : `${advancedStats.awayPassCompletionRate.toFixed(1)}%`}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium">Shooting Accuracy</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? homeTeam.name.substring(0,10) + "..." : homeTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.homeShotsOnTargetRate) ? 'N/A' : `${advancedStats.homeShotsOnTargetRate.toFixed(1)}%`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm text-gray-600 truncate">{isMobile ? awayTeam.name.substring(0,10) + "..." : awayTeam.name}:</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {isNaN(advancedStats.awayShotsOnTargetRate) ? 'N/A' : `${advancedStats.awayShotsOnTargetRate.toFixed(1)}%`}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Events List */}
+      <Card className="w-full">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-sm sm:text-base md:text-lg">Recent Events</CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+          <div className="space-y-1 sm:space-y-2 max-h-48 sm:max-h-64 md:max-h-96 overflow-y-auto">
+            {events.slice(-10).reverse().map((event) => (
+              <div key={event.id} className="flex justify-between items-center p-2 sm:p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  {/* Replace the colored dot with EnhancedEventTypeIcon */}
+                  <EnhancedEventTypeIcon
+                    eventKey={event.type} // event.type is already GlobalEventType
+                    size="md" // Equivalent to 24px, good for lists
+                    // Consider adding highContrast or other props if theme requires
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium capitalize text-xs sm:text-sm md:text-base truncate dark:text-slate-200">
+                      {event.type} {/* Display event type string */}
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-400 truncate">
+                      {event.player_id ? `P${event.player_id}` : (event.team ? `${event.team.charAt(0).toUpperCase()}` : 'Event')} - {Math.floor(event.timestamp / 60)}'
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleEventDelete(event.id)}
+                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs sm:text-sm px-2 py-1 flex-shrink-0 rounded hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors"
+                >
+                  {isMobile ? '×' : 'Del'}
+                </button>
+              </div>
+            ))}
+            {events.length === 0 && (
+              <div className="text-center py-6 sm:py-8 md:py-12 text-gray-500 dark:text-slate-400">
+                <p className="text-xs sm:text-sm md:text-base">No events recorded yet</p>
+                <p className="text-xs sm:text-sm text-gray-400 dark:text-slate-500 mt-1">
+                  Events will appear here as they are tracked.
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default MatchAnalysisV2;
+export default MainTabContentV2;
