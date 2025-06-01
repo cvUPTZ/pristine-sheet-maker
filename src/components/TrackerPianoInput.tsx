@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/hooks/useRealtime';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
+import { EventType } from '@/types';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -165,7 +166,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   }, [fetchAssignments, fullMatchRoster]);
 
-  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput | undefined, details?: Record<string, any>) => {
+  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
     console.log('TrackerPianoInput recordEvent called with:', { 
       eventType, 
       player, 
@@ -425,7 +426,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <EnhancedEventTypeIcon
-                    eventType={eventType.key}
+                    eventType={eventType.key as EventType}
                     size="md"
                   />
                   <span className="text-xs font-medium text-center">
