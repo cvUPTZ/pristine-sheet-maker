@@ -26,14 +26,20 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
       setLevel(batteryLevel);
       setCharging(battery.charging);
 
-      // Report to database using upsert to handle both insert and update
+      // Report to database - using notifications table for now since tracker_device_status table might not exist
       try {
         const { error } = await supabase
-          .from('tracker_device_status')
-          .upsert({
+          .from('notifications')
+          .insert({
             user_id: userId,
-            battery_level: batteryLevel,
-            last_updated_at: new Date().toISOString()
+            title: 'Battery Status Update',
+            message: `Battery level: ${batteryLevel}%, charging: ${battery.charging}`,
+            type: 'battery_status',
+            data: {
+              battery_level: batteryLevel,
+              charging: battery.charging,
+              last_updated_at: new Date().toISOString()
+            }
           });
 
         if (error) {

@@ -8,6 +8,7 @@ import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
+import { Undo } from 'lucide-react';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -45,6 +46,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [lastRecordedEvent, setLastRecordedEvent] = useState<any>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -55,11 +57,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     onEventReceived: (event) => {
       console.log('[TrackerPianoInput] Event received via real-time:', event);
       if (event.created_by === user?.id) {
-        setLastRecordedEvent({
+        const eventInfo = {
+          id: event.id,
           eventType: { key: event.type, label: event.type },
           player: selectedPlayer,
           timestamp: Date.now()
-        });
+        };
+        setLastRecordedEvent(eventInfo);
+        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]); // Keep last 5 events
       }
     }
   });
@@ -182,6 +187,45 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       fetchAssignments();
     }
   }, [fetchAssignments, fullMatchRoster]);
+
+  const undoLastAction = async () => {
+    if (recentEvents.length === 0) {
+      toast({
+        title: "Aucune action à annuler",
+        description: "Il n'y a pas d'action récente à annuler",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const lastEvent = recentEvents[0];
+    
+    try {
+      const { error } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('id', lastEvent.id);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setRecentEvents(prev => prev.slice(1));
+      setLastRecordedEvent(null);
+
+      toast({
+        title: "Action annulée",
+        description: `L'événement ${lastEvent.eventType.label} a été supprimé`,
+      });
+
+    } catch (error: any) {
+      console.error('Error undoing last action:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'annuler la dernière action",
+        variant: "destructive",
+      });
+    }
+  };
 
   const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
     console.log('TrackerPianoInput recordEvent called with:', { 
@@ -352,6 +396,25 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   return (
     <div className="space-y-6 p-4">
+      {/* Undo Button - Fixed position and easily accessible */}
+      <motion.div
+        className="fixed top-4 right-4 z-50"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Button
+          onClick={undoLastAction}
+          disabled={recentEvents.length === 0}
+          variant="outline"
+          size="lg"
+          className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow-lg"
+        >
+          <Undo className="h-5 w-5 mr-2" />
+          Annuler Dernière Action
+        </Button>
+      </motion.div>
+
       {/* Selected Player Display */}
       <AnimatePresence>
         {selectedPlayer && (

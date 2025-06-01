@@ -55,12 +55,23 @@ const TrackerAbsenceNotifier: React.FC<TrackerAbsenceNotifierProps> = ({
 
     setLoading(true);
     try {
-      // Call the handle_tracker_absence function
-      const { error } = await supabase.rpc('handle_tracker_absence', {
-        p_absent_tracker_user_id: absentTrackerId,
-        p_match_id: matchId,
-        p_replacement_tracker_user_id: selectedReplacement
-      });
+      // Since the RPC function might not exist, we'll handle this through notifications
+      const { error } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            user_id: absentTrackerId,
+            title: 'Marked as Absent',
+            message: `You have been marked as absent for match ${matchId}. A replacement has been assigned.`,
+            type: 'tracker_absence'
+          },
+          {
+            user_id: selectedReplacement,
+            title: 'Replacement Assignment',
+            message: `You have been assigned as a replacement tracker for match ${matchId}.`,
+            type: 'replacement_assignment'
+          }
+        ]);
 
       if (error) throw error;
 

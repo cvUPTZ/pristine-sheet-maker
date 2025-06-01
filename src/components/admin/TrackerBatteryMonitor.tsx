@@ -1,252 +1,250 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { formatDistanceToNow } from 'date-fns';
-import { RefreshCw, AlertTriangle, Battery, BatteryLow } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Battery, BatteryLow, Zap, User, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import TrackerAbsenceNotifier from './TrackerAbsenceNotifier';
 
 interface TrackerStatusDisplay {
   userId: string;
   identifier: string;
-  batteryLevel: number | null;
-  lastUpdatedAt: string | null;
   email?: string;
   full_name?: string;
+  batteryLevel: number | null;
+  lastUpdatedAt: string | null;
 }
 
 const TrackerBatteryMonitor: React.FC = () => {
-  const [trackerStatusList, setTrackerStatusList] = useState<TrackerStatusDisplay[]>([]);
+  const [trackers, setTrackers] = useState<TrackerStatusDisplay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [showAbsenceNotifier, setShowAbsenceNotifier] = useState(false);
+  const [absentTrackerId, setAbsentTrackerId] = useState<string>('');
+  const [currentMatchId, setCurrentMatchId] = useState<string>('');
   const { toast } = useToast();
 
-  const fetchTrackerStatus = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    fetchTrackerData();
+    const interval = setInterval(fetchTrackerData, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchTrackerData = async () => {
     try {
-      // Get all tracker users with their battery status
+      // Get tracker profiles first
       const { data: trackersData, error: trackersError } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          email,
-          full_name,
-          tracker_device_status (
-            battery_level,
-            last_updated_at
-          )
-        `)
+        .select('id, email, full_name')
         .eq('role', 'tracker');
 
-      if (trackersError) {
-        throw trackersError;
+      if (trackersError) throw trackersError;
+
+      // Get battery status from notifications (since we're storing it there temporarily)
+      const { data: batteryData, error: batteryError } = await supabase
+        .from('notifications')
+        .select('user_id, data, created_at')
+        .eq('type', 'battery_status')
+        .order('created_at', { ascending: false });
+
+      if (batteryError) {
+        console.error('Error fetching battery data:', batteryError);
       }
 
-      const combinedData = (trackersData || []).map(tracker => ({
-        userId: tracker.id,
-        identifier: tracker.email || tracker.full_name || tracker.id,
-        email: tracker.email,
-        full_name: tracker.full_name,
-        batteryLevel: tracker.tracker_device_status?.[0]?.battery_level || null,
-        lastUpdatedAt: tracker.tracker_device_status?.[0]?.last_updated_at || null,
-      }));
+      // Combine the data
+      const trackersWithBattery = (trackersData || []).map(tracker => {
+        const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
+        const batteryLevel = latestBatteryInfo?.data?.battery_level || null;
+        const lastUpdatedAt = latestBatteryInfo?.created_at || null;
 
-      setTrackerStatusList(combinedData);
+        return {
+          userId: tracker.id,
+          identifier: tracker.full_name || tracker.email || tracker.id,
+          email: tracker.email || undefined,
+          full_name: tracker.full_name || undefined,
+          batteryLevel,
+          lastUpdatedAt
+        };
+      });
 
-      // Check for low battery trackers and show notifications
-      const lowBatteryTrackers = combinedData.filter(tracker => 
-        tracker.batteryLevel !== null && tracker.batteryLevel < 20
-      );
-
-      if (lowBatteryTrackers.length > 0) {
-        toast({
-          title: "Low Battery Alert",
-          description: `${lowBatteryTrackers.length} tracker(s) have low battery levels`,
-          variant: "destructive",
-        });
-      }
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch tracker status.');
-      console.error("Error fetching tracker status:", err);
+      setTrackers(trackersWithBattery);
+    } catch (error) {
+      console.error('Error fetching tracker data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch tracker battery data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchTrackerStatus();
-    
-    // Set up real-time subscription for battery status updates
-    const subscription = supabase
-      .channel('tracker_battery_updates')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tracker_device_status' },
-        () => {
-          fetchTrackerStatus();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [fetchTrackerStatus]);
-
-  const getBatteryBadgeVariant = (level: number | null): 'destructive' | 'secondary' | 'default' | 'outline' => {
-    if (level === null) return 'outline';
-    if (level < 20) return 'destructive';
-    if (level < 50) return 'secondary';
-    return 'default';
   };
 
-  const getBatteryIcon = (level: number | null) => {
-    if (level === null) return <Battery className="h-4 w-4" />;
-    if (level < 20) return <BatteryLow className="h-4 w-4 text-red-500" />;
-    return <Battery className="h-4 w-4" />;
-  };
-
-  const handleNotifyTracker = async (trackerId: string, batteryLevel: number) => {
+  const sendLowBatteryNotification = async (trackerId: string, batteryLevel: number) => {
     try {
-      // This would typically call the monitor_tracker_battery_levels function
-      // or create a notification directly
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: trackerId,
+          title: 'Low Battery Warning',
+          message: `Your device battery is at ${batteryLevel}%. Please consider bringing a power bank or charging your device.`,
+          type: 'low_battery_warning'
+        });
+
+      if (error) throw error;
+
       toast({
-        title: "Notification Sent",
-        description: `Low battery notification sent to tracker`,
+        title: "Low Battery Notification Sent",
+        description: `Notification sent to tracker with ${batteryLevel}% battery`,
       });
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Error sending low battery notification:', error);
       toast({
         title: "Error",
-        description: "Failed to send notification",
+        description: "Failed to send low battery notification",
         variant: "destructive",
       });
     }
   };
 
-  if (loading && trackerStatusList.length === 0) {
+  const markTrackerAbsent = (trackerId: string) => {
+    setAbsentTrackerId(trackerId);
+    // For demo purposes, we'll use a sample match ID. In production, this should come from context or props
+    setCurrentMatchId('sample-match-id');
+    setShowAbsenceNotifier(true);
+  };
+
+  const getBatteryIcon = (level: number | null) => {
+    if (level === null) return <Battery className="h-4 w-4" />;
+    if (level <= 20) return <BatteryLow className="h-4 w-4 text-red-500" />;
+    return <Battery className="h-4 w-4 text-green-500" />;
+  };
+
+  const getBatteryColor = (level: number | null) => {
+    if (level === null) return 'gray';
+    if (level <= 20) return 'red';
+    if (level <= 50) return 'yellow';
+    return 'green';
+  };
+
+  const formatLastUpdate = (timestamp: string | null) => {
+    if (!timestamp) return 'Never';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+    return `${Math.floor(diffMinutes / 1440)}d ago`;
+  };
+
+  if (loading) {
     return (
-        <Card>
-            <CardHeader><CardTitle>Tracker Battery Monitor</CardTitle></CardHeader>
-            <CardContent><p>Loading tracker battery status...</p></CardContent>
-        </Card>
-    );
-  }
-
-  if (error) {
-     return (
-        <Card>
-            <CardHeader><CardTitle>Tracker Battery Monitor</CardTitle></CardHeader>
-            <CardContent><p className="text-destructive">Error: {error}</p></CardContent>
-        </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Battery className="h-5 w-5" />
             Tracker Battery Monitor
           </CardTitle>
-          <Button onClick={fetchTrackerStatus} variant="outline" size="sm" disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {trackerStatusList.length === 0 && !loading ? (
-          <p>No tracker battery data available.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tracker</TableHead>
-                <TableHead className="w-[180px]">Battery Level</TableHead>
-                <TableHead className="w-[150px]">Last Updated</TableHead>
-                <TableHead className="w-[120px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trackerStatusList.map((status) => (
-                <TableRow key={status.userId}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {getBatteryIcon(status.batteryLevel)}
-                      <div>
-                        <div>{status.full_name || 'Unknown'}</div>
-                        <div className="text-sm text-gray-500">{status.email}</div>
-                      </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">Loading tracker data...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Battery className="h-5 w-5" />
+            Tracker Battery Monitor
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {trackers.map((tracker) => (
+              <motion.div
+                key={tracker.userId}
+                className="flex items-center justify-between p-4 border rounded-lg"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold">{tracker.identifier}</div>
+                    <div className="text-sm text-gray-500">
+                      Last update: {formatLastUpdate(tracker.lastUpdatedAt)}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {status.batteryLevel !== null ? (
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={getBatteryBadgeVariant(status.batteryLevel)}>
-                          {status.batteryLevel}%
-                        </Badge>
-                        <Progress value={status.batteryLevel} className="w-[60%]" />
-                        {status.batteryLevel < 20 && (
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="outline">No Data</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {status.lastUpdatedAt ? 
-                      formatDistanceToNow(new Date(status.lastUpdatedAt), { addSuffix: true }) : 
-                      'Never'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {status.batteryLevel !== null && status.batteryLevel < 20 && (
-                      <Button 
-                        size="sm" 
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {getBatteryIcon(tracker.batteryLevel)}
+                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any}>
+                      {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
+                    </Badge>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {tracker.batteryLevel !== null && tracker.batteryLevel <= 20 && (
+                      <Button
+                        size="sm"
                         variant="outline"
-                        onClick={() => handleNotifyTracker(status.userId, status.batteryLevel)}
+                        onClick={() => sendLowBatteryNotification(tracker.userId, tracker.batteryLevel)}
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
                       >
-                        Notify
+                        <AlertTriangle className="h-4 w-4 mr-1" />
+                        Notify Low Battery
                       </Button>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-        
-        {/* Summary stats */}
-        <div className="mt-4 grid grid-cols-3 gap-4 border-t pt-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {trackerStatusList.filter(t => t.batteryLevel !== null && t.batteryLevel >= 50).length}
-            </div>
-            <div className="text-sm text-gray-500">Good Battery</div>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => markTrackerAbsent(tracker.userId)}
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      Mark Absent
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {trackers.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No tracker data available
+              </div>
+            )}
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {trackerStatusList.filter(t => t.batteryLevel !== null && t.batteryLevel >= 20 && t.batteryLevel < 50).length}
-            </div>
-            <div className="text-sm text-gray-500">Medium Battery</div>
+
+          <div className="mt-6 flex justify-center">
+            <Button onClick={fetchTrackerData} variant="outline">
+              Refresh Data
+            </Button>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {trackerStatusList.filter(t => t.batteryLevel !== null && t.batteryLevel < 20).length}
-            </div>
-            <div className="text-sm text-gray-500">Low Battery</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {showAbsenceNotifier && (
+        <TrackerAbsenceNotifier
+          matchId={currentMatchId}
+          absentTrackerId={absentTrackerId}
+          onClose={() => setShowAbsenceNotifier(false)}
+        />
+      )}
+    </div>
   );
 };
 
