@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +11,7 @@ import BallFlowVisualization from '@/components/visualizations/BallFlowVisualiza
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Statistics } from '@/types/index';
+import type { Statistics } from '@/types/index';
 
 const Statistics = () => {
   const navigate = useNavigate();
