@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,17 +12,7 @@ import BallFlowVisualization from '@/components/visualizations/BallFlowVisualiza
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Statistics {
-  possession: { home: number; away: number };
-  passes: { home: { total: number; successful: number }; away: { total: number; successful: number } };
-  shots: { home: { total: number; onTarget: number; offTarget: number }; away: { total: number; onTarget: number; offTarget: number } };
-  fouls: { home: number; away: number };
-  corners: { home: number; away: number };
-  offsides: { home: number; away: number };
-  throws: { home: number; away: number };
-  cards: { home: { yellow: number; red: number }; away: { yellow: number; red: number } };
-}
+import { Statistics } from '@/types/index';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -30,13 +21,15 @@ const Statistics = () => {
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [statistics, setStatistics] = useState<Statistics>({
     possession: { home: 0, away: 0 },
-    passes: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
-    shots: { home: { total: 0, onTarget: 0, offTarget: 0 }, away: { total: 0, onTarget: 0, offTarget: 0 } },
+    passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
+    shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
     fouls: { home: 0, away: 0 },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
-    throws: { home: 0, away: 0 },
-    cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } }
+    ballsPlayed: { home: 0, away: 0 },
+    ballsLost: { home: 0, away: 0 },
+    duels: { home: {}, away: {} },
+    crosses: { home: {}, away: {} }
   });
   const [ballData, setBallData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,10 +185,10 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {(statistics.passes?.home?.total || 0) + (statistics.passes?.away?.total || 0)}
+                  {(statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Home: {statistics.passes?.home?.total || 0} • Away: {statistics.passes?.away?.total || 0}
+                  Home: {statistics.passes?.home?.attempted || 0} • Away: {statistics.passes?.away?.attempted || 0}
                 </p>
               </CardContent>
             </Card>
@@ -207,10 +200,10 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {(statistics.shots?.home?.total || 0) + (statistics.shots?.away?.total || 0)}
+                  {((statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)) + ((statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Home: {statistics.shots?.home?.total || 0} • Away: {statistics.shots?.away?.total || 0}
+                  Home: {(statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)} • Away: {(statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0)}
                 </p>
               </CardContent>
             </Card>

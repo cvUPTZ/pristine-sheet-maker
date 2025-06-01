@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,7 +89,7 @@ const Index = () => {
             <CardTitle>Create New Match</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateMatchForm />
+            <CreateMatchForm onMatchSubmit={handleMatchCreated} />
           </CardContent>
         </Card>
       )}
