@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Users, Settings, Shield, Eye, Save, RotateCcw } from 'lucide-react';
+import { Users, Settings, Shield, Eye, Save, RotateCcw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -23,11 +23,13 @@ interface RolePermissions {
 
 interface UserProfile {
   id: string;
-  email: string;
-  role: UserRole;
-  full_name?: string;
-  permissions?: RolePermissions;
-  custom_permissions?: RolePermissions; // Custom permissions from database
+  email: string | null;
+  full_name: string | null;
+  role: string | null;
+  created_at: string;
+  updated_at: string | null;
+  custom_permissions: RolePermissions | null;
+  effective_permissions?: RolePermissions;
 }
 
 const defaultPermissions: Record<UserRole, RolePermissions> = {
@@ -76,6 +78,7 @@ const AccessManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions>(defaultPermissions.user);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -83,31 +86,47 @@ const AccessManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, full_name, custom_permissions')
+      setError(null);
+      
+      // First, try to fetch from the view which includes effective permissions
+      let { data, error } = await supabase
+        .from('user_permissions_view')
+        .select('*')
         .order('email');
 
-      if (error) throw error;
+      // If view doesn't exist or fails, fall back to direct table query
+      if (error) {
+        console.warn('View query failed, falling back to direct table query:', error);
+        
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role, created_at, updated_at, custom_permissions')
+          .order('email');
 
-      const typedUsers: UserProfile[] = (data || []).map(user => {
-        const rolePermissions = defaultPermissions[user.role as UserRole] || defaultPermissions.user;
-        const customPermissions = user.custom_permissions as RolePermissions;
+        if (fallbackError) throw fallbackError;
+        data = fallbackData;
+      }
+
+      if (!data) {
+        setUsers([]);
+        return;
+      }
+
+      const typedUsers: UserProfile[] = data.map(user => {
+        const userRole = (user.role || 'user') as UserRole;
+        const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
         
         return {
           ...user,
-          email: user.email || '',
-          role: (user.role || 'user') as UserRole,
-          full_name: user.full_name || undefined,
-          custom_permissions: customPermissions,
-          // Use custom permissions if they exist, otherwise use role defaults
-          permissions: customPermissions || rolePermissions
+          role: user.role || 'user',
+          effective_permissions: user.custom_permissions || roleDefaults
         };
       });
 
       setUsers(typedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setError('Failed to fetch users. Please check your database setup.');
       toast.error('Failed to fetch users');
     } finally {
       setLoading(false);
@@ -130,7 +149,7 @@ const AccessManagement: React.FC = () => {
           return { 
             ...user, 
             role: newRole,
-            permissions: user.custom_permissions || newRolePermissions
+            effective_permissions: user.custom_permissions || newRolePermissions
           };
         }
         return user;
@@ -158,8 +177,8 @@ const AccessManagement: React.FC = () => {
         user.id === userId 
           ? { 
               ...user, 
-              permissions: newPermissions,
-              custom_permissions: newPermissions
+              custom_permissions: newPermissions,
+              effective_permissions: newPermissions
             }
           : user
       ));
@@ -188,15 +207,16 @@ const AccessManagement: React.FC = () => {
 
       if (error) throw error;
 
-      const roleDefaults = defaultPermissions[user.role];
+      const userRole = (user.role || 'user') as UserRole;
+      const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
       
       // Update local state
       setUsers(prev => prev.map(u => 
         u.id === userId 
           ? { 
               ...u, 
-              permissions: roleDefaults,
-              custom_permissions: undefined
+              custom_permissions: null,
+              effective_permissions: roleDefaults
             }
           : u
       ));
@@ -216,7 +236,9 @@ const AccessManagement: React.FC = () => {
     const user = users.find(u => u.id === userId);
     if (user) {
       setSelectedUser(userId);
-      setPermissions(user.permissions || defaultPermissions[user.role]);
+      const userRole = (user.role || 'user') as UserRole;
+      const effectivePermissions = user.effective_permissions || defaultPermissions[userRole] || defaultPermissions.user;
+      setPermissions(effectivePermissions);
       setHasUnsavedChanges(false);
     }
   };
@@ -227,7 +249,7 @@ const AccessManagement: React.FC = () => {
     setHasUnsavedChanges(true);
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
+  const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'tracker': return 'bg-blue-100 text-blue-800';
@@ -237,12 +259,28 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const isUsingCustomPermissions = (user: UserProfile) => {
+  const hasCustomPermissions = (user: UserProfile) => {
     return user.custom_permissions !== null && user.custom_permissions !== undefined;
   };
 
   if (loading) {
     return <div className="p-4">Loading users...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+            <p className="text-red-600 mb-2">{error}</p>
+            <Button onClick={fetchUsers} variant="outline">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const selectedUserData = users.find(u => u.id === selectedUser);
@@ -253,7 +291,7 @@ const AccessManagement: React.FC = () => {
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            User Management
+            User Management ({users.length} users)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0">
@@ -269,23 +307,25 @@ const AccessManagement: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm sm:text-base truncate">
-                      {user.full_name || user.email}
+                      {user.full_name && user.full_name !== 'e' ? user.full_name : user.email || 'No name'}
                     </p>
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
-                    {isUsingCustomPermissions(user) && (
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">
+                      {user.email || 'No email'}
+                    </p>
+                    {hasCustomPermissions(user) && (
                       <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
                         Custom Permissions
                       </Badge>
                     )}
                   </div>
-                  <Badge className={`${getRoleBadgeColor(user.role)} text-xs flex-shrink-0`}>
-                    {user.role}
+                  <Badge className={`${getRoleBadgeColor(user.role || 'user')} text-xs flex-shrink-0`}>
+                    {user.role || 'user'}
                   </Badge>
                 </div>
                 
                 <div className="flex gap-2">
                   <Select
-                    value={user.role}
+                    value={user.role || 'user'}
                     onValueChange={(value: UserRole) => updateUserRole(user.id, value)}
                   >
                     <SelectTrigger className="w-full sm:w-32 text-xs sm:text-sm">
@@ -344,13 +384,19 @@ const AccessManagement: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Current Status */}
+              {/* User Info */}
               <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                <p className="font-medium">Status:</p>
+                <p className="font-medium">
+                  {selectedUserData.full_name && selectedUserData.full_name !== 'e' 
+                    ? selectedUserData.full_name 
+                    : selectedUserData.email || 'Unnamed User'
+                  }
+                </p>
                 <p className="text-gray-600">
-                  {isUsingCustomPermissions(selectedUserData) 
-                    ? `Using custom permissions (overrides ${selectedUserData.role} role defaults)`
-                    : `Using ${selectedUserData.role} role default permissions`
+                  Role: {selectedUserData.role || 'user'} | 
+                  {hasCustomPermissions(selectedUserData) 
+                    ? ` Using custom permissions (overrides ${selectedUserData.role || 'user'} defaults)`
+                    : ` Using ${selectedUserData.role || 'user'} role default permissions`
                   }
                 </p>
               </div>
