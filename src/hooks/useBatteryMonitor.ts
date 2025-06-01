@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PushNotificationService } from '@/services/pushNotificationService';
 
 interface BatteryStatus {
   level: number | null;
@@ -10,6 +11,7 @@ interface BatteryStatus {
 const useBatteryMonitor = (userId?: string): BatteryStatus => {
   const [level, setLevel] = useState<number | null>(null);
   const [charging, setCharging] = useState<boolean | null>(null);
+  const [lastNotificationLevel, setLastNotificationLevel] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId || !('getBattery' in navigator)) {
@@ -42,6 +44,24 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
         } else {
           console.log('Battery status updated:', { level: batteryLevel, charging: battery.charging });
         }
+
+        // Send local notification for low battery (only once per 10% threshold)
+        if (batteryLevel <= 20 && !battery.charging && 
+            (lastNotificationLevel === null || batteryLevel < lastNotificationLevel - 10)) {
+          
+          // Get user profile for notification
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', userId)
+            .single();
+
+          const trackerName = profile?.full_name || profile?.email || 'Tracker';
+          
+          await PushNotificationService.sendLocalBatteryNotification(batteryLevel, trackerName);
+          setLastNotificationLevel(batteryLevel);
+        }
+
       } catch (error) {
         console.error('Error updating battery status:', error);
       }
@@ -70,7 +90,7 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
         console.log('Battery monitor event listeners removed.');
       }
     };
-  }, [userId]);
+  }, [userId, lastNotificationLevel]);
 
   return { level, charging };
 };

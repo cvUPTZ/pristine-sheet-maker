@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { PushNotificationService } from '@/services/pushNotificationService';
+import useBatteryMonitor from '@/hooks/useBatteryMonitor';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -17,6 +19,14 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const [error, setError] = useState<string | null>(null);
   const [matchName, setMatchName] = useState<string>('');
   const isMobile = useIsMobile();
+  
+  // Initialize battery monitoring for this tracker
+  const batteryStatus = useBatteryMonitor(trackerUserId);
+
+  useEffect(() => {
+    // Initialize push notifications
+    PushNotificationService.initialize();
+  }, []);
 
   useEffect(() => {
     if (!trackerUserId || !matchId) {
@@ -92,13 +102,18 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
             <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
               <span>Tracker: {trackerUserId}</span>
               <span>Match: {matchId}</span>
+              {batteryStatus.level !== null && (
+                <span className={`font-medium ${batteryStatus.level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
+                  Battery: {batteryStatus.level}% {batteryStatus.charging ? '⚡' : '🔋'}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
       
       <div className="w-full">
-        <TrackerPianoInput matchId={matchId} />
+        <TrackerPianoInput matchId={matchId} trackerId={trackerUserId} />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
+import PushNotificationService from '@/services/PushNotificationService';
 
 interface NotificationData {
   assigned_event_types?: string[];
@@ -41,6 +42,11 @@ const TrackerNotifications: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // Initialize push notifications when component mounts
+  useEffect(() => {
+    PushNotificationService.initialize();
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) {
@@ -91,6 +97,13 @@ const TrackerNotifications: React.FC = () => {
               notification_data: notification.notification_data as NotificationData,
               matches: matchData
             });
+
+            // Send local notification for new match assignments
+            if (notification.type === 'match_assignment' && !notification.is_read) {
+              const matchName = matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`;
+              const eventTypes = (notification.notification_data as NotificationData)?.assigned_event_types || [];
+              PushNotificationService.sendMatchAssignmentNotification(matchName, eventTypes);
+            }
           }
         } else {
           // Include notifications without match_id
