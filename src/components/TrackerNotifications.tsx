@@ -155,7 +155,14 @@ const TrackerNotifications: React.FC = () => {
                     <Button
                       size="sm"
                       variant="default"
-                      onClick={() => navigate(`/match/${notification.match_id}`)}
+                      onClick={() => {
+                        if (notification.match_id && typeof notification.match_id === 'string' && notification.match_id.length > 0) {
+                          navigate(`/match/${notification.match_id}`);
+                        } else {
+                          console.error('Match ID is missing or invalid for notification:', notification.id);
+                          toast.error('Cannot start tracking: Match ID is missing or invalid.');
+                        }
+                      }}
                     >
                       Start Tracking
                     </Button>
