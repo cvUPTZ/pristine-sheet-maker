@@ -62,21 +62,10 @@ export const useTrackerAbsenceDetection = ({
         console.log(`[AbsenceDetection] Tracker ${trackerId} detected as absent: ${reason}`);
         
         // Notify about the absence
-        toast.warning(
-          <div className="flex items-center gap-2">
-            <span>⚠️</span>
-            <div>
-              <div className="font-medium">Tracker Absence Detected</div>
-              <div className="text-sm text-gray-600">
-                Tracker {trackerId.slice(-4)} - {reason}
-              </div>
-            </div>
-          </div>,
-          {
-            id: `absence-${trackerId}`,
-            duration: 8000,
-          }
-        );
+        toast.warning(`Tracker Absence Detected: Tracker ${trackerId.slice(-4)} - ${reason}`, {
+          id: `absence-${trackerId}`,
+          duration: 8000,
+        });
         
         onTrackerAbsent?.(trackerId, reason);
       }
@@ -95,21 +84,10 @@ export const useTrackerAbsenceDetection = ({
       return newSet;
     });
     
-    toast.success(
-      <div className="flex items-center gap-2">
-        <span>✅</span>
-        <div>
-          <div className="font-medium">Tracker Reconnected</div>
-          <div className="text-sm text-gray-600">
-            Tracker {trackerId.slice(-4)} is back online
-          </div>
-        </div>
-      </div>,
-      {
-        id: `reconnected-${trackerId}`,
-        duration: 5000,
-      }
-    );
+    toast.success(`Tracker Reconnected: Tracker ${trackerId.slice(-4)} is back online`, {
+      id: `reconnected-${trackerId}`,
+      duration: 5000,
+    });
   }, []);
 
   // Record tracker activity in the database
@@ -187,55 +165,22 @@ export const useTrackerAbsenceDetection = ({
 
         if (error) throw error;
 
-        toast.success(
-          <div className="flex items-center gap-2">
-            <span>🔄</span>
-            <div>
-              <div className="font-medium">Replacement Assigned</div>
-              <div className="text-sm text-gray-600">
-                New tracker assigned for absent tracker {absentTrackerId.slice(-4)}
-              </div>
-            </div>
-          </div>,
-          {
-            duration: 6000,
-          }
-        );
+        toast.success(`Replacement Assigned: New tracker assigned for absent tracker ${absentTrackerId.slice(-4)}`, {
+          duration: 6000,
+        });
         
         console.log(`[AbsenceDetection] Replacement tracker ${replacementId} assigned for ${absentTrackerId}`);
       } catch (error) {
         console.error('[AbsenceDetection] Error handling tracker absence:', error);
         
-        toast.error(
-          <div className="flex items-center gap-2">
-            <span>❌</span>
-            <div>
-              <div className="font-medium">Failed to Assign Replacement</div>
-              <div className="text-sm text-gray-600">
-                Error processing absence for tracker {absentTrackerId.slice(-4)}
-              </div>
-            </div>
-          </div>,
-          {
-            duration: 8000,
-          }
-        );
+        toast.error(`Failed to Assign Replacement: Error processing absence for tracker ${absentTrackerId.slice(-4)}`, {
+          duration: 8000,
+        });
       }
     } else {
-      toast.warning(
-        <div className="flex items-center gap-2">
-          <span>⚠️</span>
-          <div>
-            <div className="font-medium">No Replacement Available</div>
-            <div className="text-sm text-gray-600">
-              No available trackers to replace {absentTrackerId.slice(-4)}
-            </div>
-          </div>
-        </div>,
-        {
-          duration: 8000,
-        }
-      );
+      toast.warning(`No Replacement Available: No available trackers to replace ${absentTrackerId.slice(-4)}`, {
+        duration: 8000,
+      });
     }
   }, [matchId, findReplacementTracker]);
 
