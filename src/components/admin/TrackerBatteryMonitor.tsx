@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Battery, BatteryLow, Zap, User, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import TrackerAbsenceNotifier from './TrackerAbsenceNotifier';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TrackerStatusDisplay {
   userId: string;
@@ -25,6 +26,7 @@ const TrackerBatteryMonitor: React.FC = () => {
   const [absentTrackerId, setAbsentTrackerId] = useState<string>('');
   const [currentMatchId, setCurrentMatchId] = useState<string>('');
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchTrackerData();
@@ -93,6 +95,8 @@ const TrackerBatteryMonitor: React.FC = () => {
   };
 
   const sendLowBatteryNotification = async (trackerId: string, batteryLevel: number) => {
+    if (batteryLevel === null) return;
+    
     try {
       const { error } = await supabase
         .from('notifications')
@@ -153,77 +157,77 @@ const TrackerBatteryMonitor: React.FC = () => {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Battery className="h-5 w-5" />
+      <Card className="w-full">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Battery className="h-4 w-4 sm:h-5 sm:w-5" />
             Tracker Battery Monitor
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">Loading tracker data...</div>
+        <CardContent className="p-3 sm:p-6">
+          <div className="text-center py-6 sm:py-8 text-sm sm:text-base">Loading tracker data...</div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Battery className="h-5 w-5" />
+    <div className="space-y-4 sm:space-y-6 w-full">
+      <Card className="w-full">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg lg:text-xl">
+            <Battery className="h-4 w-4 sm:h-5 sm:w-5" />
             Tracker Battery Monitor
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
+        <CardContent className="p-3 sm:p-6">
+          <div className="grid gap-3 sm:gap-4">
             {trackers.map((tracker) => (
               <motion.div
                 key={tracker.userId}
-                className="flex items-center justify-between p-4 border rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-3 sm:gap-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
-                  <div>
-                    <div className="font-semibold">{tracker.identifier}</div>
-                    <div className="text-sm text-gray-500">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm sm:text-base truncate">{tracker.identifier}</div>
+                    <div className="text-xs sm:text-sm text-gray-500">
                       Last update: {formatLastUpdate(tracker.lastUpdatedAt)}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex items-center gap-2">
                     {getBatteryIcon(tracker.batteryLevel)}
-                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any}>
+                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any} className="text-xs">
                       {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
                     </Badge>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     {tracker.batteryLevel !== null && tracker.batteryLevel <= 20 && (
                       <Button
-                        size="sm"
+                        size={isMobile ? "sm" : "default"}
                         variant="outline"
                         onClick={() => sendLowBatteryNotification(tracker.userId, tracker.batteryLevel!)}
-                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50 text-xs sm:text-sm w-full sm:w-auto"
                       >
-                        <AlertTriangle className="h-4 w-4 mr-1" />
-                        Notify Low Battery
+                        <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        {isMobile ? "Low Battery" : "Notify Low Battery"}
                       </Button>
                     )}
                     
                     <Button
-                      size="sm"
+                      size={isMobile ? "sm" : "default"}
                       variant="outline"
                       onClick={() => markTrackerAbsent(tracker.userId)}
-                      className="text-red-600 border-red-300 hover:bg-red-50"
+                      className="text-red-600 border-red-300 hover:bg-red-50 text-xs sm:text-sm w-full sm:w-auto"
                     >
                       Mark Absent
                     </Button>
@@ -233,14 +237,19 @@ const TrackerBatteryMonitor: React.FC = () => {
             ))}
 
             {trackers.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-6 sm:py-8 text-gray-500 text-sm sm:text-base">
                 No tracker data available
               </div>
             )}
           </div>
 
-          <div className="mt-6 flex justify-center">
-            <Button onClick={fetchTrackerData} variant="outline">
+          <div className="mt-4 sm:mt-6 flex justify-center">
+            <Button 
+              onClick={fetchTrackerData} 
+              variant="outline"
+              size={isMobile ? "sm" : "default"}
+              className="text-xs sm:text-sm"
+            >
               Refresh Data
             </Button>
           </div>
