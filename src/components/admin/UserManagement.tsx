@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,9 +28,9 @@ const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      // Use the user_profiles_with_role view to get users with their roles
+      // Fetch users directly from profiles table
       const { data, error } = await supabase
-        .from('user_profiles_with_role')
+        .from('profiles')
         .select('id, email, role, full_name')
         .order('email');
 
@@ -57,15 +56,15 @@ const UserManagement: React.FC = () => {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
-      // Update the raw_user_meta_data in auth.users using the RPC function
-      const { error: functionError } = await supabase.rpc('assign_user_role', {
-        _user_id: userId,
-        _role: newRole
-      });
+      // Update the role in the profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-      if (functionError) {
-        console.error('Error calling assign_user_role function:', functionError);
-        throw new Error(`Failed to update user role: ${functionError.message}`);
+      if (error) {
+        console.error('Error updating user role:', error);
+        throw new Error(`Failed to update user role: ${error.message}`);
       }
 
       // Update the local state to reflect the change
