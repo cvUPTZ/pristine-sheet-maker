@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -62,7 +61,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setLoading(true);
 
     try {
-      // Get auth token directly from Supabase session
+      // Get auth token for the request
       const {
         data: { session },
         error: sessionError,
@@ -73,29 +72,26 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         return;
       }
 
-      const authToken = session.access_token;
-
-      // Use the correct function URL format for Supabase
-      const functionUrl = `https://itwnghrwolvydupxmnqw.supabase.co/functions/v1/create-user`;
-      
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
+      // Call the Edge Function to create the user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
           email: formData.email.toLowerCase().trim(),
           password: formData.password,
           fullName: formData.fullName.trim(),
           role: formData.role,
-        }),
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      const responseData = await response.json();
+      if (error) {
+        console.error('Function error:', error);
+        throw new Error(error.message || 'Failed to create user');
+      }
 
-      if (!response.ok) {
-        throw new Error(responseData.error || `HTTP ${response.status}: Failed to create user`);
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast.success('User created successfully!');
@@ -121,7 +117,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
           <DialogDescription>
-            Add a new user to the system. They will receive login credentials via email.
+            Add a new user to the system. They will be able to log in immediately.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
