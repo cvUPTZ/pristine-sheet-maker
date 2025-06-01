@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Users, Settings, Shield, Eye } from 'lucide-react';
+import { Users, Settings, Shield, Eye, Save, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -28,6 +27,7 @@ interface UserProfile {
   role: UserRole;
   full_name?: string;
   permissions?: RolePermissions;
+  custom_permissions?: RolePermissions; // Custom permissions from database
 }
 
 const defaultPermissions: Record<UserRole, RolePermissions> = {
@@ -72,8 +72,10 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
 const AccessManagement: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions>(defaultPermissions.user);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -83,18 +85,25 @@ const AccessManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, role, full_name')
+        .select('id, email, role, full_name, custom_permissions')
         .order('email');
 
       if (error) throw error;
 
-      const typedUsers: UserProfile[] = (data || []).map(user => ({
-        ...user,
-        email: user.email || '',
-        role: (user.role || 'user') as UserRole,
-        full_name: user.full_name || undefined,
-        permissions: defaultPermissions[user.role as UserRole] || defaultPermissions.user
-      }));
+      const typedUsers: UserProfile[] = (data || []).map(user => {
+        const rolePermissions = defaultPermissions[user.role as UserRole] || defaultPermissions.user;
+        const customPermissions = user.custom_permissions as RolePermissions;
+        
+        return {
+          ...user,
+          email: user.email || '',
+          role: (user.role || 'user') as UserRole,
+          full_name: user.full_name || undefined,
+          custom_permissions: customPermissions,
+          // Use custom permissions if they exist, otherwise use role defaults
+          permissions: customPermissions || rolePermissions
+        };
+      });
 
       setUsers(typedUsers);
     } catch (error) {
@@ -114,11 +123,18 @@ const AccessManagement: React.FC = () => {
 
       if (error) throw error;
 
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
-          ? { ...user, role: newRole, permissions: defaultPermissions[newRole] }
-          : user
-      ));
+      // Update local state
+      setUsers(prev => prev.map(user => {
+        if (user.id === userId) {
+          const newRolePermissions = defaultPermissions[newRole];
+          return { 
+            ...user, 
+            role: newRole,
+            permissions: user.custom_permissions || newRolePermissions
+          };
+        }
+        return user;
+      }));
 
       toast.success('User role updated successfully');
     } catch (error) {
@@ -127,18 +143,72 @@ const AccessManagement: React.FC = () => {
     }
   };
 
-  const updatePermissions = async (userId: string, newPermissions: RolePermissions) => {
+  const savePermissions = async (userId: string, newPermissions: RolePermissions) => {
+    setSaving(true);
     try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ custom_permissions: newPermissions })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      // Update local state
       setUsers(prev => prev.map(user => 
         user.id === userId 
-          ? { ...user, permissions: newPermissions }
+          ? { 
+              ...user, 
+              permissions: newPermissions,
+              custom_permissions: newPermissions
+            }
           : user
       ));
 
-      toast.success('Permissions updated successfully');
+      setHasUnsavedChanges(false);
+      toast.success('Permissions saved successfully');
     } catch (error) {
-      console.error('Error updating permissions:', error);
-      toast.error('Failed to update permissions');
+      console.error('Error saving permissions:', error);
+      toast.error('Failed to save permissions');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToRoleDefaults = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      // Clear custom permissions (set to null)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ custom_permissions: null })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      const roleDefaults = defaultPermissions[user.role];
+      
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === userId 
+          ? { 
+              ...u, 
+              permissions: roleDefaults,
+              custom_permissions: undefined
+            }
+          : u
+      ));
+
+      setPermissions(roleDefaults);
+      setHasUnsavedChanges(false);
+      toast.success('Permissions reset to role defaults');
+    } catch (error) {
+      console.error('Error resetting permissions:', error);
+      toast.error('Failed to reset permissions');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -147,16 +217,14 @@ const AccessManagement: React.FC = () => {
     if (user) {
       setSelectedUser(userId);
       setPermissions(user.permissions || defaultPermissions[user.role]);
+      setHasUnsavedChanges(false);
     }
   };
 
   const handlePermissionChange = (permission: keyof RolePermissions, value: boolean) => {
     const newPermissions = { ...permissions, [permission]: value };
     setPermissions(newPermissions);
-    
-    if (selectedUser) {
-      updatePermissions(selectedUser, newPermissions);
-    }
+    setHasUnsavedChanges(true);
   };
 
   const getRoleBadgeColor = (role: UserRole) => {
@@ -169,9 +237,15 @@ const AccessManagement: React.FC = () => {
     }
   };
 
+  const isUsingCustomPermissions = (user: UserProfile) => {
+    return user.custom_permissions !== null && user.custom_permissions !== undefined;
+  };
+
   if (loading) {
     return <div className="p-4">Loading users...</div>;
   }
+
+  const selectedUserData = users.find(u => u.id === selectedUser);
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
@@ -198,6 +272,11 @@ const AccessManagement: React.FC = () => {
                       {user.full_name || user.email}
                     </p>
                     <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
+                    {isUsingCustomPermissions(user) && (
+                      <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
+                        Custom Permissions
+                      </Badge>
+                    )}
                   </div>
                   <Badge className={`${getRoleBadgeColor(user.role)} text-xs flex-shrink-0`}>
                     {user.role}
@@ -231,31 +310,74 @@ const AccessManagement: React.FC = () => {
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
             Access Permissions
+            {hasUnsavedChanges && (
+              <Badge className="bg-orange-100 text-orange-800 text-xs ml-2">
+                Unsaved Changes
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0">
-          {selectedUser ? (
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {Object.entries(permissions).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor={key} className="capitalize text-sm sm:text-base">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                    </Label>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      {getPermissionDescription(key as keyof RolePermissions)}
-                    </p>
+          {selectedUser && selectedUserData ? (
+            <div className="space-y-4">
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 pb-4 border-b">
+                <Button
+                  onClick={() => savePermissions(selectedUser, permissions)}
+                  disabled={!hasUnsavedChanges || saving}
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save Permissions'}
+                </Button>
+                
+                <Button
+                  onClick={() => resetToRoleDefaults(selectedUser)}
+                  disabled={saving}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset to Role Defaults
+                </Button>
+              </div>
+
+              {/* Current Status */}
+              <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                <p className="font-medium">Status:</p>
+                <p className="text-gray-600">
+                  {isUsingCustomPermissions(selectedUserData) 
+                    ? `Using custom permissions (overrides ${selectedUserData.role} role defaults)`
+                    : `Using ${selectedUserData.role} role default permissions`
+                  }
+                </p>
+              </div>
+
+              {/* Permissions List */}
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {Object.entries(permissions).map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <Label htmlFor={key} className="capitalize text-sm sm:text-base">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </Label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        {getPermissionDescription(key as keyof RolePermissions)}
+                      </p>
+                    </div>
+                    <Switch
+                      id={key}
+                      checked={value}
+                      onCheckedChange={(checked) => 
+                        handlePermissionChange(key as keyof RolePermissions, checked)
+                      }
+                      className="flex-shrink-0"
+                    />
                   </div>
-                  <Switch
-                    id={key}
-                    checked={value}
-                    onCheckedChange={(checked) => 
-                      handlePermissionChange(key as keyof RolePermissions, checked)
-                    }
-                    className="flex-shrink-0"
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
