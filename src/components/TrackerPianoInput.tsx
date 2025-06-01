@@ -362,10 +362,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   };
 
-  const recordEvent = (eventType: EventType) => {
+  const recordEvent = async (eventType: EventType) => {
     if (!selectedPlayer) return;
 
     // Realtime: tracker_action recorded_event_locally
+    // Realtime: tracker_action recorded_event_locally (This can still be sent, as an action is being attempted)
     if (pushEvent && user?.id) {
       pushEvent({
         type: 'broadcast',
@@ -376,7 +377,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           timestamp: Date.now(),
           eventType: 'tracker_action',
           payload: {
-            currentAction: `recorded_event_locally_${eventType.key}_for_player_${selectedPlayer.id}`,
+            currentAction: `attempting_event_record_${eventType.key}_for_player_${selectedPlayer.id}`,
             details: { playerId: selectedPlayer.id, team: selectedPlayer.team_context, eventKey: eventType.key },
           },
         } as TrackerSyncEvent,
@@ -405,10 +406,33 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       created_by: user?.id || ''
     };
 
-    addLocalEvent(eventData);
-    toast.info(`${eventType.label} logged locally for ${selectedPlayer.player_name}`);
+    try {
+      const { error: insertError } = await supabase
+        .from('match_events')
+        .insert([eventData]); // Supabase insert expects an array of objects
 
-    // Clear selection after recording if toggle behavior is enabled
+      if (insertError) {
+        // Direct send failed, log to local storage for manual sync
+        console.error('Error sending event directly to Supabase, will queue locally:', insertError);
+        toast.error(`Event sync to DB failed: ${insertError.message}. Saved locally.`);
+        addLocalEvent(eventData); // This will also update unsavedEventCount correctly
+      } else {
+        // Direct send successful
+        toast.success(`${eventType.label} for ${selectedPlayer.player_name} sent to DB successfully.`);
+        // Event is NOT added to local storage, unsavedEventCount remains unchanged by this event.
+        // If there's a desire to still update unsavedEventCount and then clear it upon successful sync,
+        // that would require addLocalEvent first, then a new function removeLocalEvent(eventId)
+        // and careful management of unsavedEventCount.
+        // For this step, we are going with: if sent to DB, not added to local queue.
+      }
+    } catch (e) {
+      // Exception during Supabase call, log to local storage for manual sync
+      console.error('Exception sending event directly to Supabase, will queue locally:', e);
+      toast.error('Event sync to DB failed due to an exception. Saved locally.');
+      addLocalEvent(eventData); // This will also update unsavedEventCount correctly
+    }
+
+    // Clear selection after recording attempt if toggle behavior is enabled
     if (toggleBehaviorEnabled) {
       setSelectedEventType(null);
     }
