@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,8 +77,19 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   const fetchAssignments = async () => {
     try {
       const { data, error } = await supabase
-        .from('match_tracker_assignments_view')
-        .select('*')
+        .from('match_tracker_assignments')
+        .select(`
+          id,
+          tracker_user_id,
+          match_id,
+          player_team_id,
+          player_id,
+          assigned_event_types,
+          profiles!tracker_user_id (
+            full_name,
+            email
+          )
+        `)
         .eq('match_id', matchId)
         .is('player_id', null);
 
@@ -95,8 +105,8 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
           player_team_id: item.player_team_id as 'home' | 'away' | undefined,
           player_id: item.player_id || undefined,
           assigned_event_types: item.assigned_event_types || undefined,
-          tracker_name: item.tracker_name || undefined,
-          tracker_email: item.tracker_email || undefined,
+          tracker_name: (item.profiles as any)?.full_name || undefined,
+          tracker_email: (item.profiles as any)?.email || undefined,
         }));
 
       setAssignments(transformedAssignments);
@@ -114,12 +124,15 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
-      // For general assignments, we insert without player_team_id and player_id
+      // For general assignments, we insert without player_team_id and player_id (they will be null)
       const { error } = await supabase
         .from('match_tracker_assignments')
         .insert({
           match_id: matchId,
           tracker_user_id: selectedTracker,
+          player_team_id: null,
+          player_id: null,
+          assigned_event_types: null
         });
 
       if (error) throw error;
