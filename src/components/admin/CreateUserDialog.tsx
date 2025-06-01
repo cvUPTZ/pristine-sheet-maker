@@ -76,7 +76,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       const authToken = session.access_token;
 
       // Use the correct function URL format for Supabase
-      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      const functionUrl = `https://itwnghrwolvydupxmnqw.supabase.co/functions/v1/create-user`;
       
       const response = await fetch(functionUrl, {
         method: 'POST',
