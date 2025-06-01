@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
-import { useBatteryMonitor } from '@/hooks/useBatteryMonitor'; // Import the battery monitor hook
+import useBatteryMonitor from '@/hooks/useBatteryMonitor'; // Fixed: default import instead of named import
 
 interface LiveMatch {
   id: string;
