@@ -765,57 +765,7 @@ function getContrastColor(hexcolor: string): string {
   return (yiq >= 128) ? '#000000' : '#FFFFFF';
 }
 
-/**
- * Example CSS animations (to be defined in a global CSS file or via CSS-in-JS):
- * .animate-pass-flow { animation: pass-flow 2s infinite linear; }
- * @keyframes pass-flow { 0% { transform: translateX(-2px) rotate(-5deg); } 50% { transform: translateX(2px) rotate(5deg); } 100% { transform: translateX(-2px) rotate(-5deg); } }
- * 
- * .animate-shot-pulse { animation: shot-pulse 1.5s infinite ease-in-out; }
- * @keyframes shot-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
- *
- * /* CSS definitions for new animations */
- * @keyframes cross-arc {
- *   0%, 100% { transform: rotate(0deg); }
- *   50% { transform: rotate(10deg) scale(1.05); }
- * }
- * .animate-cross-arc { animation: cross-arc 1.8s ease-in-out infinite; }
- *
- * @keyframes clearance-burst {
- *   0% { transform: scale(1); opacity: 1; }
- *   50% { transform: scale(1.2); opacity: 0.7; }
- *   100% { transform: scale(0.9); opacity: 1; }
- * }
- * .animate-clearance-burst { animation: clearance-burst 1s ease-out; }
- * 
- * @keyframes block-firm {
- *   0% { transform: scale(1); }
- *   50% { transform: scale(1.1); filter: brightness(1.1); }
- *   100% { transform: scale(1); }
- * }
- * .animate-block-firm { animation: block-firm 0.6s ease-in-out; }
- *
- * @keyframes interception-grab {
- *   0% { transform: scaleX(1) translateX(0); }
- *   40% { transform: scaleX(0.8) translateX(5px); }
- *   70% { transform: scaleX(1.1) translateX(-2px); }
- *   100% { transform: scaleX(1) translateX(0); }
- * }
- * .animate-interception-grab { animation: interception-grab 0.7s ease-out; }
- *
- * /* ...and so on for other event types. */
- * 
- * For 1000+ concurrent icons, consider:
- * 1. SVG Sprites: Reduces DOM nodes if SVGs are complex, use <use xlink:href="..."></use>.
- * 2. Canvas Rendering: For extreme cases, libraries like Konva.js or PixiJS can render many shapes efficiently.
- *    This component could have a `renderAs="canvas"` prop in a more advanced version.
- * 3. Virtualization: If icons are in a list, only render visible ones.
- *
- * Accessibility Note on Colors:
- * The provided `defaultDesignSystem` colors are illustrative. For WCAG 2.1 AAA,
- * color contrasts (e.g., icon color vs. background, parts of icon vs. other parts if conveying info)
- * must meet 7:1 for normal text/visual elements or 4.5:1 for large text/robust visual elements.
- * High contrast mode should aim for these higher ratios. Use tools to verify.
- */
+
 
 export default EnhancedEventTypeIcon;
 
