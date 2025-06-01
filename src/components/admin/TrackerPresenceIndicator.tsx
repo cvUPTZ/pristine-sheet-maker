@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import TrackerStatusCard from './TrackerStatusCard';
 import TrackerNotificationSystem from './TrackerNotificationSystem';
+import TrackerAbsenceManager from './TrackerAbsenceManager';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 
 interface TrackerPresenceIndicatorProps {
@@ -37,9 +38,10 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     .slice(0, 6);
 
   return (
-    <>
+    <div className="space-y-4">
       <TrackerNotificationSystem trackers={trackers} matchId={matchId} />
       
+      {/* Main Tracker Status Card */}
       <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
         <CardHeader className="pb-2 md:pb-4">
           <CardTitle className="flex items-center gap-2 text-sm md:text-base">
@@ -152,7 +154,10 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
           </motion.div>
         </CardContent>
       </Card>
-    </>
+
+      {/* Absence Manager */}
+      <TrackerAbsenceManager matchId={matchId} />
+    </div>
   );
 };
 
