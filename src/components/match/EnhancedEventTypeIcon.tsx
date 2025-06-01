@@ -795,7 +795,7 @@ function getContrastColor(hexcolor: string): string {
  * .animate-block-firm { animation: block-firm 0.6s ease-in-out; }
  *
  * @keyframes interception-grab {
- *   0% { transform: scaleX(1)translateX(0); }
+ *   0% { transform: scaleX(1) translateX(0); }
  *   40% { transform: scaleX(0.8) translateX(5px); }
  *   70% { transform: scaleX(1.1) translateX(-2px); }
  *   100% { transform: scaleX(1) translateX(0); }
