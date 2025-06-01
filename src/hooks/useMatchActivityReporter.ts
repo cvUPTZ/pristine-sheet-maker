@@ -1,3 +1,4 @@
+
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,7 +16,7 @@ const REPORT_INTERVAL_MS = 60 * 1000; // Report activity every 60 seconds
 const useMatchActivityReporter = (userId: string | undefined, matchId: string | undefined): void => {
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
-  const reportActivity = useCallback(async ()_InternalToolUse_DummyDynamicValue => {
+  const reportActivity = useCallback(async () => {
     if (!userId || !matchId) {
       // This case should ideally be prevented by the useEffect dependency check,
       // but it's good for safety.
@@ -46,7 +47,7 @@ const useMatchActivityReporter = (userId: string | undefined, matchId: string | 
     }
   }, [userId, matchId]);
 
-  useEffect(()_InternalToolUse_DummyDynamicValue => {
+  useEffect(() => {
     // Clear any existing interval when userId or matchId changes
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current);
