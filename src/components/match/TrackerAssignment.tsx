@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,16 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
       if (error) throw error;
 
-      setTrackerUsers(data || []);
+      // Transform data to handle nullable fields
+      const typedUsers: TrackerUser[] = (data || [])
+        .filter(user => user.id)
+        .map(user => ({
+          id: user.id!,
+          email: user.email || 'No email',
+          full_name: user.full_name || 'No name',
+        }));
+
+      setTrackerUsers(typedUsers);
     } catch (error: any) {
       console.error('Error fetching tracker users:', error);
       toast.error('Failed to fetch tracker users');
@@ -75,7 +85,21 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
       if (error) throw error;
 
-      setAssignments(data || []);
+      // Transform the data to match our Assignment interface
+      const transformedAssignments: Assignment[] = (data || [])
+        .filter(item => item.id && item.tracker_user_id)
+        .map(item => ({
+          id: item.id!,
+          tracker_user_id: item.tracker_user_id!,
+          match_id: item.match_id!,
+          player_team_id: item.player_team_id as 'home' | 'away' | undefined,
+          player_id: item.player_id || undefined,
+          assigned_event_types: item.assigned_event_types || undefined,
+          tracker_name: item.tracker_name || undefined,
+          tracker_email: item.tracker_email || undefined,
+        }));
+
+      setAssignments(transformedAssignments);
     } catch (error: any) {
       console.error('Error fetching assignments:', error);
       toast.error('Failed to fetch assignments');
@@ -90,12 +114,13 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
+      // For general assignments, we don't require player_team_id since it's a general assignment
       const { error } = await supabase
         .from('match_tracker_assignments')
-        .insert([{
+        .insert({
           match_id: matchId,
           tracker_user_id: selectedTracker,
-        }]);
+        });
 
       if (error) throw error;
 
@@ -173,11 +198,11 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
               </div>
 
               <div className="divide-y divide-gray-200">
-                {assignments.map((assignment: any) => (
+                {assignments.map((assignment: Assignment) => (
                   <div key={assignment.id} className="py-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{assignment.tracker_name || 'Unknown Tracker'}</p>
-                      <p className="text-xs text-gray-500">{assignment.tracker_email}</p>
+                      <p className="text-xs text-gray-500">{assignment.tracker_email || 'No email'}</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => handleDeleteAssignment(assignment.id)}>
                       <Trash2 className="h-4 w-4 mr-2" />
