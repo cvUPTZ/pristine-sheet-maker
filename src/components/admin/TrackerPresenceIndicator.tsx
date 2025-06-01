@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,11 +52,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     return Object.values(eventCounts).reduce((sum, count) => sum + count, 0);
   };
 
-  const getTopEventTypes = (eventCounts: Record<string, number> | undefined) => {
+  const getEventCountsArray = (eventCounts: Record<string, number> | undefined) => {
     if (!eventCounts) return [];
     return Object.entries(eventCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3);
+      .filter(([, count]) => count > 0)
+      .sort(([,a], [,b]) => b - a);
   };
 
   return (
@@ -79,7 +78,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
             const statusText = getStatusText(tracker);
             const isActive = isActivelyTracking(tracker);
             const totalEvents = getTotalEventCount(tracker.event_counts);
-            const topEvents = getTopEventTypes(tracker.event_counts);
+            const eventCountsArray = getEventCountsArray(tracker.event_counts);
             
             return (
               <motion.div
@@ -144,18 +143,23 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                         </span>
                       </div>
                       
-                      {/* Event Type Counts */}
-                      {topEvents.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1 flex-wrap">
-                          {topEvents.map(([eventType, count]) => (
-                            <div key={eventType} className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">
+                      {/* Event Type Counts with Icons */}
+                      {eventCountsArray.length > 0 && (
+                        <div className="flex items-center gap-1 mt-2 flex-wrap">
+                          {eventCountsArray.map(([eventType, count]) => (
+                            <motion.div 
+                              key={eventType} 
+                              className="flex items-center gap-1 text-xs text-slate-700 bg-slate-100 rounded-full px-2 py-1 border border-slate-200"
+                              whileHover={{ scale: 1.05 }}
+                              transition={{ duration: 0.2 }}
+                            >
                               <EnhancedEventTypeIcon 
                                 eventType={eventType as any}
-                                size={12} 
-                                className="w-3 h-3"
+                                size={14} 
+                                className="w-3.5 h-3.5 flex-shrink-0"
                               />
-                              <span>{count}</span>
-                            </div>
+                              <span className="font-medium">{count}</span>
+                            </motion.div>
                           ))}
                         </div>
                       )}
