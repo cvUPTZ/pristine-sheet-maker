@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -43,6 +44,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [lastRecordedEvent, setLastRecordedEvent] = useState<any>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
+  const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -206,6 +208,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
 
     setIsRecording(true);
+    setRecordingEventType(eventType.key);
     
     // Broadcast that we're recording
     broadcastStatus('recording', `recording_${eventType.key}`);
@@ -272,6 +275,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       throw error;
     } finally {
       setIsRecording(false);
+      setRecordingEventType(null);
     }
   };
 
@@ -291,17 +295,31 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-center">
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div 
+            className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
           <div className="text-lg font-semibold mb-2">Loading assignments...</div>
           <div className="text-sm text-gray-600">Please wait while we fetch your tracker assignments.</div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <motion.div 
+        className="flex items-center justify-center p-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
         <div className="text-center">
           <div className="text-lg font-semibold mb-2 text-red-600">Assignment Error</div>
           <div className="text-sm text-gray-600 mb-4">{error}</div>
@@ -309,13 +327,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             Retry
           </Button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (!assignedEventTypes.length && !assignedPlayers?.home?.length && !assignedPlayers?.away?.length) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <motion.div 
+        className="flex items-center justify-center p-8"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
         <div className="text-center">
           <div className="text-lg font-semibold mb-2">No Assignments</div>
           <div className="text-sm text-gray-600 mb-4">You have no event types or players assigned for this match.</div>
@@ -323,141 +345,310 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             Refresh Assignments
           </Button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       {/* Selected Player Display */}
-      {selectedPlayer && (
-        <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-green-800 dark:text-green-200">
-                  Selected: {selectedPlayer.name}
+      <AnimatePresence>
+        {selectedPlayer && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="border-2 border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <motion.div 
+                      className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      {selectedPlayer.jersey_number || selectedPlayer.name.charAt(0)}
+                    </motion.div>
+                    <div>
+                      <div className="font-bold text-xl text-green-800 dark:text-green-200">
+                        {selectedPlayer.name}
+                      </div>
+                      <div className="text-sm text-green-600 dark:text-green-300 flex items-center gap-2">
+                        <span className="px-2 py-1 bg-green-200 dark:bg-green-800 rounded-full text-xs font-medium">
+                          {selectedTeam === 'home' ? 'Home' : 'Away'}
+                        </span>
+                        {selectedPlayer.position && (
+                          <span className="px-2 py-1 bg-blue-200 dark:bg-blue-800 rounded-full text-xs font-medium">
+                            {selectedPlayer.position}
+                          </span>
+                        )}
+                        {selectedPlayer.jersey_number && (
+                          <span className="px-2 py-1 bg-purple-200 dark:bg-purple-800 rounded-full text-xs font-medium">
+                            #{selectedPlayer.jersey_number}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setSelectedPlayer(null);
+                      setSelectedTeam(null);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="hover:bg-red-50 hover:border-red-300"
+                  >
+                    Clear
+                  </Button>
                 </div>
-                <div className="text-sm text-green-600 dark:text-green-300">
-                  Team: {selectedTeam === 'home' ? 'Home' : 'Away'} | 
-                  {selectedPlayer.position && ` Position: ${selectedPlayer.position} |`}
-                  {selectedPlayer.jersey_number && ` #${selectedPlayer.jersey_number}`}
-                </div>
-              </div>
-              <Button 
-                onClick={() => {
-                  setSelectedPlayer(null);
-                  setSelectedTeam(null);
-                }}
-                variant="outline"
-                size="sm"
-              >
-                Clear
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Last Recorded Event */}
-      {lastRecordedEvent && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-          <CardContent className="p-4">
-            <div className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Last Event:</strong> {lastRecordedEvent.eventType.label}
-              {lastRecordedEvent.player && ` by ${lastRecordedEvent.player.name}`}
-              <span className="ml-2 text-xs text-blue-600 dark:text-blue-300">
-                {new Date(lastRecordedEvent.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <AnimatePresence>
+        {lastRecordedEvent && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 shadow-lg">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center"
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 10, -10, 0] 
+                    }}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <EnhancedEventTypeIcon 
+                      eventType={lastRecordedEvent.eventType.key as EventType}
+                      size={24}
+                      className="text-white"
+                    />
+                  </motion.div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-blue-800 dark:text-blue-200">
+                      Last Event: {lastRecordedEvent.eventType.label}
+                    </div>
+                    <div className="text-sm text-blue-600 dark:text-blue-300">
+                      {lastRecordedEvent.player && `by ${lastRecordedEvent.player.name} • `}
+                      {new Date(lastRecordedEvent.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Player Selection */}
       {(assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Select Player</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {assignedPlayers?.home?.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2 text-sm text-gray-600 dark:text-gray-300">Home Team</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {assignedPlayers.home.map((player) => (
-                    <Button
-                      key={`home-${player.id}`}
-                      onClick={() => handlePlayerSelect(player, 'home')}
-                      variant={selectedPlayer?.id === player.id && selectedTeam === 'home' ? 'default' : 'outline'}
-                      className="text-xs p-2 h-auto"
-                    >
-                      <div className="text-center">
-                        <div className="font-semibold">{player.name}</div>
-                        {player.jersey_number && (
-                          <div className="text-xs opacity-75">#{player.jersey_number}</div>
-                        )}
-                      </div>
-                    </Button>
-                  ))}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Card className="shadow-xl border-2 border-slate-200">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <span className="text-2xl">⚽</span>
+                Select Player
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              {assignedPlayers?.home?.length > 0 && (
+                <div>
+                  <h3 className="font-bold mb-4 text-lg text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                    <span className="w-4 h-4 bg-blue-500 rounded-full"></span>
+                    Home Team
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {assignedPlayers.home.map((player, index) => (
+                      <motion.div
+                        key={`home-${player.id}`}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Button
+                          onClick={() => handlePlayerSelect(player, 'home')}
+                          variant={selectedPlayer?.id === player.id && selectedTeam === 'home' ? 'default' : 'outline'}
+                          className={`w-full h-auto p-4 flex flex-col items-center gap-2 transition-all duration-200 ${
+                            selectedPlayer?.id === player.id && selectedTeam === 'home' 
+                              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg transform scale-105' 
+                              : 'hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                            selectedPlayer?.id === player.id && selectedTeam === 'home'
+                              ? 'bg-white text-blue-600'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
+                          }`}>
+                            {player.jersey_number || player.name.charAt(0)}
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-sm">{player.name}</div>
+                            {player.position && (
+                              <div className="text-xs opacity-75">{player.position}</div>
+                            )}
+                          </div>
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {assignedPlayers?.away?.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2 text-sm text-gray-600 dark:text-gray-300">Away Team</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {assignedPlayers.away.map((player) => (
-                    <Button
-                      key={`away-${player.id}`}
-                      onClick={() => handlePlayerSelect(player, 'away')}
-                      variant={selectedPlayer?.id === player.id && selectedTeam === 'away' ? 'default' : 'outline'}
-                      className="text-xs p-2 h-auto"
-                    >
-                      <div className="text-center">
-                        <div className="font-semibold">{player.name}</div>
-                        {player.jersey_number && (
-                          <div className="text-xs opacity-75">#{player.jersey_number}</div>
-                        )}
-                      </div>
-                    </Button>
-                  ))}
+              {assignedPlayers?.away?.length > 0 && (
+                <div>
+                  <h3 className="font-bold mb-4 text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
+                    <span className="w-4 h-4 bg-red-500 rounded-full"></span>
+                    Away Team
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {assignedPlayers.away.map((player, index) => (
+                      <motion.div
+                        key={`away-${player.id}`}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Button
+                          onClick={() => handlePlayerSelect(player, 'away')}
+                          variant={selectedPlayer?.id === player.id && selectedTeam === 'away' ? 'default' : 'outline'}
+                          className={`w-full h-auto p-4 flex flex-col items-center gap-2 transition-all duration-200 ${
+                            selectedPlayer?.id === player.id && selectedTeam === 'away' 
+                              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg transform scale-105' 
+                              : 'hover:bg-red-50 hover:border-red-300 dark:hover:bg-red-950'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                            selectedPlayer?.id === player.id && selectedTeam === 'away'
+                              ? 'bg-white text-red-600'
+                              : 'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
+                          }`}>
+                            {player.jersey_number || player.name.charAt(0)}
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-sm">{player.name}</div>
+                            {player.position && (
+                              <div className="text-xs opacity-75">{player.position}</div>
+                            )}
+                          </div>
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
 
       {/* Event Types */}
       {assignedEventTypes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Record Events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {assignedEventTypes.map((eventType) => (
-                <Button
-                  key={eventType.key}
-                  onClick={() => handleEventTypeClick(eventType)}
-                  disabled={isRecording}
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="shadow-xl border-2 border-slate-200">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <span className="text-2xl">🎹</span>
+                Record Events
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {assignedEventTypes.map((eventType, index) => (
+                  <motion.div
+                    key={eventType.key}
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.08 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      onClick={() => handleEventTypeClick(eventType)}
+                      disabled={isRecording}
+                      variant="outline"
+                      className={`relative w-full h-24 p-4 flex flex-col items-center gap-3 transition-all duration-300 transform ${
+                        recordingEventType === eventType.key
+                          ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-xl border-green-400 scale-105'
+                          : 'hover:bg-gradient-to-br hover:from-purple-50 hover:to-pink-50 hover:border-purple-300 hover:shadow-lg dark:hover:from-purple-950 dark:hover:to-pink-950'
+                      }`}
+                    >
+                      <motion.div
+                        animate={recordingEventType === eventType.key ? {
+                          rotate: [0, 10, -10, 0],
+                          scale: [1, 1.2, 1]
+                        } : {}}
+                        transition={{ duration: 0.5, repeat: recordingEventType === eventType.key ? Infinity : 0 }}
+                      >
+                        <EnhancedEventTypeIcon
+                          eventType={eventType.key as EventType}
+                          size={32}
+                          className={recordingEventType === eventType.key ? 'text-white' : ''}
+                        />
+                      </motion.div>
+                      <span className={`text-xs font-semibold text-center leading-tight ${
+                        recordingEventType === eventType.key ? 'text-white' : ''
+                      }`}>
+                        {eventType.label}
+                      </span>
+                      
+                      {recordingEventType === eventType.key && (
+                        <motion.div
+                          className="absolute inset-0 rounded-lg border-2 border-white"
+                          animate={{
+                            scale: [1, 1.05, 1],
+                            opacity: [0.5, 1, 0.5]
+                          }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      )}
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+              
+              {isRecording && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-6 text-center"
                 >
-                  <EnhancedEventTypeIcon
-                    eventType={eventType.key as EventType}
-                    size="md"
-                  />
-                  <span className="text-xs font-medium text-center">
-                    {eventType.label}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    <motion.div
+                      className="w-2 h-2 bg-green-500 rounded-full"
+                      animate={{ scale: [1, 1.5, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    Recording...
+                  </div>
+                </motion.div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
     </div>
   );

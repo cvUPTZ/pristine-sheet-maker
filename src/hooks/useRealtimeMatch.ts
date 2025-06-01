@@ -74,7 +74,7 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
           if (assignment.tracker_user_id && !trackerMap.has(assignment.tracker_user_id)) {
             trackerMap.set(assignment.tracker_user_id, {
               user_id: assignment.tracker_user_id,
-              email: assignment.tracker_email,
+              email: assignment.tracker_email || undefined,
               status: 'inactive',
               last_activity: Date.now()
             });
