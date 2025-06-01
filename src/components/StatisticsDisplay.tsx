@@ -49,31 +49,31 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
             <div>
               <div className="text-sm font-medium mb-1">{homeTeamName}</div>
               <div className="text-xs text-muted-foreground mb-2">
-                {statistics.passes?.home?.successful || 0} / {statistics.passes?.home?.total || 0} passes
+                {statistics.passes?.home?.successful || 0} / {statistics.passes?.home?.attempted || 0} passes
               </div>
               <Progress 
                 value={statistics.passes?.home?.successful || 0} 
-                max={Math.max(statistics.passes?.home?.total || 1, 1)} 
+                max={Math.max(statistics.passes?.home?.attempted || 1, 1)} 
                 className="h-2"
               />
               <div className="text-xs text-muted-foreground mt-1">
-                {statistics.passes?.home?.total ? 
-                  Math.round(((statistics.passes.home.successful || 0) / statistics.passes.home.total) * 100) : 0}% accuracy
+                {statistics.passes?.home?.attempted ? 
+                  Math.round(((statistics.passes.home.successful || 0) / statistics.passes.home.attempted) * 100) : 0}% accuracy
               </div>
             </div>
             <div>
               <div className="text-sm font-medium mb-1">{awayTeamName}</div>
               <div className="text-xs text-muted-foreground mb-2">
-                {statistics.passes?.away?.successful || 0} / {statistics.passes?.away?.total || 0} passes
+                {statistics.passes?.away?.successful || 0} / {statistics.passes?.away?.attempted || 0} passes
               </div>
               <Progress 
                 value={statistics.passes?.away?.successful || 0} 
-                max={Math.max(statistics.passes?.away?.total || 1, 1)} 
+                max={Math.max(statistics.passes?.away?.attempted || 1, 1)} 
                 className="h-2"
               />
               <div className="text-xs text-muted-foreground mt-1">
-                {statistics.passes?.away?.total ? 
-                  Math.round(((statistics.passes.away.successful || 0) / statistics.passes.away.total) * 100) : 0}% accuracy
+                {statistics.passes?.away?.attempted ? 
+                  Math.round(((statistics.passes.away.successful || 0) / statistics.passes.away.attempted) * 100) : 0}% accuracy
               </div>
             </div>
           </div>
@@ -86,22 +86,22 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
             <div>
               <div className="text-sm font-medium mb-1">{homeTeamName}</div>
               <div className="text-xs text-muted-foreground mb-2">
-                {statistics.shots?.home?.onTarget || 0} / {statistics.shots?.home?.total || 0} on target
+                {statistics.shots?.home?.onTarget || 0} / {(statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)} on target
               </div>
               <Progress 
                 value={statistics.shots?.home?.onTarget || 0} 
-                max={Math.max(statistics.shots?.home?.total || 1, 1)} 
+                max={Math.max((statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0), 1)} 
                 className="h-2"
               />
             </div>
             <div>
               <div className="text-sm font-medium mb-1">{awayTeamName}</div>
               <div className="text-xs text-muted-foreground mb-2">
-                {statistics.shots?.away?.onTarget || 0} / {statistics.shots?.away?.total || 0} on target
+                {statistics.shots?.away?.onTarget || 0} / {(statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0)} on target
               </div>
               <Progress 
                 value={statistics.shots?.away?.onTarget || 0} 
-                max={Math.max(statistics.shots?.away?.total || 1, 1)} 
+                max={Math.max((statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0), 1)} 
                 className="h-2"
               />
             </div>
@@ -117,23 +117,11 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
               <div className="text-xs text-muted-foreground">
                 Fouls: {statistics.fouls?.home || 0}
               </div>
-              <div className="text-xs text-muted-foreground">
-                Yellow Cards: {statistics.cards?.home?.yellow || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Red Cards: {statistics.cards?.home?.red || 0}
-              </div>
             </div>
             <div>
               <div className="text-sm font-medium mb-1">{awayTeamName}</div>
               <div className="text-xs text-muted-foreground">
                 Fouls: {statistics.fouls?.away || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Yellow Cards: {statistics.cards?.away?.yellow || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Red Cards: {statistics.cards?.away?.red || 0}
               </div>
             </div>
           </div>
@@ -148,7 +136,6 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
               <div className="space-y-1">
                 <div>Corners: {statistics.corners?.home || 0}</div>
                 <div>Offsides: {statistics.offsides?.home || 0}</div>
-                <div>Throws: {statistics.throws?.home || 0}</div>
               </div>
             </div>
             <div>
@@ -156,7 +143,6 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
               <div className="space-y-1">
                 <div>Corners: {statistics.corners?.away || 0}</div>
                 <div>Offsides: {statistics.offsides?.away || 0}</div>
-                <div>Throws: {statistics.throws?.away || 0}</div>
               </div>
             </div>
           </div>

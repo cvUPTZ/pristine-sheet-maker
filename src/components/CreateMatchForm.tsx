@@ -262,7 +262,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const fetchTrackers = async () => {
     try {
       const { data, error } = await supabase
-        .from('user_profiles_with_role')
+        .from('profiles')
         .select('id, email, full_name, role')
         .eq('role', 'tracker')
         .order('full_name');
@@ -504,12 +504,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Title is now handled in CreateMatch.tsx page */}
-      {/* <div className="mb-6">
-        <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Match' : 'Create New Match'}</h1>
-        <p className="text-gray-600">Set up teams, players, and assign trackers</p>
-      </div> */}
-      
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -807,7 +801,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                             {homeTeamPlayers.map((player) => (
                               <div key={`home-${player.id}-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
-                                  id={`home-player-${index}-${player.id}`}
+                                  id={`home-player-assignment-${index}-player-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
                                   onCheckedChange={(checked) => {
                                     const newPlayerIds = checked
@@ -816,7 +810,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                                     updateTrackerAssignment(index, 'player_ids', newPlayerIds);
                                   }}
                                 />
-                                <Label htmlFor={`home-player-${index}-${player.id}`} className="text-sm">
+                                <Label htmlFor={`home-player-assignment-${index}-player-${player.id}`} className="text-sm">
                                   #{player.number} {player.name || 'Unnamed Player'}
                                 </Label>
                               </div>
@@ -830,7 +824,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                             {awayTeamPlayers.map((player) => (
                               <div key={`away-${player.id}-${index}`} className="flex items-center space-x-2">
                                 <Checkbox
-                                  id={`away-player-${index}-${player.id}`}
+                                  id={`away-player-assignment-${index}-player-${player.id}`}
                                   checked={assignment.player_ids.includes(player.id)}
                                   onCheckedChange={(checked) => {
                                     const newPlayerIds = checked
@@ -839,7 +833,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                                     updateTrackerAssignment(index, 'player_ids', newPlayerIds);
                                   }}
                                 />
-                                <Label htmlFor={`away-player-${index}-${player.id}`} className="text-sm">
+                                <Label htmlFor={`away-player-assignment-${index}-player-${player.id}`} className="text-sm">
                                   #{player.number} {player.name || 'Unnamed Player'}
                                 </Label>
                               </div>
