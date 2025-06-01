@@ -1,216 +1,163 @@
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Statistics, ShotStats, PassStats } from '@/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Statistics } from '@/types';
 
 interface StatisticsDisplayProps {
-  statistics: Statistics | null;
+  statistics: Statistics;
   homeTeamName: string;
   awayTeamName: string;
 }
 
-const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({ 
-  statistics, 
-  homeTeamName, 
-  awayTeamName 
+const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
+  statistics,
+  homeTeamName,
+  awayTeamName,
 }) => {
-  // Handle null statistics case
-  if (!statistics) {
-    return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Match Statistics</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="text-center text-muted-foreground py-8">
-            No statistics available yet
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const getShotStats = (shots: ShotStats | number) => {
-    if (typeof shots === 'number') return { onTarget: 0, offTarget: shots, total: shots };
-    return shots;
-  };
-
-  const getPassStats = (passes: PassStats | number) => {
-    if (typeof passes === 'number') return { successful: 0, attempted: passes };
-    return passes;
-  };
-
-  const homeShots = getShotStats(statistics.shots?.home || 0);
-  const awayShots = getShotStats(statistics.shots?.away || 0);
-  const homePasses = getPassStats(statistics.passes?.home || 0);
-  const awayPasses = getPassStats(statistics.passes?.away || 0);
-
   return (
-    <Card>
-      <CardHeader className="pb-2">
+    <Card className="bg-white shadow-md">
+      <CardHeader>
         <CardTitle className="text-lg">Match Statistics</CardTitle>
+        <CardDescription>Real-time match metrics and performance data</CardDescription>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-6">
-          {/* Possession */}
-          <div>
-            <div className="flex justify-between text-sm mb-2">
-              <div className="font-medium text-football-home">{Math.round(statistics.possession?.home || 0)}%</div>
-              <div className="text-muted-foreground">Possession</div>
-              <div className="font-medium text-football-away">{Math.round(statistics.possession?.away || 0)}%</div>
+      <CardContent className="space-y-6">
+        {/* Ball Possession */}
+        <div>
+          <h4 className="font-semibold mb-2">Ball Possession</h4>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>{homeTeamName}</span>
+              <span>{awayTeamName}</span>
             </div>
-            <div className="h-2 relative rounded-full overflow-hidden bg-muted">
-              <div 
-                className="h-full bg-football-home absolute left-0 top-0 rounded-l-full" 
-                style={{ width: `${statistics.possession?.home || 0}%` }}
+            <Progress 
+              value={statistics.possession?.home || 0} 
+              max={100} 
+              className="h-3"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{statistics.possession?.home || 0}%</span>
+              <span>{statistics.possession?.away || 0}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Passes */}
+        <div>
+          <h4 className="font-semibold mb-3">Passing Statistics</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm font-medium mb-1">{homeTeamName}</div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {statistics.passes?.home?.successful || 0} / {statistics.passes?.home?.total || 0} passes
+              </div>
+              <Progress 
+                value={statistics.passes?.home?.successful || 0} 
+                max={Math.max(statistics.passes?.home?.total || 1, 1)} 
+                className="h-2"
               />
-              <div 
-                className="h-full bg-football-away absolute right-0 top-0 rounded-r-full" 
-                style={{ width: `${statistics.possession?.away || 0}%` }}
+              <div className="text-xs text-muted-foreground mt-1">
+                {statistics.passes?.home?.total ? 
+                  Math.round(((statistics.passes.home.successful || 0) / statistics.passes.home.total) * 100) : 0}% accuracy
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">{awayTeamName}</div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {statistics.passes?.away?.successful || 0} / {statistics.passes?.away?.total || 0} passes
+              </div>
+              <Progress 
+                value={statistics.passes?.away?.successful || 0} 
+                max={Math.max(statistics.passes?.away?.total || 1, 1)} 
+                className="h-2"
+              />
+              <div className="text-xs text-muted-foreground mt-1">
+                {statistics.passes?.away?.total ? 
+                  Math.round(((statistics.passes.away.successful || 0) / statistics.passes.away.total) * 100) : 0}% accuracy
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Shots */}
+        <div>
+          <h4 className="font-semibold mb-3">Shot Statistics</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm font-medium mb-1">{homeTeamName}</div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {statistics.shots?.home?.onTarget || 0} / {statistics.shots?.home?.total || 0} on target
+              </div>
+              <Progress 
+                value={statistics.shots?.home?.onTarget || 0} 
+                max={Math.max(statistics.shots?.home?.total || 1, 1)} 
+                className="h-2"
+              />
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">{awayTeamName}</div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {statistics.shots?.away?.onTarget || 0} / {statistics.shots?.away?.total || 0} on target
+              </div>
+              <Progress 
+                value={statistics.shots?.away?.onTarget || 0} 
+                max={Math.max(statistics.shots?.away?.total || 1, 1)} 
+                className="h-2"
               />
             </div>
           </div>
-          
-          {/* Shots */}
-          <div>
-            <div className="grid grid-cols-3 text-sm mb-1">
-              <div className="text-right font-medium text-football-home">
-                {(homeShots.onTarget || 0) + (homeShots.offTarget || 0)}
+        </div>
+
+        {/* Fouls */}
+        <div>
+          <h4 className="font-semibold mb-3">Disciplinary</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm font-medium mb-1">{homeTeamName}</div>
+              <div className="text-xs text-muted-foreground">
+                Fouls: {statistics.fouls?.home || 0}
               </div>
-              <div className="text-center text-muted-foreground">Shots (total)</div>
-              <div className="text-left font-medium text-football-away">
-                {(awayShots.onTarget || 0) + (awayShots.offTarget || 0)}
+              <div className="text-xs text-muted-foreground">
+                Yellow Cards: {statistics.cards?.home?.yellow || 0}
               </div>
-            </div>
-            <div className="grid grid-cols-3 text-sm mb-2">
-              <div className="text-right text-xs text-muted-foreground">
-                ({homeShots.onTarget || 0} on target)
-              </div>
-              <div className="text-center"></div>
-              <div className="text-left text-xs text-muted-foreground">
-                ({awayShots.onTarget || 0} on target)
+              <div className="text-xs text-muted-foreground">
+                Red Cards: {statistics.cards?.home?.red || 0}
               </div>
             </div>
-            <div className="flex gap-1 h-2">
-              <Progress 
-                value={(homeShots.onTarget || 0) + (homeShots.offTarget || 0)} 
-                max={Math.max(
-                  (homeShots.onTarget || 0) + (homeShots.offTarget || 0),
-                  (awayShots.onTarget || 0) + (awayShots.offTarget || 0),
-                  1
-                )}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-home"
-              />
-              <Progress 
-                value={(awayShots.onTarget || 0) + (awayShots.offTarget || 0)}
-                max={Math.max(
-                  (homeShots.onTarget || 0) + (homeShots.offTarget || 0),
-                  (awayShots.onTarget || 0) + (awayShots.offTarget || 0),
-                  1
-                )}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-away"
-              />
+            <div>
+              <div className="text-sm font-medium mb-1">{awayTeamName}</div>
+              <div className="text-xs text-muted-foreground">
+                Fouls: {statistics.fouls?.away || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Yellow Cards: {statistics.cards?.away?.yellow || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Red Cards: {statistics.cards?.away?.red || 0}
+              </div>
             </div>
           </div>
-          
-          {/* Passes */}
-          <div>
-            <div className="grid grid-cols-3 text-sm mb-1">
-              <div className="text-right font-medium text-football-home">
-                {homePasses.successful || 0}/{homePasses.attempted || 0}
-              </div>
-              <div className="text-center text-muted-foreground">Passes (success/total)</div>
-              <div className="text-left font-medium text-football-away">
-                {awayPasses.successful || 0}/{awayPasses.attempted || 0}
-              </div>
-            </div>
-            <div className="grid grid-cols-3 text-sm mb-2">
-              <div className="text-right text-xs text-muted-foreground">
-                ({(homePasses.attempted || 0) ? 
-                  Math.round(((homePasses.successful || 0) / (homePasses.attempted || 1)) * 100) : 0}% success)
-              </div>
-              <div className="text-center"></div>
-              <div className="text-left text-xs text-muted-foreground">
-                ({(awayPasses.attempted || 0) ? 
-                  Math.round(((awayPasses.successful || 0) / (awayPasses.attempted || 1)) * 100) : 0}% success)
+        </div>
+
+        {/* Additional Stats */}
+        <div>
+          <h4 className="font-semibold mb-3">Additional Statistics</h4>
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <div className="font-medium mb-2">{homeTeamName}</div>
+              <div className="space-y-1">
+                <div>Corners: {statistics.corners?.home || 0}</div>
+                <div>Offsides: {statistics.offsides?.home || 0}</div>
+                <div>Throws: {statistics.throws?.home || 0}</div>
               </div>
             </div>
-            <div className="flex gap-1 h-2">
-              <Progress 
-                value={homePasses.attempted || 0}
-                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-home/30"
-              />
-              <Progress 
-                value={awayPasses.attempted || 0}
-                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-away/30"
-              />
-            </div>
-            <div className="flex gap-1 h-2 mt-1">
-              <Progress 
-                value={homePasses.successful || 0}
-                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
-                className="bg-transparent h-2"
-                indicatorClassName="bg-football-home"
-              />
-              <Progress 
-                value={awayPasses.successful || 0}
-                max={Math.max((homePasses.attempted || 0), (awayPasses.attempted || 0), 1)}
-                className="bg-transparent h-2"
-                indicatorClassName="bg-football-away"
-              />
-            </div>
-          </div>
-          
-          {/* Balls Played */}
-          <div>
-            <div className="grid grid-cols-3 text-sm mb-2">
-              <div className="text-right font-medium text-football-home">{statistics.ballsPlayed?.home || 0}</div>
-              <div className="text-center text-muted-foreground">Balls Played</div>
-              <div className="text-left font-medium text-football-away">{statistics.ballsPlayed?.away || 0}</div>
-            </div>
-            <div className="flex gap-1 h-2">
-              <Progress 
-                value={statistics.ballsPlayed?.home || 0}
-                max={Math.max((statistics.ballsPlayed?.home || 0), (statistics.ballsPlayed?.away || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-home"
-              />
-              <Progress 
-                value={statistics.ballsPlayed?.away || 0}
-                max={Math.max((statistics.ballsPlayed?.home || 0), (statistics.ballsPlayed?.away || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-away"
-              />
-            </div>
-          </div>
-          
-          {/* Balls Lost */}
-          <div>
-            <div className="grid grid-cols-3 text-sm mb-2">
-              <div className="text-right font-medium text-football-home">{statistics.ballsLost?.home || 0}</div>
-              <div className="text-center text-muted-foreground">Fouls</div>
-              <div className="text-left font-medium text-football-away">{statistics.ballsLost?.away || 0}</div>
-            </div>
-            <div className="flex gap-1 h-2">
-              <Progress 
-                value={statistics.ballsLost?.home || 0}
-                max={Math.max((statistics.ballsLost?.home || 0), (statistics.ballsLost?.away || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-home"
-              />
-              <Progress 
-                value={statistics.ballsLost?.away || 0}
-                max={Math.max((statistics.ballsLost?.home || 0), (statistics.ballsLost?.away || 0), 1)}
-                className="bg-muted h-2"
-                indicatorClassName="bg-football-away"
-              />
+            <div>
+              <div className="font-medium mb-2">{awayTeamName}</div>
+              <div className="space-y-1">
+                <div>Corners: {statistics.corners?.away || 0}</div>
+                <div>Offsides: {statistics.offsides?.away || 0}</div>
+                <div>Throws: {statistics.throws?.away || 0}</div>
+              </div>
             </div>
           </div>
         </div>

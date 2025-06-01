@@ -48,13 +48,6 @@ export type Database = {
             foreignKeyName: "match_events_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_events_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_roles_view"
             referencedColumns: ["user_id"]
           },
@@ -141,13 +134,6 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
-            columns: ["tracker_user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
             referencedColumns: ["id"]
           },
           {
@@ -246,13 +232,6 @@ export type Database = {
             foreignKeyName: "matches_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_roles_view"
             referencedColumns: ["user_id"]
           },
@@ -300,36 +279,26 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          role: Database["public"]["Enums"]["user_role"]
+          role: string | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "profiles_id_fkey"
             columns: ["id"]
@@ -429,22 +398,8 @@ export type Database = {
             foreignKeyName: "tracker_assignments_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tracker_assignments_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_roles_view"
             referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "tracker_assignments_tracker_id_fkey"
-            columns: ["tracker_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tracker_assignments_tracker_id_fkey"
@@ -475,13 +430,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "user_event_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "user_event_assignments_user_id_fkey"
             columns: ["user_id"]
@@ -518,13 +466,6 @@ export type Database = {
             foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "user_roles_view"
             referencedColumns: ["user_id"]
           },
@@ -534,14 +475,17 @@ export type Database = {
     Views: {
       match_tracker_assignments_view: {
         Row: {
+          assigned_event_types: string[] | null
+          assigned_player_id: number | null
           created_at: string | null
           id: string | null
           match_id: string | null
           player_id: number | null
           player_team_id: string | null
           tracker_email: string | null
-          tracker_role: Database["public"]["Enums"]["user_role"] | null
+          tracker_id: string | null
           tracker_user_id: string | null
+          updated_at: string | null
         }
         Relationships: [
           {
@@ -555,26 +499,10 @@ export type Database = {
             foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
             columns: ["tracker_user_id"]
             isOneToOne: false
-            referencedRelation: "user_profiles_with_role"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_tracker_assignments_tracker_user_id_fkey"
-            columns: ["tracker_user_id"]
-            isOneToOne: false
             referencedRelation: "user_roles_view"
             referencedColumns: ["user_id"]
           },
         ]
-      }
-      user_profiles_with_role: {
-        Row: {
-          email: string | null
-          full_name: string | null
-          id: string | null
-          role: string | null
-        }
-        Relationships: []
       }
       user_roles_view: {
         Row: {
@@ -588,6 +516,13 @@ export type Database = {
       }
     }
     Functions: {
+      add_user_role: {
+        Args: {
+          target_user_id: string
+          new_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: undefined
+      }
       assign_tracker_to_player: {
         Args: {
           _match_id: string
@@ -607,6 +542,15 @@ export type Database = {
       can_access_match_assignments: {
         Args: { match_uuid: string }
         Returns: boolean
+      }
+      get_all_users_with_metadata: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          raw_user_meta_data: Json
+          created_at: string
+        }[]
       }
       get_tracker_profiles: {
         Args: Record<PropertyKey, never>
@@ -643,17 +587,27 @@ export type Database = {
         Returns: string
       }
       get_user_roles: {
-        Args: { _user_id?: string }
-        Returns: {
-          role: Database["public"]["Enums"]["user_role"]
-        }[]
+        Args: { target_user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"][]
+      }
+      has_elevated_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       has_role: {
         Args: { _user_id: string; _role: string }
         Returns: boolean
       }
       is_admin: {
-        Args: { p_user_id: string }
+        Args: Record<PropertyKey, never> | { p_user_id: string }
+        Returns: boolean
+      }
+      is_tracker: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_user: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       notify_assigned_trackers: {
@@ -662,10 +616,23 @@ export type Database = {
       }
       remove_user_role: {
         Args: {
-          _user_id: string
-          _role: Database["public"]["Enums"]["user_role"]
+          target_user_id: string
+          old_role: Database["public"]["Enums"]["user_role"]
         }
         Returns: undefined
+      }
+      update_user_metadata: {
+        Args: { user_id: string; metadata_updates: Json }
+        Returns: undefined
+      }
+      user_has_role: {
+        Args:
+          | { role_name: Database["public"]["Enums"]["user_role"] }
+          | {
+              target_user_id: string
+              check_role: Database["public"]["Enums"]["user_role"]
+            }
+        Returns: boolean
       }
     }
     Enums: {

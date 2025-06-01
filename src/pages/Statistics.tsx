@@ -1,436 +1,263 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { BallTrackingPoint, Statistics as StatisticsType, Team, MatchEvent, Player } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, TrendingUp, Users, Activity, Target } from 'lucide-react';
+import { Statistics as StatsType } from '@/types';
 import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
+import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
+import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
-import { aggregateMatchEvents, AggregatedStats } from '@/lib/analytics/eventAggregator';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'; // Direct import from recharts
+import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-
-const Statistics: React.FC = () => {
-  const [stats, setStats] = useState<StatisticsType | null>(null); // Will be populated by aggregatedData for MatchStatsVisualizer
-  const [rawEvents, setRawEvents] = useState<MatchEvent[]>([]);
-  const [aggregatedData, setAggregatedData] = useState<AggregatedStats | null>(null);
-  const [ballTrackingData, setBallTrackingData] = useState<BallTrackingPoint[]>([]);
-  const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
-  const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
-  const [homeTeamInfo, setHomeTeamInfo] = useState<Partial<Team>>({ name: 'Home Team', formation: '4-4-2' });
-  const [awayTeamInfo, setAwayTeamInfo] = useState<Partial<Team>>({ name: 'Away Team', formation: '4-3-3' });
+const Statistics = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [matches, setMatches] = useState<any[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<string>('');
+  const [statistics, setStatistics] = useState<StatsType>({
+    possession: { home: 0, away: 0 },
+    passes: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } },
+    shots: { home: { total: 0, onTarget: 0 }, away: { total: 0, onTarget: 0 } },
+    fouls: { home: 0, away: 0 },
+    corners: { home: 0, away: 0 },
+    offsides: { home: 0, away: 0 },
+    throws: { home: 0, away: 0 },
+    cards: { home: { yellow: 0, red: 0 }, away: { yellow: 0, red: 0 } }
+  });
+  const [ballData, setBallData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMatchDataAndEvents = async () => {
-      setLoading(true);
-      try {
-        // 1. Fetch the latest match details
-        const { data: matchDetails, error: matchError } = await supabase
-          .from('matches')
-          .select('id, match_statistics, ball_tracking_data, home_team_name, away_team_name, home_team_players, away_team_players, home_team_formation, away_team_formation')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (matchError) {
-          console.error('Error fetching latest match:', matchError);
-          setLoading(false);
-          return;
-        }
-
-        if (!matchDetails) {
-          console.log('No match details found.');
-          setLoading(false);
-          return;
-        }
-
-        // Set team names and formations
-        setHomeTeamInfo({ name: matchDetails.home_team_name || 'Home Team', formation: matchDetails.home_team_formation || '4-4-2' });
-        setAwayTeamInfo({ name: matchDetails.away_team_name || 'Away Team', formation: matchDetails.away_team_formation || '4-3-3' });
-
-        // Parse player data
-        // Ensure players have id, name, and number (jersey_number)
-        const parsePlayers = (playerData: any): Player[] => {
-          if (!Array.isArray(playerData)) {
-            try {
-              // Attempt to parse if it's a JSON string
-              const parsed = JSON.parse(playerData as string);
-              if (Array.isArray(parsed)) playerData = parsed;
-              else return [];
-            } catch (e) {
-              console.warn('Player data is not an array or valid JSON string:', playerData);
-              return [];
-            }
-          }
-          return playerData.map((p: any) => ({
-            id: String(p.id || p.player_id || `unknown-${Math.random()}`), // Ensure ID exists
-            name: p.name || p.player_name || 'Unknown Player',
-            number: p.number || p.jersey_number || 0,
-            position: p.position || 'Unknown', // Add position if available
-            teamId: p.team_id // Add teamId if available
-          }));
-        };
-
-        const homePlayers = parsePlayers(matchDetails.home_team_players);
-        const awayPlayers = parsePlayers(matchDetails.away_team_players);
-        setHomeTeamPlayers(homePlayers);
-        setAwayTeamPlayers(awayPlayers);
-
-        // 2. Fetch match_events for this match
-        const { data: eventsData, error: eventsError } = await supabase
-          .from('match_events')
-          .select('*')
-          .eq('match_id', matchDetails.id);
-
-        if (eventsError) {
-          console.error('Error fetching match events:', eventsError);
-          // Continue without events if necessary, or handle error more strictly
-        }
-        setRawEvents(eventsData || []);
-
-        // 3. Aggregate events
-        const aggregated = aggregateMatchEvents(eventsData || [], homePlayers, awayPlayers);
-        setAggregatedData(aggregated);
-
-        // 4. Adapt aggregatedData to the existing StatisticsType for MatchStatsVisualizer
-        // This is a temporary step. Ideally, MatchStatsVisualizer would use AggregatedStats.
-        if (aggregated) {
-          const adaptedStats: StatisticsType = {
-            possession: { home: aggregated.homeTeamStats.possession, away: aggregated.awayTeamStats.possession }, // Placeholder
-            shots: {
-              home: { onTarget: aggregated.homeTeamStats.shotsOnTarget, offTarget: aggregated.homeTeamStats.shots - aggregated.homeTeamStats.shotsOnTarget, total: aggregated.homeTeamStats.shots },
-              away: { onTarget: aggregated.awayTeamStats.shotsOnTarget, offTarget: aggregated.awayTeamStats.shots - aggregated.awayTeamStats.shotsOnTarget, total: aggregated.awayTeamStats.shots },
-            },
-            corners: { home: aggregated.homeTeamStats.corners, away: aggregated.awayTeamStats.corners },
-            fouls: { home: aggregated.homeTeamStats.foulsCommitted, away: aggregated.awayTeamStats.foulsCommitted },
-            offsides: { home: aggregated.homeTeamStats.offsides, away: aggregated.awayTeamStats.offsides },
-            passes: {
-              home: { successful: aggregated.homeTeamStats.passesCompleted, attempted: aggregated.homeTeamStats.passesAttempted },
-              away: { successful: aggregated.awayTeamStats.passesCompleted, attempted: aggregated.awayTeamStats.passesAttempted },
-            },
-            // These might not be in StatisticsType, add if necessary or ignore
-            ballsPlayed: { home: 0, away: 0 }, // Placeholder
-            ballsLost: { home: 0, away: 0 }, // Placeholder
-            duels: { home: {}, away: {} }, // Placeholder
-            crosses: { home: {total: aggregated.homeTeamStats.crosses}, away: {total: aggregated.awayTeamStats.crosses} }, // Placeholder
-          };
-          setStats(adaptedStats);
-        }
-
-        // Set ball tracking data (remains the same)
-        const ballData = matchDetails.ball_tracking_data;
-        if (ballData && Array.isArray(ballData)) {
-          const validBallData: BallTrackingPoint[] = ballData
-            .filter((item): item is any => item !== null && typeof item === 'object')
-            .map(item => item as BallTrackingPoint);
-          setBallTrackingData(validBallData);
-        }
-
-      } catch (error) {
-        console.error('Error in fetchMatchDataAndEvents:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMatchDataAndEvents();
+    fetchMatches();
   }, []);
 
-  const chartDataConfig = useMemo(() => {
-    if (!aggregatedData) return null;
-    const homeName = homeTeamInfo?.name || 'Home';
-    const awayName = awayTeamInfo?.name || 'Away';
+  useEffect(() => {
+    if (selectedMatch) {
+      fetchMatchData(selectedMatch);
+    }
+  }, [selectedMatch]);
 
-    // Using direct hex codes for simplicity, replace with CSS variables if theme is set up
-    const homeColor = "#1E90FF"; // DodgerBlue
-    const awayColor = "#FF6347"; // Tomato
-    const homeTargetColor = "#6495ED"; // CornflowerBlue (lighter blue)
-    const awayTargetColor = "#FFA07A"; // LightSalmon (lighter red)
-    const yellowCardColor = "#FFD700"; // Gold
-    const redCardColor = "#DC143C"; // Crimson
+  const fetchMatches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('id, name, home_team_name, away_team_name, match_date, status')
+        .order('match_date', { ascending: false });
 
-    return {
-      fouls: [
-        { name: homeName, value: aggregatedData.homeTeamStats.foulsCommitted, fill: homeColor },
-        { name: awayName, value: aggregatedData.awayTeamStats.foulsCommitted, fill: awayColor },
-      ],
-      shots: [
-        { team: homeName, "Total Shots": aggregatedData.homeTeamStats.shots, "On Target": aggregatedData.homeTeamStats.shotsOnTarget, fillTotal: homeColor, fillTarget: homeTargetColor },
-        { team: awayName, "Total Shots": aggregatedData.awayTeamStats.shots, "On Target": aggregatedData.awayTeamStats.shotsOnTarget, fillTotal: awayColor, fillTarget: awayTargetColor },
-      ],
-      goals: [
-        { name: homeName, value: aggregatedData.homeTeamStats.goals, fill: homeColor },
-        { name: awayName, value: aggregatedData.awayTeamStats.goals, fill: awayColor },
-      ],
-      corners: [
-        { name: homeName, value: aggregatedData.homeTeamStats.corners, fill: homeColor },
-        { name: awayName, value: aggregatedData.awayTeamStats.corners, fill: awayColor },
-      ],
-      offsides: [
-        { name: homeName, value: aggregatedData.homeTeamStats.offsides, fill: homeColor },
-        { name: awayName, value: aggregatedData.awayTeamStats.offsides, fill: awayColor },
-      ],
-      cards: [
-        { team: homeName, "Yellow Cards": aggregatedData.homeTeamStats.yellowCards, "Red Cards": aggregatedData.homeTeamStats.redCards, fillYellow: yellowCardColor, fillRed: redCardColor },
-        { team: awayName, "Yellow Cards": aggregatedData.awayTeamStats.yellowCards, "Red Cards": aggregatedData.awayTeamStats.redCards, fillYellow: yellowCardColor, fillRed: redCardColor },
-      ]
-    };
-  }, [aggregatedData, homeTeamInfo, awayTeamInfo]);
+      if (error) throw error;
+      setMatches(data || []);
+      
+      if (data && data.length > 0) {
+        setSelectedMatch(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load matches",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const fetchMatchData = async (matchId: string) => {
+    try {
+      setLoading(true);
+      
+      // Fetch match details with statistics and ball tracking data
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select('match_statistics, ball_tracking_data, home_team_name, away_team_name')
+        .eq('id', matchId)
+        .single();
 
-  // Prepare full Team objects for visualizations
-  const homeTeamForViz: Team | null = homeTeamInfo.name ? {
-    id: 'home',
-    name: homeTeamInfo.name,
-    formation: homeTeamInfo.formation as any,
-    players: homeTeamPlayers
-  } : null;
+      if (matchError) throw matchError;
 
-  const awayTeamForViz: Team | null = awayTeamInfo.name ? {
-    id: 'away',
-    name: awayTeamInfo.name,
-    formation: awayTeamInfo.formation as any,
-    players: awayTeamPlayers
-  } : null;
+      if (matchData?.match_statistics) {
+        setStatistics(matchData.match_statistics as StatsType);
+      }
 
+      // Process ball tracking data
+      if (matchData?.ball_tracking_data) {
+        const ballTrackingArray = Array.isArray(matchData.ball_tracking_data) 
+          ? matchData.ball_tracking_data 
+          : [];
+        
+        const ballDataFiltered = ballTrackingArray.filter(point => 
+          point && 
+          typeof point.x === 'number' && 
+          typeof point.y === 'number' &&
+          !isNaN(point.x) && 
+          !isNaN(point.y)
+        );
+        
+        setBallData(ballDataFiltered);
+      } else {
+        setBallData([]);
+      }
+
+    } catch (error) {
+      console.error('Error fetching match data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load match data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedMatchData = matches.find(m => m.id === selectedMatch);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading statistics...</div>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Match Statistics</h1>
+        </div>
+        <div className="text-center py-8">Loading statistics...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-8">
-      <h1 className="text-3xl font-bold text-center mb-8">Match Statistics</h1>
-
-      {loading && (
-        <div className="flex flex-col items-center justify-center min-h-[300px]">
-          {/* Optional: Add a spinner here */}
-          <p className="text-lg text-muted-foreground">Loading statistics...</p>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Match Statistics</h1>
         </div>
-      )}
+        
+        <Select value={selectedMatch} onValueChange={setSelectedMatch}>
+          <SelectTrigger className="w-80">
+            <SelectValue placeholder="Select a match" />
+          </SelectTrigger>
+          <SelectContent>
+            {matches.map((match) => (
+              <SelectItem key={match.id} value={match.id}>
+                {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {!loading && !aggregatedData && rawEvents.length === 0 && (
-         <Card>
-           <CardContent className="py-12">
-             <p className="text-center text-xl text-muted-foreground">
-               No match data found to generate statistics.
-             </p>
-             <p className="text-center text-sm text-muted-foreground mt-2">
-               Please ensure a match has been played and events are recorded.
-             </p>
-           </CardContent>
-         </Card>
-      )}
-      
-      {!loading && !aggregatedData && rawEvents.length > 0 && (
-         <Card>
-           <CardContent className="py-12">
-             <p className="text-center text-xl text-muted-foreground">
-               Aggregating statistics...
-             </p>
-             <p className="text-center text-sm text-muted-foreground mt-2">
-               This may take a moment for matches with many events.
-             </p>
-           </CardContent>
-         </Card>
-      )}
-
-      {aggregatedData && chartDataConfig && (
+      {selectedMatchData && (
         <>
-          {/* Team Stats Charts Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Goals Chart */}
+          {/* Match Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedMatchData.name || `${selectedMatchData.home_team_name} vs ${selectedMatchData.away_team_name}`}</CardTitle>
+              <CardDescription>
+                {selectedMatchData.match_date && `Match Date: ${new Date(selectedMatchData.match_date).toLocaleDateString()}`}
+                {selectedMatchData.status && ` • Status: ${selectedMatchData.status}`}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          {/* Key Metrics Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardHeader><CardTitle>Goals</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Passes</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.goals} accessibilityLayer>
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Bar dataKey="value" radius={4} /> {/* fill will be picked from data */}
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-2xl font-bold">
+                  {(statistics.passes?.home?.total || 0) + (statistics.passes?.away?.total || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Home: {statistics.passes?.home?.total || 0} • Away: {statistics.passes?.away?.total || 0}
+                </p>
               </CardContent>
             </Card>
 
-            {/* Shots Chart */}
             <Card>
-              <CardHeader><CardTitle>Shots</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Shots</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.shots} accessibilityLayer>
-                    <XAxis dataKey="team" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Legend wrapperStyle={{fontSize: "12px"}}/>
-                    <Bar dataKey="Total Shots" stackId="shots" fill={chartDataConfig.shots[0]?.fillTotal || '#8884d8'} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="On Target" stackId="shots" fill={chartDataConfig.shots[0]?.fillTarget || '#82ca9d'} radius={[4, 4, 0, 0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-2xl font-bold">
+                  {(statistics.shots?.home?.total || 0) + (statistics.shots?.away?.total || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Home: {statistics.shots?.home?.total || 0} • Away: {statistics.shots?.away?.total || 0}
+                </p>
               </CardContent>
             </Card>
 
-            {/* Fouls Chart */}
             <Card>
-              <CardHeader><CardTitle>Fouls Committed</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ball Tracking Points</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.fouls} accessibilityLayer>
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Bar dataKey="value" radius={4} /> {/* fill from data */}
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-2xl font-bold">{ballData.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Tracked ball positions
+                </p>
               </CardContent>
             </Card>
 
-            {/* Cards Chart */}
             <Card>
-              <CardHeader><CardTitle>Disciplinary Cards</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Fouls</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.cards} accessibilityLayer>
-                    <XAxis dataKey="team" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Legend wrapperStyle={{fontSize: "12px"}}/>
-                    <Bar dataKey="Yellow Cards" stackId="cards" fill={chartDataConfig.cards[0]?.fillYellow || '#FFEB3B'} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Red Cards" stackId="cards" fill={chartDataConfig.cards[0]?.fillRed || '#F44336'} radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Corners Chart */}
-            <Card>
-              <CardHeader><CardTitle>Corners</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.corners} accessibilityLayer>
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Bar dataKey="value" radius={4} /> {/* fill from data */}
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Offsides Chart */}
-            <Card>
-              <CardHeader><CardTitle>Offsides</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartDataConfig.offsides} accessibilityLayer>
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false}/>
-                    <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                    <Bar dataKey="value" radius={4} /> {/* fill from data */}
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-2xl font-bold">
+                  {(statistics.fouls?.home || 0) + (statistics.fouls?.away || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Home: {statistics.fouls?.home || 0} • Away: {statistics.fouls?.away || 0}
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Player Stats Table */}
-          {aggregatedData.playerStats.length > 0 && (
-            <Card className="mt-8">
-              <CardHeader><CardTitle>Player Statistics</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Player</TableHead>
-                      <TableHead className="text-center">Team</TableHead>
-                      <TableHead className="text-right">G</TableHead>
-                      <TableHead className="text-right">A</TableHead>
-                      <TableHead className="text-right">Sh</TableHead>
-                      <TableHead className="text-right">SoT</TableHead>
-                      <TableHead className="text-right">Pass (Cmp)</TableHead>
-                      <TableHead className="text-right">Fouls</TableHead>
-                      <TableHead className="text-center">YC</TableHead>
-                      <TableHead className="text-center">RC</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {aggregatedData.playerStats.sort((a,b) => b.goals - a.goals || b.assists - a.assists || b.shots - a.shots).map((player) => (
-                      <TableRow key={`${player.playerId}-${player.team}`}>
-                        <TableCell className="font-medium">{player.playerName}{player.jerseyNumber ? ` (#${player.jerseyNumber})` : ''}</TableCell>
-                        <TableCell className="text-center capitalize">{player.team}</TableCell>
-                        <TableCell className="text-right">{player.goals}</TableCell>
-                        <TableCell className="text-right">{player.assists}</TableCell>
-                        <TableCell className="text-right">{player.shots}</TableCell>
-                        <TableCell className="text-right">{player.shotsOnTarget}</TableCell>
-                        <TableCell className="text-right">{player.passesAttempted} ({player.passesCompleted})</TableCell>
-                        <TableCell className="text-right">{player.foulsCommitted}</TableCell>
-                        <TableCell className="text-center">{player.yellowCards > 0 ? player.yellowCards : '-'}</TableCell>
-                        <TableCell className="text-center">{player.redCards > 0 ? player.redCards : '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+          {/* Visualizations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MatchStatsVisualizer 
+              statistics={statistics}
+              homeTeamName={selectedMatchData.home_team_name}
+              awayTeamName={selectedMatchData.away_team_name}
+            />
+            
+            <MatchRadarChart 
+              statistics={statistics}
+              homeTeamName={selectedMatchData.home_team_name}
+              awayTeamName={selectedMatchData.away_team_name}
+            />
+          </div>
+
+          {ballData.length > 0 && (
+            <>
+              <BallFlowVisualization ballData={ballData} />
+              <PlayerHeatmap ballData={ballData} />
+            </>
           )}
 
-          {/* Existing MatchStatsVisualizer and BallFlowVisualization can remain for now or be phased out */}
-          {stats && homeTeamForViz && awayTeamForViz && (
-            <div className="mt-8 opacity-50 hover:opacity-100 transition-opacity"> {/* Visually de-emphasize old viz */}
-              <h2 className="text-xl font-semibold text-center my-4 text-muted-foreground">(Legacy Stats Visualizer)</h2>
-              <MatchStatsVisualizer
-                homeTeam={homeTeamForViz}
-                awayTeam={awayTeamForViz}
-                events={rawEvents}
-                ballTrackingPoints={ballTrackingData}
-                timeSegments={[]}
-                ballTrackingData={ballTrackingData} // Pass existing ballTrackingData
-              />
-            </div>
-          )}
-          {ballTrackingData.length > 0 && homeTeamForViz && awayTeamForViz && (
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Ball Movement Visualization</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BallFlowVisualization 
-                  ballTrackingPoints={ballTrackingData} 
-                  homeTeam={homeTeamForViz}
-                  awayTeam={awayTeamForViz}
-                />
-              </CardContent>
-            </Card>
-          )}
+          <TeamTimeSegmentCharts statistics={statistics} />
         </>
       )}
-       {/* This specific condition might be redundant if the one above covers it,
-           but kept for explicitness if there's a state where rawEvents exist,
-           aggregation is done, but aggregatedData is still null (e.g. error in aggregation)
-           However, the current logic sets aggregatedData even if empty.
-           So, the main conditions are: loading, no data at all, or has data.
-        */}
     </div>
   );
 };
