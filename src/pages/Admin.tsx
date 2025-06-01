@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +9,7 @@ import MatchManagement from '@/components/admin/MatchManagement';
 import EventAssignments from '@/components/admin/EventAssignments';
 import PlayerAssignments from '@/components/admin/PlayerAssignments';
 import AuditLogs from '@/components/admin/AuditLogs';
+import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Match {
@@ -76,7 +76,7 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-6 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-7 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
@@ -85,6 +85,9 @@ const Admin: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="events" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Events' : 'Event Assignments'}
+          </TabsTrigger>
+          <TabsTrigger value="battery" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            Battery
           </TabsTrigger>
           {!isMobile && (
             <>
@@ -116,6 +119,10 @@ const Admin: React.FC = () => {
 
         <TabsContent value="events" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <EventAssignments />
+        </TabsContent>
+
+        <TabsContent value="battery" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <TrackerBatteryMonitor />
         </TabsContent>
 
         {isMobile ? (

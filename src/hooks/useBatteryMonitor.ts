@@ -26,11 +26,21 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
       setLevel(batteryLevel);
       setCharging(battery.charging);
 
-      // Try to report to database, but don't fail if table doesn't exist
+      // Report to database using upsert to handle both insert and update
       try {
-        // Since tracker_device_status table doesn't exist, we'll skip database updates
-        // In a real implementation, you would need to create this table first
-        console.log('Battery status:', { level: batteryLevel, charging: battery.charging });
+        const { error } = await supabase
+          .from('tracker_device_status')
+          .upsert({
+            user_id: userId,
+            battery_level: batteryLevel,
+            last_updated_at: new Date().toISOString()
+          });
+
+        if (error) {
+          console.error('Error updating battery status to Supabase:', error);
+        } else {
+          console.log('Battery status updated:', { level: batteryLevel, charging: battery.charging });
+        }
       } catch (error) {
         console.error('Error updating battery status to Supabase:', error);
       }
