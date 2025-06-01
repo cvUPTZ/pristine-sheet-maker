@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
-import PushNotificationService from '@/services/PushNotificationService';
+import { PushNotificationService } from '@/services/pushNotificationService';
 
 interface NotificationData {
   assigned_event_types?: string[];

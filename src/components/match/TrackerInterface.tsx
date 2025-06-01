@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -113,7 +112,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       </Card>
       
       <div className="w-full">
-        <TrackerPianoInput matchId={matchId} trackerId={trackerUserId} />
+        <TrackerPianoInput matchId={matchId} />
       </div>
     </div>
   );

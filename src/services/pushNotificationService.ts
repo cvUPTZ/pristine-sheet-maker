@@ -1,5 +1,5 @@
 
-import { PushNotifications } from '@capacitor/push-notifications';
+import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
@@ -27,23 +27,23 @@ export class PushNotificationService {
 
   static setupListeners() {
     // On success, we should be able to receive notifications
-    PushNotifications.addListener('registration', (token) => {
+    PushNotifications.addListener('registration', (token: Token) => {
       console.log('Push registration success, token: ' + token.value);
       // Send this token to your server to enable push notifications
     });
 
     // Some issue with our setup and push will not work
-    PushNotifications.addListener('registrationError', (error) => {
+    PushNotifications.addListener('registrationError', (error: any) => {
       console.error('Error on registration: ' + JSON.stringify(error));
     });
 
     // Show us the notification payload if the app is open on our device
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
       console.log('Push notification received: ', notification);
     });
 
     // Method called when tapping on a notification
-    PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+    PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
       console.log('Push notification action performed', notification.actionId, notification.inputValue);
     });
   }
