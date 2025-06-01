@@ -1,15 +1,14 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Users, Target } from 'lucide-react';
+import { Trash2, Users, Target, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import SpecializedTrackerAssignment from '@/components/admin/SpecializedTrackerAssignment';
+import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
 
 interface TrackerUser {
   id: string;
@@ -42,7 +41,6 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   const [trackerUsers, setTrackerUsers] = useState<TrackerUser[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedTracker, setSelectedTracker] = useState<string>('');
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -60,7 +58,6 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
       if (error) throw error;
 
-      // Transform data to handle nullable fields
       const typedUsers: TrackerUser[] = (data || [])
         .filter(user => user.id)
         .map(user => ({
@@ -97,7 +94,6 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
       if (error) throw error;
 
-      // Transform the data to match our Assignment interface
       const transformedAssignments: Assignment[] = (data || [])
         .filter(item => item.id && item.tracker_user_id)
         .map(item => ({
@@ -126,13 +122,12 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
 
     setLoading(true);
     try {
-      // For general assignments, we use a default team value since player_team_id is required in the schema
       const { error } = await supabase
         .from('match_tracker_assignments')
         .insert({
           match_id: matchId,
           tracker_user_id: selectedTracker,
-          player_team_id: 'home' // Default value for general assignments
+          player_team_id: 'home'
         });
 
       if (error) throw error;
@@ -170,9 +165,10 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
   return (
     <div className="space-y-6">
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="general">General Assignment</TabsTrigger>
           <TabsTrigger value="specialized">Specialized Assignment</TabsTrigger>
+          <TabsTrigger value="absence">Absence Management</TabsTrigger>
         </TabsList>
         
         <TabsContent value="general" className="mt-6">
@@ -235,10 +231,26 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
             awayTeamPlayers={awayTeamPlayers}
           />
         </TabsContent>
+
+        <TabsContent value="absence" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Tracker Absence Management
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Monitor tracker activity and manage replacements for absent trackers
+              </p>
+            </CardHeader>
+            <CardContent>
+              <TrackerAbsenceManager matchId={matchId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default TrackerAssignment;
-

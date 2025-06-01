@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { CheckCircle, AlertCircle, Clock, Users, Target, UserCheck } from 'lucide-react';
+import TrackerAbsenceManager from './TrackerAbsenceManager';
 
 interface Match {
   id: string;
@@ -22,9 +22,9 @@ interface TrackerAssignment {
   id: string;
   match_id: string;
   tracker_user_id: string;
-  player_id?: number;
+  player_id?: number | null;
   player_team_id?: 'home' | 'away';
-  assigned_event_types?: string[];
+  assigned_event_types?: string[] | null;
   tracker_name?: string;
   tracker_email?: string;
 }
@@ -43,6 +43,7 @@ const MatchTrackingMatrix: React.FC = () => {
   const [matrixData, setMatrixData] = useState<MatrixData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<string>('all');
+  const [showAbsenceManager, setShowAbsenceManager] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMatrixData();
@@ -79,8 +80,27 @@ const MatchTrackingMatrix: React.FC = () => {
       // Process data into matrix format
       const processedData: MatrixData[] = (matches || []).map(match => {
         const matchAssignments = (assignments || []).filter(a => a.match_id === match.id);
-        const generalTrackers = matchAssignments.filter(a => !a.player_id);
-        const specializedTrackers = matchAssignments.filter(a => a.player_id);
+        const generalTrackers = matchAssignments.filter(a => !a.player_id).map(a => ({
+          id: a.id,
+          match_id: a.match_id,
+          tracker_user_id: a.tracker_user_id,
+          player_id: a.player_id || undefined,
+          player_team_id: a.player_team_id as 'home' | 'away' | undefined,
+          assigned_event_types: a.assigned_event_types || undefined,
+          tracker_name: (a.profiles as any)?.full_name || undefined,
+          tracker_email: (a.profiles as any)?.email || undefined,
+        }));
+        
+        const specializedTrackers = matchAssignments.filter(a => a.player_id).map(a => ({
+          id: a.id,
+          match_id: a.match_id,
+          tracker_user_id: a.tracker_user_id,
+          player_id: a.player_id || undefined,
+          player_team_id: a.player_team_id as 'home' | 'away' | undefined,
+          assigned_event_types: a.assigned_event_types || undefined,
+          tracker_name: (a.profiles as any)?.full_name || undefined,
+          tracker_email: (a.profiles as any)?.email || undefined,
+        }));
 
         return {
           match: {
@@ -92,7 +112,7 @@ const MatchTrackingMatrix: React.FC = () => {
           totalTrackers: matchAssignments.length,
           eventsAssigned: specializedTrackers.reduce((acc, t) => acc + (t.assigned_event_types?.length || 0), 0),
           playersAssigned: new Set(specializedTrackers.map(t => t.player_id)).size,
-          replacementsDefined: 0 // This would need additional data from replacement system
+          replacementsDefined: 0
         };
       });
 
@@ -142,6 +162,25 @@ const MatchTrackingMatrix: React.FC = () => {
 
   if (loading) {
     return <div className="p-4">Loading tracking matrix...</div>;
+  }
+
+  if (showAbsenceManager) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAbsenceManager(null)}
+          >
+            ← Back to Matrix
+          </Button>
+          <h2 className="text-lg font-semibold">
+            Absence Management - Match {showAbsenceManager.slice(-4)}
+          </h2>
+        </div>
+        <TrackerAbsenceManager matchId={showAbsenceManager} />
+      </div>
+    );
   }
 
   return (
@@ -203,6 +242,7 @@ const MatchTrackingMatrix: React.FC = () => {
                     </div>
                   </TableHead>
                   <TableHead className="text-center">Completion</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -270,6 +310,17 @@ const MatchTrackingMatrix: React.FC = () => {
                           </div>
                           <span className="text-xs">{getCompletionPercentage(data)}%</span>
                         </div>
+                      </TableCell>
+
+                      <TableCell className="text-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowAbsenceManager(data.match.id)}
+                          className="text-xs"
+                        >
+                          Manage Absence
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
