@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// src/components/CreateUserDialog.tsx
+
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,24 +8,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from '@/components/ui/dialog'; // Adjust path if needed
+import { supabase } from '@/integrations/supabase/client'; // Adjust path to your supabase client
+import { Button } from '@/components/ui/button'; // Adjust path if needed
+import { Input } from '@/components/ui/input'; // Adjust path if needed
+import { Label } from '@/components/ui/label'; // Adjust path if needed
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/select'; // Adjust path if needed
 import { toast } from 'sonner';
 
 interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUserCreated: () => void;
+  onUserCreated: () => void; // Callback after successful user creation
 }
 
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
@@ -35,303 +37,16 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     email: '',
     password: '',
     fullName: '',
-    role: 'user',
+    role: 'user', // Default role
   });
   const [loading, setLoading] = useState(false);
 
-  // Optional: Test function connectivity (can be called manually for debugging)
-  const testFunctionConnectivity = async () => {
-    try {
-      console.log('Testing function connectivity...');
-      
-      // Get session first
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.error('Session error:', sessionError);
-        return;
-      }
-
-      console.log('Session found, testing function...');
-      
-      // Test with a simple OPTIONS request first
-      const optionsResponse = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
-        method: 'OPTIONS',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('OPTIONS response status:', optionsResponse.status);
-      console.log('OPTIONS response headers:', [...optionsResponse.headers.entries()]);
-      
-      if (optionsResponse.ok) {
-        console.log('OPTIONS request successful - function endpoint exists');
-        
-        // Now test the actual function call with test data
-        const testData = {
-          email: 'test@example.com',
-          password: 'test123456',
-          fullName: 'Test User',
-          role: 'user'
-        };
-        
-        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(testData),
-        });
-        
-        console.log('POST response status:', response.status);
-        const responseText = await response.text();
-        console.log('POST response body:', responseText);
-        
-      } else {
-        console.error('OPTIONS request failed - function might not be deployed');
-      }
-      
-    } catch (error) {
-      console.error('Direct fetch test failed:', error);
+  // Reset form when dialog is closed or reopened
+  useEffect(() => {
+    if (open) {
+      handleReset();
     }
-  };
-
-  const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.fullName) {
-      toast.error('Please fill in all required fields');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return false;
-    }
-
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters long');
-      return false;
-    }
-
-    return true;
-  };
-
-  const getAuthSession = async () => {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError) {
-      console.error('Session error:', sessionError);
-      throw new Error('Session error. Please log in again.');
-    }
-
-    if (!session || !session.access_token) {
-      throw new Error('Authentication token not found. Please log in again.');
-    }
-
-    return session;
-  };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // Replace your handleSubmit function with this alternative approach
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  if (!formData.email || !formData.password || !formData.fullName) {
-    toast.error('Please fill in all required fields');
-    return;
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(formData.email)) {
-    toast.error('Please enter a valid email address');
-    return;
-  }
-
-  if (formData.password.length < 6) {
-    toast.error('Password must be at least 6 characters long');
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Get auth token for the request
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError) {
-      console.error('Session error:', sessionError);
-      toast.error('Session error. Please log in again.');
-      return;
-    }
-
-    if (!session || !session.access_token) {
-      toast.error('Authentication token not found. Please log in again.');
-      return;
-    }
-
-    console.log('Making direct fetch request...');
-
-    // Use direct fetch instead of supabase.functions.invoke
-    const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
-    console.log('Function URL:', functionUrl);
-
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-        'apikey': supabase.supabaseKey, // Add the anon key
-      },
-      body: JSON.stringify({
-        email: formData.email.toLowerCase().trim(),
-        password: formData.password,
-        fullName: formData.fullName.trim(),
-        role: formData.role,
-      }),
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Response headers:', [...response.headers.entries()]);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Response error:', errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log('Success response:', result);
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    toast.success('User created successfully!');
-    onUserCreated();
-    setFormData({ email: '', password: '', fullName: '', role: 'user' });
-    onOpenChange(false);
-
-  } catch (error) {
-    console.error('Error creating user:', error);
-    
-    let errorMessage = 'Failed to create user';
-    
-    if (error instanceof Error) {
-      if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to server. Please check your internet connection.';
-      } else if (error.message.includes('HTTP 404')) {
-        errorMessage = 'Edge function not found. Please ensure it is deployed.';
-      } else if (error.message.includes('HTTP 401')) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (error.message.includes('HTTP 403')) {
-        errorMessage = 'Access denied. You need admin privileges.';
-      } else {
-        errorMessage = error.message;
-      }
-    }
-    
-    toast.error(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
-  
-
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-
-  //   if (!validateForm()) {
-  //     return;
-  //   }
-
-  //   setLoading(true);
-
-  //   try {
-  //     // Get authentication session
-  //     const session = await getAuthSession();
-
-  //     console.log('Calling create-user function with data:', {
-  //       email: formData.email.toLowerCase().trim(),
-  //       fullName: formData.fullName.trim(),
-  //       role: formData.role,
-  //       // Don't log password for security
-  //     });
-
-  //     // Call the Edge Function to create the user
-  //     const { data, error } = await supabase.functions.invoke('create-user', {
-  //       body: {
-  //         email: formData.email.toLowerCase().trim(),
-  //         password: formData.password,
-  //         fullName: formData.fullName.trim(),
-  //         role: formData.role,
-  //       },
-  //       headers: {
-  //         Authorization: `Bearer ${session.access_token}`,
-  //         'Content-Type': 'application/json',
-  //       },
-  //     });
-
-  //     console.log('Function response:', { data, error });
-
-  //     if (error) {
-  //       console.error('Function error:', error);
-        
-  //       // Handle specific error types
-  //       if (error.message?.includes('Failed to fetch')) {
-  //         throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
-  //       } else if (error.message?.includes('FunctionsFetchError')) {
-  //         throw new Error('Server connection failed. Please try again later.');
-  //       } else {
-  //         throw new Error(error.message || 'Failed to create user');
-  //       }
-  //     }
-
-  //     if (data?.error) {
-  //       throw new Error(data.error);
-  //     }
-
-  //     toast.success('User created successfully!');
-  //     onUserCreated();
-  //     handleReset();
-  //     onOpenChange(false);
-      
-  //   } catch (error) {
-  //     console.error('Error creating user:', error);
-  //     let errorMessage = 'Failed to create user';
-      
-  //     if (error instanceof Error) {
-  //       errorMessage = error.message;
-  //     } else if (typeof error === 'string') {
-  //       errorMessage = error;
-  //     }
-      
-  //     toast.error(errorMessage);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const handleReset = () => {
-    setFormData({ email: '', password: '', fullName: '', role: 'user' });
-  };
+  }, [open]);
 
   const handleInputChange = (field: keyof typeof formData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -343,16 +58,178 @@ const handleSubmit = async (e: React.FormEvent) => {
     setFormData(prev => ({ ...prev, role: value }));
   };
 
-  // Uncomment the line below if you want to test connectivity on component mount
-  // React.useEffect(() => { testFunctionConnectivity(); }, []);
+  const handleReset = () => {
+    setFormData({
+      email: '',
+      password: '',
+      fullName: '',
+      role: 'user',
+    });
+    setLoading(false); // Reset loading state as well
+  };
+
+  const validateForm = () => {
+    if (!formData.email || !formData.password || !formData.fullName) {
+      toast.error('Please fill in all required fields (Full Name, Email, Password).');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address.');
+      return false;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long.');
+      return false;
+    }
+    return true;
+  };
+
+  const testFunctionConnectivity = async () => {
+    setLoading(true);
+    toast.info("Testing Edge Function connectivity...");
+    try {
+      console.log('Testing function connectivity...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error('Session error during test:', sessionError);
+        toast.error('Could not get session for testing. Please log in.');
+        setLoading(false);
+        return;
+      }
+      console.log('Session acquired for testing.');
+
+      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      console.log(`Testing OPTIONS request to: ${functionUrl}`);
+
+      // Test OPTIONS request
+      const optionsResponse = await fetch(functionUrl, {
+        method: 'OPTIONS',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': supabase.supabaseKey, // Important: Supabase anon key
+        },
+      });
+
+      console.log('OPTIONS response status:', optionsResponse.status);
+      console.log('OPTIONS response headers:');
+      optionsResponse.headers.forEach((value, key) => console.log(`${key}: ${value}`));
+
+      if (!optionsResponse.ok) {
+        toast.error(`OPTIONS request failed: ${optionsResponse.status}. Check console & function CORS settings.`);
+        setLoading(false);
+        return;
+      }
+      console.log('OPTIONS request successful.');
+      toast.success('OPTIONS request successful. Basic connectivity and CORS seem OK.');
+
+    } catch (error) {
+      console.error('Direct fetch test failed:', error);
+      if (error instanceof TypeError && error.message.toLowerCase().includes("failed to fetch")) {
+        toast.error('Test failed: Network error or CORS issue preventing OPTIONS request. Check browser console Network tab.');
+      } else if (error instanceof Error) {
+        toast.error(`Test failed: ${error.message}`);
+      } else {
+        toast.error('Test failed with an unknown error.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        console.error('Session error:', sessionError);
+        toast.error(sessionError?.message || 'Authentication token not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      console.log('Calling Supabase function for user creation:', functionUrl);
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': supabase.supabaseKey, // Supabase anon key is required by the function for Supabase client init
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email.toLowerCase().trim(),
+          password: formData.password,
+          fullName: formData.fullName.trim(),
+          role: formData.role,
+        }),
+      });
+
+      console.log('Create user function response status:', response.status);
+      console.log('Create user function response headers:');
+      response.headers.forEach((value,key) => console.log(`${key}: ${value}`));
+
+      const responseBody = await response.text(); // Get text first for better error diagnosis
+
+      if (!response.ok) {
+        console.error('Function returned an error. Status:', response.status, 'Body:', responseBody);
+        let errorMessage = `Server error: ${response.status}`;
+        try {
+          const errorJson = JSON.parse(responseBody);
+          errorMessage = errorJson.error || errorJson.message || errorMessage;
+        } catch (parseError) {
+          // If not JSON, use the raw text if it's not too long, or a generic message
+          errorMessage = responseBody.length < 200 ? responseBody : errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseBody); // Now parse if response.ok
+      console.log('Function success response:', result);
+
+      if (result.error) { // Check for application-level errors in the JSON response
+        throw new Error(result.error);
+      }
+
+      toast.success(result.message || 'User created successfully!');
+      onUserCreated(); // Call callback
+      // handleReset(); // Reset form - useEffect will handle this if `open` changes
+      onOpenChange(false); // Close dialog
+
+    } catch (error) {
+      console.error('Error creating user:', error);
+      let errorMessage = 'Failed to create user.';
+      if (error instanceof TypeError && error.message.toLowerCase().includes("failed to fetch")) {
+        errorMessage = 'Network error or CORS misconfiguration. Check browser console (Network tab) and Supabase function logs.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
           <DialogDescription>
-            Add a new user to the system. They will be able to log in immediately.
+            Add a new user to the system. They will be able to log in with the provided credentials.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -363,7 +240,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 id="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange('fullName')}
-                placeholder="Enter full name"
+                placeholder="e.g., Jane Doe"
                 required
                 disabled={loading}
               />
@@ -375,7 +252,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
-                placeholder="Enter email address"
+                placeholder="e.g., user@example.com"
                 required
                 disabled={loading}
               />
@@ -387,7 +264,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange('password')}
-                placeholder="Enter password (min. 6 characters)"
+                placeholder="Min. 6 characters"
                 required
                 disabled={loading}
                 minLength={6}
@@ -400,7 +277,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 onValueChange={handleRoleChange}
                 disabled={loading}
               >
-                <SelectTrigger>
+                <SelectTrigger id="role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -412,29 +289,30 @@ const handleSubmit = async (e: React.FormEvent) => {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleReset}
-              disabled={loading}
-            >
-              Reset
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create User'}
-            </Button>
-            {/* Debug button - remove in production */}
+          <DialogFooter className="gap-2 sm:gap-0">
+            {/* Debug button - only in development */}
             {process.env.NODE_ENV === 'development' && (
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 onClick={testFunctionConnectivity}
                 disabled={loading}
+                className="sm:mr-auto" // Push to left on larger screens
               >
                 Test Connection
               </Button>
             )}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)} // Simpler close
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create User'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
