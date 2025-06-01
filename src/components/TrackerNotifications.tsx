@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,7 @@ interface Notification {
 const TrackerNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -148,9 +150,19 @@ const TrackerNotifications: React.FC = () => {
                     {new Date(notification.created_at).toLocaleString()}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  {!notification.is_read && (
+                <div className="flex flex-col gap-2 items-end"> {/* Modified to flex-col and items-end for better layout if multiple buttons stack */}
+                  {notification.type === 'match_assignment' && notification.match_id && (
                     <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => navigate(`/match/${notification.match_id}`)}
+                    >
+                      Start Tracking
+                    </Button>
+                  )}
+                  <div className="flex gap-2"> {/* Original buttons wrapper */}
+                    {!notification.is_read && (
+                      <Button
                       size="sm"
                       variant="outline"
                       onClick={() => markAsRead(notification.id)}
@@ -165,6 +177,7 @@ const TrackerNotifications: React.FC = () => {
                   >
                     <X className="h-3 w-3" />
                   </Button>
+                  </div>
                 </div>
               </div>
             </div>
