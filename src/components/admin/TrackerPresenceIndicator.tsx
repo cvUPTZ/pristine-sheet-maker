@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import TrackerStatusCard from './TrackerStatusCard';
 import TrackerNotificationSystem from './TrackerNotificationSystem';
+import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 
 interface TrackerPresenceIndicatorProps {
   matchId: string;
@@ -17,6 +18,23 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
     if (!eventCounts) return 0;
     return Object.values(eventCounts).reduce((sum, count) => sum + count, 0);
   };
+
+  const getAggregatedEventCounts = () => {
+    const aggregated: Record<string, number> = {};
+    trackers.forEach(tracker => {
+      if (tracker.event_counts) {
+        Object.entries(tracker.event_counts).forEach(([eventType, count]) => {
+          aggregated[eventType] = (aggregated[eventType] || 0) + count;
+        });
+      }
+    });
+    return aggregated;
+  };
+
+  const aggregatedEventCounts = getAggregatedEventCounts();
+  const topEventTypes = Object.entries(aggregatedEventCounts)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 6);
 
   return (
     <>
@@ -64,6 +82,40 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
               </div>
               <p className="font-medium text-sm md:text-base">No trackers assigned</p>
               <p className="text-xs md:text-sm">Assign trackers to see their activity</p>
+            </motion.div>
+          )}
+
+          {/* Event Type Breakdown with Icons */}
+          {topEventTypes.length > 0 && (
+            <motion.div
+              className="pt-2 md:pt-4 border-t border-slate-200"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h4 className="text-xs md:text-sm font-medium text-slate-700 mb-2">Event Breakdown</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {topEventTypes.map(([eventType, count]) => (
+                  <motion.div
+                    key={eventType}
+                    className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <EnhancedEventTypeIcon 
+                      eventType={eventType as any}
+                      size={16}
+                      className="flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium text-slate-800 capitalize truncate">
+                        {eventType}
+                      </div>
+                      <div className="text-xs text-slate-500">{count}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
           )}
 

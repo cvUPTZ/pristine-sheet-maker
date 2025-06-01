@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MatchEvent, EventType } from '@/types';
@@ -16,6 +15,8 @@ interface TrackerStatus {
   last_activity: number;
   current_action?: string;
   event_counts?: Record<string, number>;
+  battery_level?: number;
+  network_quality?: 'excellent' | 'good' | 'poor';
 }
 
 export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchOptions) => {
