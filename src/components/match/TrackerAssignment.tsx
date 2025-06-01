@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -129,10 +130,8 @@ const TrackerAssignment: React.FC<TrackerAssignmentProps> = ({
         .from('match_tracker_assignments')
         .insert({
           match_id: matchId,
-          tracker_user_id: selectedTracker,
-          player_team_id: null,
-          player_id: null,
-          assigned_event_types: null
+          tracker_user_id: selectedTracker
+          // Omit player_team_id, player_id, and assigned_event_types - they will be null by default
         });
 
       if (error) throw error;
