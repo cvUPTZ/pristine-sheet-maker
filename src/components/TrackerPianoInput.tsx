@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/hooks/useRealtime';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
-import { EventType } from '@/types/matchForm'; // Fixed import
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -166,7 +166,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   }, [fetchAssignments, fullMatchRoster]);
 
-  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
+  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput | undefined, details?: Record<string, any>) => {
     console.log('TrackerPianoInput recordEvent called with:', { 
       eventType, 
       player, 
@@ -256,7 +256,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
     try {
-      await recordEvent(eventType, selectedPlayer);
+      await recordEvent(eventType, selectedPlayer || undefined);
     } catch (error) {
       console.error('Error recording event:', error);
     }
@@ -426,7 +426,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                   className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <EnhancedEventTypeIcon
-                    eventType={eventType.key} // Fixed prop name
+                    eventKey={eventType.key}
                     size="md"
                   />
                   <span className="text-xs font-medium text-center">
