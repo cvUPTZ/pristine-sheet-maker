@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,7 +112,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     // Initial fetch
     fetchEvents();
 
-    // Set up real-time subscription
+    // Set up real-time subscription with proper event handling
     const channel = supabase
       .channel(`match-events-${matchId}`)
       .on(
@@ -123,8 +124,15 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          console.log('[MainTabContentV2 DEBUG] Real-time payload received:', payload);
-          handleRealtimeEvent(payload);
+          console.log('[MainTabContentV2 DEBUG] Raw Supabase payload received:', payload);
+          // Transform the Supabase payload to match our expected format
+          const transformedPayload = {
+            eventType: payload.eventType,
+            new: payload.new,
+            old: payload.old
+          };
+          console.log('[MainTabContentV2 DEBUG] Transformed payload:', transformedPayload);
+          handleRealtimeEvent(transformedPayload);
         }
       )
       .subscribe((status, err) => {
