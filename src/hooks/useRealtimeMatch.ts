@@ -15,6 +15,7 @@ interface TrackerStatus {
   status: 'active' | 'inactive' | 'recording';
   last_activity: number;
   current_action?: string;
+  event_counts?: Record<string, number>;
 }
 
 export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchOptions) => {
@@ -38,6 +39,24 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     event_data: dbEvent.event_data || {}
   }), []);
 
+  // Calculate event counts for each tracker
+  const calculateEventCounts = useCallback((allEvents: MatchEvent[]) => {
+    const eventCountsByTracker: Record<string, Record<string, number>> = {};
+    
+    allEvents.forEach(event => {
+      if (event.created_by) {
+        if (!eventCountsByTracker[event.created_by]) {
+          eventCountsByTracker[event.created_by] = {};
+        }
+        const eventType = event.event_type || event.type;
+        eventCountsByTracker[event.created_by][eventType] = 
+          (eventCountsByTracker[event.created_by][eventType] || 0) + 1;
+      }
+    });
+    
+    return eventCountsByTracker;
+  }, []);
+
   // Fetch initial events
   const fetchEvents = useCallback(async () => {
     console.log('[useRealtimeMatch] Fetching events for match:', matchId);
@@ -52,13 +71,21 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
 
       const transformedEvents = (data || []).map(transformEvent);
       setEvents(transformedEvents);
+      
+      // Update tracker event counts
+      const eventCounts = calculateEventCounts(transformedEvents);
+      setTrackers(prev => prev.map(tracker => ({
+        ...tracker,
+        event_counts: eventCounts[tracker.user_id] || {}
+      })));
+      
       console.log('[useRealtimeMatch] Loaded events:', transformedEvents.length);
     } catch (error) {
       console.error('[useRealtimeMatch] Error fetching events:', error);
     } finally {
       setLoading(false);
     }
-  }, [matchId, transformEvent]);
+  }, [matchId, transformEvent, calculateEventCounts]);
 
   // Fetch tracker assignments and initialize their status
   const fetchTrackers = useCallback(async () => {
@@ -76,7 +103,8 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
               user_id: assignment.tracker_user_id,
               email: assignment.tracker_email || undefined,
               status: 'inactive',
-              last_activity: Date.now()
+              last_activity: Date.now(),
+              event_counts: {}
             });
           }
         });
@@ -101,7 +129,16 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
       if (newEvent.created_by) {
         setTrackers(prev => prev.map(t => 
           t.user_id === newEvent.created_by 
-            ? { ...t, status: 'recording', last_activity: Date.now(), current_action: `recording_${newEvent.type}` }
+            ? { 
+                ...t, 
+                status: 'recording', 
+                last_activity: Date.now(), 
+                current_action: `recording_${newEvent.type}`,
+                event_counts: {
+                  ...t.event_counts,
+                  [newEvent.event_type]: (t.event_counts?.[newEvent.event_type] || 0) + 1
+                }
+              }
             : t
         ));
         
@@ -123,6 +160,23 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
       });
       onEventReceived?.(newEvent);
     } else if (payload.eventType === 'DELETE') {
+      const deletedEvent = transformEvent(payload.old);
+      
+      // Update tracker event counts when event is deleted
+      if (deletedEvent.created_by) {
+        setTrackers(prev => prev.map(t => 
+          t.user_id === deletedEvent.created_by 
+            ? { 
+                ...t,
+                event_counts: {
+                  ...t.event_counts,
+                  [deletedEvent.event_type]: Math.max(0, (t.event_counts?.[deletedEvent.event_type] || 0) - 1)
+                }
+              }
+            : t
+        ));
+      }
+      
       setEvents(prev => prev.filter(e => e.id !== payload.old.id));
     } else if (payload.eventType === 'UPDATE') {
       const updatedEvent = transformEvent(payload.new);
@@ -153,7 +207,8 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
             user_id: payload.user_id,
             status: payload.status,
             last_activity: payload.timestamp || Date.now(),
-            current_action: payload.action
+            current_action: payload.action,
+            event_counts: {}
           });
         }
         
@@ -186,33 +241,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
       console.error('[useRealtimeMatch] Error broadcasting status:', error);
     });
   }, [matchId, user?.id]);
-
-  // Update activity periodically for active users
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const interval = setInterval(() => {
-      // Update match tracker activity in database
-      supabase
-        .from('match_tracker_activity')
-        .upsert({
-          match_id: matchId,
-          user_id: user.id,
-          last_active_at: new Date().toISOString()
-        })
-        .then(() => {
-          console.log('[useRealtimeMatch] Activity updated in database');
-        })
-        .catch((error) => {
-          console.error('[useRealtimeMatch] Error updating activity:', error);
-        });
-
-      // Broadcast heartbeat
-      broadcastStatus('active');
-    }, 30000); // Every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [matchId, user?.id, broadcastStatus]);
 
   // Set up real-time subscriptions
   useEffect(() => {

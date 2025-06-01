@@ -48,6 +48,18 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
            (tracker.status === 'active' && Date.now() - tracker.last_activity < 30000);
   };
 
+  const getTotalEventCount = (eventCounts: Record<string, number> | undefined) => {
+    if (!eventCounts) return 0;
+    return Object.values(eventCounts).reduce((sum, count) => sum + count, 0);
+  };
+
+  const getTopEventTypes = (eventCounts: Record<string, number> | undefined) => {
+    if (!eventCounts) return [];
+    return Object.entries(eventCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3);
+  };
+
   return (
     <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
       <CardHeader className="pb-2 md:pb-4">
@@ -66,6 +78,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
             const statusColor = getStatusColor(tracker);
             const statusText = getStatusText(tracker);
             const isActive = isActivelyTracking(tracker);
+            const totalEvents = getTotalEventCount(tracker.event_counts);
+            const topEvents = getTopEventTypes(tracker.event_counts);
             
             return (
               <motion.div
@@ -107,8 +121,15 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                     </motion.div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-800 text-xs md:text-sm truncate">
-                        {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-slate-800 text-xs md:text-sm truncate">
+                          {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
+                        </div>
+                        {totalEvents > 0 && (
+                          <Badge variant="outline" className="text-xs px-1 py-0">
+                            {totalEvents} events
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                         <Badge
@@ -122,6 +143,22 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                           {Math.floor((Date.now() - tracker.last_activity) / 1000)}s ago
                         </span>
                       </div>
+                      
+                      {/* Event Type Counts */}
+                      {topEvents.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {topEvents.map(([eventType, count]) => (
+                            <div key={eventType} className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">
+                              <EnhancedEventTypeIcon 
+                                eventType={eventType as any}
+                                size={12} 
+                                className="w-3 h-3"
+                              />
+                              <span>{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -204,9 +241,9 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-slate-800">
-              {trackers.length}
+              {trackers.reduce((sum, t) => sum + getTotalEventCount(t.event_counts), 0)}
             </div>
-            <div className="text-xs text-slate-500">Total</div>
+            <div className="text-xs text-slate-500">Events</div>
           </div>
         </motion.div>
       </CardContent>

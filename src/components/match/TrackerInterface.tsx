@@ -82,27 +82,8 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     // Broadcast that tracker is active
     broadcastStatus('active');
 
-    // Update database activity
-    const updateActivity = async () => {
-      try {
-        await supabase
-          .from('match_tracker_activity')
-          .upsert({
-            match_id: matchId,
-            user_id: trackerUserId,
-            last_active_at: new Date().toISOString()
-          });
-        console.log('[TrackerInterface] Activity updated in database');
-      } catch (error) {
-        console.error('[TrackerInterface] Error updating activity:', error);
-      }
-    };
-
-    updateActivity();
-
     // Set up periodic activity updates
     const interval = setInterval(() => {
-      updateActivity();
       broadcastStatus('active');
     }, 30000); // Every 30 seconds
 
