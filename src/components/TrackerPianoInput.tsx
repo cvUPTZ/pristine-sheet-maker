@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EVENT_TYPES, EVENT_STYLES } from '@/constants/eventTypes';
+import EventTypeSvg from '@/components/match/EventTypeSvg';
 import { Undo2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -193,22 +194,32 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, trackerI
           <CardTitle className="text-base sm:text-lg lg:text-xl">Piano Input - Event Recording</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6">
-          {/* Event Type Selection */}
+          {/* Event Type Selection with SVG Icons */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-            {EVENT_TYPES.map((eventType) => {
-              const eventStyle = EVENT_STYLES[eventType as keyof typeof EVENT_STYLES];
-              return (
-                <Button
-                  key={eventType}
-                  variant={selectedEventType === eventType ? "default" : "outline"}
-                  onClick={() => setSelectedEventType(eventType)}
-                  className="h-auto p-2 sm:p-3 flex flex-col items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                >
-                  <span className="text-lg sm:text-xl">{eventStyle?.icon || '⚽'}</span>
-                  <span className="text-center leading-tight">{eventStyle?.description || eventType}</span>
-                </Button>
-              );
-            })}
+            {EVENT_TYPES.map((eventType) => (
+              <div
+                key={eventType}
+                onClick={() => setSelectedEventType(eventType)}
+                className={`relative cursor-pointer transition-all duration-200 rounded-lg p-2 border-2 ${
+                  selectedEventType === eventType 
+                    ? 'border-blue-500 bg-blue-50 scale-105' 
+                    : 'border-gray-300 hover:border-gray-400 hover:scale-102'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1 sm:gap-2">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
+                    <EventTypeSvg 
+                      eventType={eventType}
+                      isSelected={selectedEventType === eventType}
+                      disabled={false}
+                    />
+                  </div>
+                  <span className="text-xs sm:text-sm text-center leading-tight font-medium">
+                    {EVENT_STYLES[eventType as keyof typeof EVENT_STYLES]?.description || eventType}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Team Selection */}
