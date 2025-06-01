@@ -30,13 +30,13 @@ const TeamPerformanceRadar: React.FC<TeamPerformanceRadarProps> = ({
   const data = [
     {
       metric: 'Pass Accuracy',
-      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.total),
-      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.total),
+      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.successful || 0),
+      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.successful || 0),
     },
     {
       metric: 'Shot Accuracy',
-      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.total),
-      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.total),
+      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.onTarget || 0),
+      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.onTarget || 0),
     },
     {
       metric: 'Duel Success',
@@ -52,8 +52,8 @@ const TeamPerformanceRadar: React.FC<TeamPerformanceRadarProps> = ({
     },
     {
       metric: 'Attack Efficiency',
-      home: Math.min(((statistics.shots?.home?.total || 0) / Math.max(statistics.passes?.home?.total || 1, 1)) * 1000, 100),
-      away: Math.min(((statistics.shots?.away?.total || 0) / Math.max(statistics.passes?.away?.total || 1, 1)) * 1000, 100),
+      home: Math.min(((statistics.shots?.home?.onTarget || 0) / Math.max(statistics.passes?.home?.successful || 1, 1)) * 1000, 100),
+      away: Math.min(((statistics.shots?.away?.onTarget || 0) / Math.max(statistics.passes?.away?.successful || 1, 1)) * 1000, 100),
     },
     {
       metric: 'Discipline',

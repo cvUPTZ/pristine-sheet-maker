@@ -22,10 +22,8 @@ interface UserEventAssignment {
   user_id: string;
   event_type: string;
   created_at: string;
-  profiles?: {
-    email: string;
-    full_name: string;
-  };
+  user_email?: string;
+  user_full_name?: string;
 }
 
 const EventAssignments: React.FC = () => {
@@ -44,19 +42,11 @@ const EventAssignments: React.FC = () => {
 
   const fetchAssignments = async () => {
     try {
+      // Fetch assignments and users separately since the join might not work
       const [assignmentsResponse, usersResponse] = await Promise.all([
         supabase
           .from('user_event_assignments')
-          .select(`
-            id,
-            user_id,
-            event_type,
-            created_at,
-            profiles:user_id (
-              email,
-              full_name
-            )
-          `),
+          .select('id, user_id, event_type, created_at'),
         supabase
           .from('profiles')
           .select('id, email, full_name, role')
@@ -65,19 +55,20 @@ const EventAssignments: React.FC = () => {
       if (assignmentsResponse.error) throw assignmentsResponse.error;
       if (usersResponse.error) throw usersResponse.error;
 
-      // Transform assignments data with proper null handling
-      const transformedAssignments = (assignmentsResponse.data || []).map(assignment => ({
-        id: String(assignment.id),
-        user_id: assignment.user_id || '',
-        event_type: assignment.event_type,
-        created_at: assignment.created_at || new Date().toISOString(),
-        profiles: assignment.profiles ? {
-          email: assignment.profiles.email || '',
-          full_name: assignment.profiles.full_name || ''
-        } : undefined
-      }));
+      // Transform assignments data with manual join
+      const transformedAssignments = (assignmentsResponse.data || []).map(assignment => {
+        const user = (usersResponse.data || []).find(u => u.id === assignment.user_id);
+        return {
+          id: String(assignment.id),
+          user_id: assignment.user_id || '',
+          event_type: assignment.event_type,
+          created_at: assignment.created_at || new Date().toISOString(),
+          user_email: user?.email || '',
+          user_full_name: user?.full_name || ''
+        };
+      });
 
-      // Transform users data with proper role handling
+      // Transform users data with proper filtering
       const transformedUsers = (usersResponse.data || [])
         .filter(user => user.email && user.full_name)
         .map(user => ({
@@ -204,7 +195,7 @@ const EventAssignments: React.FC = () => {
                       {assignment.event_type}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 truncate">
-                      {assignment.profiles?.full_name || 'Unknown User'} - {assignment.profiles?.email || 'No email'}
+                      {assignment.user_full_name || 'Unknown User'} - {assignment.user_email || 'No email'}
                     </p>
                     <p className="text-xs text-gray-500">
                       Created at: {new Date(assignment.created_at).toLocaleDateString()}

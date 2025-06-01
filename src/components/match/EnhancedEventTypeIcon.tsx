@@ -81,8 +81,8 @@ const SvgDefaultIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 export type IconVariant = 'default' | 'selected' | 'disabled' | 'highlighted';
 
-// --- Icon Registry ---
-const eventIcons: Record<AllTypes.EventType | 'default', React.FC<React.SVGProps<SVGSVGElement>>> = {
+// --- Icon Registry - Updated to include all EventType values ---
+const eventIcons: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
   pass: SvgPassIcon,
   shot: SvgShotIcon,
   goal: SvgGoalIcon,
@@ -104,6 +104,12 @@ const eventIcons: Record<AllTypes.EventType | 'default', React.FC<React.SVGProps
   freeKick: SvgDefaultIcon,
   throwIn: SvgDefaultIcon,
   dribble: SvgDefaultIcon,
+  sub: SvgDefaultIcon,
+  'free-kick': SvgDefaultIcon,
+  'goal-kick': SvgDefaultIcon,
+  'throw-in': SvgDefaultIcon,
+  'yellow-card': SvgDefaultIcon,
+  'red-card': SvgDefaultIcon,
   default: SvgDefaultIcon,
 };
 

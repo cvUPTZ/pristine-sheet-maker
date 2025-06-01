@@ -42,26 +42,26 @@ const AdvancedStatsTable: React.FC<AdvancedStatsTableProps> = ({
     },
     {
       metric: 'Pass Accuracy',
-      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.total),
-      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.total),
+      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.successful || 0),
+      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.successful || 0),
       unit: '%'
     },
     {
       metric: 'Shot Accuracy',
-      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.total),
-      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.total),
+      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.onTarget || 0),
+      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.onTarget || 0),
       unit: '%'
     },
     {
       metric: 'Total Passes',
-      home: statistics.passes?.home?.total || 0,
-      away: statistics.passes?.away?.total || 0,
+      home: statistics.passes?.home?.successful || 0,
+      away: statistics.passes?.away?.successful || 0,
       unit: ''
     },
     {
       metric: 'Total Shots',
-      home: statistics.shots?.home?.total || 0,
-      away: statistics.shots?.away?.total || 0,
+      home: statistics.shots?.home?.onTarget || 0,
+      away: statistics.shots?.away?.onTarget || 0,
       unit: ''
     },
     {

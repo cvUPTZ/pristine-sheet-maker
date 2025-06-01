@@ -1,3 +1,4 @@
+
 // src/components/CreateUserDialog.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -102,7 +103,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       }
       console.log('Session acquired for testing.');
 
-      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      // Use environment variables or hardcoded values since supabaseUrl is protected
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'}/functions/v1/create-user`;
       console.log(`Testing OPTIONS request to: ${functionUrl}`);
 
       // Test OPTIONS request
@@ -110,7 +112,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         method: 'OPTIONS',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'apikey': supabase.supabaseKey, // Important: Supabase anon key
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '', // Use env variable
         },
       });
 
@@ -159,14 +161,15 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         return;
       }
 
-      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+      // Use environment variables since supabaseUrl is protected
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'}/functions/v1/create-user`;
       console.log('Calling Supabase function for user creation:', functionUrl);
 
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'apikey': supabase.supabaseKey, // Supabase anon key is required by the function for Supabase client init
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '', // Use env variable
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -205,7 +208,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
       toast.success(result.message || 'User created successfully!');
       onUserCreated(); // Call callback
-      // handleReset(); // Reset form - useEffect will handle this if `open` changes
       onOpenChange(false); // Close dialog
 
     } catch (error) {

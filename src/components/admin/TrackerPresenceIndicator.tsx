@@ -14,8 +14,8 @@ interface TrackerUser {
   email?: string;
   full_name?: string;
   online_at: string;
-  last_event_type?: string; // Will be superseded by lastKnownAction
-  last_event_time?: number; // Will be superseded by lastActionTimestamp
+  last_event_type?: string;
+  last_event_time?: number;
   assigned_event_types?: string[];
   lastKnownAction?: string;
   lastActionTimestamp?: number;
@@ -42,12 +42,9 @@ const EVENT_COLORS = {
 const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ matchId }) => {
   const { user } = useAuth();
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
-  // The recentEvents state and its cleanup can be removed if fully migrated
-  // For now, we'll keep it but remove its usage in handleEventReceived's old path
   const [recentEvents, setRecentEvents] = useState<Map<string, { type: string; time: number }>>(new Map());
 
   const handleEventReceived = useCallback((event: any) => {
-    // All [REALTIME_DEBUG] logs removed from here
     if (event.type === 'broadcast' && event.event === 'broadcast' && event.payload) {
       const syncEvent = event.payload as TrackerSyncEvent;
 
@@ -101,45 +98,39 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
   const { onlineUsers, isOnline } = useRealtime({
     channelName: "tracker-admin-sync",
     userId: user?.id || 'admin_listener_tracker_sync',
-    onEventReceived: handleEventReceived, // Pass the memoized callback
+    onEventReceived: handleEventReceived,
   });
 
   useEffect(() => {
     fetchAssignedTrackers();
   }, [matchId]);
 
-  // Effect to update tracker statuses based on Supabase presence channel `onlineUsers`
   useEffect(() => {
     setTrackers(prevTrackers =>
       prevTrackers.map(t => {
         const isUserOnlineInPresence = onlineUsers.some(ou => ou.user_id === t.user_id);
         if (isUserOnlineInPresence) {
-          // If user is in presence channel, mark as active, unless already known to be inactive recently
-          // This avoids overriding a very recent 'inactive' event from TrackerPianoInput unmount
           const fiveSecondsAgo = Date.now() - 5000;
           if (t.currentStatus !== 'inactive' || (t.statusTimestamp || 0) < fiveSecondsAgo) {
             return {
               ...t,
               currentStatus: 'active',
-              statusTimestamp: t.statusTimestamp || Date.now() // keep existing timestamp if available, else update
+              statusTimestamp: t.statusTimestamp || Date.now()
             };
           }
         }
-        // Note: This doesn't set users to 'inactive' if they leave presence,
-        // that's handled by the 'inactive' TrackerSyncEvent or timeout.
         return t;
       })
     );
-  }, [onlineUsers, matchId]); // Rerun when onlineUsers or matchId changes
+  }, [onlineUsers, matchId]);
 
   useEffect(() => {
-    // Clean up old events and statuses every 30 seconds
     const interval = setInterval(() => {
       const now = Date.now();
-      const staleThreshold = 5 * 60 * 1000; // 5 minutes
-      const activeThreshold = 30 * 1000; // 30 seconds for recent events
+      const staleThreshold = 5 * 60 * 1000;
+      const activeThreshold = 30 * 1000;
 
-      setRecentEvents(prev => { // Keep cleaning old recentEvents map for now
+      setRecentEvents(prev => {
         const updated = new Map(prev);
         for (const [userId, eventData] of updated) {
           if (now - eventData.time > activeThreshold) {
@@ -153,14 +144,6 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         let updatedTracker = { ...t };
         if (t.lastActionTimestamp && (now - t.lastActionTimestamp > staleThreshold)) {
           updatedTracker.lastKnownAction = undefined;
-          // updatedTracker.lastActionTimestamp = undefined; // Keep timestamp for historical reference?
-        }
-        if (t.statusTimestamp && (now - t.statusTimestamp > staleThreshold) && t.currentStatus !== 'inactive') {
-          // If status is old and not explicitly 'inactive', mark as stale or revert to 'inactive'
-          // This depends on whether 'inactive' is reliably sent on TrackerPianoInput unmount.
-          // For now, let's assume 'inactive' is sent. If not, we might mark as 'inactive' here.
-          // updatedTracker.currentStatus = 'inactive'; // Example of forcing inactive
-          // updatedTracker.statusTimestamp = now;
         }
         return updatedTracker;
       }));
@@ -206,7 +189,6 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
     const now = Date.now();
     const isOnlineFromStatus = tracker.currentStatus === 'active';
-    // Consider active if status is active and timestamp is recent, or if last action was recent
     const isActiveBasedOnTimestamp = (tracker.statusTimestamp && (now - tracker.statusTimestamp < 60000)) ||
                                      (tracker.lastActionTimestamp && (now - tracker.lastActionTimestamp < 60000));
 
@@ -219,59 +201,53 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       activityText = tracker.lastKnownAction;
       isActivelyTracking = true;
     } else if (tracker.currentStatus === 'active' && tracker.statusTimestamp && (now - tracker.statusTimestamp < 30000)) {
-      activityText = 'Active'; // General active state if no specific action recently
-      isActivelyTracking = true; // Considered active for color indication
+      activityText = 'Active';
+      isActivelyTracking = true;
     } else if (tracker.currentStatus === 'paused') {
       activityText = 'Paused';
     }
 
-    // Fallback for older event system if still needed
     const recentEvent = recentEvents.get(trackerId);
     if (!isActivelyTracking && recentEvent && (now - recentEvent.time < 30000)) {
-        activityText = `Tracking ${recentEvent.type}`; // old style
+        activityText = `Tracking ${recentEvent.type}`;
         isActivelyTracking = true;
     }
 
-
     return {
-      isOnline: isOnlineNow || isActivelyTracking, // Simplified online definition
+      isOnline: isOnlineNow || isActivelyTracking,
       activityText,
       isActivelyTracking,
       lastKnownAction: tracker.lastKnownAction,
       lastActionTimestamp: tracker.lastActionTimestamp,
       currentStatus: tracker.currentStatus,
       statusTimestamp: tracker.statusTimestamp,
-      // For color, use last action or general active status
       colorHint: tracker.lastKnownAction?.split('_')[1] || (isActivelyTracking ? tracker.currentStatus : 'offline')
     };
   };
 
   const getStatusColor = (tracker: TrackerUser) => {
-    const status = getTrackerStatus(tracker.user_id); // Call new getTrackerStatus
+    const status = getTrackerStatus(tracker.user_id);
 
-    if (status.currentStatus === 'inactive' && (Date.now() - (status.statusTimestamp || 0) > 30000)) return 'from-gray-400 to-gray-500'; // Offline
-    if (status.currentStatus === 'paused') return 'from-yellow-400 to-yellow-500'; // Paused
+    if (status.currentStatus === 'inactive' && (Date.now() - (status.statusTimestamp || 0) > 30000)) return 'from-gray-400 to-gray-500';
+    if (status.currentStatus === 'paused') return 'from-yellow-400 to-yellow-500';
 
     if (status.isActivelyTracking) {
-      // Try to get color from action, e.g., "recorded_pass_..." -> "pass"
       const actionParts = status.lastKnownAction?.split('_');
       let eventKeyForColor = actionParts && actionParts.length > 1 ? actionParts[1] : null;
       if (actionParts && actionParts[0] === 'arming' && actionParts.length > 2) eventKeyForColor = actionParts[2];
 
-
       if (eventKeyForColor && EVENT_COLORS[eventKeyForColor as keyof typeof EVENT_COLORS]) {
         return EVENT_COLORS[eventKeyForColor as keyof typeof EVENT_COLORS];
       }
-      // Fallback for general 'active' or old system
       if (status.colorHint && EVENT_COLORS[status.colorHint as keyof typeof EVENT_COLORS]) {
          return EVENT_COLORS[status.colorHint as keyof typeof EVENT_COLORS];
       }
-      return 'from-green-400 to-green-500'; // Generic active
+      return 'from-green-400 to-green-500';
     }
 
-    if (status.isOnline) return 'from-green-400 to-green-500'; // Online but not actively sending actions
+    if (status.isOnline) return 'from-green-400 to-green-500';
 
-    return 'from-gray-400 to-gray-500'; // Default to offline
+    return 'from-gray-400 to-gray-500';
   };
 
   const getStatusText = (tracker: TrackerUser) => {
@@ -294,13 +270,12 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
       <CardContent className="space-y-2 md:space-y-4">
         <AnimatePresence>
           {trackers.map((tracker, index) => {
-            // [REALTIME_RENDER_DEBUG] logs removed from here
             const status = getTrackerStatus(tracker.user_id);
             const statusColor = getStatusColor(tracker);
             
             return (
               <motion.div
-                key={`${tracker.user_id}-${tracker.lastActionTimestamp}-${tracker.currentStatus}`} // Modified key
+                key={`${tracker.user_id}-${tracker.lastActionTimestamp}-${tracker.currentStatus}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -309,12 +284,10 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
               >
                 <div className="flex items-center justify-between p-2 md:p-4 bg-white rounded-xl shadow-md border border-slate-200 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    {/* Status Indicator */}
                     <motion.div
                       className={`relative w-8 h-8 md:w-12 md:h-12 rounded-full bg-gradient-to-r ${statusColor} shadow-lg flex items-center justify-center flex-shrink-0`}
-                      animate={status.isActivelyTracking ? { /* Animation for active tracking */
+                      animate={status.isActivelyTracking ? {
                         scale: [1, 1.05, 1],
-                        // Example: Use a generic pulse or specific animation based on action
                         boxShadow: statusColor.includes('gray') ? undefined : [
                           `0 0 0 0px ${statusColor.split(' ')[1].replace('to-', 'from-')}/50`,
                           `0 0 0 5px ${statusColor.split(' ')[1].replace('to-', 'from-')}/0`,
@@ -329,9 +302,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                         >
                           <EnhancedEventTypeIcon 
-                            eventKey={status.colorHint || 'default'} // Use colorHint from status
+                            eventType={status.colorHint as any || 'default'}
                             size={16} 
-                            isSelected={true} // isSelected might need re-evaluation based on new status
                             className="text-white md:w-6 md:h-6"
                           />
                         </motion.div>
@@ -340,7 +312,6 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                       )}
                     </motion.div>
 
-                    {/* Tracker Info */}
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-slate-800 text-xs md:text-sm truncate">
                         {tracker.email?.split('@')[0] || `Tracker ${tracker.user_id.slice(-4)}`}
@@ -350,7 +321,6 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                           variant={(status.isOnline || status.currentStatus === 'active') ? "default" : "secondary"}
                           className={`text-xs ${(status.isOnline || status.currentStatus === 'active') ? 'bg-gradient-to-r ' + statusColor + ' text-white border-0' : ''}`}
                         >
-                          {/* [REALTIME_RENDER_DEBUG] log removed from here */}
                           <span className="hidden sm:inline">{status.activityText}</span>
                           <span className="sm:hidden">{(status.isOnline || status.currentStatus === 'active') ? 'On' : 'Off'}</span>
                         </Badge>
@@ -359,7 +329,6 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                             {Math.floor((Date.now() - status.lastActionTimestamp) / 1000)}s ago
                           </span>
                         )}
-                        {/* Display currentStatus if useful and not already part of getStatusText */}
                         {status.currentStatus && status.activityText !== status.currentStatus && (status.currentStatus === 'paused' || status.currentStatus === 'inactive') && (
                            <Badge variant="outline" className="text-xs hidden sm:inline">{status.currentStatus}</Badge>
                         )}
@@ -367,9 +336,8 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                     </div>
                   </div>
 
-                  {/* Activity Indicator - can be simplified or enhanced based on new states */}
                   <AnimatePresence>
-                    {status.isActivelyTracking && !statusColor.includes('gray') && ( // Show for active, non-offline colors
+                    {status.isActivelyTracking && !statusColor.includes('gray') && (
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
@@ -396,13 +364,12 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
                   </AnimatePresence>
                 </div>
 
-                {/* Pulse Effect for Active Tracking - can be simplified or enhanced */}
                 {status.isActivelyTracking && !statusColor.includes('gray') && (
                   <motion.div
-                    className={`absolute inset-0 rounded-xl bg-gradient-to-r ${statusColor} opacity-10 pointer-events-none`} // Reduced opacity
+                    className={`absolute inset-0 rounded-xl bg-gradient-to-r ${statusColor} opacity-10 pointer-events-none`}
                     animate={{
-                      scale: [1, 1.02, 1], // Subtle scale
-                      opacity: [0.1, 0.05, 0.1] // Subtle opacity change
+                      scale: [1, 1.02, 1],
+                      opacity: [0.1, 0.05, 0.1]
                     }}
                     transition={{ duration: 2, repeat: Infinity }}
                   />
@@ -428,8 +395,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
           </motion.div>
         )}
 
-        {/* Summary Stats */}
-          <motion.div
+        <motion.div
           className="grid grid-cols-3 gap-1 md:gap-2 pt-2 md:pt-4 border-t border-slate-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -437,16 +403,12 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         >
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-slate-800">
-                {/* onlineUsers from tracker-admin-sync might be different from presence on old channel */}
-                {/* This should reflect users connected to the 'tracker-admin-sync' channel if available,
-                    or count trackers with currentStatus 'active' */}
                 {trackers.filter(t => t.currentStatus === 'active' && (Date.now() - (t.statusTimestamp || 0) < 60000)).length}
             </div>
               <div className="text-xs text-slate-500">Currently Active</div>
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-green-600">
-                {/* Count trackers with a recent action */}
                 {trackers.filter(t => t.lastKnownAction && (Date.now() - (t.lastActionTimestamp || 0) < 30000)).length}
             </div>
               <div className="text-xs text-slate-500">Recent Actions</div>
