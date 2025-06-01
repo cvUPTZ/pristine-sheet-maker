@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { motion, AnimatePresence } from 'framer-motion';
+import EventTypeSvg from '@/components/match/EventTypeSvg';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -244,9 +244,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       console.log('Inserting event data:', eventData);
 
+      // Use upsert for faster insertion and avoid conflicts
       const { data, error } = await supabase
         .from('match_events')
-        .insert([eventData])
+        .upsert([eventData])
         .select();
 
       if (error) {
@@ -561,93 +562,88 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         </motion.div>
       )}
 
-      {/* Event Types */}
+      {/* Event Types - New SVG Design */}
       {assignedEventTypes.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="shadow-xl border-2 border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <span className="text-2xl">🎹</span>
-                Record Events
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {assignedEventTypes.map((eventType, index) => (
-                  <motion.div
-                    key={eventType.key}
-                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.08 }}
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button
-                      onClick={() => handleEventTypeClick(eventType)}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-2xl p-8 shadow-2xl border-2 border-purple-200">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                🎹 Record Events
+              </h2>
+              <p className="text-purple-600 dark:text-purple-300 mt-2">
+                Tap any event type to record instantly
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
+              {assignedEventTypes.map((eventType, index) => (
+                <motion.div
+                  key={eventType.key}
+                  initial={{ opacity: 0, scale: 0.5, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ 
+                    duration: 0.4, 
+                    delay: index * 0.1,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20
+                  }}
+                  whileHover={{ scale: 1.1, y: -10 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative"
+                >
+                  <div className="text-center">
+                    <EventTypeSvg
+                      eventType={eventType.key}
+                      isRecording={recordingEventType === eventType.key}
                       disabled={isRecording}
-                      variant="outline"
-                      className={`relative w-full h-24 p-4 flex flex-col items-center gap-3 transition-all duration-300 transform ${
-                        recordingEventType === eventType.key
-                          ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-xl border-green-400 scale-105'
-                          : 'hover:bg-gradient-to-br hover:from-purple-50 hover:to-pink-50 hover:border-purple-300 hover:shadow-lg dark:hover:from-purple-950 dark:hover:to-pink-950'
-                      }`}
+                      onClick={() => handleEventTypeClick(eventType)}
+                    />
+                    <motion.div
+                      className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
+                      whileHover={{ scale: 1.05 }}
                     >
-                      <motion.div
-                        animate={recordingEventType === eventType.key ? {
-                          rotate: [0, 10, -10, 0],
-                          scale: [1, 1.2, 1]
-                        } : {}}
-                        transition={{ duration: 0.5, repeat: recordingEventType === eventType.key ? Infinity : 0 }}
-                      >
-                        <EnhancedEventTypeIcon
-                          eventType={eventType.key as EventType}
-                          size={32}
-                          className={recordingEventType === eventType.key ? 'text-white' : ''}
-                        />
-                      </motion.div>
-                      <span className={`text-xs font-semibold text-center leading-tight ${
-                        recordingEventType === eventType.key ? 'text-white' : ''
-                      }`}>
+                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
                         {eventType.label}
                       </span>
-                      
-                      {recordingEventType === eventType.key && (
-                        <motion.div
-                          className="absolute inset-0 rounded-lg border-2 border-white"
-                          animate={{
-                            scale: [1, 1.05, 1],
-                            opacity: [0.5, 1, 0.5]
-                          }}
-                          transition={{ duration: 1, repeat: Infinity }}
-                        />
-                      )}
-                    </Button>
-                  </motion.div>
-                ))}
-              </div>
-              
-              {isRecording && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="mt-6 text-center"
-                >
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                    <motion.div
-                      className="w-2 h-2 bg-green-500 rounded-full"
-                      animate={{ scale: [1, 1.5, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                    Recording...
+                    </motion.div>
                   </div>
+                  
+                  {recordingEventType === eventType.key && (
+                    <motion.div
+                      className="absolute -inset-4 rounded-full border-4 border-green-400"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.7, 1, 0.7]
+                      }}
+                      transition={{ duration: 0.8, repeat: Infinity }}
+                    />
+                  )}
                 </motion.div>
-              )}
-            </CardContent>
-          </Card>
+              ))}
+            </div>
+            
+            {isRecording && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-8 text-center"
+              >
+                <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-lg font-bold shadow-xl">
+                  <motion.div
+                    className="w-4 h-4 bg-white rounded-full"
+                    animate={{ scale: [1, 1.5, 1] }}
+                    transition={{ duration: 0.6, repeat: Infinity }}
+                  />
+                  Recording Event...
+                </div>
+              </motion.div>
+            )}
+          </div>
         </motion.div>
       )}
     </div>
