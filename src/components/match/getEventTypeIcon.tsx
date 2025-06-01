@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   ArrowRight, 
@@ -66,7 +67,7 @@ const EVENT_MAP = {
     icon: ArrowRight,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'low',
+      severity: 'low' as const,
       description: 'Player passes the ball',
       aliases: ['pass', 'passing']
     }
@@ -75,7 +76,7 @@ const EVENT_MAP = {
     icon: Target,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Player takes a shot',
       aliases: ['shot', 'shooting', 'attempt']
     }
@@ -84,7 +85,7 @@ const EVENT_MAP = {
     icon: Trophy,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Goal scored',
       aliases: ['goal', 'score']
     }
@@ -93,7 +94,7 @@ const EVENT_MAP = {
     icon: TrendingUp,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Assist for goal',
       aliases: ['assist', 'setup']
     }
@@ -102,7 +103,7 @@ const EVENT_MAP = {
     icon: CornerDownRight,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Cross into the box',
       aliases: ['cross', 'crossing']
     }
@@ -111,7 +112,7 @@ const EVENT_MAP = {
     icon: Circle,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Header',
       aliases: ['header', 'head']
     }
@@ -120,7 +121,7 @@ const EVENT_MAP = {
     icon: Zap,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Volley shot',
       aliases: ['volley']
     }
@@ -129,7 +130,7 @@ const EVENT_MAP = {
     icon: MapPin,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Penalty kick',
       aliases: ['penalty', 'pk', 'penalty_kick']
     }
@@ -139,7 +140,7 @@ const EVENT_MAP = {
     icon: Play,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Free kick',
       aliases: ['free_kick', 'freekick', 'fk', 'free-kick']
     }
@@ -148,7 +149,7 @@ const EVENT_MAP = {
     icon: CornerDownRight,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Corner kick',
       aliases: ['corner', 'corner_kick']
     }
@@ -158,7 +159,7 @@ const EVENT_MAP = {
     icon: RotateCcw,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'low',
+      severity: 'low' as const,
       description: 'Throw in',
       aliases: ['throw_in', 'throw', 'throwin', 'throw-in']
     }
@@ -167,7 +168,7 @@ const EVENT_MAP = {
     icon: Play,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Kick off',
       aliases: ['kick_off', 'kickoff', 'start']
     }
@@ -176,7 +177,7 @@ const EVENT_MAP = {
     icon: Shield,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Goalkeeper save',
       aliases: ['save', 'stop']
     }
@@ -185,7 +186,7 @@ const EVENT_MAP = {
     icon: Square,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Shot blocked',
       aliases: ['block', 'blocked']
     }
@@ -194,7 +195,7 @@ const EVENT_MAP = {
     icon: TrendingDown,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Ball cleared',
       aliases: ['clearance', 'clear']
     }
@@ -203,7 +204,7 @@ const EVENT_MAP = {
     icon: CheckCircle,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Ball intercepted',
       aliases: ['interception', 'intercept']
     }
@@ -212,7 +213,7 @@ const EVENT_MAP = {
     icon: Activity,
     metadata: {
       category: EventCategory.BALL_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Tackle made',
       aliases: ['tackle', 'tackling']
     }
@@ -223,7 +224,7 @@ const EVENT_MAP = {
     icon: ArrowUpDown,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Player substitution',
       aliases: ['substitution', 'change'] // 'sub' key will map to 'sub' GlobalEventType
     }
@@ -232,7 +233,7 @@ const EVENT_MAP = {
     icon: ArrowUpDown,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Player substitution (short)',
       aliases: ['sub', 'substitution']
     }
@@ -241,7 +242,7 @@ const EVENT_MAP = {
     icon: Heart,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Player injury',
       aliases: ['injury', 'hurt', 'injured']
     }
@@ -250,7 +251,7 @@ const EVENT_MAP = {
     icon: UserMinus,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Medical treatment',
       aliases: ['treatment', 'medical']
     }
@@ -259,7 +260,7 @@ const EVENT_MAP = {
     icon: UserPlus,
     metadata: {
       category: EventCategory.PLAYER_ACTION,
-      severity: 'low',
+      severity: 'low' as const,
       description: 'Player returns to field',
       aliases: ['return', 'back']
     }
@@ -270,7 +271,7 @@ const EVENT_MAP = {
     icon: AlertTriangle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Foul committed',
       aliases: ['foul', 'violation']
     }
@@ -280,7 +281,7 @@ const EVENT_MAP = {
     icon: Square,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Yellow card shown',
       aliases: ['yellow_card', 'yellow', 'booking', 'caution']
     }
@@ -289,7 +290,7 @@ const EVENT_MAP = {
     icon: XCircle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Red card shown',
       aliases: ['red_card', 'red', 'ejection', 'dismissal']
     }
@@ -298,7 +299,7 @@ const EVENT_MAP = {
     icon: Square,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Card shown (generic)',
       aliases: ['card', 'booked'] // 'booking' alias handled by specific 'booking' type if needed
     }
@@ -307,7 +308,7 @@ const EVENT_MAP = {
     icon: Square,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Player booked',
       aliases: ['booking'] // Could add 'yellow_card_booking' if specific
     }
@@ -316,7 +317,7 @@ const EVENT_MAP = {
     icon: AlertTriangle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Warning given',
       aliases: ['warning', 'warn']
     }
@@ -325,7 +326,7 @@ const EVENT_MAP = {
     icon: Flag,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Offside violation',
       aliases: ['offside', 'offside_violation']
     }
@@ -334,7 +335,7 @@ const EVENT_MAP = {
     icon: Ban,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Handball violation',
       aliases: ['handball', 'hand_ball']
     }
@@ -343,7 +344,7 @@ const EVENT_MAP = {
     icon: XCircle,
     metadata: {
       category: EventCategory.DISCIPLINARY,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Unsporting behavior',
       aliases: ['unsporting_behavior', 'unsporting', 'misconduct']
     }
@@ -354,7 +355,7 @@ const EVENT_MAP = {
     icon: Pause,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Half time break',
       aliases: ['half_time', 'halftime', 'ht']
     }
@@ -363,7 +364,7 @@ const EVENT_MAP = {
     icon: StopCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Full time whistle',
       aliases: ['full_time', 'fulltime', 'ft', 'end']
     }
@@ -372,7 +373,7 @@ const EVENT_MAP = {
     icon: Timer,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'Extra time period',
       aliases: ['extra_time', 'overtime', 'et']
     }
@@ -381,7 +382,7 @@ const EVENT_MAP = {
     icon: Target,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Penalty shootout',
       aliases: ['penalty_shootout', 'penalties', 'pso']
     }
@@ -390,7 +391,7 @@ const EVENT_MAP = {
     icon: Clock,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'VAR check in progress',
       aliases: ['var_check', 'var', 'video_review']
     }
@@ -399,7 +400,7 @@ const EVENT_MAP = {
     icon: CheckCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'high',
+      severity: 'high' as const,
       description: 'VAR decision made',
       aliases: ['var_decision', 'var_result']
     }
@@ -408,7 +409,7 @@ const EVENT_MAP = {
     icon: XCircle,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Goal cancelled',
       aliases: ['goal_cancelled', 'goal_disallowed', 'no_goal']
     }
@@ -417,7 +418,7 @@ const EVENT_MAP = {
     icon: Trophy,
     metadata: {
       category: EventCategory.MATCH_STATE,
-      severity: 'critical',
+      severity: 'critical' as const,
       description: 'Goal awarded',
       aliases: ['goal_awarded', 'goal_confirmed']
     }
@@ -428,7 +429,7 @@ const EVENT_MAP = {
     icon: Users,
     metadata: {
       category: EventCategory.TACTICAL,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Formation change',
       aliases: ['formation_change', 'tactical_change']
     }
@@ -437,7 +438,7 @@ const EVENT_MAP = {
     icon: Pause,
     metadata: {
       category: EventCategory.TACTICAL,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Timeout called',
       aliases: ['timeout', 'break']
     }
@@ -446,7 +447,7 @@ const EVENT_MAP = {
     icon: ArrowUpDown,
     metadata: {
       category: EventCategory.TACTICAL,
-      severity: 'medium',
+      severity: 'medium' as const,
       description: 'Captain change',
       aliases: ['captain_change', 'new_captain']
     }
