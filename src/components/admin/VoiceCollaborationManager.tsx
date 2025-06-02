@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,100 @@ interface VoiceParticipant {
   };
 }
 
+// Mock data until database tables are created
+const mockVoiceRooms: VoiceRoom[] = [
+  {
+    id: 'room-1',
+    name: 'Main Communication',
+    match_id: 'match-1',
+    max_participants: 20,
+    is_active: true,
+    quality: 'excellent',
+    created_at: new Date().toISOString(),
+    participant_count: 8
+  },
+  {
+    id: 'room-2',
+    name: 'Team A Trackers',
+    match_id: 'match-1',
+    max_participants: 25,
+    is_active: true,
+    quality: 'good',
+    created_at: new Date().toISOString(),
+    participant_count: 12
+  },
+  {
+    id: 'room-3',
+    name: 'Team B Trackers',
+    match_id: 'match-1',
+    max_participants: 25,
+    is_active: false,
+    quality: 'fair',
+    created_at: new Date().toISOString(),
+    participant_count: 0
+  }
+];
+
+const mockParticipants: VoiceParticipant[] = [
+  {
+    id: 'participant-1',
+    user_id: 'user-1',
+    room_id: 'room-1',
+    is_muted: false,
+    is_speaking: true,
+    is_connected: true,
+    connection_quality: 'excellent',
+    audio_level: 0.8,
+    joined_at: new Date(Date.now() - 300000).toISOString(),
+    user_profile: {
+      full_name: 'John Coordinator',
+      email: 'john@example.com',
+      role: 'coordinator'
+    },
+    room: {
+      name: 'Main Communication'
+    }
+  },
+  {
+    id: 'participant-2',
+    user_id: 'user-2',
+    room_id: 'room-1',
+    is_muted: true,
+    is_speaking: false,
+    is_connected: true,
+    connection_quality: 'good',
+    audio_level: 0.0,
+    joined_at: new Date(Date.now() - 600000).toISOString(),
+    user_profile: {
+      full_name: 'Sarah Admin',
+      email: 'sarah@example.com',
+      role: 'admin'
+    },
+    room: {
+      name: 'Main Communication'
+    }
+  },
+  {
+    id: 'participant-3',
+    user_id: 'user-3',
+    room_id: 'room-2',
+    is_muted: false,
+    is_speaking: false,
+    is_connected: false,
+    connection_quality: 'poor',
+    audio_level: 0.3,
+    joined_at: new Date(Date.now() - 900000).toISOString(),
+    user_profile: {
+      full_name: 'Mike Tracker',
+      email: 'mike@example.com',
+      role: 'tracker'
+    },
+    room: {
+      name: 'Team A Trackers'
+    }
+  }
+];
+
 const VoiceCollaborationManager: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -84,12 +179,11 @@ const VoiceCollaborationManager: React.FC = () => {
 
   useEffect(() => {
     fetchMatches();
-    setupRealtimeSubscriptions();
   }, []);
 
   useEffect(() => {
     if (selectedMatchId) {
-      fetchVoiceData();
+      loadMockData();
     }
   }, [selectedMatchId]);
 
@@ -114,81 +208,22 @@ const VoiceCollaborationManager: React.FC = () => {
     }
   };
 
-  const fetchVoiceData = async () => {
-    if (!selectedMatchId) return;
-    
+  const loadMockData = () => {
     setRefreshing(true);
-    try {
-      // Fetch voice rooms for the selected match
-      const { data: roomsData, error: roomsError } = await supabase
-        .from('voice_rooms')
-        .select('*')
-        .eq('match_id', selectedMatchId);
+    
+    // Filter mock data by selected match
+    const roomsForMatch = mockVoiceRooms.filter(room => room.match_id === selectedMatchId);
+    const participantsForRooms = mockParticipants.filter(p => 
+      roomsForMatch.some(room => room.id === p.room_id)
+    );
 
-      if (roomsError) {
-        console.error('Error fetching voice rooms:', roomsError);
-        // Create default rooms if none exist
-        await createDefaultRooms();
-        return;
-      }
-
-      // Fetch participants with user profiles and room info
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('voice_participants')
-        .select(`
-          *,
-          user_profile:profiles(full_name, email, role),
-          room:voice_rooms(name)
-        `)
-        .in('room_id', (roomsData || []).map(room => room.id));
-
-      if (participantsError) {
-        console.error('Error fetching participants:', participantsError);
-      }
-
-      // Count participants per room
-      const roomsWithCounts = (roomsData || []).map(room => ({
-        ...room,
-        participant_count: (participantsData || []).filter(p => p.room_id === room.id).length
-      }));
-
-      setVoiceRooms(roomsWithCounts);
-      setParticipants(participantsData || []);
-      
-      // Calculate system health
-      calculateSystemHealth(roomsWithCounts, participantsData || []);
-
-    } catch (error) {
-      console.error('Error fetching voice data:', error);
-      toast.error('Failed to load voice collaboration data');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const createDefaultRooms = async () => {
-    if (!selectedMatchId) return;
-
-    try {
-      const defaultRooms = [
-        { name: 'Main Communication', match_id: selectedMatchId, max_participants: 20 },
-        { name: 'Match Coordinators', match_id: selectedMatchId, max_participants: 8 },
-        { name: 'Team A Trackers', match_id: selectedMatchId, max_participants: 25 },
-        { name: 'Team B Trackers', match_id: selectedMatchId, max_participants: 25 }
-      ];
-
-      const { error } = await supabase
-        .from('voice_rooms')
-        .insert(defaultRooms);
-
-      if (error) throw error;
-
-      toast.success('Created default voice rooms');
-      fetchVoiceData();
-    } catch (error) {
-      console.error('Error creating default rooms:', error);
-      toast.error('Failed to create default rooms');
-    }
+    setVoiceRooms(roomsForMatch);
+    setParticipants(participantsForRooms);
+    
+    // Calculate system health
+    calculateSystemHealth(roomsForMatch, participantsForRooms);
+    
+    setRefreshing(false);
   };
 
   const calculateSystemHealth = (rooms: VoiceRoom[], participants: VoiceParticipant[]) => {
@@ -196,8 +231,12 @@ const VoiceCollaborationManager: React.FC = () => {
     const activeRooms = rooms.filter(r => r.is_active).length;
     const poorConnections = participants.filter(p => p.connection_quality === 'poor').length;
     
-    const avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = 
-      poorConnections > totalParticipants * 0.3 ? 'poor' : 'good';
+    let avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = 'good';
+    if (poorConnections > totalParticipants * 0.3) {
+      avgQuality = 'poor';
+    } else if (poorConnections === 0) {
+      avgQuality = 'excellent';
+    }
     
     setSystemHealth({
       totalRooms: rooms.length,
@@ -208,42 +247,11 @@ const VoiceCollaborationManager: React.FC = () => {
     });
   };
 
-  const setupRealtimeSubscriptions = () => {
-    // Set up real-time subscriptions for voice room updates
-    const roomsChannel = supabase.channel('voice_rooms_changes');
-    const participantsChannel = supabase.channel('voice_participants_changes');
-    
-    roomsChannel
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'voice_rooms' }, 
-        () => fetchVoiceData()
-      )
-      .subscribe();
-
-    participantsChannel
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'voice_participants' }, 
-        () => fetchVoiceData()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(roomsChannel);
-      supabase.removeChannel(participantsChannel);
-    };
-  };
-
   const handleKickParticipant = async (participantId: string) => {
     try {
-      const { error } = await supabase
-        .from('voice_participants')
-        .delete()
-        .eq('id', participantId);
-
-      if (error) throw error;
-
+      // Mock removal for now
+      setParticipants(prev => prev.filter(p => p.id !== participantId));
       toast.success('Participant removed from voice room');
-      fetchVoiceData();
     } catch (error) {
       console.error('Error removing participant:', error);
       toast.error('Failed to remove participant');
@@ -252,15 +260,11 @@ const VoiceCollaborationManager: React.FC = () => {
 
   const handleMuteParticipant = async (participantId: string) => {
     try {
-      const { error } = await supabase
-        .from('voice_participants')
-        .update({ is_muted: true })
-        .eq('id', participantId);
-
-      if (error) throw error;
-
+      // Mock mute for now
+      setParticipants(prev => prev.map(p => 
+        p.id === participantId ? { ...p, is_muted: true } : p
+      ));
       toast.success('Participant muted');
-      fetchVoiceData();
     } catch (error) {
       console.error('Error muting participant:', error);
       toast.error('Failed to mute participant');
@@ -269,15 +273,11 @@ const VoiceCollaborationManager: React.FC = () => {
 
   const handleCloseRoom = async (roomId: string) => {
     try {
-      const { error } = await supabase
-        .from('voice_rooms')
-        .update({ is_active: false })
-        .eq('id', roomId);
-
-      if (error) throw error;
-
+      // Mock close for now
+      setVoiceRooms(prev => prev.map(room => 
+        room.id === roomId ? { ...room, is_active: false } : room
+      ));
       toast.success('Voice room closed');
-      fetchVoiceData();
     } catch (error) {
       console.error('Error closing room:', error);
       toast.error('Failed to close room');
@@ -319,9 +319,12 @@ const VoiceCollaborationManager: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               🎤 Voice Collaboration Manager
+              <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                Demo Mode
+              </Badge>
             </div>
             <Button
-              onClick={fetchVoiceData}
+              onClick={loadMockData}
               disabled={refreshing}
               size="sm"
               variant="outline"
@@ -332,6 +335,10 @@ const VoiceCollaborationManager: React.FC = () => {
           </CardTitle>
           <p className="text-sm text-gray-600">
             Monitor and manage voice rooms, participants, and system health across all matches
+            <br />
+            <span className="text-orange-600 font-medium">
+              Note: Currently showing demo data. Database tables need to be created.
+            </span>
           </p>
         </CardHeader>
         <CardContent className="pt-4">
@@ -402,7 +409,7 @@ const VoiceCollaborationManager: React.FC = () => {
               </CardContent>
             </Card>
 
-            <Card className={`${systemHealth.avgConnectionQuality === 'good' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+            <Card className={`${systemHealth.avgConnectionQuality === 'good' || systemHealth.avgConnectionQuality === 'excellent' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -549,6 +556,7 @@ const VoiceCollaborationManager: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => handleMuteParticipant(participant.id)}
+                              disabled={participant.is_muted}
                             >
                               <VolumeX className="h-3 w-3" />
                             </Button>
@@ -577,6 +585,20 @@ const VoiceCollaborationManager: React.FC = () => {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-orange-800 mb-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="font-medium">Database Setup Required</span>
+                    </div>
+                    <p className="text-sm text-orange-700">
+                      To enable full voice collaboration functionality, you need to create the following tables in your Supabase database:
+                    </p>
+                    <ul className="text-sm text-orange-700 mt-2 ml-4 list-disc">
+                      <li><code>voice_rooms</code> - For managing voice chat rooms</li>
+                      <li><code>voice_participants</code> - For tracking participants in rooms</li>
+                    </ul>
+                  </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <h4 className="font-medium">Quality Settings</h4>
