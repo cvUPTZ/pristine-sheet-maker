@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,14 +19,14 @@ import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Statistics, MatchEvent, PlayerStatistics } from '@/types/index';
+import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics } from '@/types/index';
 
 const Statistics = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
-  const [statistics, setStatistics] = useState<Statistics>({
+  const [statistics, setStatistics] = useState<StatisticsType>({
     possession: { home: 0, away: 0 },
     passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
     shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
@@ -144,7 +143,7 @@ const Statistics = () => {
           const calculatedStats = calculateStatisticsFromEvents(formattedEvents);
           setStatistics(calculatedStats);
         } else {
-          const stats = matchData.match_statistics as unknown as Statistics;
+          const stats = matchData.match_statistics as unknown as StatisticsType;
           setStatistics(stats);
         }
 
@@ -184,7 +183,7 @@ const Statistics = () => {
     }
   };
 
-  const calculateStatisticsFromEvents = (events: MatchEvent[]): Statistics => {
+  const calculateStatisticsFromEvents = (events: MatchEvent[]): StatisticsType => {
     const homeEvents = events.filter(e => e.team === 'home');
     const awayEvents = events.filter(e => e.team === 'away');
 
