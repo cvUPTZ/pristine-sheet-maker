@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,7 @@ import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
 import TrackerReplacementManager from '@/components/admin/TrackerReplacementManager';
 import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
+import VoiceCollaborationManager from '@/components/admin/VoiceCollaborationManager';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertTriangle, Users, CheckCircle2, ChevronDown } from 'lucide-react';
 import MockDataGenerator from '@/components/admin/MockDataGenerator';
@@ -130,6 +132,9 @@ const Admin: React.FC = () => {
           <TabsTrigger value="matches" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Matches
           </TabsTrigger>
+          <TabsTrigger value="voice" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-purple-100 border-purple-300">
+            🎤 Voice Manager
+          </TabsTrigger>
           <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-blue-100 border-blue-300">
             📋 Match Planning
           </TabsTrigger>
@@ -174,6 +179,10 @@ const Admin: React.FC = () => {
         
         <TabsContent value="matches" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <MatchManagement />
+        </TabsContent>
+
+        <TabsContent value="voice" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <VoiceCollaborationManager />
         </TabsContent>
 
         <TabsContent value="planning" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
