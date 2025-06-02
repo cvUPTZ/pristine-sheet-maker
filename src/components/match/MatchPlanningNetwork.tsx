@@ -25,7 +25,6 @@ interface TrackerAssignment {
   id: string;
   tracker_user_id: string | null;
   tracker_email: string | null;
-  tracker_name: string | null;
   player_id?: number | null;
   player_team_id?: string | null;
   assigned_event_types?: string[] | null;
@@ -149,17 +148,25 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
       setMatchData(transformedMatch);
 
+      // Create a map of tracker profiles for quick lookup
+      const trackerProfileMap = new Map();
+      (trackerProfiles || []).forEach(profile => {
+        trackerProfileMap.set(profile.id, profile);
+      });
+
       // Transform assignments data to handle nullable fields
-      const transformedAssignments: TrackerAssignment[] = (assignmentsData || []).map(assignment => ({
-        id: assignment.id || '',
-        tracker_user_id: assignment.tracker_user_id,
-        tracker_email: assignment.tracker_email,
-        tracker_name: assignment.tracker_name || assignment.tracker_email || 'Unknown Tracker',
-        player_id: assignment.player_id,
-        player_team_id: assignment.player_team_id,
-        assigned_event_types: assignment.assigned_event_types,
-        created_at: assignment.created_at || new Date().toISOString()
-      }));
+      const transformedAssignments: TrackerAssignment[] = (assignmentsData || []).map(assignment => {
+        const trackerProfile = assignment.tracker_user_id ? trackerProfileMap.get(assignment.tracker_user_id) : null;
+        return {
+          id: assignment.id || '',
+          tracker_user_id: assignment.tracker_user_id,
+          tracker_email: assignment.tracker_email,
+          player_id: assignment.player_id,
+          player_team_id: assignment.player_team_id,
+          assigned_event_types: assignment.assigned_event_types,
+          created_at: assignment.created_at || new Date().toISOString()
+        };
+      });
 
       setAssignments(transformedAssignments);
 
