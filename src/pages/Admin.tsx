@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import AccessManagement from '@/components/admin/AccessManagement';
 import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
@@ -16,8 +17,9 @@ import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
 import TrackerReplacementManager from '@/components/admin/TrackerReplacementManager';
 import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Users, CheckCircle2, ChevronDown } from 'lucide-react';
 import MockDataGenerator from '@/components/admin/MockDataGenerator';
+import { Button } from '@/components/ui/button';
 
 interface Match {
   id: string;
@@ -34,6 +36,7 @@ const Admin: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingPlanning, setLoadingPlanning] = useState(false);
   const [planningData, setPlanningData] = useState<any>(null);
+  const [isAbsenceMonitorOpen, setIsAbsenceMonitorOpen] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -273,9 +276,37 @@ const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* Tracker Absence Management */}
+            {/* Collapsible Tracker Absence Management */}
             {selectedMatchId && (
-              <TrackerAbsenceManager matchId={selectedMatchId} />
+              <Collapsible open={isAbsenceMonitorOpen} onOpenChange={setIsAbsenceMonitorOpen}>
+                <Card className="border-l-4 border-l-orange-500">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-orange-50/50 transition-colors">
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-orange-600" />
+                          Tracker Absence Monitor
+                        </div>
+                        <Button variant="ghost" size="sm" className="p-0 h-auto">
+                          <ChevronDown 
+                            className={`h-5 w-5 text-orange-600 transition-transform duration-200 ${
+                              isAbsenceMonitorOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </Button>
+                      </CardTitle>
+                      <p className="text-sm text-gray-600">
+                        Real-time monitoring and automatic replacement for absent trackers
+                      </p>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      <TrackerAbsenceManager matchId={selectedMatchId} />
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             )}
 
             {/* Quick Actions - Now Functional */}
