@@ -41,10 +41,10 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Create a map of node IDs to indices
+    // Create a map of node IDs to indices for D3 sankey
     const nodeMap = new Map(nodes.map((node, i) => [node.id, i]));
 
-    // Convert links to use indices
+    // Convert links to use indices for D3 sankey (D3 sankey expects numeric indices)
     const sankeyLinks = links
       .filter(link => nodeMap.has(link.source) && nodeMap.has(link.target))
       .map(link => ({
@@ -54,7 +54,7 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
       }));
 
     // Create D3 sankey generator
-    const sankeyGenerator = sankey<SankeyChartNode, SankeyChartLink>()
+    const sankeyGenerator = sankey<SankeyChartNode, typeof sankeyLinks[0]>()
       .nodeWidth(15)
       .nodePadding(10)
       .extent([[margin.left, margin.top], [innerWidth, innerHeight]]);
@@ -78,19 +78,20 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
       .enter().append("path")
       .attr("class", "link")
       .attr("d", sankeyLinkHorizontal())
-      .style("stroke", (d: SankeyLink<SankeyChartNode, SankeyChartLink>) => {
-        const sourceNode = d.source as SankeyNode<SankeyChartNode, SankeyChartLink>;
+      .style("stroke", (d: any) => {
+        const sourceNode = d.source as any;
         const baseColor = colorScale(sourceNode.team as string);
-        return d3.color(baseColor)?.copy({ opacity: 0.3 }).toString() || '#ccc';
+        const color = d3.color(baseColor as string);
+        return color ? color.copy({ opacity: 0.3 }).toString() : '#ccc';
       })
-      .style("stroke-width", (d: SankeyLink<SankeyChartNode, SankeyChartLink>) => Math.max(1, d.width || 1))
+      .style("stroke-width", (d: any) => Math.max(1, d.width || 1))
       .style("fill", "none");
 
     // Add link tooltips
     link.append("title")
-      .text((d: SankeyLink<SankeyChartNode, SankeyChartLink>) => {
-        const sourceNode = d.source as SankeyNode<SankeyChartNode, SankeyChartLink>;
-        const targetNode = d.target as SankeyNode<SankeyChartNode, SankeyChartLink>;
+      .text((d: any) => {
+        const sourceNode = d.source as any;
+        const targetNode = d.target as any;
         return `${sourceNode.name} → ${targetNode.name}\n${d.value} passes`;
       });
 
@@ -99,40 +100,40 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
       .data(sankeyNodes)
       .enter().append("g")
       .attr("class", "node")
-      .attr("transform", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => `translate(${d.x0},${d.y0})`);
+      .attr("transform", (d: any) => `translate(${d.x0},${d.y0})`);
 
     // Node rectangles
     node.append("rect")
-      .attr("height", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => (d.y1 || 0) - (d.y0 || 0))
-      .attr("width", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => (d.x1 || 0) - (d.x0 || 0))
-      .style("fill", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => colorScale(d.team as string))
+      .attr("height", (d: any) => (d.y1 || 0) - (d.y0 || 0))
+      .attr("width", (d: any) => (d.x1 || 0) - (d.x0 || 0))
+      .style("fill", (d: any) => colorScale(d.team as string) as string)
       .style("stroke", "#000")
       .style("stroke-width", 0.5)
       .style("cursor", "pointer")
-      .on("mouseover", function(event, d: SankeyNode<SankeyChartNode, SankeyChartLink>) {
+      .on("mouseover", function(event, d: any) {
         d3.select(this).style("opacity", "0.8");
       })
-      .on("mouseout", function(event, d: SankeyNode<SankeyChartNode, SankeyChartLink>) {
+      .on("mouseout", function(event, d: any) {
         d3.select(this).style("opacity", "1");
       });
 
     // Node labels
     node.append("text")
-      .attr("x", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => ((d.x1 || 0) - (d.x0 || 0)) / 2)
-      .attr("y", (d: SankeyNode<SankeyChartNode, SankeyChartLink>) => ((d.y1 || 0) - (d.y0 || 0)) / 2)
+      .attr("x", (d: any) => ((d.x1 || 0) - (d.x0 || 0)) / 2)
+      .attr("y", (d: any) => ((d.y1 || 0) - (d.y0 || 0)) / 2)
       .attr("dy", "0.35em")
       .attr("text-anchor", "middle")
       .style("font-size", "10px")
       .style("font-weight", "bold")
       .style("fill", "white")
       .style("pointer-events", "none")
-      .text((d: SankeyNode<SankeyChartNode, SankeyChartLink>) => d.name.split(' ').pop() || ''); // Show last name only
+      .text((d: any) => d.name.split(' ').pop() || ''); // Show last name only
 
     // Add node tooltips
     node.append("title")
-      .text((d: SankeyNode<SankeyChartNode, SankeyChartLink>) => {
-        const totalIn = d.targetLinks?.reduce((sum: number, link: SankeyLink<SankeyChartNode, SankeyChartLink>) => sum + (link.value || 0), 0) || 0;
-        const totalOut = d.sourceLinks?.reduce((sum: number, link: SankeyLink<SankeyChartNode, SankeyChartLink>) => sum + (link.value || 0), 0) || 0;
+      .text((d: any) => {
+        const totalIn = d.targetLinks?.reduce((sum: number, link: any) => sum + (link.value || 0), 0) || 0;
+        const totalOut = d.sourceLinks?.reduce((sum: number, link: any) => sum + (link.value || 0), 0) || 0;
         return `${d.name}\nPasses reçues: ${totalIn}\nPasses données: ${totalOut}`;
       });
 
@@ -155,7 +156,7 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
     legendItems.append("rect")
       .attr("width", 12)
       .attr("height", 12)
-      .style("fill", (d) => colorScale(d.team));
+      .style("fill", (d) => colorScale(d.team) as string);
 
     legendItems.append("text")
       .attr("x", 18)
