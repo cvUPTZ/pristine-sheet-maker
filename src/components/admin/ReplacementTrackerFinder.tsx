@@ -1,14 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, User, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, User, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AvailableTracker {
   id: string;
   email: string;
+  full_name: string;
   lastSeen?: number;
   batteryLevel?: number;
 }
@@ -22,11 +25,59 @@ interface ReplacementTrackerFinderProps {
 
 const ReplacementTrackerFinder: React.FC<ReplacementTrackerFinderProps> = ({
   absentTrackerId,
-  availableTrackers,
   onAssignReplacement,
   isLoading
 }) => {
+  const [availableTrackers, setAvailableTrackers] = useState<AvailableTracker[]>([]);
   const [selectedReplacement, setSelectedReplacement] = useState<string>('');
+  const [loadingTrackers, setLoadingTrackers] = useState(true);
+
+  const fetchAvailableTrackers = async () => {
+    setLoadingTrackers(true);
+    try {
+      // Get all tracker users
+      const { data: trackerUsers, error: trackersError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('role', 'tracker');
+
+      if (trackersError) throw trackersError;
+
+      // Get currently assigned trackers for all matches
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('match_tracker_assignments')
+        .select('tracker_user_id');
+
+      if (assignmentsError) throw assignmentsError;
+
+      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id) || []);
+      
+      // Filter out assigned trackers and the absent tracker
+      const available = (trackerUsers || [])
+        .filter(tracker => 
+          tracker.id !== absentTrackerId && 
+          !assignedTrackerIds.has(tracker.id)
+        )
+        .map(tracker => ({
+          id: tracker.id,
+          email: tracker.email || 'No email',
+          full_name: tracker.full_name || 'No name',
+          lastSeen: Date.now() - Math.random() * 300000, // Mock last seen within 5 minutes
+          batteryLevel: Math.floor(Math.random() * 40) + 60 // Mock battery between 60-100%
+        }));
+
+      setAvailableTrackers(available);
+    } catch (error) {
+      console.error('Error fetching available trackers:', error);
+      toast.error('Failed to fetch available trackers');
+    } finally {
+      setLoadingTrackers(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAvailableTrackers();
+  }, [absentTrackerId]);
 
   const getTrackerScore = (tracker: AvailableTracker): number => {
     let score = 100;
@@ -56,12 +107,34 @@ const ReplacementTrackerFinder: React.FC<ReplacementTrackerFinderProps> = ({
     return 'text-red-600 bg-red-100';
   };
 
+  if (loadingTrackers) {
+    return (
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="py-8">
+          <div className="flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+            Loading available trackers...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="border-blue-200 bg-blue-50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-blue-800">
           <Search className="h-5 w-5" />
           Find Replacement for Tracker {absentTrackerId.slice(-4)}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchAvailableTrackers}
+            className="ml-auto"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,6 +142,7 @@ const ReplacementTrackerFinder: React.FC<ReplacementTrackerFinderProps> = ({
           <div className="text-center py-8 text-gray-500">
             <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
             <p>No available replacement trackers found</p>
+            <p className="text-sm">All trackers are currently assigned to matches</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -105,9 +179,10 @@ const ReplacementTrackerFinder: React.FC<ReplacementTrackerFinderProps> = ({
                       
                       <div>
                         <div className="font-medium text-gray-800">
-                          {tracker.email.split('@')[0]} ({tracker.id.slice(-4)})
+                          {tracker.full_name} ({tracker.id.slice(-4)})
                         </div>
                         <div className="text-sm text-gray-600 flex items-center gap-2">
+                          <span>{tracker.email}</span>
                           {tracker.batteryLevel && (
                             <span>Battery: {tracker.batteryLevel}%</span>
                           )}
