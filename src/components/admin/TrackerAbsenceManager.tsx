@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +33,7 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
     updateTrackerActivity,
     findInactiveTrackers,
     findReplacementTracker,
+    sendNotificationWithSound,
     refetch: refetchActivities
   } = useTrackerActivityManager(matchId);
 
@@ -41,20 +41,17 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
     console.log(`[TrackerAbsenceManager] Handling absence for tracker ${trackerId}: ${reason}`);
     setShowReplacementFinder(trackerId);
     
-    // Call the Supabase function to handle tracker absence
-    try {
-      const { error } = await supabase.rpc('handle_tracker_absence', {
-        p_absent_tracker_user_id: trackerId,
-        p_match_id: matchId,
-        p_replacement_tracker_user_id: null
-      });
-      
-      if (error) {
-        console.error('Error calling handle_tracker_absence:', error);
-      }
-    } catch (error) {
-      console.error('Error handling tracker absence:', error);
-    }
+    // Notify the absent tracker
+    await sendNotificationWithSound(
+      trackerId,
+      matchId,
+      'Absence Detected',
+      `You have been marked as absent from the match. Reason: ${reason}. Please contact an administrator if this is incorrect.`,
+      'tracker_absence_alert',
+      false // No sound for absent tracker notification
+    );
+
+    console.log(`[TrackerAbsenceManager] Absence notification sent to tracker ${trackerId}`);
   };
   
   const {
@@ -118,16 +115,27 @@ const TrackerAbsenceManager: React.FC<TrackerAbsenceManagerProps> = ({ matchId }
 
       if (error) throw error;
 
-      // Call the Supabase function with replacement
-      const { error: funcError } = await supabase.rpc('handle_tracker_absence', {
-        p_absent_tracker_user_id: absentTrackerId,
-        p_match_id: matchId,
-        p_replacement_tracker_user_id: replacementId
-      });
+      // Notify the replacement tracker with sound
+      await sendNotificationWithSound(
+        replacementId,
+        matchId,
+        '🔊 URGENT: Match Assignment',
+        `You have been assigned as a replacement tracker for match ${matchId}. A tracker is absent and your immediate attention is required. Please start tracking immediately.`,
+        'urgent_replacement_assignment',
+        true // Play sound for replacement tracker
+      );
 
-      if (funcError) throw funcError;
+      // Also notify the absent tracker about the replacement
+      await sendNotificationWithSound(
+        absentTrackerId,
+        matchId,
+        'Replacement Assigned',
+        `A replacement tracker has been assigned to cover your absence. Tracker ${replacementId.slice(-4)} is now handling your responsibilities.`,
+        'replacement_assigned',
+        false // No sound for this notification
+      );
 
-      toast.success(`Replacement tracker assigned successfully`);
+      toast.success(`Replacement tracker assigned and notified with sound alert`);
       setShowReplacementFinder('');
       await fetchAssignedTrackers();
       await refetchActivities();

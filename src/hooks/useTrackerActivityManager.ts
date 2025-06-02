@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TrackerActivity {
-  match_id: string;
   user_id: string;
   last_active_at: string;
+  status: 'active' | 'inactive' | 'recording';
 }
 
 export const useTrackerActivityManager = (matchId: string) => {
@@ -15,13 +15,27 @@ export const useTrackerActivityManager = (matchId: string) => {
 
   const fetchTrackerActivities = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('match_tracker_activity')
-        .select('*')
+      // Get tracker assignments and their last activity
+      const { data: assignments, error } = await supabase
+        .from('match_tracker_assignments')
+        .select(`
+          tracker_user_id,
+          profiles!tracker_user_id (
+            id,
+            updated_at
+          )
+        `)
         .eq('match_id', matchId);
 
       if (error) throw error;
-      setTrackerActivities(data || []);
+
+      const activities: TrackerActivity[] = (assignments || []).map(assignment => ({
+        user_id: assignment.tracker_user_id,
+        last_active_at: (assignment.profiles as any)?.updated_at || new Date().toISOString(),
+        status: 'active' as const
+      }));
+
+      setTrackerActivities(activities);
     } catch (error) {
       console.error('Error fetching tracker activities:', error);
       toast.error('Failed to fetch tracker activities');
@@ -32,13 +46,13 @@ export const useTrackerActivityManager = (matchId: string) => {
 
   const updateTrackerActivity = useCallback(async (userId: string) => {
     try {
+      // Update the user's profile updated_at timestamp to track activity
       const { error } = await supabase
-        .from('match_tracker_activity')
-        .upsert({
-          match_id: matchId,
-          user_id: userId,
-          last_active_at: new Date().toISOString()
-        });
+        .from('profiles')
+        .update({
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
 
       if (error) throw error;
       await fetchTrackerActivities();
@@ -46,7 +60,7 @@ export const useTrackerActivityManager = (matchId: string) => {
       console.error('Error updating tracker activity:', error);
       toast.error('Failed to update tracker activity');
     }
-  }, [matchId, fetchTrackerActivities]);
+  }, [fetchTrackerActivities]);
 
   const findInactiveTrackers = useCallback((thresholdMinutes: number = 3) => {
     const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000);
@@ -57,24 +71,80 @@ export const useTrackerActivityManager = (matchId: string) => {
 
   const findReplacementTracker = useCallback(async (absentTrackerId: string) => {
     try {
+      // Get all tracker users
       const { data: availableTrackers, error } = await supabase
-        .rpc('find_replacement_tracker', {
-          p_match_id: matchId,
-          p_absent_tracker_id: absentTrackerId
-        });
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('role', 'tracker');
 
       if (error) throw error;
-      return availableTrackers;
+
+      // Get currently assigned trackers
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('match_tracker_assignments')
+        .select('tracker_user_id');
+
+      if (assignmentsError) throw assignmentsError;
+
+      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id) || []);
+      
+      // Filter out assigned trackers and the absent tracker
+      const available = (availableTrackers || [])
+        .filter(tracker => 
+          tracker.id !== absentTrackerId && 
+          !assignedTrackerIds.has(tracker.id)
+        );
+
+      return available.length > 0 ? available[0] : null;
     } catch (error) {
       console.error('Error finding replacement tracker:', error);
       return null;
     }
-  }, [matchId]);
+  }, []);
+
+  const sendNotificationWithSound = useCallback(async (
+    userId: string, 
+    matchId: string, 
+    title: string, 
+    message: string, 
+    type: string,
+    withSound: boolean = false
+  ) => {
+    try {
+      const { error } = await supabase.rpc('insert_notification', {
+        p_user_id: userId,
+        p_match_id: matchId,
+        p_type: type,
+        p_title: title,
+        p_message: message,
+        p_data: { 
+          with_sound: withSound,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      if (error) throw error;
+
+      console.log(`Notification sent to ${userId}: ${title}`);
+      
+      // If sound is requested, play notification sound
+      if (withSound && 'Audio' in window) {
+        try {
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmkqBjqZ2u/EcyMFLYbP8tiKOAoctM5/kF1fmNOzqLhD'); // Simple beep sound
+          audio.play().catch(e => console.log('Could not play notification sound:', e));
+        } catch (e) {
+          console.log('Audio not supported or failed:', e);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  }, []);
 
   useEffect(() => {
     fetchTrackerActivities();
     
-    // Set up real-time subscription for activity updates
+    // Set up real-time subscription for assignment updates
     const channel = supabase
       .channel(`tracker_activity_${matchId}`)
       .on(
@@ -82,7 +152,7 @@ export const useTrackerActivityManager = (matchId: string) => {
         {
           event: '*',
           schema: 'public',
-          table: 'match_tracker_activity',
+          table: 'match_tracker_assignments',
           filter: `match_id=eq.${matchId}`
         },
         () => {
@@ -102,6 +172,7 @@ export const useTrackerActivityManager = (matchId: string) => {
     updateTrackerActivity,
     findInactiveTrackers,
     findReplacementTracker,
+    sendNotificationWithSound,
     refetch: fetchTrackerActivities
   };
 };

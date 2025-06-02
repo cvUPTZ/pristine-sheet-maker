@@ -48,6 +48,35 @@ const TrackerNotifications: React.FC = () => {
     PushNotificationService.initialize();
   }, []);
 
+  // Play notification sound for urgent notifications
+  const playNotificationSound = useCallback(() => {
+    if ('Audio' in window) {
+      try {
+        // Create a more attention-grabbing sound for urgent notifications
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Create a two-tone urgent sound
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.3);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch (e) {
+        console.log('Could not play notification sound:', e);
+      }
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) {
       setNotifications([]);
@@ -66,7 +95,7 @@ const TrackerNotifications: React.FC = () => {
           type,
           is_read,
           created_at,
-          notification_data,
+          data,
           user_id
         `)
         .eq('user_id', user.id)
@@ -78,6 +107,21 @@ const TrackerNotifications: React.FC = () => {
       const notificationsWithMatches: Notification[] = [];
       
       for (const notification of data || []) {
+        // Check if notification should play sound
+        const notificationData = notification.data as any;
+        if (notificationData?.with_sound && !notification.is_read) {
+          playNotificationSound();
+          
+          // Show browser notification if permission granted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new window.Notification(notification.title || 'Match Alert', {
+              body: notification.message || '',
+              icon: '/favicon.ico',
+              tag: notification.id
+            });
+          }
+        }
+
         if (notification.match_id) {
           const { data: matchData, error: matchError } = await supabase
             .from('matches')
@@ -94,19 +138,17 @@ const TrackerNotifications: React.FC = () => {
               type: notification.type || 'general',
               is_read: notification.is_read || false,
               created_at: notification.created_at || new Date().toISOString(),
-              notification_data: notification.notification_data as NotificationData,
+              notification_data: notification.data as NotificationData,
               matches: matchData
             });
 
-            // Send local notification for new match assignments
-            if (notification.type === 'match_assignment' && !notification.is_read) {
+            // Send local notification for urgent assignments
+            if (notification.type === 'urgent_replacement_assignment' && !notification.is_read) {
               const matchName = matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`;
-              const eventTypes = (notification.notification_data as NotificationData)?.assigned_event_types || [];
-              PushNotificationService.sendMatchAssignmentNotification(matchName, eventTypes);
+              PushNotificationService.sendMatchAssignmentNotification(matchName, ['Urgent Replacement']);
             }
           }
         } else {
-          // Include notifications without match_id
           notificationsWithMatches.push({
             id: notification.id,
             match_id: notification.match_id,
@@ -115,7 +157,7 @@ const TrackerNotifications: React.FC = () => {
             type: notification.type || 'general',
             is_read: notification.is_read || false,
             created_at: notification.created_at || new Date().toISOString(),
-            notification_data: notification.notification_data as NotificationData,
+            notification_data: notification.data as NotificationData,
           });
         }
       }
@@ -127,7 +169,7 @@ const TrackerNotifications: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, playNotificationSound]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -198,6 +240,11 @@ const TrackerNotifications: React.FC = () => {
   };
 
   useEffect(() => {
+    // Request notification permission when component mounts
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     if (user?.id) {
       fetchNotifications();
 
@@ -216,6 +263,13 @@ const TrackerNotifications: React.FC = () => {
             console.log('Notification change received via Supabase RT:', payload);
             fetchNotifications();
             if (payload.eventType === 'INSERT') {
+              const newNotification = payload.new as any;
+              
+              // Play sound for urgent notifications
+              if (newNotification?.data?.with_sound) {
+                playNotificationSound();
+              }
+              
               toast.info('New notification received!');
             }
           }
@@ -242,7 +296,7 @@ const TrackerNotifications: React.FC = () => {
       setNotifications([]);
       setLoading(false);
     }
-  }, [user?.id, fetchNotifications]);
+  }, [user?.id, fetchNotifications, playNotificationSound]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
