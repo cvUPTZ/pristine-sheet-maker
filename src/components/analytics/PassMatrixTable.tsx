@@ -3,8 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, ArrowRight, Grid3X3, BarChart3 } from 'lucide-react';
-import { ResponsiveContainer, Sankey, Tooltip } from 'recharts';
 import { MatchEvent } from '@/types/index';
+import D3SankeyChart from './D3SankeyChart';
 
 interface PassMatrixTableProps {
   events: MatchEvent[];
@@ -166,6 +166,40 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     return { players, matrix };
   };
 
+  // Prepare D3 Sankey data
+  const d3SankeyData = React.useMemo(() => {
+    // Create unique nodes with proper IDs
+    const nodeMap = new Map<string, { id: string; name: string; team: 'home' | 'away' }>();
+    
+    passConnections.forEach(connection => {
+      if (!nodeMap.has(connection.fromPlayerName)) {
+        nodeMap.set(connection.fromPlayerName, {
+          id: connection.fromPlayerName,
+          name: connection.fromPlayerName,
+          team: connection.team
+        });
+      }
+      if (!nodeMap.has(connection.toPlayerName)) {
+        nodeMap.set(connection.toPlayerName, {
+          id: connection.toPlayerName,
+          name: connection.toPlayerName,
+          team: connection.team
+        });
+      }
+    });
+
+    const nodes = Array.from(nodeMap.values());
+
+    // Create links with proper source/target IDs
+    const links = passConnections.map(connection => ({
+      source: connection.fromPlayerName,
+      target: connection.toPlayerName,
+      value: connection.count
+    }));
+
+    return { nodes, links };
+  }, [passConnections]);
+
   // Prepare Sankey data for visualization with cycle detection
   const sankeyData = React.useMemo(() => {
     // Filter out potential circular references for Sankey
@@ -310,45 +344,33 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     );
   };
 
-  // Render visualization
+  // Update visualization render function
   const renderVisualization = () => (
     <div className="space-y-6">
-      {sankeyData.links.length > 0 ? (
-        <div className="h-96">
-          <h3 className="font-semibold text-lg mb-4">Flux de Passes - Diagramme Sankey</h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <Sankey
-              data={sankeyData}
-              nodeWidth={10}
-              nodePadding={60}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            >
-              <Tooltip 
-                content={({ payload }) => {
-                  if (payload && payload[0]) {
-                    const data = payload[0].payload;
-                    if (data.source !== undefined && data.target !== undefined) {
-                      const sourceName = sankeyData.nodes[data.source]?.name;
-                      const targetName = sankeyData.nodes[data.target]?.name;
-                      return (
-                        <div className="bg-white p-2 border rounded shadow">
-                          <p className="font-semibold">{sourceName} → {targetName}</p>
-                          <p className="text-sm text-gray-600">{data.value} passes</p>
-                        </div>
-                      );
-                    }
-                  }
-                  return null;
-                }}
-              />
-            </Sankey>
-          </ResponsiveContainer>
+      {d3SankeyData.links.length > 0 ? (
+        <div className="space-y-4">
+          <h3 className="font-semibold text-lg">Flux de Passes - Diagramme Sankey Avancé</h3>
+          <D3SankeyChart 
+            nodes={d3SankeyData.nodes}
+            links={d3SankeyData.links}
+            width={800}
+            height={400}
+          />
+          <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
+            <p><strong>Comment lire ce diagramme :</strong></p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Les rectangles représentent les joueurs (bleu = domicile, rouge = extérieur)</li>
+              <li>Les flux représentent les passes entre joueurs</li>
+              <li>Plus le flux est épais, plus il y a de passes</li>
+              <li>Survolez les éléments pour plus de détails</li>
+            </ul>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 text-gray-500">
           <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
           <p>Impossible de générer le diagramme Sankey</p>
-          <p className="text-sm">Les données contiennent des références circulaires</p>
+          <p className="text-sm">Aucune donnée de passe disponible</p>
         </div>
       )}
       
