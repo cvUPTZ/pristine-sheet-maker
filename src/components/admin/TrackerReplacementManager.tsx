@@ -99,11 +99,11 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
   const assignReplacement = async (assignmentId: string, replacementId: string) => {
     setLoading(true);
     try {
-      // Use raw SQL to update the replacement tracker using type assertion
-      const { error } = await supabase.rpc('assign_replacement_tracker', {
-        assignment_id: assignmentId,
-        replacement_id: replacementId
-      } as any);
+      // Use direct SQL update instead of RPC function
+      const { error } = await supabase
+        .from('match_tracker_assignments')
+        .update({ replacement_tracker_id: replacementId })
+        .eq('id', assignmentId);
 
       if (error) throw error;
 

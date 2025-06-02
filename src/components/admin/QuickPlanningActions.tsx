@@ -28,9 +28,17 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
 
       if (matchError) throw matchError;
 
-      // Safely handle the JSON data
-      const homeTeamPlayers = Array.isArray(match.home_team_players) ? match.home_team_players : [];
-      const awayTeamPlayers = Array.isArray(match.away_team_players) ? match.away_team_players : [];
+      // Safely handle the JSON data with proper type checking
+      let homeTeamPlayers: any[] = [];
+      let awayTeamPlayers: any[] = [];
+      
+      if (match.home_team_players && typeof match.home_team_players === 'object' && Array.isArray(match.home_team_players)) {
+        homeTeamPlayers = match.home_team_players;
+      }
+      
+      if (match.away_team_players && typeof match.away_team_players === 'object' && Array.isArray(match.away_team_players)) {
+        awayTeamPlayers = match.away_team_players;
+      }
       
       const allPlayers = [...homeTeamPlayers, ...awayTeamPlayers];
 
@@ -148,19 +156,18 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
         return;
       }
 
-      // Assign replacements using raw SQL update
+      // Assign replacements using direct SQL update
       let assignmentCount = 0;
       for (let i = 0; i < Math.min(assignmentsWithoutReplacements.length, availableTrackers.length); i++) {
         const assignment = assignmentsWithoutReplacements[i];
         const replacement = availableTrackers[i];
 
         if (assignment.id && replacement.id) {
-          // Use raw SQL to update the replacement_tracker_id
+          // Use direct SQL update instead of RPC
           const { error } = await supabase
-            .rpc('assign_replacement_tracker', {
-              assignment_id: assignment.id,
-              replacement_id: replacement.id
-            } as any);
+            .from('match_tracker_assignments')
+            .update({ replacement_tracker_id: replacement.id })
+            .eq('id', assignment.id);
 
           if (!error) {
             assignmentCount++;
