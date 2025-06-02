@@ -14,6 +14,7 @@ interface PeerState {
 }
 
 import { ConnectionMonitor } from './connectionMonitor';
+import { VoiceConnectionRecovery } from './connectionRecovery';
 
 export class WebRTCManager {
   private peers = new Map<string, PeerState>();
@@ -24,6 +25,9 @@ export class WebRTCManager {
   private onConnectionQuality?: (userId: string, quality: any) => void;
   private signalingQueue = new Map<string, Promise<void>>();
   private connectionMonitor: ConnectionMonitor;
+  private connectionRecovery: VoiceConnectionRecovery;
+  private reconnectionAttempts = new Map<string, number>();
+  private maxReconnectionAttempts = 3;
 
   constructor(options: WebRTCManagerOptions) {
     this.localStream = options.localStream;
@@ -42,6 +46,11 @@ export class WebRTCManager {
         console.log(`📡 Connection lost detected for: ${userId}`);
         this.handlePeerDisconnection(userId);
       }
+    });
+
+    // Initialize connection recovery
+    this.connectionRecovery = new VoiceConnectionRecovery((attempt, maxRetries) => {
+      console.log(`🔄 Voice connection recovery attempt ${attempt}/${maxRetries}`);
     });
   }
 
@@ -106,6 +115,8 @@ export class WebRTCManager {
           console.log('🎵 Remote stream has tracks:', remoteStream.getTracks().map(t => t.kind));
           this.onRemoteStream(userId, remoteStream);
           peerState.lastActivity = Date.now();
+          // Reset reconnection attempts on successful connection
+          this.reconnectionAttempts.delete(userId);
         } else {
           console.warn('⚠️ Remote stream has no tracks for:', userId);
         }
@@ -139,7 +150,7 @@ export class WebRTCManager {
         }
       };
 
-      // Handle connection state changes
+      // Enhanced connection state handling with auto-recovery
       peerConnection.onconnectionstatechange = () => {
         console.log(`🔌 Connection state for ${userId}:`, peerConnection.connectionState);
         peerState.lastActivity = Date.now();
@@ -148,14 +159,18 @@ export class WebRTCManager {
           console.log('✅ WebRTC connection established with:', userId);
           // Process any pending ICE candidates
           this.processPendingIceCandidates(userId);
-        } else if (peerConnection.connectionState === 'disconnected' || 
-                   peerConnection.connectionState === 'failed') {
-          console.log('❌ WebRTC connection lost with:', userId);
-          this.handlePeerDisconnection(userId);
+          // Reset reconnection attempts
+          this.reconnectionAttempts.delete(userId);
+        } else if (peerConnection.connectionState === 'disconnected') {
+          console.log('⚠️ WebRTC connection disconnected with:', userId);
+          this.attemptReconnection(userId);
+        } else if (peerConnection.connectionState === 'failed') {
+          console.log('❌ WebRTC connection failed with:', userId);
+          this.attemptReconnection(userId);
         }
       };
 
-      // Handle ICE connection state
+      // Enhanced ICE connection state handling
       peerConnection.oniceconnectionstatechange = () => {
         console.log(`🧊 ICE connection state for ${userId}:`, peerConnection.iceConnectionState);
         peerState.lastActivity = Date.now();
@@ -163,6 +178,14 @@ export class WebRTCManager {
         if (peerConnection.iceConnectionState === 'failed') {
           console.log('🔄 ICE connection failed, attempting restart for:', userId);
           this.restartIce(userId);
+        } else if (peerConnection.iceConnectionState === 'disconnected') {
+          console.log('⚠️ ICE connection disconnected for:', userId);
+          // Give it a moment before attempting recovery
+          setTimeout(() => {
+            if (peerConnection.iceConnectionState === 'disconnected') {
+              this.attemptReconnection(userId);
+            }
+          }, 5000);
         }
       };
 
@@ -200,12 +223,53 @@ export class WebRTCManager {
     }
   }
 
+  private async attemptReconnection(userId: string): Promise<void> {
+    const attempts = this.reconnectionAttempts.get(userId) || 0;
+    
+    if (attempts >= this.maxReconnectionAttempts) {
+      console.log(`❌ Max reconnection attempts reached for ${userId}, giving up`);
+      this.handlePeerDisconnection(userId);
+      return;
+    }
+
+    this.reconnectionAttempts.set(userId, attempts + 1);
+    
+    try {
+      console.log(`🔄 Attempting reconnection ${attempts + 1}/${this.maxReconnectionAttempts} for:`, userId);
+      
+      await this.connectionRecovery.attemptRecovery(async () => {
+        // Try ICE restart first
+        await this.restartIce(userId);
+        
+        // Wait a moment for ICE restart to take effect
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const peerState = this.peers.get(userId);
+        if (peerState && peerState.connection.connectionState !== 'connected') {
+          throw new Error('ICE restart did not restore connection');
+        }
+      });
+      
+      console.log(`✅ Reconnection successful for: ${userId}`);
+      
+    } catch (error) {
+      console.error(`❌ Reconnection failed for ${userId}:`, error);
+      
+      if (attempts + 1 >= this.maxReconnectionAttempts) {
+        this.handlePeerDisconnection(userId);
+      }
+    }
+  }
+
   private handlePeerDisconnection(userId: string): void {
     const peerState = this.peers.get(userId);
     if (!peerState) return;
     
     // Remove from connection monitor
     this.connectionMonitor.removePeer(userId);
+    
+    // Clean up reconnection attempts
+    this.reconnectionAttempts.delete(userId);
     
     // Clean up the peer connection
     peerState.connection.close();
@@ -295,6 +359,11 @@ export class WebRTCManager {
     return this.queueSignalingOperation(userId, async () => {
       const peerState = this.peers.get(userId);
       if (peerState) {
+        // Clean up reconnection attempts
+        this.reconnectionAttempts.delete(userId);
+        // Remove from connection monitor
+        this.connectionMonitor.removePeer(userId);
+        
         peerState.connection.close();
         this.peers.delete(userId);
         console.log('🔌 Closed peer connection for:', userId);
@@ -310,7 +379,9 @@ export class WebRTCManager {
     
     await Promise.all(closePromises);
     this.signalingQueue.clear();
+    this.reconnectionAttempts.clear();
     this.connectionMonitor.cleanup();
+    this.connectionRecovery.cleanup();
     console.log('🔌 Closed all peer connections');
   }
 
@@ -325,12 +396,12 @@ export class WebRTCManager {
       .map(([userId]) => userId);
   }
 
-  // Health monitoring
+  // Enhanced health monitoring with recovery
   startHealthMonitoring(): void {
     // Start connection quality monitoring
     this.connectionMonitor.startMonitoring();
     
-    // Keep existing peer activity monitoring
+    // Enhanced peer activity monitoring with recovery
     setInterval(() => {
       const now = Date.now();
       this.peers.forEach((state, userId) => {
@@ -339,7 +410,10 @@ export class WebRTCManager {
         if (timeSinceActivity > 60000) { // 1 minute of inactivity
           console.warn(`⚠️ Peer ${userId} inactive for ${timeSinceActivity}ms`);
           
-          if (timeSinceActivity > 300000) { // 5 minutes - force disconnect
+          if (timeSinceActivity > 180000) { // 3 minutes - attempt recovery
+            console.log(`🔄 Attempting recovery for inactive peer: ${userId}`);
+            this.attemptReconnection(userId);
+          } else if (timeSinceActivity > 300000) { // 5 minutes - force disconnect
             console.log(`🔌 Force disconnecting inactive peer: ${userId}`);
             this.handlePeerDisconnection(userId);
           }
@@ -348,11 +422,12 @@ export class WebRTCManager {
     }, 30000); // Check every 30 seconds
   }
 
-  // Add method to get connection quality
-  getConnectionQuality(userId: string): string | null {
-    const peerState = this.peers.get(userId);
-    if (!peerState) return null;
-    
-    return peerState.connection.connectionState;
+  // New methods for recovery status
+  isRecovering(): boolean {
+    return this.connectionRecovery.isInRecovery();
+  }
+
+  getReconnectionAttempts(userId: string): number {
+    return this.reconnectionAttempts.get(userId) || 0;
   }
 }

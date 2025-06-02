@@ -47,6 +47,8 @@ export const useVoiceCollaboration = ({
   const [isRoomAdmin, setIsRoomAdmin] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [connectionQualities, setConnectionQualities] = useState<Map<string, any>>(new Map());
+  const [retryAttempts, setRetryAttempts] = useState(0);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   const channelRef = useRef<any>(null);
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -54,10 +56,11 @@ export const useVoiceCollaboration = ({
   const audioManagerRef = useRef<AudioManager | null>(null);
   const isCleaningUpRef = useRef(false);
 
-  // Add debug info helper
-  const addDebugInfo = useCallback((message: string) => {
+  // Enhanced debug info helper with error categorization
+  const addDebugInfo = useCallback((message: string, category: 'info' | 'warn' | 'error' = 'info') => {
     const timestamp = new Date().toISOString().slice(11, 23);
-    const debugMessage = `[${timestamp}] ${message}`;
+    const emoji = category === 'error' ? '❌' : category === 'warn' ? '⚠️' : 'ℹ️';
+    const debugMessage = `[${timestamp}] ${emoji} ${message}`;
     console.log('🔍 VOICE DEBUG:', debugMessage);
     setDebugInfo(prev => [...prev.slice(-14), debugMessage]);
   }, []);
@@ -92,27 +95,31 @@ export const useVoiceCollaboration = ({
       audio.volume = 1.0;
       audio.muted = false;
       
-      // Handle autoplay restrictions with better error handling
+      // Enhanced autoplay handling with recovery
       try {
         await audio.play();
         addDebugInfo(`✅ Started playing audio for: ${userId}`);
       } catch (playError: any) {
-        addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`);
+        addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`, 'warn');
         
-        // Set up user interaction listener - Fixed TypeScript error
+        // Set up user interaction listener with improved handling
         const playOnInteraction = async () => {
           try {
+            if (audio.srcObject && !audio.paused) return; // Already playing
+            
             await audio.play();
             addDebugInfo(`🎵 Audio started after user interaction for: ${userId}`);
           } catch (e: any) {
-            addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`);
+            addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`, 'error');
           }
           document.removeEventListener('click', playOnInteraction);
           document.removeEventListener('touchstart', playOnInteraction);
+          document.removeEventListener('keydown', playOnInteraction);
         };
         
         document.addEventListener('click', playOnInteraction);
         document.addEventListener('touchstart', playOnInteraction);
+        document.addEventListener('keydown', playOnInteraction);
       }
       
       remoteAudiosRef.current.set(userId, audio);
@@ -135,7 +142,7 @@ export const useVoiceCollaboration = ({
       onUserJoined?.(userId);
       
     } catch (error: any) {
-      addDebugInfo(`❌ Failed to create remote audio for ${userId}: ${error.message}`);
+      addDebugInfo(`❌ Failed to create remote audio for ${userId}: ${error.message}`, 'error');
       console.error('Remote audio creation error:', error);
     }
   }, [addDebugInfo, onUserJoined]);
@@ -263,105 +270,144 @@ export const useVoiceCollaboration = ({
           await webrtcManagerRef.current.closePeerConnection(senderId);
           removeRemoteAudio(senderId);
           break;
+          
+        case 'recovery_request':
+          if (data.targetId !== userId) return;
+          addDebugInfo(`🔄 Recovery request from ${senderId}`);
+          // Re-establish connection
+          await webrtcManagerRef.current.createPeerConnection(senderId);
+          const recoveryOffer = await webrtcManagerRef.current.createOffer(senderId);
+          
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'webrtc_signal',
+            payload: { type: 'offer', senderId: userId, targetId: senderId, data: recoveryOffer }
+          });
+          break;
       }
     } catch (error: any) {
-      addDebugInfo(`❌ WebRTC signaling error: ${error.message}`);
+      addDebugInfo(`❌ WebRTC signaling error: ${error.message}`, 'error');
       console.error('WebRTC signaling error:', error);
+      
+      // Attempt recovery for critical errors
+      if (error.message.includes('Invalid state') || error.message.includes('Connection failed')) {
+        setIsRecovering(true);
+        setTimeout(() => setIsRecovering(false), 5000);
+      }
     }
   }, [userId, addDebugInfo, removeRemoteAudio]);
 
   // Join voice room with improved sequencing
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
     if (isConnecting || isVoiceEnabled) {
-      addDebugInfo(`❌ Already connecting or connected`);
+      addDebugInfo(`❌ Already connecting or connected`, 'warn');
       return;
     }
 
     addDebugInfo(`🚪 Starting join process for room: ${room.name}`);
     setIsConnecting(true);
+    setRetryAttempts(0);
     
-    try {
-      // Step 1: Initialize AudioManager
-      if (!audioManagerRef.current) {
-        throw new Error('AudioManager not available');
-      }
-
-      await audioManagerRef.current.initialize({
-        onAudioLevel: setAudioLevel,
-        onError: (error) => {
-          addDebugInfo(`❌ AudioManager error: ${error.message}`);
-          toast.error('Audio system error: ' + error.message);
-        }
-      });
-
-      // Step 2: Get user media
-      addDebugInfo('🎤 Requesting microphone access...');
-      const stream = await audioManagerRef.current.getUserMedia(
-        audioManagerRef.current.getStreamConstraints()
-      );
-
-      // Step 3: Setup audio monitoring (no local playback)
-      await audioManagerRef.current.setupAudioMonitoring(stream);
-      
-      // Step 4: Initialize WebRTC manager with connection monitoring
-      webrtcManagerRef.current = new WebRTCManager({
-        localStream: stream,
-        onRemoteStream: createRemoteAudio,
-        onPeerDisconnected: removeRemoteAudio,
-        onError: (error) => {
-          addDebugInfo(`❌ WebRTC error: ${error.message}`);
-          toast.error('Voice connection error: ' + error.message);
-        },
-        onConnectionQuality: (userId, quality) => {
-          setConnectionQualities(prev => new Map(prev).set(userId, quality));
-          
-          if (quality.quality === 'poor') {
-            addDebugInfo(`⚠️ Poor connection quality with ${userId}`);
-            toast.warning(`Poor voice quality with ${userId.slice(-4)}`);
-          }
-        }
-      });
-
-      // Start health monitoring
-      webrtcManagerRef.current.startHealthMonitoring();
-      
-      // Step 5: Setup Supabase channel
-      channelRef.current = supabase.channel(`voice_${room.id}`, {
-        config: {
-          presence: {
-            key: userId,
-          },
-        },
-      });
-      
-      // Listen for WebRTC signaling
-      channelRef.current.on('broadcast', { event: 'webrtc_signal' }, handleSignalingMessage);
-      
-      channelRef.current.subscribe(async (status: string) => {
-        addDebugInfo(`📡 Channel status: ${status}`);
+    const attemptJoin = async (attempt: number = 1): Promise<void> => {
+      try {
+        addDebugInfo(`🔄 Join attempt ${attempt}/3 for room: ${room.name}`);
         
-        if (status === 'SUBSCRIBED') {
-          setCurrentRoom(room);
-          setIsVoiceEnabled(true);
-          addDebugInfo('✅ Voice room joined successfully');
-          
-          // Announce presence to other users
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'webrtc_signal',
-            payload: { type: 'user_joined', senderId: userId }
-          });
-          
-          toast.success(`Joined ${room.name} - You are muted by default`);
-        } else if (status === 'CHANNEL_ERROR') {
-          addDebugInfo('❌ Channel subscription error');
-          toast.error('Failed to connect to voice channel');
-          throw new Error('Channel subscription failed');
+        // Step 1: Initialize AudioManager
+        if (!audioManagerRef.current) {
+          throw new Error('AudioManager not available');
         }
-      });
 
+        await audioManagerRef.current.initialize({
+          onAudioLevel: setAudioLevel,
+          onError: (error) => {
+            addDebugInfo(`❌ AudioManager error: ${error.message}`, 'error');
+            toast.error('Audio system error: ' + error.message);
+          }
+        });
+
+        // Step 2: Get user media
+        addDebugInfo('🎤 Requesting microphone access...');
+        const stream = await audioManagerRef.current.getUserMedia(
+          audioManagerRef.current.getStreamConstraints()
+        );
+
+        // Step 3: Setup audio monitoring (no local playback)
+        await audioManagerRef.current.setupAudioMonitoring(stream);
+        
+        // Step 4: Initialize WebRTC manager with enhanced error handling
+        webrtcManagerRef.current = new WebRTCManager({
+          localStream: stream,
+          onRemoteStream: createRemoteAudio,
+          onPeerDisconnected: removeRemoteAudio,
+          onError: (error) => {
+            addDebugInfo(`❌ WebRTC error: ${error.message}`, 'error');
+            toast.error('Voice connection error: ' + error.message);
+          },
+          onConnectionQuality: (userId, quality) => {
+            setConnectionQualities(prev => new Map(prev).set(userId, quality));
+            
+            if (quality.quality === 'poor') {
+              addDebugInfo(`⚠️ Poor connection quality with ${userId}`, 'warn');
+              toast.warning(`Poor voice quality with ${userId.slice(-4)}`);
+            }
+          }
+        });
+
+        // Start health monitoring
+        webrtcManagerRef.current.startHealthMonitoring();
+        
+        // Step 5: Setup Supabase channel
+        channelRef.current = supabase.channel(`voice_${room.id}`, {
+          config: {
+            presence: {
+              key: userId,
+            },
+          },
+        });
+        
+        // Listen for WebRTC signaling
+        channelRef.current.on('broadcast', { event: 'webrtc_signal' }, handleSignalingMessage);
+        
+        channelRef.current.subscribe(async (status: string) => {
+          addDebugInfo(`📡 Channel status: ${status}`);
+          
+          if (status === 'SUBSCRIBED') {
+            setCurrentRoom(room);
+            setIsVoiceEnabled(true);
+            addDebugInfo('✅ Voice room joined successfully');
+            
+            // Announce presence to other users
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'webrtc_signal',
+              payload: { type: 'user_joined', senderId: userId }
+            });
+            
+            toast.success(`Joined ${room.name} - You are muted by default`);
+          } else if (status === 'CHANNEL_ERROR') {
+            addDebugInfo('❌ Channel subscription error', 'error');
+            throw new Error('Channel subscription failed');
+          }
+        });
+
+      } catch (error: any) {
+        addDebugInfo(`❌ JOIN ATTEMPT ${attempt} FAILED: ${error.message}`, 'error');
+        
+        if (attempt < 3) {
+          setRetryAttempts(attempt);
+          addDebugInfo(`🔄 Retrying in ${attempt * 2} seconds...`, 'warn');
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          return attemptJoin(attempt + 1);
+        } else {
+          throw error; // Final failure
+        }
+      }
+    };
+
+    try {
+      await attemptJoin();
     } catch (error: any) {
-      addDebugInfo(`❌ JOIN FAILED: ${error.message}`);
+      addDebugInfo(`❌ ALL JOIN ATTEMPTS FAILED: ${error.message}`, 'error');
       console.error('Voice room join error:', error);
       
       // Cleanup on failure
@@ -376,6 +422,7 @@ export const useVoiceCollaboration = ({
       }
     } finally {
       setIsConnecting(false);
+      setRetryAttempts(0);
     }
   }, [isConnecting, isVoiceEnabled, addDebugInfo, userId, handleSignalingMessage, createRemoteAudio, removeRemoteAudio]);
 
@@ -527,6 +574,8 @@ export const useVoiceCollaboration = ({
     
     // Enhanced features
     connectionQualities,
+    retryAttempts,
+    isRecovering,
     
     // Debug information
     debugInfo

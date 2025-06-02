@@ -33,6 +33,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     joinVoiceRoom,
     leaveVoiceRoom,
     connectionQualities,
+    retryAttempts,
+    isRecovering,
     debugInfo
   } = useVoiceCollaboration({
     matchId,
@@ -113,10 +115,32 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                 Live • {currentRoom?.name}
               </Badge>
             )}
+            {isRecovering && (
+              <Badge variant="destructive" className="text-xs animate-pulse">
+                Recovering...
+              </Badge>
+            )}
+            {retryAttempts > 0 && !isVoiceEnabled && (
+              <Badge variant="outline" className="text-xs">
+                Retry {retryAttempts}/3
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         
         <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+          {/* Connection Status Banner */}
+          {(isRecovering || retryAttempts > 0) && (
+            <div className="p-2 rounded border bg-yellow-50 border-yellow-200">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                <span className="text-xs text-yellow-700">
+                  {isRecovering ? 'Recovering connection...' : `Connection attempt ${retryAttempts}/3`}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Current Room Status */}
           {isVoiceEnabled && currentRoom && (
             <div className={`p-2 rounded border ${getRoomColorClass(currentRoom.name)}`}>
@@ -133,6 +157,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                     onClick={toggleMute}
                     size="sm"
                     variant={isMuted ? "destructive" : "secondary"}
+                    disabled={isRecovering}
                   >
                     {isMuted ? (
                       <MicOff className="h-3 w-3" />
@@ -144,6 +169,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                     onClick={leaveVoiceRoom}
                     size="sm"
                     variant="destructive"
+                    disabled={isRecovering}
                   >
                     <PhoneOff className="h-3 w-3" />
                   </Button>
@@ -160,6 +186,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <span className="text-xs text-gray-500">
                 ({isMuted ? 'Muted' : 'Unmuted'})
               </span>
+              {isRecovering && (
+                <span className="text-xs text-yellow-600">• Recovering</span>
+              )}
             </div>
           )}
 
@@ -187,12 +216,12 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                       </div>
                       <Button
                         onClick={() => joinVoiceRoom(room)}
-                        disabled={isConnecting || room.currentParticipants >= room.maxParticipants}
+                        disabled={isConnecting || room.currentParticipants >= room.maxParticipants || isRecovering}
                         size="sm"
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
                         <Phone className="h-3 w-3 mr-1" />
-                        {isConnecting ? 'Connecting...' : 'Join'}
+                        {isConnecting ? (retryAttempts > 0 ? `Retry ${retryAttempts}` : 'Connecting...') : 'Join'}
                       </Button>
                     </div>
                   </div>
@@ -267,10 +296,15 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           )}
 
           {/* Instructions */}
-          {!isVoiceEnabled && (
+          {!isVoiceEnabled && !isConnecting && (
             <div className="text-xs text-gray-600 p-2 bg-blue-50 rounded border border-blue-200">
               🎤 <strong>Test your audio first, then join a voice room!</strong><br/>
               Use the Audio Test above to verify your microphone works before joining.
+              {retryAttempts > 0 && (
+                <>
+                  <br/>⚠️ <strong>Connection issues detected.</strong> The system will automatically retry.
+                </>
+              )}
             </div>
           )}
 
@@ -280,6 +314,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <summary className="cursor-pointer text-yellow-400 mb-1">
                 <Bug className="h-3 w-3 inline mr-1" />
                 Debug Log ({debugInfo.length} entries)
+                {retryAttempts > 0 && (
+                  <span className="text-orange-400 ml-2">• Retry {retryAttempts}/3</span>
+                )}
               </summary>
               <div className="max-h-32 overflow-y-auto space-y-0.5">
                 {debugInfo.slice(-10).map((info, index) => (
