@@ -261,8 +261,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     // Broadcast that we're recording
     broadcastStatus({
       status: 'recording',
-      timestamp: Date.now(),
-      activity: `recording_${eventType.key}`
+      timestamp: Date.now()
     });
 
     try {
@@ -312,8 +311,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       // Broadcast that we're back to active status
       broadcastStatus({
         status: 'active',
-        timestamp: Date.now(),
-        activity: `recorded_${eventType.key}`
+        timestamp: Date.now()
       });
       
       toast({
