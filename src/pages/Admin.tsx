@@ -2,43 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import AccessManagement from '@/components/admin/AccessManagement';
-import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
-import UserManagement from '@/components/admin/UserManagement';
-import MatchManagement from '@/components/admin/MatchManagement';
-import EventAssignments from '@/components/admin/EventAssignments';
-import PlayerAssignments from '@/components/admin/PlayerAssignments';
-import AuditLogs from '@/components/admin/AuditLogs';
-import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
-import MatchTrackingMatrix from '@/components/admin/MatchTrackingMatrix';
+import AccessManagement from './AccessManagement';
+import RealTimeMatchEvents from './RealTimeMatchEvents';
+import UserManagement from './UserManagement';
+import MatchManagement from './MatchManagement';
+import EventAssignments from './EventAssignments';
+import PlayerAssignments from './PlayerAssignments';
+import AuditLogs from './AuditLogs';
+import TrackerBatteryMonitor from './TrackerBatteryMonitor';
+import MatchTrackingMatrix from './MatchTrackingMatrix';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
-import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
-import TrackerReplacementManager from '@/components/admin/TrackerReplacementManager';
-import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
+import TrackerAbsenceManager from './TrackerAbsenceManager';
+import TrackerReplacementManager from './TrackerReplacementManager';
+import QuickPlanningActions from './QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
 interface Match {
   id: string;
-  name: string | null;
-  status: string;
-  match_date: string | null;
+  name?: string;
   home_team_name: string;
   away_team_name: string;
-  home_team_formation: string | null;
-  away_team_formation: string | null;
-  home_team_score: number | null;
-  away_team_score: number | null;
-  created_at: string;
-  updated_at: string | null;
+  match_date?: string;
+  status: string;
 }
 
 const Admin: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
-  const [planningData, setPlanningData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [loadingPlanning, setLoadingPlanning] = useState(false);
+  const [planningData, setPlanningData] = useState<any>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -52,38 +46,24 @@ const Admin: React.FC = () => {
   }, [selectedMatchId]);
 
   const fetchMatches = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
-        .select(`
-          id,
-          name,
-          status,
-          match_date,
-          home_team_name,
-          away_team_name,
-          home_team_formation,
-          away_team_formation,
-          home_team_score,
-          away_team_score,
-          created_at,
-          updated_at
-        `)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('match_date', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching matches:', error);
+        return;
+      }
 
-      const typedMatches: Match[] = (data || []).map(match => ({
-        ...match,
-        created_at: match.created_at || new Date().toISOString()
-      }));
-
-      setMatches(typedMatches);
-      if (typedMatches.length > 0 && !selectedMatchId) {
-        setSelectedMatchId(typedMatches[0].id);
+      setMatches(data || []);
+      if (data && data.length > 0 && !selectedMatchId) {
+        setSelectedMatchId(data[0].id);
       }
     } catch (error) {
-      console.error('Error fetching matches:', error);
+      console.error('Error in fetchMatches:', error);
     } finally {
       setLoading(false);
     }
@@ -94,66 +74,44 @@ const Admin: React.FC = () => {
     
     setLoadingPlanning(true);
     try {
-      // Fetch tracker assignments
-      const { data: assignments } = await supabase
-        .from('match_tracker_assignments_view')
+      // Fetch planning data - you can customize this based on your needs
+      const { data, error } = await supabase
+        .from('match_assignments')
         .select('*')
         .eq('match_id', selectedMatchId);
 
-      // Fetch available trackers
-      const { data: trackers } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'tracker');
+      if (error) {
+        console.error('Error fetching planning data:', error);
+        return;
+      }
 
-      // Fetch match details
-      const { data: match } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('id', selectedMatchId)
-        .single();
-
-      setPlanningData({
-        assignments: assignments || [],
-        trackers: trackers || [],
-        match: match
-      });
+      setPlanningData(data);
     } catch (error) {
-      console.error('Error fetching planning data:', error);
+      console.error('Error in fetchPlanningData:', error);
     } finally {
       setLoadingPlanning(false);
     }
   };
 
   const getAssignmentStats = () => {
-    if (!planningData) return { assigned: 0, total: 0, coverage: 0 };
+    if (!planningData) return { assigned: 0, unassigned: 0, total: 0 };
     
-    const totalPlayers = (planningData.match?.home_team_players?.length || 0) + 
-                        (planningData.match?.away_team_players?.length || 0);
-    const assignedPlayers = planningData.assignments.filter((a: any) => a.player_id).length;
-    const coverage = totalPlayers > 0 ? Math.round((assignedPlayers / totalPlayers) * 100) : 0;
+    const assigned = planningData.filter((item: any) => item.tracker_id).length;
+    const total = planningData.length;
+    const unassigned = total - assigned;
     
-    return {
-      assigned: assignedPlayers,
-      total: totalPlayers,
-      coverage
-    };
+    return { assigned, unassigned, total };
   };
 
   const getTrackerStats = () => {
-    if (!planningData) return { assigned: 0, available: 0, active: 0 };
+    if (!planningData) return { active: 0, inactive: 0, total: 0 };
     
-    const assignedTrackers = new Set(planningData.assignments.map((a: any) => a.tracker_user_id)).size;
-    const availableTrackers = planningData.trackers.length;
-    const activeTrackers = planningData.trackers.filter((t: any) => 
-      planningData.assignments.some((a: any) => a.tracker_user_id === t.id)
-    ).length;
+    // This is a placeholder - adjust based on your actual tracker status logic
+    const active = planningData.filter((item: any) => item.status === 'active').length;
+    const total = planningData.length;
+    const inactive = total - active;
     
-    return {
-      assigned: assignedTrackers,
-      available: availableTrackers,
-      active: activeTrackers
-    };
+    return { active, inactive, total };
   };
 
   return (
@@ -161,7 +119,7 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-9 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-13 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
@@ -170,6 +128,12 @@ const Admin: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-blue-100 border-blue-300">
             📋 Match Planning
+          </TabsTrigger>
+          <TabsTrigger value="tracker-replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-orange-100 border-orange-300">
+            {isMobile ? '🔄 Tracker' : '🔄 Tracker Replacement'}
+          </TabsTrigger>
+          <TabsTrigger value="replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-purple-100 border-purple-300">
+            {isMobile ? '🔄 Replace' : '🔄 Replacement Mgmt'}
           </TabsTrigger>
           <TabsTrigger value="matrix" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Matrix' : 'Tracking Matrix'}
@@ -180,11 +144,11 @@ const Admin: React.FC = () => {
           <TabsTrigger value="battery" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Battery
           </TabsTrigger>
+          <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            {isMobile ? 'Players' : 'Player Assignments'}
+          </TabsTrigger>
           {!isMobile && (
             <>
-              <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
-                Player Assignments
-              </TabsTrigger>
               <TabsTrigger value="access" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
                 Access Management
               </TabsTrigger>
@@ -228,42 +192,27 @@ const Admin: React.FC = () => {
                   </div>
                 ) : matches.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
-                    <div className="text-4xl mb-4">📅</div>
-                    <p className="text-lg font-medium">No matches available for planning</p>
-                    <p className="text-sm">Create a match first to access comprehensive planning features</p>
+                    <div className="text-4xl mb-4">📋</div>
+                    <p className="text-lg font-medium">No matches available</p>
+                    <p className="text-sm">Create a match first to start planning</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium mb-2">Select Match to Plan</label>
-                        <select
-                          value={selectedMatchId || ''}
-                          onChange={(e) => setSelectedMatchId(e.target.value)}
-                          className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          {matches.map((match) => (
-                            <option key={match.id} value={match.id}>
-                              {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                              {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
-                              {` (${match.status.toUpperCase()})`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {planningData && (
-                        <div className="flex gap-4 text-sm">
-                          <div className="text-center">
-                            <div className="font-bold text-lg text-blue-600">{getAssignmentStats().coverage}%</div>
-                            <div className="text-gray-600">Coverage</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-lg text-green-600">{getTrackerStats().active}</div>
-                            <div className="text-gray-600">Active Trackers</div>
-                          </div>
-                        </div>
-                      )}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Select Match for Planning</label>
+                      <select
+                        value={selectedMatchId || ''}
+                        onChange={(e) => setSelectedMatchId(e.target.value)}
+                        className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {matches.map((match) => (
+                          <option key={match.id} value={match.id}>
+                            {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                            {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                            {` (${match.status.toUpperCase()})`}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
@@ -273,118 +222,54 @@ const Admin: React.FC = () => {
             {/* Planning Overview Cards */}
             {selectedMatchId && planningData && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-green-500">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Player Assignment Status
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-2xl font-bold text-green-600">{getAssignmentStats().assigned}</span>
-                        <span className="text-sm text-gray-500">of {getAssignmentStats().total}</span>
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Assigned</p>
+                        <p className="text-2xl font-bold text-green-900">{getAssignmentStats().assigned}</p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-green-500 h-2 rounded-full" 
-                          style={{ width: `${getAssignmentStats().coverage}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {getAssignmentStats().coverage}% players assigned to trackers
-                      </div>
+                      <CheckCircle2 className="h-8 w-8 text-green-600" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-blue-500">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Tracker Availability
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-2xl font-bold text-blue-600">{getTrackerStats().active}</span>
-                        <span className="text-sm text-gray-500">of {getTrackerStats().available}</span>
+                <Card className="border-yellow-200 bg-yellow-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">Unassigned</p>
+                        <p className="text-2xl font-bold text-yellow-900">{getAssignmentStats().unassigned}</p>
                       </div>
-                      <div className="flex gap-2 text-xs">
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-                          {getTrackerStats().active} Active
-                        </span>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
-                          {getTrackerStats().available - getTrackerStats().active} Available
-                        </span>
-                      </div>
+                      <AlertTriangle className="h-8 w-8 text-yellow-600" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-orange-500">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Absence Monitoring
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">🔍</div>
-                        <div className="text-sm font-medium text-orange-600">Active</div>
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">Active Trackers</p>
+                        <p className="text-2xl font-bold text-blue-900">{getTrackerStats().active}</p>
                       </div>
-                      <div className="text-xs text-center text-gray-600">
-                        Real-time tracker monitoring enabled
-                      </div>
+                      <Users className="h-8 w-8 text-blue-600" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-purple-500">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Match Readiness</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-center">
-                        {getAssignmentStats().coverage >= 80 ? (
-                          <>
-                            <div className="text-2xl">✅</div>
-                            <div className="text-sm font-medium text-green-600">Ready</div>
-                          </>
-                        ) : getAssignmentStats().coverage >= 50 ? (
-                          <>
-                            <div className="text-2xl">⚠️</div>
-                            <div className="text-sm font-medium text-yellow-600">Partial</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-2xl">❌</div>
-                            <div className="text-sm font-medium text-red-600">Not Ready</div>
-                          </>
-                        )}
+                <Card className="border-gray-200 bg-gray-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Total</p>
+                        <p className="text-2xl font-bold text-gray-900">{getAssignmentStats().total}</p>
                       </div>
-                      <div className="text-xs text-center text-gray-600">
-                        {getAssignmentStats().coverage >= 80 ? 'Match is ready to start' : 
-                         getAssignmentStats().coverage >= 50 ? 'More assignments needed' : 
-                         'Critical assignments missing'}
-                      </div>
+                      <Users className="h-8 w-8 text-gray-600" />
                     </div>
                   </CardContent>
                 </Card>
               </div>
-            )}
-
-            {/* Tracker Replacement Management */}
-            {selectedMatchId && (
-              <TrackerReplacementManager 
-                matchId={selectedMatchId} 
-                onReplacementUpdate={fetchPlanningData}
-              />
             )}
 
             {/* Tracker Absence Management */}
@@ -421,6 +306,113 @@ const Admin: React.FC = () => {
           </div>
         </TabsContent>
 
+        {/* New TrackerReplacementManager Tab */}
+        <TabsContent value="tracker-replacement" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card className="border-l-4 border-l-orange-500">
+            <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50">
+              <CardTitle className="flex items-center gap-2">
+                🔄 Tracker Replacement Manager
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Direct tracker replacement management with real-time updates and assignment tracking
+              </p>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  Loading matches...
+                </div>
+              ) : matches.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-4xl mb-4">🔄</div>
+                  <p className="text-lg font-medium">No matches available</p>
+                  <p className="text-sm">Create a match first to manage tracker replacements</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Select Match for Tracker Replacement</label>
+                    <select
+                      value={selectedMatchId || ''}
+                      onChange={(e) => setSelectedMatchId(e.target.value)}
+                      className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      {matches.map((match) => (
+                        <option key={match.id} value={match.id}>
+                          {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                          {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                          {` (${match.status.toUpperCase()})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {selectedMatchId && (
+                    <TrackerReplacementManager 
+                      matchId={selectedMatchId} 
+                      onReplacementUpdate={fetchPlanningData}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="replacement" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
+              <CardTitle className="flex items-center gap-2">
+                🔄 Replacement Management Hub
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Manage backup tracker assignments and replacement procedures for match operations
+              </p>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                  Loading matches...
+                </div>
+              ) : matches.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-4xl mb-4">👥</div>
+                  <p className="text-lg font-medium">No matches available</p>
+                  <p className="text-sm">Create a match first to manage tracker replacements</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Select Match for Replacement Management</label>
+                    <select
+                      value={selectedMatchId || ''}
+                      onChange={(e) => setSelectedMatchId(e.target.value)}
+                      className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    >
+                      {matches.map((match) => (
+                        <option key={match.id} value={match.id}>
+                          {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                          {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                          {` (${match.status.toUpperCase()})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {selectedMatchId && (
+                    <TrackerReplacementManager 
+                      matchId={selectedMatchId} 
+                      onReplacementUpdate={fetchPlanningData}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="matrix" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <MatchTrackingMatrix />
         </TabsContent>
@@ -433,18 +425,17 @@ const Admin: React.FC = () => {
           <TrackerBatteryMonitor />
         </TabsContent>
 
+        <TabsContent value="players" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <PlayerAssignments />
+        </TabsContent>
+
         {isMobile ? (
           <TabsContent value="more" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-            <Tabs defaultValue="players" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="players" className="text-xs">Players</TabsTrigger>
+            <Tabs defaultValue="access" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="access" className="text-xs">Access</TabsTrigger>
                 <TabsTrigger value="audit" className="text-xs">Audit</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="players" className="space-y-4 mt-4">
-                <PlayerAssignments />
-              </TabsContent>
               
               <TabsContent value="access" className="space-y-4 mt-4">
                 <AccessManagement />
@@ -457,10 +448,6 @@ const Admin: React.FC = () => {
           </TabsContent>
         ) : (
           <>
-            <TabsContent value="players" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-              <PlayerAssignments />
-            </TabsContent>
-            
             <TabsContent value="access" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
               <AccessManagement />
             </TabsContent>
