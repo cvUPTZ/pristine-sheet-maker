@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -51,7 +50,6 @@ export const useVoiceCollaboration = ({
   const channelRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const audioMonitorIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,9 +106,9 @@ export const useVoiceCollaboration = ({
     onUserLeft?.(userId);
   }, [addDebugInfo, onUserLeft]);
 
-  // Setup audio analysis
+  // Setup audio analysis WITHOUT local playback
   const setupAudioAnalysis = useCallback((stream: MediaStream) => {
-    addDebugInfo('🎵 Setting up audio analysis');
+    addDebugInfo('🎵 Setting up audio analysis (monitoring only)');
     try {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
@@ -126,18 +124,14 @@ export const useVoiceCollaboration = ({
       
       sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
-      gainNodeRef.current = audioContextRef.current.createGain();
       
       analyserRef.current.fftSize = 256;
       analyserRef.current.smoothingTimeConstant = 0.3;
       
+      // ONLY connect source to analyser - NO connection to destination (speakers)
       sourceNodeRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(gainNodeRef.current);
-      gainNodeRef.current.connect(audioContextRef.current.destination);
       
-      gainNodeRef.current.gain.value = 0; // Start muted
-      
-      addDebugInfo('✅ Audio pipeline: source -> analyser -> gain -> destination');
+      addDebugInfo('✅ Audio pipeline: source -> analyser (NO local playback)');
       
       const startAudioMonitoring = () => {
         if (audioMonitorIntervalRef.current) {
@@ -160,7 +154,7 @@ export const useVoiceCollaboration = ({
           setAudioLevel(normalizedLevel);
         }, 100);
         
-        addDebugInfo('✅ Audio monitoring started');
+        addDebugInfo('✅ Audio monitoring started (level detection only)');
       };
       
       startAudioMonitoring();
@@ -314,7 +308,7 @@ export const useVoiceCollaboration = ({
       localStreamRef.current = stream;
       setCurrentRoom(room);
       
-      // Setup audio analysis
+      // Setup audio analysis (monitoring only, no local playback)
       const audioCleanup = setupAudioAnalysis(stream);
       
       // Initialize WebRTC manager
@@ -454,21 +448,28 @@ export const useVoiceCollaboration = ({
     toast.info(`Left ${roomName}`);
   }, [isVoiceEnabled, currentRoom, addDebugInfo, userId]);
 
-  // Toggle mute using gain control
+  // Toggle mute by enabling/disabling the audio track
   const toggleMute = useCallback(() => {
     addDebugInfo(`🔇 TOGGLE MUTE: Current state=${isMuted ? 'MUTED' : 'UNMUTED'}`);
     
-    if (!gainNodeRef.current) {
-      addDebugInfo('❌ No gain node available for mute control');
+    if (!localStreamRef.current) {
+      addDebugInfo('❌ No local stream available for mute control');
       toast.error('Audio system not ready');
       return;
     }
     
+    const audioTrack = localStreamRef.current.getAudioTracks()[0];
+    if (!audioTrack) {
+      addDebugInfo('❌ No audio track available');
+      toast.error('No audio track found');
+      return;
+    }
+    
     const newMutedState = !isMuted;
-    gainNodeRef.current.gain.value = newMutedState ? 0 : 1;
+    audioTrack.enabled = !newMutedState;
     setIsMuted(newMutedState);
     
-    addDebugInfo(`✅ MUTE STATE: ${newMutedState ? 'MUTED' : 'UNMUTED'}, gain=${gainNodeRef.current.gain.value}`);
+    addDebugInfo(`✅ MUTE STATE: ${newMutedState ? 'MUTED' : 'UNMUTED'}, track enabled=${audioTrack.enabled}`);
     toast.info(newMutedState ? 'Microphone muted' : 'Microphone unmuted');
   }, [isMuted, addDebugInfo]);
 
