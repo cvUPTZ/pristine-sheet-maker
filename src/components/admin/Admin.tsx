@@ -10,6 +10,7 @@ import MatchManagement from './MatchManagement';
 import EventAssignments from './EventAssignments';
 import PlayerAssignments from './PlayerAssignments';
 import AuditLogs from './AuditLogs';
+import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Match {
@@ -30,6 +31,7 @@ interface Match {
 const Admin: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -64,6 +66,9 @@ const Admin: React.FC = () => {
       }));
 
       setMatches(typedMatches);
+      if (typedMatches.length > 0 && !selectedMatchId) {
+        setSelectedMatchId(typedMatches[0].id);
+      }
     } catch (error) {
       console.error('Error fetching matches:', error);
     } finally {
@@ -76,12 +81,15 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-6 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-7 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
           <TabsTrigger value="matches" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Matches
+          </TabsTrigger>
+          <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            Planning
           </TabsTrigger>
           <TabsTrigger value="events" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Events' : 'Event Assignments'}
@@ -112,6 +120,49 @@ const Admin: React.FC = () => {
         
         <TabsContent value="matches" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <MatchManagement />
+        </TabsContent>
+
+        <TabsContent value="planning" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Match Planning & Organization</CardTitle>
+              <p className="text-sm text-gray-600">
+                Comprehensive match planning dashboard for tracker assignments and event coordination
+              </p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">Loading matches...</div>
+              ) : matches.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No matches available for planning</p>
+                  <p className="text-sm">Create a match first to access planning features</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Select Match to Plan</label>
+                    <select
+                      value={selectedMatchId || ''}
+                      onChange={(e) => setSelectedMatchId(e.target.value)}
+                      className="w-full max-w-md p-2 border border-gray-300 rounded-md"
+                    >
+                      {matches.map((match) => (
+                        <option key={match.id} value={match.id}>
+                          {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                          {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {selectedMatchId && (
+                    <MatchPlanningNetwork matchId={selectedMatchId} />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="events" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
