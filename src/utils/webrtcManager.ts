@@ -106,13 +106,21 @@ export class WebRTCManager {
         peerConnection.addTrack(track, this.localStream);
       });
 
-      // Handle remote stream
+      // FIXED: Handle remote stream with proper audio setup
       peerConnection.ontrack = (event) => {
         console.log('📡 Received remote track from:', userId, 'streams:', event.streams.length);
         const [remoteStream] = event.streams;
         
         if (remoteStream && remoteStream.getTracks().length > 0) {
           console.log('🎵 Remote stream has tracks:', remoteStream.getTracks().map(t => t.kind));
+          
+          // Ensure audio tracks are enabled and properly configured
+          const audioTracks = remoteStream.getAudioTracks();
+          audioTracks.forEach(track => {
+            track.enabled = true;
+            console.log(`🎤 Audio track enabled for ${userId}:`, track.id, track.readyState);
+          });
+          
           this.onRemoteStream(userId, remoteStream);
           peerState.lastActivity = Date.now();
           // Reset reconnection attempts on successful connection

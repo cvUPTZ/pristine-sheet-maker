@@ -76,7 +76,7 @@ export const useVoiceCollaboration = ({
     };
   }, []);
 
-  // IMPROVED: Create and manage remote audio elements with better autoplay handling
+  // FIXED: Create and manage remote audio elements with proper playback
   const createRemoteAudio = useCallback(async (userId: string, stream: MediaStream) => {
     addDebugInfo(`🔊 Creating remote audio for user: ${userId}`);
     
@@ -86,6 +86,7 @@ export const useVoiceCollaboration = ({
       if (existingAudio) {
         existingAudio.pause();
         existingAudio.srcObject = null;
+        existingAudio.remove?.(); // Remove from DOM if attached
         remoteAudiosRef.current.delete(userId);
         addDebugInfo(`🗑️ Removed existing audio for: ${userId}`);
       }
@@ -94,33 +95,86 @@ export const useVoiceCollaboration = ({
       audio.srcObject = stream;
       audio.volume = 1.0;
       audio.muted = false;
+      audio.autoplay = true;
       
-      // Enhanced autoplay handling with recovery
-      try {
-        await audio.play();
-        addDebugInfo(`✅ Started playing audio for: ${userId}`);
-      } catch (playError: any) {
-        addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`, 'warn');
+      // Add audio element to DOM to ensure proper playback
+      audio.style.display = 'none';
+      document.body.appendChild(audio);
+      
+      // Enhanced autoplay handling with multiple fallback strategies
+      const attemptPlayback = async () => {
+        try {
+          // Ensure audio context is resumed (required by some browsers)
+          if (typeof AudioContext !== 'undefined') {
+            const audioContext = new AudioContext();
+            if (audioContext.state === 'suspended') {
+              await audioContext.resume();
+              addDebugInfo(`🎵 Audio context resumed for: ${userId}`);
+            }
+            audioContext.close();
+          }
+          
+          await audio.play();
+          addDebugInfo(`✅ Started playing audio for: ${userId}`);
+          return true;
+        } catch (playError: any) {
+          addDebugInfo(`⚠️ Direct play failed for ${userId}: ${playError.message}`, 'warn');
+          return false;
+        }
+      };
+      
+      const playbackSuccess = await attemptPlayback();
+      
+      if (!playbackSuccess) {
+        addDebugInfo(`🎯 Setting up user interaction listener for: ${userId}`, 'warn');
+        toast.warning(`Audio ready for ${userId.slice(-4)} - click anywhere to enable playback`);
         
-        // Set up user interaction listener with improved handling
-        const playOnInteraction = async () => {
+        // Enhanced user interaction handler
+        const playOnInteraction = async (event: Event) => {
           try {
-            if (audio.srcObject && !audio.paused) return; // Already playing
+            if (!audio.srcObject || audio.currentTime > 0) return; // Already playing or no stream
             
             await audio.play();
             addDebugInfo(`🎵 Audio started after user interaction for: ${userId}`);
+            toast.success(`Audio enabled for ${userId.slice(-4)}`);
+            
+            // Remove all event listeners after successful play
+            document.removeEventListener('click', playOnInteraction);
+            document.removeEventListener('touchstart', playOnInteraction);
+            document.removeEventListener('keydown', playOnInteraction);
           } catch (e: any) {
             addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`, 'error');
           }
-          document.removeEventListener('click', playOnInteraction);
-          document.removeEventListener('touchstart', playOnInteraction);
-          document.removeEventListener('keydown', playOnInteraction);
         };
         
         document.addEventListener('click', playOnInteraction);
         document.addEventListener('touchstart', playOnInteraction);
         document.addEventListener('keydown', playOnInteraction);
+        
+        // Auto-cleanup listeners after 30 seconds
+        setTimeout(() => {
+          document.removeEventListener('click', playOnInteraction);
+          document.removeEventListener('touchstart', playOnInteraction);
+          document.removeEventListener('keydown', playOnInteraction);
+        }, 30000);
       }
+      
+      // Monitor audio stream health
+      audio.addEventListener('loadstart', () => {
+        addDebugInfo(`📡 Audio loading started for: ${userId}`);
+      });
+      
+      audio.addEventListener('canplay', () => {
+        addDebugInfo(`🎵 Audio can play for: ${userId}`);
+      });
+      
+      audio.addEventListener('error', (e) => {
+        addDebugInfo(`❌ Audio error for ${userId}: ${e.type}`, 'error');
+      });
+      
+      audio.addEventListener('ended', () => {
+        addDebugInfo(`🏁 Audio ended for: ${userId}`);
+      });
       
       remoteAudiosRef.current.set(userId, audio);
       
@@ -154,6 +208,7 @@ export const useVoiceCollaboration = ({
     if (audio) {
       audio.pause();
       audio.srcObject = null;
+      audio.remove?.(); // Remove from DOM
       remoteAudiosRef.current.delete(userId);
     }
     
@@ -444,6 +499,7 @@ export const useVoiceCollaboration = ({
       remoteAudiosRef.current.forEach((audio, userId) => {
         audio.pause();
         audio.srcObject = null;
+        audio.remove?.(); // Remove from DOM
       });
       remoteAudiosRef.current.clear();
 

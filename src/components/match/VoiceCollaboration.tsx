@@ -129,6 +129,21 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         </CardHeader>
         
         <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+          {/* ADDED: Audio Playback Status */}
+          {isVoiceEnabled && connectedTrackers.length > 0 && (
+            <div className="p-2 rounded border bg-green-50 border-green-200">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-green-700">
+                  🔊 Audio playback active for {connectedTrackers.length} participant(s)
+                </span>
+              </div>
+              <div className="text-xs text-green-600 mt-1">
+                If you can't hear others, click anywhere to enable audio playback
+              </div>
+            </div>
+          )}
+
           {/* Connection Status Banner */}
           {(isRecovering || retryAttempts > 0) && (
             <div className="p-2 rounded border bg-yellow-50 border-yellow-200">
@@ -184,7 +199,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <span className="text-xs text-gray-600">Your audio:</span>
               <AudioLevelIndicator level={audioLevel} />
               <span className="text-xs text-gray-500">
-                ({isMuted ? 'Muted' : 'Unmuted'})
+                {(level * 100).toFixed(1)}%
               </span>
               {isRecovering && (
                 <span className="text-xs text-yellow-600">• Recovering</span>
