@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,10 @@ import {
   UserCheck,
   Database,
   Smartphone,
-  Globe
+  Globe,
+  Check,
+  Crown,
+  Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -77,6 +79,58 @@ const LandingPage: React.FC = () => {
       icon: <Smartphone className="h-6 w-6 text-red-500" />,
       title: "Interface Mobile",
       description: "Accédez à vos analyses depuis n'importe quel appareil, où que vous soyez."
+    }
+  ];
+
+  const pricingPlans = [
+    {
+      name: "Starter",
+      price: "99€",
+      period: "/mois",
+      description: "Parfait pour les petits clubs et équipes amateur",
+      icon: <Star className="h-6 w-6 text-blue-600" />,
+      features: [
+        "Jusqu'à 5 matchs par mois",
+        "2 analystes simultanés",
+        "Statistiques de base",
+        "Support par email",
+        "Stockage 10GB"
+      ],
+      popular: false
+    },
+    {
+      name: "Professional",
+      price: "299€",
+      period: "/mois",
+      description: "Idéal pour les clubs semi-professionnels",
+      icon: <Crown className="h-6 w-6 text-purple-600" />,
+      features: [
+        "Matchs illimités",
+        "10 analystes simultanés",
+        "Statistiques avancées",
+        "Analyse vidéo complète",
+        "Support prioritaire",
+        "Stockage 100GB",
+        "API d'intégration"
+      ],
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      price: "Sur devis",
+      period: "",
+      description: "Solution complète pour les clubs professionnels",
+      icon: <Shield className="h-6 w-6 text-green-600" />,
+      features: [
+        "Tout du plan Professional",
+        "Analystes illimités",
+        "Infrastructure dédiée",
+        "Formation personnalisée",
+        "Support 24/7",
+        "Stockage illimité",
+        "Développement sur mesure"
+      ],
+      popular: false
     }
   ];
 
@@ -160,6 +214,95 @@ const LandingPage: React.FC = () => {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-16 px-4 bg-gradient-to-r from-gray-50 to-blue-50">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Notre Modèle Économique
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Des solutions adaptées à chaque niveau, du club amateur aux équipes professionnelles
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {pricingPlans.map((plan, index) => (
+              <Card key={index} className={`relative hover:shadow-lg transition-shadow ${plan.popular ? 'border-2 border-purple-500 shadow-lg' : 'border-0 shadow-md'}`}>
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-purple-500 text-white px-4 py-1">
+                      Le Plus Populaire
+                    </Badge>
+                  </div>
+                )}
+                <CardHeader className="text-center">
+                  <div className="mx-auto mb-4 p-3 bg-gray-50 rounded-lg w-fit">
+                    {plan.icon}
+                  </div>
+                  <CardTitle className="text-2xl text-gray-900 mb-2">{plan.name}</CardTitle>
+                  <div className="mb-2">
+                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
+                    <span className="text-gray-600">{plan.period}</span>
+                  </div>
+                  <p className="text-gray-600">{plan.description}</p>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 mb-6">
+                    {plan.features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button 
+                    className={`w-full ${plan.popular ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    onClick={() => navigate('/auth')}
+                  >
+                    {plan.price === "Sur devis" ? "Nous Contacter" : "Commencer"}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          <div className="mt-12 text-center">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Pourquoi Choisir Notre Modèle ?</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Shield className="h-6 w-6 text-blue-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Sans Engagement</h4>
+                <p className="text-sm text-gray-600">Résiliez à tout moment sans frais cachés</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Users className="h-6 w-6 text-green-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Support Inclus</h4>
+                <p className="text-sm text-gray-600">Formation et assistance technique comprise</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Zap className="h-6 w-6 text-purple-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Mises à Jour</h4>
+                <p className="text-sm text-gray-600">Nouvelles fonctionnalités automatiques</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Database className="h-6 w-6 text-orange-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Vos Données</h4>
+                <p className="text-sm text-gray-600">Export libre de toutes vos analyses</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
