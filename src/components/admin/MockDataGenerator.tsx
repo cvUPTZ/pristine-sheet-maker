@@ -41,7 +41,7 @@ const MockDataGenerator: React.FC = () => {
       const mockTrackers = [];
       for (let i = 1; i <= parseInt(trackerCount); i++) {
         const trackerData = {
-          id: crypto.randomUUID(), // Generate a UUID for the id field
+          id: crypto.randomUUID(),
           email: `mock.tracker${i}@simulation.com`,
           full_name: `Mock Tracker ${i}`,
           role: 'tracker',
@@ -65,7 +65,7 @@ const MockDataGenerator: React.FC = () => {
     }
   };
 
-  const generateMockPlayerAssignments = async () => {
+  const generateRealisticPlayerAssignments = async () => {
     if (!selectedMatchId) {
       toast.error('Please select a match first');
       return;
@@ -87,28 +87,64 @@ const MockDataGenerator: React.FC = () => {
         return;
       }
 
-      // Generate mock assignments
+      // Define possible event types
+      const eventTypes = ['pass', 'shot', 'tackle', 'cross', 'dribble', 'interception', 'clearance', 'corner', 'throw_in', 'foul'];
+      
       const assignments = [];
       const playersPerTeam = Math.floor(parseInt(playerCount) / 2);
+      let trackerIndex = 0;
 
-      for (let i = 1; i <= playersPerTeam; i++) {
-        // Home team assignments
+      // Create realistic assignments for each player
+      for (let playerId = 1; playerId <= playersPerTeam * 2; playerId++) {
+        const isHomeTeam = playerId <= playersPerTeam;
+        const teamId = isHomeTeam ? 'home' : 'away';
+        const currentTracker = trackers[trackerIndex % trackers.length];
+
+        // Simulate different scenarios:
+        // Best case: Single tracker for single event type for one player
+        // Worst case: Single tracker for multiple event types for multiple players
+        
+        let assignedEventTypes: string[];
+        const scenario = Math.random();
+        
+        if (scenario < 0.3) {
+          // Best case: Single event type
+          assignedEventTypes = [eventTypes[Math.floor(Math.random() * eventTypes.length)]];
+        } else if (scenario < 0.7) {
+          // Medium case: 2-3 event types
+          assignedEventTypes = eventTypes.slice(0, 2 + Math.floor(Math.random() * 2));
+        } else {
+          // Worst case: Multiple event types
+          assignedEventTypes = eventTypes.slice(0, 3 + Math.floor(Math.random() * 4));
+        }
+
         assignments.push({
           match_id: selectedMatchId,
-          tracker_user_id: trackers[i % trackers.length].id,
-          player_team_id: 'home',
-          player_id: i,
-          assigned_event_types: ['pass', 'shot', 'tackle']
+          tracker_user_id: currentTracker.id,
+          player_team_id: teamId,
+          player_id: playerId,
+          assigned_event_types: assignedEventTypes
         });
 
-        // Away team assignments
-        assignments.push({
-          match_id: selectedMatchId,
-          tracker_user_id: trackers[(i + playersPerTeam) % trackers.length].id,
-          player_team_id: 'away',
-          player_id: i,
-          assigned_event_types: ['pass', 'shot', 'tackle']
-        });
+        // In worst case scenarios, assign the same tracker to multiple players
+        if (scenario > 0.7 && Math.random() > 0.5 && playerId < playersPerTeam * 2) {
+          // Assign same tracker to next player too (worst case)
+          const nextPlayerId = playerId + 1;
+          const nextIsHomeTeam = nextPlayerId <= playersPerTeam;
+          const nextTeamId = nextIsHomeTeam ? 'home' : 'away';
+          
+          assignments.push({
+            match_id: selectedMatchId,
+            tracker_user_id: currentTracker.id,
+            player_team_id: nextTeamId,
+            player_id: nextPlayerId,
+            assigned_event_types: assignedEventTypes
+          });
+          
+          playerId++; // Skip next iteration since we handled it
+        }
+
+        trackerIndex++;
       }
 
       const { error } = await supabase
@@ -117,16 +153,16 @@ const MockDataGenerator: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success(`Generated ${assignments.length} mock player assignments!`);
+      toast.success(`Generated ${assignments.length} realistic player assignments with varied complexity!`);
     } catch (error) {
-      console.error('Error generating mock assignments:', error);
-      toast.error('Failed to generate mock assignments');
+      console.error('Error generating realistic assignments:', error);
+      toast.error('Failed to generate realistic assignments');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockReplacements = async () => {
+  const generateReplacementTrackers = async () => {
     if (!selectedMatchId) {
       toast.error('Please select a match first');
       return;
@@ -138,48 +174,73 @@ const MockDataGenerator: React.FC = () => {
       const { data: assignments, error: assignmentsError } = await supabase
         .from('match_tracker_assignments')
         .select('id, tracker_user_id')
-        .eq('match_id', selectedMatchId)
-        .limit(3); // Simulate 3 replacements
+        .eq('match_id', selectedMatchId);
 
       if (assignmentsError) throw assignmentsError;
 
       if (!assignments || assignments.length === 0) {
-        toast.error('No assignments found. Generate mock assignments first.');
+        toast.error('No assignments found. Generate assignments first.');
         return;
       }
 
-      // Get available replacement trackers
-      const { data: replacementTrackers, error: replacementError } = await supabase
+      // Get all available trackers (including those not assigned to this match)
+      const { data: allTrackers, error: trackersError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('role', 'tracker')
-        .neq('id', assignments[0]?.tracker_user_id)
-        .limit(3);
+        .eq('role', 'tracker');
 
-      if (replacementError) throw replacementError;
+      if (trackersError) throw trackersError;
 
-      if (!replacementTrackers || replacementTrackers.length === 0) {
-        toast.error('No replacement trackers available');
+      if (!allTrackers || allTrackers.length === 0) {
+        toast.error('No trackers available');
         return;
       }
 
-      // Update assignments with replacement trackers using individual updates
-      let updateCount = 0;
-      for (let i = 0; i < Math.min(assignments.length, replacementTrackers.length); i++) {
-        const { error } = await supabase
-          .from('match_tracker_assignments')
-          .update({ tracker_user_id: replacementTrackers[i].id })
-          .eq('id', assignments[i].id);
+      // Get assigned tracker IDs for this match
+      const assignedTrackerIds = new Set(assignments.map(a => a.tracker_user_id));
+      
+      // Find available replacement trackers
+      const availableReplacements = allTrackers.filter(t => !assignedTrackerIds.has(t.id));
 
-        if (!error) {
-          updateCount++;
-        }
+      if (availableReplacements.length === 0) {
+        toast.error('No available replacement trackers');
+        return;
       }
 
-      toast.success(`Generated ${updateCount} mock replacement assignments!`);
+      // Assign at least one replacement for each tracker
+      const uniqueTrackers = [...new Set(assignments.map(a => a.tracker_user_id))];
+      let replacementCount = 0;
+
+      for (const trackerId of uniqueTrackers) {
+        // Find an assignment for this tracker
+        const trackerAssignment = assignments.find(a => a.tracker_user_id === trackerId);
+        if (!trackerAssignment) continue;
+
+        // Assign a replacement tracker
+        const replacementTracker = availableReplacements[replacementCount % availableReplacements.length];
+        
+        // Use the database function to assign replacement
+        const { error } = await supabase.rpc('assign_replacement_tracker', {
+          assignment_id: trackerAssignment.id,
+          replacement_id: replacementTracker.id
+        });
+
+        if (error) {
+          console.warn('RPC function not available, using direct update:', error);
+          // Fallback to direct update if RPC function doesn't exist
+          await supabase
+            .from('match_tracker_assignments')
+            .update({ tracker_user_id: replacementTracker.id })
+            .eq('id', trackerAssignment.id);
+        }
+
+        replacementCount++;
+      }
+
+      toast.success(`Assigned replacement trackers for ${uniqueTrackers.length} primary trackers!`);
     } catch (error) {
-      console.error('Error generating mock replacements:', error);
-      toast.error('Failed to generate mock replacements');
+      console.error('Error generating replacements:', error);
+      toast.error('Failed to generate replacement assignments');
     } finally {
       setLoading(false);
     }
@@ -217,10 +278,10 @@ const MockDataGenerator: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
-            Mock Data Generator
+            Realistic Match Simulation Generator
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Generate mock trackers, players, and replacement scenarios for testing match planning functionality
+            Generate realistic tracker scenarios: Best case (single event type per player) to worst case (multiple event types across multiple players) with guaranteed replacement coverage
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -256,7 +317,7 @@ const MockDataGenerator: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="player-count">Number of Players to Assign</Label>
+              <Label htmlFor="player-count">Number of Players</Label>
               <Input
                 id="player-count"
                 type="number"
@@ -280,23 +341,23 @@ const MockDataGenerator: React.FC = () => {
             </Button>
 
             <Button
-              onClick={generateMockPlayerAssignments}
+              onClick={generateRealisticPlayerAssignments}
               disabled={loading || !selectedMatchId}
               className="flex items-center gap-2"
               variant="secondary"
             >
               <UserPlus className="h-4 w-4" />
-              Assign Players
+              Create Realistic Assignments
             </Button>
 
             <Button
-              onClick={generateMockReplacements}
+              onClick={generateReplacementTrackers}
               disabled={loading || !selectedMatchId}
               className="flex items-center gap-2"
               variant="outline"
             >
               <RefreshCw className="h-4 w-4" />
-              Mock Replacements
+              Assign Replacements
             </Button>
 
             <Button
@@ -309,10 +370,35 @@ const MockDataGenerator: React.FC = () => {
             </Button>
           </div>
 
-          {/* Quick Actions */}
+          {/* Scenario Explanation */}
           <Card className="bg-blue-50 border-blue-200">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Quick Simulation Setup</CardTitle>
+              <CardTitle className="text-sm">Simulation Scenarios</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-medium">Best Case (30%):</span>
+                <span>Single tracker → Single event type → Single player</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-600 font-medium">Medium Case (40%):</span>
+                <span>Single tracker → 2-3 event types → Single player</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-red-600 font-medium">Worst Case (30%):</span>
+                <span>Single tracker → Multiple event types → Multiple players</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-purple-600 font-medium">Replacement:</span>
+                <span>Every tracker gets at least one backup assigned</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="bg-green-50 border-green-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Quick Complete Simulation</CardTitle>
             </CardHeader>
             <CardContent>
               <Button
@@ -323,19 +409,19 @@ const MockDataGenerator: React.FC = () => {
                   }
                   await generateMockTrackers();
                   setTimeout(async () => {
-                    await generateMockPlayerAssignments();
+                    await generateRealisticPlayerAssignments();
                     setTimeout(async () => {
-                      await generateMockReplacements();
-                    }, 1000);
-                  }, 1000);
+                      await generateReplacementTrackers();
+                    }, 1500);
+                  }, 1500);
                 }}
                 disabled={loading || !selectedMatchId}
                 className="w-full"
               >
-                🚀 Generate Complete Mock Scenario
+                🚀 Generate Complete Realistic Scenario
               </Button>
               <p className="text-xs text-gray-600 mt-2">
-                This will generate trackers, assign them to players, and create replacement scenarios
+                This will generate trackers, create realistic assignments (best/worst case scenarios), and assign replacement trackers
               </p>
             </CardContent>
           </Card>
