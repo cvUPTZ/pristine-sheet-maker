@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,19 +97,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         </CardHeader>
         
         <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
-          {/* Debug Information */}
-          {debugInfo && debugInfo.length > 0 && (
-            <div className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono max-h-96 overflow-y-auto">
-              <div className="flex items-center gap-1 mb-1">
-                <Bug className="h-3 w-3" />
-                <span className="text-yellow-400">Debug Log:</span>
-              </div>
-              {debugInfo.slice(-5).map((info, index) => (
-                <div key={index} className="break-all">{info}</div>
-              ))}
-            </div>
-          )}
-
           {/* Current Room Status */}
           {isVoiceEnabled && currentRoom && (
             <div className={`p-2 rounded border ${getRoomColorClass(currentRoom.name)}`}>
@@ -155,8 +143,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Available Rooms */}
-          {!isVoiceEnabled && availableRooms.length > 0 && (
+          {/* Available Rooms - Show when NOT in a voice room */}
+          {!isVoiceEnabled && (
             <div className="space-y-2">
               <div className="text-xs font-medium text-gray-700">
                 Available Voice Rooms
@@ -242,6 +230,21 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               🎤 <strong>Test your audio first, then join a voice room!</strong><br/>
               Use the Audio Test above to verify your microphone works before joining.
             </div>
+          )}
+
+          {/* Debug Information - Show last few entries only */}
+          {debugInfo && debugInfo.length > 0 && (
+            <details className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono">
+              <summary className="cursor-pointer text-yellow-400 mb-1">
+                <Bug className="h-3 w-3 inline mr-1" />
+                Debug Log ({debugInfo.length} entries)
+              </summary>
+              <div className="max-h-32 overflow-y-auto space-y-0.5">
+                {debugInfo.slice(-10).map((info, index) => (
+                  <div key={index} className="break-all text-xs">{info}</div>
+                ))}
+              </div>
+            </details>
           )}
         </CardContent>
       </Card>
