@@ -15,11 +15,11 @@ interface TrackerReplacementManagerProps {
 interface TrackerAssignment {
   id: string;
   tracker_user_id: string;
-  tracker_email: string;
-  player_id: number;
-  assigned_event_types: string[];
-  replacement_tracker_id?: string;
-  replacement_tracker_email?: string;
+  tracker_email: string | null;
+  player_id: number | null;
+  assigned_event_types: string[] | null;
+  replacement_tracker_id?: string | null;
+  replacement_tracker_email?: string | null;
 }
 
 interface TrackerProfile {
@@ -49,7 +49,21 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
         .eq('match_id', matchId);
 
       if (error) throw error;
-      setAssignments(data || []);
+      
+      // Transform the data to match our interface
+      const transformedData: TrackerAssignment[] = (data || [])
+        .filter(item => item.id && item.tracker_user_id)
+        .map(item => ({
+          id: item.id!,
+          tracker_user_id: item.tracker_user_id!,
+          tracker_email: item.tracker_email,
+          player_id: item.player_id,
+          assigned_event_types: item.assigned_event_types,
+          replacement_tracker_id: item.replacement_tracker_id,
+          replacement_tracker_email: item.replacement_tracker_email
+        }));
+      
+      setAssignments(transformedData);
     } catch (error) {
       console.error('Error fetching assignments:', error);
       toast.error('Failed to fetch tracker assignments');
@@ -64,7 +78,17 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
         .eq('role', 'tracker');
 
       if (error) throw error;
-      setAvailableTrackers(data || []);
+      
+      // Transform the data to handle nullable fields
+      const transformedData: TrackerProfile[] = (data || [])
+        .filter(tracker => tracker.full_name && tracker.email)
+        .map(tracker => ({
+          id: tracker.id,
+          full_name: tracker.full_name!,
+          email: tracker.email!
+        }));
+      
+      setAvailableTrackers(transformedData);
     } catch (error) {
       console.error('Error fetching trackers:', error);
     }
@@ -73,11 +97,11 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
   const assignReplacement = async (assignmentId: string, replacementId: string) => {
     setLoading(true);
     try {
-      // Update the assignment with replacement tracker
-      const { error } = await supabase
-        .from('match_tracker_assignments')
-        .update({ replacement_tracker_id: replacementId })
-        .eq('id', assignmentId);
+      // Use raw SQL to update the replacement tracker due to type constraints
+      const { error } = await supabase.rpc('assign_replacement_tracker', {
+        assignment_id: assignmentId,
+        replacement_id: replacementId
+      });
 
       if (error) throw error;
 
@@ -150,9 +174,9 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
             <div key={assignment.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">{assignment.tracker_email}</div>
+                  <div className="font-medium">{assignment.tracker_email || 'Unknown Email'}</div>
                   <div className="text-sm text-gray-600">
-                    Player #{assignment.player_id} | Events: {assignment.assigned_event_types.join(', ')}
+                    Player #{assignment.player_id || 'N/A'} | Events: {assignment.assigned_event_types?.join(', ') || 'None'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -173,7 +197,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
               {hasReplacement && (
                 <div className="bg-green-50 p-2 rounded border-l-4 border-green-500">
                   <div className="text-sm font-medium text-green-800">
-                    Backup: {assignment.replacement_tracker_email}
+                    Backup: {assignment.replacement_tracker_email || 'Unknown'}
                   </div>
                 </div>
               )}
