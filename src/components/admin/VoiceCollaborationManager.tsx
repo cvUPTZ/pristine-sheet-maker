@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,7 +69,7 @@ const VoiceCollaborationManager: React.FC = () => {
     totalRooms: 0,
     activeRooms: 0,
     totalParticipants: 0,
-    avgConnectionQuality: 'good' as const,
+    avgConnectionQuality: 'good' as 'excellent' | 'good' | 'fair' | 'poor',
     issuesDetected: 0
   });
   const [loading, setLoading] = useState(true);
@@ -191,11 +190,13 @@ const VoiceCollaborationManager: React.FC = () => {
       const activeRooms = mockRooms.filter(r => r.isActive).length;
       const poorConnections = mockParticipants.filter(p => p.connectionQuality === 'poor').length;
       
+      const avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = poorConnections > totalParticipants * 0.3 ? 'poor' : 'good';
+      
       setSystemHealth({
         totalRooms: mockRooms.length,
         activeRooms,
         totalParticipants,
-        avgConnectionQuality: poorConnections > totalParticipants * 0.3 ? 'poor' : 'good',
+        avgConnectionQuality: avgQuality,
         issuesDetected: poorConnections
       });
 
