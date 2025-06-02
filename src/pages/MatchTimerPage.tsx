@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import MatchTimerControl from '@/components/match/MatchTimerControl';
 import MatchTimer from '@/components/MatchTimer';
@@ -18,10 +18,8 @@ interface MatchData {
   match_date: string | null;
   status: string;
   timer_status?: string | null;
-  current_timer_value?: number | null;
+  timer_current_value?: number | null;
   timer_last_started_at?: string | null;
-  timer_period?: string | null;
-  timer_added_time?: number | null;
 }
 
 const MatchTimerPage: React.FC = () => {
@@ -181,11 +179,11 @@ const MatchTimerPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <MatchTimer
-                dbTimerValue={match.current_timer_value}
+                dbTimerValue={match.timer_current_value}
                 timerStatus={match.timer_status}
                 timerLastStartedAt={match.timer_last_started_at}
-                timerPeriod={match.timer_period}
-                timerAddedTime={match.timer_added_time}
+                timerPeriod="first_half"
+                timerAddedTime={0}
               />
               <div className="mt-4 text-center text-sm text-gray-600">
                 This is what trackers see on their devices

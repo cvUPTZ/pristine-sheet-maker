@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -23,10 +22,8 @@ interface MatchData {
   home_team_name: string;
   away_team_name: string;
   timer_status?: string | null;
-  current_timer_value?: number | null;
+  timer_current_value?: number | null;
   timer_last_started_at?: string | null;
-  timer_period?: string | null;
-  timer_added_time?: number | null;
 }
 
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
@@ -224,11 +221,11 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       {matchData && (
         <div className="mb-3 sm:mb-6">
           <MatchTimer
-            dbTimerValue={matchData.current_timer_value}
+            dbTimerValue={matchData.timer_current_value}
             timerStatus={matchData.timer_status}
             timerLastStartedAt={matchData.timer_last_started_at}
-            timerPeriod={matchData.timer_period}
-            timerAddedTime={matchData.timer_added_time}
+            timerPeriod="first_half"
+            timerAddedTime={0}
           />
         </div>
       )}
