@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,25 +38,25 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
   homeTeamPlayers,
   awayTeamPlayers
 }) => {
-  // Mock data for demonstration
+  // Mock data for demonstration - structured to avoid circular references
   const getMockPassConnections = (): PassConnection[] => {
     return [
-      // Home team connections
-      { fromPlayerId: 1, toPlayerId: 2, fromPlayerName: "Messi", toPlayerName: "Suárez", count: 12, team: 'home' },
-      { fromPlayerId: 2, toPlayerId: 3, fromPlayerName: "Suárez", toPlayerName: "Neymar", count: 8, team: 'home' },
-      { fromPlayerId: 1, toPlayerId: 3, fromPlayerName: "Messi", toPlayerName: "Neymar", count: 15, team: 'home' },
-      { fromPlayerId: 4, toPlayerId: 1, fromPlayerName: "Busquets", toPlayerName: "Messi", count: 18, team: 'home' },
+      // Home team connections - linear flow to avoid cycles
       { fromPlayerId: 5, toPlayerId: 4, fromPlayerName: "Piqué", toPlayerName: "Busquets", count: 9, team: 'home' },
-      { fromPlayerId: 3, toPlayerId: 6, fromPlayerName: "Neymar", toPlayerName: "Alba", count: 7, team: 'home' },
+      { fromPlayerId: 4, toPlayerId: 1, fromPlayerName: "Busquets", toPlayerName: "Messi", count: 18, team: 'home' },
+      { fromPlayerId: 1, toPlayerId: 2, fromPlayerName: "Messi", toPlayerName: "Suárez", count: 12, team: 'home' },
+      { fromPlayerId: 1, toPlayerId: 3, fromPlayerName: "Messi", toPlayerName: "Neymar", count: 15, team: 'home' },
+      { fromPlayerId: 2, toPlayerId: 3, fromPlayerName: "Suárez", toPlayerName: "Neymar", count: 8, team: 'home' },
       { fromPlayerId: 6, toPlayerId: 1, fromPlayerName: "Alba", toPlayerName: "Messi", count: 11, team: 'home' },
+      { fromPlayerId: 3, toPlayerId: 7, fromPlayerName: "Neymar", toPlayerName: "Pedro", count: 7, team: 'home' },
       
-      // Away team connections
-      { fromPlayerId: 11, toPlayerId: 12, fromPlayerName: "Ronaldo", toPlayerName: "Benzema", count: 10, team: 'away' },
-      { fromPlayerId: 12, toPlayerId: 13, fromPlayerName: "Benzema", toPlayerName: "Bale", count: 6, team: 'away' },
-      { fromPlayerId: 14, toPlayerId: 11, fromPlayerName: "Modrić", toPlayerName: "Ronaldo", count: 14, team: 'away' },
-      { fromPlayerId: 15, toPlayerId: 14, fromPlayerName: "Kroos", toPlayerName: "Modrić", count: 13, team: 'away' },
+      // Away team connections - linear flow to avoid cycles
       { fromPlayerId: 16, toPlayerId: 15, fromPlayerName: "Ramos", toPlayerName: "Kroos", count: 8, team: 'away' },
+      { fromPlayerId: 15, toPlayerId: 14, fromPlayerName: "Kroos", toPlayerName: "Modrić", count: 13, team: 'away' },
+      { fromPlayerId: 14, toPlayerId: 11, fromPlayerName: "Modrić", toPlayerName: "Ronaldo", count: 14, team: 'away' },
+      { fromPlayerId: 11, toPlayerId: 12, fromPlayerName: "Ronaldo", toPlayerName: "Benzema", count: 10, team: 'away' },
       { fromPlayerId: 11, toPlayerId: 13, fromPlayerName: "Ronaldo", toPlayerName: "Bale", count: 5, team: 'away' },
+      { fromPlayerId: 12, toPlayerId: 13, fromPlayerName: "Benzema", toPlayerName: "Bale", count: 6, team: 'away' },
       { fromPlayerId: 17, toPlayerId: 14, fromPlayerName: "Marcelo", toPlayerName: "Modrić", count: 7, team: 'away' },
     ];
   };
@@ -167,22 +166,42 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     return { players, matrix };
   };
 
-  // Prepare Sankey data for visualization
+  // Prepare Sankey data for visualization with cycle detection
   const sankeyData = React.useMemo(() => {
+    // Filter out potential circular references for Sankey
+    const filteredConnections = passConnections.filter((connection, index, arr) => {
+      // Check if there's a reverse connection
+      const reverseExists = arr.some(c => 
+        c.fromPlayerId === connection.toPlayerId && 
+        c.toPlayerId === connection.fromPlayerId
+      );
+      
+      // If reverse exists, only keep the one with higher count
+      if (reverseExists) {
+        const reverseConnection = arr.find(c => 
+          c.fromPlayerId === connection.toPlayerId && 
+          c.toPlayerId === connection.fromPlayerId
+        );
+        return !reverseConnection || connection.count >= reverseConnection.count;
+      }
+      
+      return true;
+    });
+
     const uniquePlayers = [...new Set([
-      ...passConnections.map(c => c.fromPlayerName),
-      ...passConnections.map(c => c.toPlayerName)
+      ...filteredConnections.map(c => c.fromPlayerName),
+      ...filteredConnections.map(c => c.toPlayerName)
     ])];
 
     const nodes = uniquePlayers.map(name => {
-      const connection = passConnections.find(c => c.fromPlayerName === name || c.toPlayerName === name);
+      const connection = filteredConnections.find(c => c.fromPlayerName === name || c.toPlayerName === name);
       return {
         name,
         team: connection?.team || 'home'
       };
     });
 
-    const links = passConnections.map(connection => {
+    const links = filteredConnections.map(connection => {
       const sourceIndex = uniquePlayers.indexOf(connection.fromPlayerName);
       const targetIndex = uniquePlayers.indexOf(connection.toPlayerName);
       return {
@@ -190,7 +209,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
         target: targetIndex,
         value: connection.count
       };
-    });
+    }).filter(link => link.source !== -1 && link.target !== -1 && link.source !== link.target);
 
     return { nodes, links };
   }, [passConnections]);
@@ -198,6 +217,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
   const homeConnections = passConnections.filter(conn => conn.team === 'home');
   const awayConnections = passConnections.filter(conn => conn.team === 'away');
 
+  // Render connections table
   const renderConnectionsTable = (connections: PassConnection[], teamName: string, teamColor: string) => (
     <div className="space-y-4">
       <h3 className={`font-semibold text-lg ${teamColor}`}>{teamName}</h3>
@@ -241,6 +261,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     </div>
   );
 
+  // Render matrix table
   const renderMatrixTable = (connections: PassConnection[], teamName: string, teamColor: string) => {
     const { players, matrix } = createMatrixData(connections);
     
@@ -289,38 +310,47 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     );
   };
 
+  // Render visualization
   const renderVisualization = () => (
     <div className="space-y-6">
-      <div className="h-96">
-        <h3 className="font-semibold text-lg mb-4">Flux de Passes - Diagramme Sankey</h3>
-        <ResponsiveContainer width="100%" height="100%">
-          <Sankey
-            data={sankeyData}
-            nodeWidth={10}
-            nodePadding={60}
-            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-          >
-            <Tooltip 
-              content={({ payload }) => {
-                if (payload && payload[0]) {
-                  const data = payload[0].payload;
-                  if (data.source !== undefined && data.target !== undefined) {
-                    const sourceName = sankeyData.nodes[data.source]?.name;
-                    const targetName = sankeyData.nodes[data.target]?.name;
-                    return (
-                      <div className="bg-white p-2 border rounded shadow">
-                        <p className="font-semibold">{sourceName} → {targetName}</p>
-                        <p className="text-sm text-gray-600">{data.value} passes</p>
-                      </div>
-                    );
+      {sankeyData.links.length > 0 ? (
+        <div className="h-96">
+          <h3 className="font-semibold text-lg mb-4">Flux de Passes - Diagramme Sankey</h3>
+          <ResponsiveContainer width="100%" height="100%">
+            <Sankey
+              data={sankeyData}
+              nodeWidth={10}
+              nodePadding={60}
+              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+            >
+              <Tooltip 
+                content={({ payload }) => {
+                  if (payload && payload[0]) {
+                    const data = payload[0].payload;
+                    if (data.source !== undefined && data.target !== undefined) {
+                      const sourceName = sankeyData.nodes[data.source]?.name;
+                      const targetName = sankeyData.nodes[data.target]?.name;
+                      return (
+                        <div className="bg-white p-2 border rounded shadow">
+                          <p className="font-semibold">{sourceName} → {targetName}</p>
+                          <p className="text-sm text-gray-600">{data.value} passes</p>
+                        </div>
+                      );
+                    }
                   }
-                }
-                return null;
-              }}
-            />
-          </Sankey>
-        </ResponsiveContainer>
-      </div>
+                  return null;
+                }}
+              />
+            </Sankey>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p>Impossible de générer le diagramme Sankey</p>
+          <p className="text-sm">Les données contiennent des références circulaires</p>
+        </div>
+      )}
       
       {/* Player Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
