@@ -1,33 +1,34 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
-import { Users, Calendar, MapPin, Clock, CheckCircle, AlertCircle, UserCheck, Settings, Activity, Battery, Wifi, Mail, Phone } from 'lucide-react';
+import { Users, Calendar, MapPin, Clock, CheckCircle, AlertCircle, UserCheck, Settings, Activity, Battery, Wifi, Mail, Phone, Target, Zap, RotateCcw } from 'lucide-react';
+import { useTrackerAbsenceDetection } from '@/hooks/useTrackerAbsenceDetection';
+import ReplacementTrackerFinder from '@/components/admin/ReplacementTrackerFinder';
 
 interface MatchData {
   id: string;
-  name: string;
-  home_team_name: string;
-  away_team_name: string;
-  match_date: string;
+  name: string | null;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  match_date: string | null;
   status: string;
   home_team_players: any[];
   away_team_players: any[];
-  description?: string;
-  location?: string;
+  description?: string | null;
+  location?: string | null;
 }
 
 interface TrackerAssignment {
   id: string;
-  tracker_user_id: string;
-  tracker_email: string;
-  tracker_name: string;
-  player_id?: number;
-  player_team_id?: string;
-  assigned_event_types?: string[];
+  tracker_user_id: string | null;
+  tracker_email: string | null;
+  tracker_name: string | null;
+  player_id?: number | null;
+  player_team_id?: string | null;
+  assigned_event_types?: string[] | null;
   created_at: string;
 }
 
@@ -42,11 +43,33 @@ interface TrackerStatus {
   assigned_events: string[];
 }
 
+interface EventTypeCoverage {
+  event_type: string;
+  assigned_trackers: number;
+  total_assignments: number;
+  coverage_percentage: number;
+}
+
 interface MatchPlanningNetworkProps {
   matchId: string;
   width?: number;
   height?: number;
 }
+
+const EVENT_TYPES = [
+  { key: 'pass', label: 'Passes', priority: 'high' },
+  { key: 'shot', label: 'Shots', priority: 'high' },
+  { key: 'goal', label: 'Goals', priority: 'critical' },
+  { key: 'foul', label: 'Fouls', priority: 'medium' },
+  { key: 'card', label: 'Cards', priority: 'high' },
+  { key: 'substitution', label: 'Substitutions', priority: 'medium' },
+  { key: 'corner', label: 'Corners', priority: 'medium' },
+  { key: 'cross', label: 'Crosses', priority: 'medium' },
+  { key: 'tackle', label: 'Tackles', priority: 'medium' },
+  { key: 'interception', label: 'Interceptions', priority: 'low' },
+  { key: 'save', label: 'Saves', priority: 'high' },
+  { key: 'clearance', label: 'Clearances', priority: 'low' }
+];
 
 export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   matchId,
@@ -56,8 +79,21 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [assignments, setAssignments] = useState<TrackerAssignment[]>([]);
   const [trackerStatuses, setTrackerStatuses] = useState<TrackerStatus[]>([]);
+  const [eventTypeCoverage, setEventTypeCoverage] = useState<EventTypeCoverage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showReplacementFinder, setShowReplacementFinder] = useState<string | null>(null);
+
+  const {
+    detectedAbsences,
+    handleTrackerAbsence,
+    clearAbsenceStatus
+  } = useTrackerAbsenceDetection({
+    matchId,
+    onTrackerAbsent: (trackerId, reason) => {
+      console.log(`Tracker ${trackerId} detected as absent: ${reason}`);
+    }
+  });
 
   useEffect(() => {
     fetchMatchPlanningData();
@@ -97,8 +133,35 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
       console.log('Assignments data:', assignmentsData);
       console.log('Tracker profiles:', trackerProfiles);
 
-      setMatchData(match);
-      setAssignments(assignmentsData || []);
+      // Transform match data to handle nullable fields
+      const transformedMatch: MatchData = {
+        id: match.id,
+        name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
+        home_team_name: match.home_team_name,
+        away_team_name: match.away_team_name,
+        match_date: match.match_date,
+        status: match.status,
+        home_team_players: match.home_team_players || [],
+        away_team_players: match.away_team_players || [],
+        description: match.description,
+        location: match.location
+      };
+
+      setMatchData(transformedMatch);
+
+      // Transform assignments data to handle nullable fields
+      const transformedAssignments: TrackerAssignment[] = (assignmentsData || []).map(assignment => ({
+        id: assignment.id || '',
+        tracker_user_id: assignment.tracker_user_id,
+        tracker_email: assignment.tracker_email,
+        tracker_name: assignment.tracker_name || assignment.tracker_email || 'Unknown Tracker',
+        player_id: assignment.player_id,
+        player_team_id: assignment.player_team_id,
+        assigned_event_types: assignment.assigned_event_types,
+        created_at: assignment.created_at || new Date().toISOString()
+      }));
+
+      setAssignments(transformedAssignments);
 
       // Process tracker statuses
       const trackerStatusMap = new Map<string, TrackerStatus>();
@@ -118,7 +181,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
       });
 
       // Update with assignment data
-      (assignmentsData || []).forEach(assignment => {
+      transformedAssignments.forEach(assignment => {
         if (assignment.tracker_user_id) {
           const existing = trackerStatusMap.get(assignment.tracker_user_id);
           if (existing) {
@@ -126,16 +189,15 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
             if (assignment.assigned_event_types) {
               existing.assigned_events = [...new Set([...existing.assigned_events, ...assignment.assigned_event_types])];
             }
-            existing.status = 'pending'; // Has assignments but need to check activity
+            existing.status = 'pending';
           }
         }
       });
 
-      // Simulate some active trackers (in real app, this would come from real-time data)
+      // Simulate some active trackers
       const statusArray = Array.from(trackerStatusMap.values());
       statusArray.forEach((tracker, index) => {
         if (tracker.assigned_players > 0) {
-          // Simulate some realistic statuses
           const rand = Math.random();
           if (rand > 0.7) {
             tracker.status = 'active';
@@ -149,11 +211,41 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
       setTrackerStatuses(statusArray);
 
+      // Calculate event type coverage
+      const eventCoverage: EventTypeCoverage[] = EVENT_TYPES.map(eventType => {
+        const assignmentsForEvent = transformedAssignments.filter(assignment => 
+          assignment.assigned_event_types?.includes(eventType.key)
+        );
+        return {
+          event_type: eventType.key,
+          assigned_trackers: assignmentsForEvent.length,
+          total_assignments: transformedAssignments.length,
+          coverage_percentage: transformedAssignments.length > 0 ? 
+            Math.round((assignmentsForEvent.length / transformedAssignments.length) * 100) : 0
+        };
+      });
+
+      setEventTypeCoverage(eventCoverage);
+
     } catch (err: any) {
       console.error('Error fetching match planning data:', err);
       setError(err.message || 'Failed to load match planning data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReplacementRequest = (absentTrackerId: string) => {
+    setShowReplacementFinder(absentTrackerId);
+  };
+
+  const handleAssignReplacement = async (absentId: string, replacementId: string) => {
+    try {
+      await handleTrackerAbsence(absentId, 'Manual replacement requested');
+      setShowReplacementFinder(null);
+      await fetchMatchPlanningData();
+    } catch (error) {
+      console.error('Error assigning replacement:', error);
     }
   };
 
@@ -211,6 +303,13 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   const coveragePercentage = totalPlayers > 0 ? Math.round((assignedPlayers / totalPlayers) * 100) : 0;
   const trackerReadiness = assignedTrackers > 0 ? Math.round((activeTrackers / assignedTrackers) * 100) : 0;
 
+  const criticalEventTypes = eventTypeCoverage.filter(e => 
+    EVENT_TYPES.find(et => et.key === e.event_type)?.priority === 'critical'
+  );
+  const highPriorityUncovered = eventTypeCoverage.filter(e => 
+    EVENT_TYPES.find(et => et.key === e.event_type)?.priority === 'high' && e.assigned_trackers === 0
+  );
+
   return (
     <div className="space-y-6">
       {/* Match Overview Header */}
@@ -221,7 +320,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
             Match Organization Dashboard
           </CardTitle>
           <div className="text-sm text-gray-600">
-            Complete organizational planning for {matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`}
+            Complete organizational planning for {matchData.name}
           </div>
         </CardHeader>
         <CardContent className="p-6">
@@ -281,33 +380,33 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               </div>
             </div>
 
-            {/* Tracker Overview */}
+            {/* Event Type Coverage */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                <UserCheck className="h-4 w-4" />
-                Tracker Status
+                <Target className="h-4 w-4" />
+                Event Coverage
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Available</span>
-                  <Badge variant="outline">{totalTrackers}</Badge>
+                  <span className="text-sm">Total Types</span>
+                  <Badge variant="outline">{EVENT_TYPES.length}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Assigned</span>
-                  <Badge className="bg-blue-100 text-blue-800">{assignedTrackers}</Badge>
+                  <span className="text-sm">Covered</span>
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {eventTypeCoverage.filter(e => e.assigned_trackers > 0).length}
+                  </Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Active</span>
-                  <Badge className="bg-green-100 text-green-800">{activeTrackers}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Pending</span>
-                  <Badge className="bg-yellow-100 text-yellow-800">{pendingTrackers}</Badge>
+                  <span className="text-sm">Critical Events</span>
+                  <Badge className={criticalEventTypes.every(e => e.assigned_trackers > 0) ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                    {criticalEventTypes.filter(e => e.assigned_trackers > 0).length}/{criticalEventTypes.length}
+                  </Badge>
                 </div>
               </div>
             </div>
 
-            {/* Overall Readiness */}
+            {/* Tracker Readiness */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
                 <Clock className="h-4 w-4" />
@@ -315,20 +414,63 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               </div>
               <div className="space-y-2">
                 <div className="text-center">
-                  {coveragePercentage >= 80 && trackerReadiness >= 70 ? (
+                  {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) ? (
                     <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
                   ) : (
                     <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
                   )}
                 </div>
                 <div className="text-center text-sm font-medium">
-                  {coveragePercentage >= 80 && trackerReadiness >= 70 ? "Ready to Start" : "Setup Required"}
+                  {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) ? "Ready to Start" : "Setup Required"}
                 </div>
                 <div className="text-xs text-center text-gray-500">
                   Coverage: {coveragePercentage}% | Trackers: {trackerReadiness}%
                 </div>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Event Type Coverage Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Event Type Coverage Analysis
+          </CardTitle>
+          <div className="text-sm text-gray-600">
+            Detailed breakdown of event type assignments and priorities
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {EVENT_TYPES.map((eventType) => {
+              const coverage = eventTypeCoverage.find(e => e.event_type === eventType.key);
+              const priorityColor = {
+                critical: 'border-red-500 bg-red-50',
+                high: 'border-orange-500 bg-orange-50',
+                medium: 'border-yellow-500 bg-yellow-50',
+                low: 'border-green-500 bg-green-50'
+              }[eventType.priority];
+
+              return (
+                <div key={eventType.key} className={`p-3 rounded-lg border-2 ${priorityColor}`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-sm">{eventType.label}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {eventType.priority}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Trackers Assigned</span>
+                    <Badge className={coverage?.assigned_trackers === 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                      {coverage?.assigned_trackers || 0}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -340,10 +482,10 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Tracker Status Details
+              Tracker Status & Replacement Strategy
             </CardTitle>
             <div className="text-sm text-gray-600">
-              Real-time status of all assigned trackers
+              Real-time status with absence detection and replacement options
             </div>
           </CardHeader>
           <CardContent>
@@ -369,6 +511,11 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                         <Badge variant="outline" className="text-xs">
                           {tracker.status}
                         </Badge>
+                        {detectedAbsences.includes(tracker.id) && (
+                          <Badge className="bg-red-100 text-red-800 text-xs">
+                            ABSENT
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="text-xs text-gray-600 space-y-1">
@@ -383,7 +530,8 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                         {tracker.assigned_events.length > 0 && (
                           <div className="flex items-center gap-1">
                             <Activity className="h-3 w-3" />
-                            {tracker.assigned_events.join(', ')}
+                            {tracker.assigned_events.slice(0, 3).join(', ')}
+                            {tracker.assigned_events.length > 3 && ` +${tracker.assigned_events.length - 3} more`}
                           </div>
                         )}
                       </div>
@@ -404,10 +552,16 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                           Online
                         </div>
                       )}
-                      {tracker.last_activity && (
-                        <div className="text-xs text-gray-500">
-                          {new Date(tracker.last_activity).toLocaleTimeString()}
-                        </div>
+                      {detectedAbsences.includes(tracker.id) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs border-orange-500 text-orange-700 hover:bg-orange-50"
+                          onClick={() => handleReplacementRequest(tracker.id)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Find Replacement
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -433,7 +587,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               Assignment Summary
             </CardTitle>
             <div className="text-sm text-gray-600">
-              Overview of current assignment status
+              Overview of current assignment status and critical gaps
             </div>
           </CardHeader>
           <CardContent>
@@ -460,39 +614,19 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                 </div>
               </div>
               
-              {/* Progress Bars */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Player Coverage Progress</span>
-                    <span className="text-sm font-medium">{coveragePercentage}%</span>
+              {/* Critical Event Types Status */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">Critical Event Types Status</h4>
+                {criticalEventTypes.map(eventType => (
+                  <div key={eventType.event_type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium">
+                      {EVENT_TYPES.find(e => e.key === eventType.event_type)?.label}
+                    </span>
+                    <Badge className={eventType.assigned_trackers > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                      {eventType.assigned_trackers > 0 ? '✓ Covered' : '⚠ Uncovered'}
+                    </Badge>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${coveragePercentage}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {assignedPlayers} of {totalPlayers} players covered
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Tracker Readiness</span>
-                    <span className="text-sm font-medium">{trackerReadiness}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-green-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${trackerReadiness}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {activeTrackers} of {assignedTrackers} assigned trackers active
-                  </div>
-                </div>
+                ))}
               </div>
 
               {/* Quick Stats */}
@@ -512,6 +646,18 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Replacement Tracker Finder Modal */}
+      {showReplacementFinder && (
+        <div className="mt-6">
+          <ReplacementTrackerFinder
+            absentTrackerId={showReplacementFinder}
+            availableTrackers={[]}
+            onAssignReplacement={handleAssignReplacement}
+            isLoading={false}
+          />
+        </div>
+      )}
 
       {/* Action Items */}
       <Card>
@@ -537,6 +683,21 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                 </Button>
               </div>
             )}
+
+            {highPriorityUncovered.length > 0 && (
+              <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <Target className="h-5 w-5 text-orange-600 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="font-medium text-sm text-orange-800">High Priority Events Uncovered</div>
+                  <div className="text-xs text-orange-700">
+                    {highPriorityUncovered.map(e => EVENT_TYPES.find(et => et.key === e.event_type)?.label).join(', ')} need tracker assignment
+                  </div>
+                </div>
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                  Assign Event Trackers
+                </Button>
+              </div>
+            )}
             
             {pendingTrackers > 0 && (
               <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -553,31 +714,32 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               </div>
             )}
 
-            {activeTrackers === 0 && assignedTrackers > 0 && (
+            {detectedAbsences.length > 0 && (
               <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                <RotateCcw className="h-5 w-5 text-red-600 flex-shrink-0" />
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-red-800">No Active Trackers</div>
+                  <div className="font-medium text-sm text-red-800">Tracker Absences Detected</div>
                   <div className="text-xs text-red-700">
-                    None of the assigned trackers are currently active. Check device connectivity and battery levels.
+                    {detectedAbsences.length} tracker(s) are absent and need replacement
                   </div>
                 </div>
                 <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                  Check Devices
+                  Manage Replacements
                 </Button>
               </div>
             )}
 
-            {coveragePercentage >= 80 && trackerReadiness >= 70 && (
+            {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) && detectedAbsences.length === 0 && (
               <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <div className="flex-1">
                   <div className="font-medium text-sm text-green-800">Match Ready for Kickoff</div>
                   <div className="text-xs text-green-700">
-                    Excellent coverage ({coveragePercentage}%) and tracker readiness ({trackerReadiness}%). All systems go!
+                    Excellent coverage ({coveragePercentage}%), all critical events covered, and all trackers ready!
                   </div>
                 </div>
                 <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Zap className="h-4 w-4 mr-1" />
                   Start Match Tracking
                 </Button>
               </div>
