@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import AccessManagement from './AccessManagement';
-import RealTimeMatchEvents from './RealTimeMatchEvents';
-import UserManagement from './UserManagement';
-import MatchManagement from './MatchManagement';
-import EventAssignments from './EventAssignments';
-import PlayerAssignments from './PlayerAssignments';
-import AuditLogs from './AuditLogs';
-import TrackerBatteryMonitor from './TrackerBatteryMonitor';
-import MatchTrackingMatrix from './MatchTrackingMatrix';
+import AccessManagement from '@/components/admin/AccessManagement';
+import RealTimeMatchEvents from '@/components/admin/RealTimeMatchEvents';
+import UserManagement from '@/components/admin/UserManagement';
+import MatchManagement from '@/components/admin/MatchManagement';
+import EventAssignments from '@/components/admin/EventAssignments';
+import PlayerAssignments from '@/components/admin/PlayerAssignments';
+import AuditLogs from '@/components/admin/AuditLogs';
+import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
+import MatchTrackingMatrix from '@/components/admin/MatchTrackingMatrix';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
-import TrackerAbsenceManager from './TrackerAbsenceManager';
-import TrackerReplacementManager from './TrackerReplacementManager';
-import QuickPlanningActions from './QuickPlanningActions';
+import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
+import TrackerReplacementManager from '@/components/admin/TrackerReplacementManager';
+import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
@@ -119,7 +119,7 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-13 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-11 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
@@ -129,11 +129,8 @@ const Admin: React.FC = () => {
           <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-blue-100 border-blue-300">
             📋 Match Planning
           </TabsTrigger>
-          <TabsTrigger value="tracker-replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-orange-100 border-orange-300">
-            {isMobile ? '🔄 Tracker' : '🔄 Tracker Replacement'}
-          </TabsTrigger>
           <TabsTrigger value="replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-purple-100 border-purple-300">
-            {isMobile ? '🔄 Replace' : '🔄 Replacement Mgmt'}
+            {isMobile ? '🔄 Replace' : '🔄 Tracker Replacement'}
           </TabsTrigger>
           <TabsTrigger value="matrix" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Matrix' : 'Tracking Matrix'}
@@ -144,11 +141,11 @@ const Admin: React.FC = () => {
           <TabsTrigger value="battery" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Battery
           </TabsTrigger>
-          <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
-            {isMobile ? 'Players' : 'Player Assignments'}
-          </TabsTrigger>
           {!isMobile && (
             <>
+              <TabsTrigger value="players" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+                Player Assignments
+              </TabsTrigger>
               <TabsTrigger value="access" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
                 Access Management
               </TabsTrigger>
@@ -306,65 +303,11 @@ const Admin: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* New TrackerReplacementManager Tab */}
-        <TabsContent value="tracker-replacement" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50">
-              <CardTitle className="flex items-center gap-2">
-                🔄 Tracker Replacement Manager
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Direct tracker replacement management with real-time updates and assignment tracking
-              </p>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                  Loading matches...
-                </div>
-              ) : matches.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-4xl mb-4">🔄</div>
-                  <p className="text-lg font-medium">No matches available</p>
-                  <p className="text-sm">Create a match first to manage tracker replacements</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Select Match for Tracker Replacement</label>
-                    <select
-                      value={selectedMatchId || ''}
-                      onChange={(e) => setSelectedMatchId(e.target.value)}
-                      className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      {matches.map((match) => (
-                        <option key={match.id} value={match.id}>
-                          {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                          {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
-                          {` (${match.status.toUpperCase()})`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {selectedMatchId && (
-                    <TrackerReplacementManager 
-                      matchId={selectedMatchId} 
-                      onReplacementUpdate={fetchPlanningData}
-                    />
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="replacement" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <Card className="border-l-4 border-l-purple-500">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
               <CardTitle className="flex items-center gap-2">
-                🔄 Replacement Management Hub
+                🔄 Tracker Replacement Management
               </CardTitle>
               <p className="text-sm text-gray-600">
                 Manage backup tracker assignments and replacement procedures for match operations
@@ -425,17 +368,18 @@ const Admin: React.FC = () => {
           <TrackerBatteryMonitor />
         </TabsContent>
 
-        <TabsContent value="players" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <PlayerAssignments />
-        </TabsContent>
-
         {isMobile ? (
           <TabsContent value="more" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-            <Tabs defaultValue="access" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="players" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="players" className="text-xs">Players</TabsTrigger>
                 <TabsTrigger value="access" className="text-xs">Access</TabsTrigger>
                 <TabsTrigger value="audit" className="text-xs">Audit</TabsTrigger>
               </TabsList>
+              
+              <TabsContent value="players" className="space-y-4 mt-4">
+                <PlayerAssignments />
+              </TabsContent>
               
               <TabsContent value="access" className="space-y-4 mt-4">
                 <AccessManagement />
@@ -448,6 +392,10 @@ const Admin: React.FC = () => {
           </TabsContent>
         ) : (
           <>
+            <TabsContent value="players" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+              <PlayerAssignments />
+            </TabsContent>
+            
             <TabsContent value="access" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
               <AccessManagement />
             </TabsContent>
