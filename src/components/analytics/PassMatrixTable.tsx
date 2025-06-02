@@ -2,7 +2,9 @@
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ArrowRight } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, ArrowRight, Grid3X3, BarChart3 } from 'lucide-react';
+import { ResponsiveContainer, Sankey, Tooltip } from 'recharts';
 import { MatchEvent } from '@/types/index';
 
 interface PassMatrixTableProps {
@@ -20,6 +22,14 @@ interface PassConnection {
   toPlayerName: string;
   count: number;
   team: 'home' | 'away';
+}
+
+interface PlayerSummary {
+  id: number;
+  name: string;
+  team: 'home' | 'away';
+  passesGiven: number;
+  passesReceived: number;
 }
 
 const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
@@ -98,6 +108,81 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     return Object.values(connections).sort((a, b) => b.count - a.count);
   }, [events, homeTeamPlayers, awayTeamPlayers]);
 
+  // Create player summaries
+  const playerSummaries = React.useMemo(() => {
+    const summaries: { [key: number]: PlayerSummary } = {};
+    
+    passConnections.forEach(connection => {
+      // Add passer
+      if (!summaries[connection.fromPlayerId]) {
+        summaries[connection.fromPlayerId] = {
+          id: connection.fromPlayerId,
+          name: connection.fromPlayerName,
+          team: connection.team,
+          passesGiven: 0,
+          passesReceived: 0
+        };
+      }
+      summaries[connection.fromPlayerId].passesGiven += connection.count;
+      
+      // Add receiver
+      if (!summaries[connection.toPlayerId]) {
+        summaries[connection.toPlayerId] = {
+          id: connection.toPlayerId,
+          name: connection.toPlayerName,
+          team: connection.team,
+          passesGiven: 0,
+          passesReceived: 0
+        };
+      }
+      summaries[connection.toPlayerId].passesReceived += connection.count;
+    });
+    
+    return Object.values(summaries);
+  }, [passConnections]);
+
+  // Create matrix data for each team
+  const createMatrixData = (teamConnections: PassConnection[]) => {
+    const players = [...new Set([
+      ...teamConnections.map(c => ({ id: c.fromPlayerId, name: c.fromPlayerName })),
+      ...teamConnections.map(c => ({ id: c.toPlayerId, name: c.toPlayerName }))
+    ])].sort((a, b) => a.id - b.id);
+
+    const matrix: number[][] = [];
+    const playerIndex: { [key: number]: number } = {};
+    
+    players.forEach((player, index) => {
+      playerIndex[player.id] = index;
+      matrix[index] = new Array(players.length).fill(0);
+    });
+
+    teamConnections.forEach(connection => {
+      const fromIndex = playerIndex[connection.fromPlayerId];
+      const toIndex = playerIndex[connection.toPlayerId];
+      if (fromIndex !== undefined && toIndex !== undefined) {
+        matrix[fromIndex][toIndex] = connection.count;
+      }
+    });
+
+    return { players, matrix };
+  };
+
+  // Prepare Sankey data for visualization
+  const sankeyData = React.useMemo(() => {
+    const nodes = playerSummaries.map(player => ({
+      name: player.name,
+      team: player.team
+    }));
+
+    const links = passConnections.map(connection => ({
+      source: connection.fromPlayerName,
+      target: connection.toPlayerName,
+      value: connection.count
+    }));
+
+    return { nodes, links };
+  }, [playerSummaries, passConnections]);
+
   const homeConnections = passConnections.filter(conn => conn.team === 'home');
   const awayConnections = passConnections.filter(conn => conn.team === 'away');
 
@@ -115,7 +200,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {connections.map((connection, index) => (
+            {connections.slice(0, 10).map((connection, index) => (
               <TableRow key={index}>
                 <TableCell className="font-medium">
                   {connection.fromPlayerName}
@@ -139,9 +224,134 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
           <p>Aucune connexion de passe enregistrée</p>
-          <p className="text-sm">Les données de passes entre joueurs apparaîtront ici</p>
         </div>
       )}
+    </div>
+  );
+
+  const renderMatrixTable = (connections: PassConnection[], teamName: string, teamColor: string) => {
+    const { players, matrix } = createMatrixData(connections);
+    
+    if (players.length === 0) return null;
+
+    return (
+      <div className="space-y-4">
+        <h3 className={`font-semibold text-lg ${teamColor}`}>{teamName} - Matrice</h3>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-32">Passeur \ Receveur</TableHead>
+                {players.map((player) => (
+                  <TableHead key={player.id} className="text-center min-w-20 text-xs">
+                    {player.name.split(' ').pop()}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {players.map((fromPlayer, fromIndex) => (
+                <TableRow key={fromPlayer.id}>
+                  <TableCell className="font-medium text-sm">
+                    {fromPlayer.name.split(' ').pop()}
+                  </TableCell>
+                  {players.map((toPlayer, toIndex) => (
+                    <TableCell key={toPlayer.id} className="text-center">
+                      {fromIndex === toIndex ? (
+                        <span className="text-gray-300">-</span>
+                      ) : matrix[fromIndex][toIndex] > 0 ? (
+                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                          {matrix[fromIndex][toIndex]}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">0</span>
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVisualization = () => (
+    <div className="space-y-6">
+      <div className="h-96">
+        <h3 className="font-semibold text-lg mb-4">Flux de Passes - Diagramme Sankey</h3>
+        <ResponsiveContainer width="100%" height="100%">
+          <Sankey
+            data={sankeyData}
+            nodeWidth={10}
+            nodePadding={60}
+            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+          >
+            <Tooltip 
+              content={({ payload }) => {
+                if (payload && payload[0]) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-white p-2 border rounded shadow">
+                      <p className="font-semibold">{data.source} → {data.target}</p>
+                      <p className="text-sm text-gray-600">{data.value} passes</p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+          </Sankey>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Player Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h4 className="font-semibold text-blue-600 mb-3">{homeTeamName} - Résumé</h4>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Joueur</TableHead>
+                <TableHead className="text-center">Passes Données</TableHead>
+                <TableHead className="text-center">Passes Reçues</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {playerSummaries.filter(p => p.team === 'home').map((player) => (
+                <TableRow key={player.id}>
+                  <TableCell className="font-medium">{player.name}</TableCell>
+                  <TableCell className="text-center">{player.passesGiven}</TableCell>
+                  <TableCell className="text-center">{player.passesReceived}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        
+        <div>
+          <h4 className="font-semibold text-red-600 mb-3">{awayTeamName} - Résumé</h4>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Joueur</TableHead>
+                <TableHead className="text-center">Passes Données</TableHead>
+                <TableHead className="text-center">Passes Reçues</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {playerSummaries.filter(p => p.team === 'away').map((player) => (
+                <TableRow key={player.id}>
+                  <TableCell className="font-medium">{player.name}</TableCell>
+                  <TableCell className="text-center">{player.passesGiven}</TableCell>
+                  <TableCell className="text-center">{player.passesReceived}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     </div>
   );
 
@@ -161,12 +371,40 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8">
-        {renderConnectionsTable(homeConnections, homeTeamName, 'text-blue-600')}
-        {renderConnectionsTable(awayConnections, awayTeamName, 'text-red-600')}
+      <CardContent>
+        <Tabs defaultValue="connections" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="connections" className="flex items-center gap-2">
+              <ArrowRight className="h-4 w-4" />
+              Connexions
+            </TabsTrigger>
+            <TabsTrigger value="matrix" className="flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              Matrice
+            </TabsTrigger>
+            <TabsTrigger value="visualization" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Visualisation
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="connections" className="space-y-8 mt-6">
+            {renderConnectionsTable(homeConnections, homeTeamName, 'text-blue-600')}
+            {renderConnectionsTable(awayConnections, awayTeamName, 'text-red-600')}
+          </TabsContent>
+
+          <TabsContent value="matrix" className="space-y-8 mt-6">
+            {renderMatrixTable(homeConnections, homeTeamName, 'text-blue-600')}
+            {renderMatrixTable(awayConnections, awayTeamName, 'text-red-600')}
+          </TabsContent>
+
+          <TabsContent value="visualization" className="mt-6">
+            {renderVisualization()}
+          </TabsContent>
+        </Tabs>
         
         {passConnections.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 mt-6">
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>Aucune donnée de passe disponible</p>
             <p className="text-sm">Utilisez le mode de suivi des passes pour enregistrer les connexions entre joueurs</p>
