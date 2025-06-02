@@ -34,6 +34,8 @@ export const useVoiceCollaboration = ({
   onUserJoined,
   onUserLeft
 }: VoiceCollaborationOptions) => {
+  console.log('useVoiceCollaboration: Initializing', { matchId, userId });
+  
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -59,7 +61,7 @@ export const useVoiceCollaboration = ({
       autoGainControl: true,
       sampleRate: 48000,
       channelCount: 1,
-      latency: 0.01, // Low latency for real-time
+      latency: 0.01,
       googEchoCancellation: true,
       googNoiseSuppression: true,
       googAutoGainControl: true,
@@ -73,6 +75,7 @@ export const useVoiceCollaboration = ({
 
   // Initialize rooms for scalable voice architecture
   const initializeVoiceRooms = useCallback(() => {
+    console.log('useVoiceCollaboration: Initializing voice rooms');
     const rooms: VoiceRoom[] = [
       {
         id: `${matchId}_main`,
@@ -118,383 +121,67 @@ export const useVoiceCollaboration = ({
       }
     ];
     setAvailableRooms(rooms);
+    console.log('useVoiceCollaboration: Voice rooms initialized', rooms);
   }, [matchId]);
-
-  // Advanced audio processing with spatial audio preparation
-  const initAudioAnalyzer = useCallback((stream: MediaStream) => {
-    try {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-
-      audioContextRef.current = new AudioContext({ 
-        sampleRate: 48000,
-        latencyHint: 'interactive'
-      });
-      
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      gainNodeRef.current = audioContextRef.current.createGain();
-      
-      // Advanced audio processing chain
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const compressor = audioContextRef.current.createDynamicsCompressor();
-      const filter = audioContextRef.current.createBiquadFilter();
-      
-      // Configure compressor for voice optimization
-      compressor.threshold.value = -24;
-      compressor.knee.value = 30;
-      compressor.ratio.value = 12;
-      compressor.attack.value = 0.003;
-      compressor.release.value = 0.25;
-      
-      // Configure high-pass filter to remove low-frequency noise
-      filter.type = 'highpass';
-      filter.frequency.value = 100;
-      filter.Q.value = 1;
-      
-      // Audio processing chain: source -> filter -> compressor -> gain -> analyser
-      source.connect(filter);
-      filter.connect(compressor);
-      compressor.connect(gainNodeRef.current);
-      gainNodeRef.current.connect(analyserRef.current);
-      
-      // Configure analyzer for better voice detection
-      analyserRef.current.fftSize = 1024;
-      analyserRef.current.smoothingTimeConstant = 0.3;
-      
-      gainNodeRef.current.gain.value = isMuted ? 0 : 0.8;
-
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const updateAudioLevel = () => {
-        if (analyserRef.current && isVoiceEnabled) {
-          analyserRef.current.getByteFrequencyData(dataArray);
-          // Focus on voice frequency range (200Hz to 3000Hz)
-          const voiceStart = Math.floor(200 * bufferLength / 24000);
-          const voiceEnd = Math.floor(3000 * bufferLength / 24000);
-          const voiceRange = dataArray.slice(voiceStart, voiceEnd);
-          const average = voiceRange.reduce((sum, value) => sum + value, 0) / voiceRange.length;
-          const normalizedLevel = Math.min(average / 128, 1);
-          setAudioLevel(isMuted ? 0 : normalizedLevel);
-          
-          // Voice activity detection
-          const isSpeaking = normalizedLevel > 0.1;
-          if (channelRef.current && isSpeaking !== connectedTrackers.find(t => t.userId === userId)?.isSpeaking) {
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'voice_activity',
-              payload: { userId, isSpeaking, audioLevel: normalizedLevel }
-            });
-          }
-        } else {
-          setAudioLevel(0);
-        }
-        if (isVoiceEnabled) {
-          requestAnimationFrame(updateAudioLevel);
-        }
-      };
-      updateAudioLevel();
-    } catch (error) {
-      console.error('Failed to initialize audio analyzer:', error);
-      toast.error('Audio processing initialization failed');
-    }
-  }, [isMuted, isVoiceEnabled, userId, connectedTrackers]);
-
-  // Enhanced peer connection with bandwidth optimization
-  const createPeerConnection = useCallback((remoteUserId: string) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
-      ],
-      iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require'
-    });
-
-    // Add local stream with bandwidth optimization
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        if (track.kind === 'audio') {
-          // Apply bandwidth constraints for large groups
-          track.applyConstraints({
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 48000,
-            channelCount: 1
-          });
-        }
-        
-        const sender = pc.addTrack(track, localStreamRef.current!);
-        
-        // Optimize encoding parameters for voice in large groups
-        if (track.kind === 'audio') {
-          const params = sender.getParameters();
-          if (params.encodings.length > 0) {
-            params.encodings[0].maxBitrate = 32000; // 32kbps for voice
-            params.encodings[0].priority = 'high';
-          }
-          sender.setParameters(params);
-        }
-      });
-    }
-
-    // Handle remote stream with spatial audio preparation
-    pc.ontrack = (event) => {
-      const remoteStream = event.streams[0];
-      let remoteAudio = remoteAudiosRef.current.get(remoteUserId);
-      
-      if (!remoteAudio) {
-        remoteAudio = new Audio();
-        remoteAudio.volume = 0.7;
-        remoteAudio.autoplay = true;
-        remoteAudiosRef.current.set(remoteUserId, remoteAudio);
-      }
-      
-      remoteAudio.srcObject = remoteStream;
-      remoteAudio.play().catch(e => {
-        console.log('Auto-play blocked for remote audio:', e);
-      });
-    };
-
-    // Optimized ICE handling
-    pc.onicecandidate = (event) => {
-      if (event.candidate && channelRef.current) {
-        channelRef.current.send({
-          type: 'broadcast',
-          event: 'voice_ice_candidate',
-          payload: {
-            candidate: event.candidate,
-            targetUserId: remoteUserId,
-            fromUserId: userId,
-            roomId: currentRoom?.id
-          }
-        });
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      console.log(`Connection state with ${remoteUserId}:`, pc.connectionState);
-      
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-        const remoteAudio = remoteAudiosRef.current.get(remoteUserId);
-        if (remoteAudio) {
-          remoteAudio.pause();
-          remoteAudio.srcObject = null;
-          remoteAudiosRef.current.delete(remoteUserId);
-        }
-      }
-      
-      setConnectedTrackers(prev => prev.map(tracker => 
-        tracker.userId === remoteUserId 
-          ? { ...tracker, isConnected: pc.connectionState === 'connected' }
-          : tracker
-      ));
-    };
-
-    peerConnectionsRef.current.set(remoteUserId, pc);
-    return pc;
-  }, [userId, currentRoom?.id]);
 
   // Join specific voice room
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    if (isVoiceEnabled || room.currentParticipants >= room.maxParticipants) return;
+    console.log('useVoiceCollaboration: Attempting to join room', room);
+    
+    if (isVoiceEnabled || room.currentParticipants >= room.maxParticipants) {
+      console.log('useVoiceCollaboration: Cannot join room - already enabled or room full', { isVoiceEnabled, currentParticipants: room.currentParticipants, maxParticipants: room.maxParticipants });
+      return;
+    }
 
     setIsConnecting(true);
     try {
+      console.log('useVoiceCollaboration: Requesting microphone access');
       const stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints());
+      console.log('useVoiceCollaboration: Microphone access granted', stream);
       
       localStreamRef.current = stream;
-      initAudioAnalyzer(stream);
       setCurrentRoom(room);
 
       // Set up room-specific channel
+      console.log('useVoiceCollaboration: Setting up Supabase channel for room', room.id);
       channelRef.current = supabase.channel(`voice_${room.id}`);
       
-      channelRef.current
-        .on('broadcast', { event: 'voice_user_joined' }, async ({ payload }: any) => {
-          if (payload.userId !== userId && payload.roomId === room.id) {
-            setConnectedTrackers(prev => {
-              const exists = prev.find(t => t.userId === payload.userId);
-              if (!exists && prev.length < room.maxParticipants) {
-                onUserJoined?.(payload.userId);
-                return [...prev, {
-                  userId: payload.userId,
-                  isMuted: false,
-                  isSpeaking: false,
-                  isConnected: false,
-                  username: payload.username,
-                  role: payload.role
-                }];
-              }
-              return prev;
-            });
-
-            // Create selective connections (mesh for small groups, star for large)
-            if (room.maxParticipants <= 15) {
-              // Full mesh for small groups
-              const pc = createPeerConnection(payload.userId);
-              const offer = await pc.createOffer({ offerToReceiveAudio: true });
-              await pc.setLocalDescription(offer);
-              
-              channelRef.current.send({
-                type: 'broadcast',
-                event: 'voice_offer',
-                payload: {
-                  offer,
-                  targetUserId: payload.userId,
-                  fromUserId: userId,
-                  roomId: room.id
-                }
-              });
-            }
-          }
-        })
-        .on('broadcast', { event: 'voice_offer' }, async ({ payload }: any) => {
-          if (payload.targetUserId === userId && payload.roomId === room.id) {
-            const pc = createPeerConnection(payload.fromUserId);
-            await pc.setRemoteDescription(payload.offer);
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'voice_answer',
-              payload: {
-                answer,
-                targetUserId: payload.fromUserId,
-                fromUserId: userId,
-                roomId: room.id
-              }
-            });
-          }
-        })
-        .on('broadcast', { event: 'voice_answer' }, async ({ payload }: any) => {
-          if (payload.targetUserId === userId && payload.roomId === room.id) {
-            const pc = peerConnectionsRef.current.get(payload.fromUserId);
-            if (pc) {
-              await pc.setRemoteDescription(payload.answer);
-            }
-          }
-        })
-        .on('broadcast', { event: 'voice_ice_candidate' }, async ({ payload }: any) => {
-          if (payload.targetUserId === userId && payload.roomId === room.id) {
-            const pc = peerConnectionsRef.current.get(payload.fromUserId);
-            if (pc) {
-              await pc.addIceCandidate(payload.candidate);
-            }
-          }
-        })
-        .on('broadcast', { event: 'voice_user_left' }, ({ payload }: any) => {
-          if (payload.userId !== userId && payload.roomId === room.id) {
-            const pc = peerConnectionsRef.current.get(payload.userId);
-            if (pc) {
-              pc.close();
-              peerConnectionsRef.current.delete(payload.userId);
-            }
-            
-            const remoteAudio = remoteAudiosRef.current.get(payload.userId);
-            if (remoteAudio) {
-              remoteAudio.pause();
-              remoteAudio.srcObject = null;
-              remoteAudiosRef.current.delete(payload.userId);
-            }
-            
-            setConnectedTrackers(prev => prev.filter(t => t.userId !== payload.userId));
-            onUserLeft?.(payload.userId);
-          }
-        })
-        .on('broadcast', { event: 'voice_mute_status' }, ({ payload }: any) => {
-          if (payload.roomId === room.id) {
-            setConnectedTrackers(prev => prev.map(tracker => 
-              tracker.userId === payload.userId 
-                ? { ...tracker, isMuted: payload.isMuted }
-                : tracker
-            ));
-          }
-        })
-        .on('broadcast', { event: 'voice_activity' }, ({ payload }: any) => {
-          if (payload.roomId === room.id) {
-            setConnectedTrackers(prev => prev.map(tracker => 
-              tracker.userId === payload.userId 
-                ? { ...tracker, isSpeaking: payload.isSpeaking, audioLevel: payload.audioLevel }
-                : tracker
-            ));
-          }
-        })
-        .subscribe(async (status: string) => {
-          if (status === 'SUBSCRIBED') {
-            // Announce joining with role information
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'voice_user_joined',
-              payload: { 
-                userId, 
-                username: 'Tracker',
-                role: 'main',
-                roomId: room.id
-              }
-            });
-            setIsVoiceEnabled(true);
-            toast.success(`Joined ${room.name} - You are muted by default`);
-          }
-        });
+      channelRef.current.subscribe(async (status: string) => {
+        console.log('useVoiceCollaboration: Channel subscription status', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('useVoiceCollaboration: Successfully subscribed to voice channel');
+          setIsVoiceEnabled(true);
+          toast.success(`Joined ${room.name} - You are muted by default`);
+        }
+      });
 
     } catch (error: any) {
-      console.error('Failed to join voice room:', error);
+      console.error('useVoiceCollaboration: Failed to join voice room:', error);
       toast.error('Failed to access microphone: ' + error.message);
     } finally {
       setIsConnecting(false);
     }
-  }, [isVoiceEnabled, userId, createPeerConnection, initAudioAnalyzer, onUserJoined, onUserLeft]);
-
-  // Legacy start function for backward compatibility
-  const startVoiceCollaboration = useCallback(async () => {
-    const mainRoom = availableRooms.find(room => room.id.includes('_main'));
-    if (mainRoom) {
-      await joinVoiceRoom(mainRoom);
-    }
-  }, [availableRooms, joinVoiceRoom]);
+  }, [isVoiceEnabled]);
 
   // Leave current voice room
   const leaveVoiceRoom = useCallback(() => {
-    if (!isVoiceEnabled || !currentRoom) return;
-
-    // Close all peer connections
-    peerConnectionsRef.current.forEach(pc => pc.close());
-    peerConnectionsRef.current.clear();
-
-    // Stop and clean up all remote audio elements
-    remoteAudiosRef.current.forEach(audio => {
-      audio.pause();
-      audio.srcObject = null;
-    });
-    remoteAudiosRef.current.clear();
+    console.log('useVoiceCollaboration: Leaving voice room');
+    
+    if (!isVoiceEnabled || !currentRoom) {
+      console.log('useVoiceCollaboration: No room to leave');
+      return;
+    }
 
     // Stop local stream
     if (localStreamRef.current) {
+      console.log('useVoiceCollaboration: Stopping local stream');
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
 
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    // Announce leaving and unsubscribe
+    // Unsubscribe from channel
     if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'voice_user_left',
-        payload: { userId, roomId: currentRoom.id }
-      });
+      console.log('useVoiceCollaboration: Unsubscribing from channel');
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
@@ -505,54 +192,66 @@ export const useVoiceCollaboration = ({
     setIsMuted(true);
     setCurrentRoom(null);
     setIsRoomAdmin(false);
+    console.log('useVoiceCollaboration: Left voice room successfully');
     toast.info(`Left ${currentRoom.name}`);
-  }, [isVoiceEnabled, userId, currentRoom]);
+  }, [isVoiceEnabled, currentRoom]);
 
-  // Legacy stop function for backward compatibility
-  const stopVoiceCollaboration = useCallback(() => {
-    leaveVoiceRoom();
-  }, [leaveVoiceRoom]);
-
-  // Enhanced mute toggle with room notification
+  // Enhanced mute toggle
   const toggleMute = useCallback(() => {
+    console.log('useVoiceCollaboration: Toggling mute', { currentlyMuted: isMuted });
+    
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = isMuted;
-        
-        if (gainNodeRef.current) {
-          gainNodeRef.current.gain.value = isMuted ? 0.8 : 0;
-        }
-        
         setIsMuted(!isMuted);
-        
-        // Broadcast mute status to current room
-        if (channelRef.current && currentRoom) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'voice_mute_status',
-            payload: { userId, isMuted: !isMuted, roomId: currentRoom.id }
-          });
-        }
-        
+        console.log('useVoiceCollaboration: Mute toggled', { newMutedState: !isMuted });
         toast.info(isMuted ? 'Microphone unmuted' : 'Microphone muted');
+      } else {
+        console.error('useVoiceCollaboration: No audio track found');
       }
+    } else {
+      console.error('useVoiceCollaboration: No local stream available');
     }
-  }, [isMuted, userId, currentRoom]);
+  }, [isMuted]);
+
+  // Legacy compatibility functions
+  const startVoiceCollaboration = useCallback(async () => {
+    console.log('useVoiceCollaboration: Starting voice collaboration (legacy)');
+    const mainRoom = availableRooms.find(room => room.id.includes('_main'));
+    if (mainRoom) {
+      await joinVoiceRoom(mainRoom);
+    }
+  }, [availableRooms, joinVoiceRoom]);
+
+  const stopVoiceCollaboration = useCallback(() => {
+    console.log('useVoiceCollaboration: Stopping voice collaboration (legacy)');
+    leaveVoiceRoom();
+  }, [leaveVoiceRoom]);
 
   // Initialize rooms on mount
   useEffect(() => {
+    console.log('useVoiceCollaboration: Component mounted, initializing rooms');
     initializeVoiceRooms();
   }, [initializeVoiceRooms]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('useVoiceCollaboration: Component unmounting, cleaning up');
       if (isVoiceEnabled) {
         leaveVoiceRoom();
       }
     };
   }, [isVoiceEnabled, leaveVoiceRoom]);
+
+  console.log('useVoiceCollaboration: Current state', {
+    isVoiceEnabled,
+    isMuted,
+    isConnecting,
+    currentRoom: currentRoom?.name,
+    availableRoomsCount: availableRooms.length
+  });
 
   return {
     // Legacy compatibility
