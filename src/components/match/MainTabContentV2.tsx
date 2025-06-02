@@ -6,6 +6,7 @@ import TrackerPresenceIndicator from '@/components/admin/TrackerPresenceIndicato
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
+import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 
 interface MainTabContentV2Props {
   matchId: string;
@@ -29,6 +30,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       console.log('[MainTabContentV2] New event received:', event);
     }
   });
+
+  // Use unified tracker connection for status display
+  const { trackers: unifiedTrackers } = useUnifiedTrackerConnection(matchId);
 
   const handleEventDelete = async (eventId: string) => {
     // Optimistic update
@@ -85,6 +89,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
     );
   }
 
+  const activeTrackers = unifiedTrackers.filter(t => t.status === 'active').length;
+  const totalTrackers = unifiedTrackers.length;
+
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6 p-1 sm:p-2 md:p-0">
       {/* Connection Status */}
@@ -93,7 +100,36 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
           {isConnected ? 'Connected' : 'Disconnected'}
           <span>• {events.length} events</span>
+          <span>• {activeTrackers}/{totalTrackers} trackers online</span>
         </div>
+        
+        {/* Enhanced Tracker Status Display */}
+        {unifiedTrackers.length > 0 && (
+          <div className="mb-3">
+            <div className="text-xs font-medium text-gray-700 mb-1">Tracker Status:</div>
+            <div className="space-y-1">
+              {unifiedTrackers.map(tracker => (
+                <div key={tracker.user_id} className="flex items-center gap-2 text-xs">
+                  <div className={`w-2 h-2 rounded-full ${
+                    tracker.status === 'active' ? 'bg-green-500' : 
+                    tracker.status === 'recording' ? 'bg-blue-500' : 'bg-gray-400'
+                  }`} />
+                  <span className="font-medium">{tracker.email || tracker.user_id}</span>
+                  <span className="text-gray-500">
+                    {tracker.status === 'active' ? 'Online' : 
+                     tracker.status === 'recording' ? 'Recording' : 'Offline'}
+                  </span>
+                  {tracker.battery_level && (
+                    <span className={`text-xs ${tracker.battery_level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
+                      {tracker.battery_level}%
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <TrackerPresenceIndicator matchId={matchId} />
       </div>
 

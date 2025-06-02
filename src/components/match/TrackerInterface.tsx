@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
 import useBatteryMonitor from '@/hooks/useBatteryMonitor';
-import { useTrackerStatus } from '@/hooks/useTrackerStatus';
+import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -25,8 +26,8 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
   
-  // Use the enhanced tracker status hook
-  const { broadcastStatus, broadcastStatusImmediate, isConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
+  // Use the unified tracker connection system
+  const { isConnected, broadcastStatus, cleanup } = useUnifiedTrackerConnection(matchId, trackerUserId);
 
   console.log('TrackerInterface: Render state', { 
     isConnected,
@@ -82,18 +83,16 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
-    if (!trackerUserId || !matchId) {
-      console.log('TrackerInterface: Skipping status broadcast - missing IDs', { trackerUserId, matchId });
-      return;
-    }
-
-    if (!isConnected) {
-      console.log('TrackerInterface: Skipping status broadcast - not connected');
+    if (!trackerUserId || !matchId || !isConnected) {
+      console.log('TrackerInterface: Skipping status broadcast', { 
+        trackerUserId, 
+        matchId, 
+        isConnected 
+      });
       return;
     }
     
     const getNetworkQuality = (): 'excellent' | 'good' | 'poor' => {
-      // Simple network quality estimation based on connection type
       const connection = (navigator as any).connection;
       if (!connection) return 'good';
       
@@ -102,26 +101,8 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       return 'poor';
     };
 
-    // Enhanced status broadcast function
-    const broadcastEnhancedStatus = () => {
-      console.log('TrackerInterface: Broadcasting enhanced status', {
-        batteryLevel: batteryStatus.level,
-        networkQuality: getNetworkQuality()
-      });
-      
-      broadcastStatusImmediate({
-        status: 'active',
-        timestamp: Date.now(),
-        battery_level: batteryStatus.level || undefined,
-        network_quality: getNetworkQuality()
-      });
-    };
-
-    // Initial broadcast when connected (immediate, no throttling)
-    console.log('TrackerInterface: Broadcasting initial status immediately');
-    broadcastEnhancedStatus();
-
-    // Set up periodic activity updates every 20 seconds
+    // Set up periodic activity updates every 15 seconds
+    console.log('TrackerInterface: Setting up periodic status broadcasts');
     intervalRef.current = setInterval(() => {
       console.log('TrackerInterface: Periodic status broadcast');
       broadcastStatus({
@@ -130,7 +111,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         battery_level: batteryStatus.level || undefined,
         network_quality: getNetworkQuality()
       });
-    }, 20000);
+    }, 15000);
 
     return () => {
       console.log('TrackerInterface: Cleaning up status broadcasting');
@@ -139,7 +120,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         intervalRef.current = null;
       }
     };
-  }, [trackerUserId, matchId, isConnected, broadcastStatus, broadcastStatusImmediate, batteryStatus.level]);
+  }, [trackerUserId, matchId, isConnected, broadcastStatus, batteryStatus.level]);
 
   // Cleanup on unmount
   useEffect(() => {
