@@ -1,10 +1,10 @@
-
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { AudioManager } from '@/utils/audioManager';
 
 const VoiceAudioTest: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -15,56 +15,45 @@ const VoiceAudioTest: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const monitorIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioManagerRef = useRef<AudioManager | null>(null);
 
-  const setupAudioMonitoring = useCallback((stream: MediaStream) => {
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      audioContextRef.current = new AudioContext();
-      
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
+  // Initialize AudioManager instance
+  useEffect(() => {
+    audioManagerRef.current = AudioManager.getInstance();
+    return () => {
+      if (audioManagerRef.current) {
+        audioManagerRef.current.stopAudioLevelMonitoring();
       }
-      
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-      
-      monitorIntervalRef.current = setInterval(() => {
-        if (!analyserRef.current) return;
-        
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-        setAudioLevel(average / 255);
-      }, 100);
-      
-    } catch (error) {
-      console.error('Audio monitoring setup failed:', error);
-    }
+    };
   }, []);
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+      if (!audioManagerRef.current) {
+        throw new Error('AudioManager not available');
+      }
+
+      // Initialize AudioManager with level monitoring
+      await audioManagerRef.current.initialize({
+        onAudioLevel: setAudioLevel,
+        onError: (error) => {
+          console.error('AudioManager error:', error);
+          toast.error('Audio system error: ' + error.message);
         }
       });
+
+      // Get user media through AudioManager
+      const stream = await audioManagerRef.current.getUserMedia(
+        audioManagerRef.current.getStreamConstraints()
+      );
       
-      streamRef.current = stream;
+      // Setup monitoring for visual feedback
+      await audioManagerRef.current.setupAudioMonitoring(stream);
+      
+      // Reset recording chunks
       audioChunksRef.current = [];
       
-      setupAudioMonitoring(stream);
-      
+      // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       
@@ -92,26 +81,17 @@ const VoiceAudioTest: React.FC = () => {
       console.error('Recording failed:', error);
       toast.error('Failed to start recording: ' + error.message);
     }
-  }, [setupAudioMonitoring]);
+  }, []);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback(async () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      
-      if (monitorIntervalRef.current) {
-        clearInterval(monitorIntervalRef.current);
-        monitorIntervalRef.current = null;
-      }
-      
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
+      // Stop monitoring and cleanup
+      if (audioManagerRef.current) {
+        audioManagerRef.current.stopAudioLevelMonitoring();
+        audioManagerRef.current.stopCurrentStream();
       }
       
       setAudioLevel(0);
@@ -179,7 +159,7 @@ const VoiceAudioTest: React.FC = () => {
           <Volume2 className="h-4 w-4 text-purple-600" />
           Voice Audio Test
           <Badge variant="outline" className="text-xs">
-            Debug Mode
+            Enhanced
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -271,12 +251,11 @@ const VoiceAudioTest: React.FC = () => {
 
         {/* Instructions */}
         <div className="text-xs text-gray-600 p-2 bg-purple-100 rounded border">
-          <strong>Test Steps:</strong><br/>
-          1. Click "Start Recording" and speak<br/>
-          2. Watch the input level meter<br/>
-          3. Click "Stop Recording"<br/>
-          4. Click "Play" to hear your recording<br/>
-          5. Try "Test Direct Audio" for system audio
+          <strong>Enhanced Audio Test:</strong><br/>
+          • Uses centralized AudioManager<br/>
+          • Proper resource management<br/>
+          • No audio conflicts with voice system<br/>
+          • Real-time level monitoring
         </div>
       </CardContent>
     </Card>

@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { WebRTCManager } from '@/utils/webrtcManager';
+import { AudioManager } from '@/utils/audioManager';
 
 interface VoiceCollaborationOptions {
   matchId: string;
@@ -47,14 +47,11 @@ export const useVoiceCollaboration = ({
   const [isRoomAdmin, setIsRoomAdmin] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
-  const localStreamRef = useRef<MediaStream | null>(null);
   const channelRef = useRef<any>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const audioMonitorIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const webrtcManagerRef = useRef<WebRTCManager | null>(null);
+  const audioManagerRef = useRef<AudioManager | null>(null);
+  const isCleaningUpRef = useRef(false);
 
   // Add debug info helper
   const addDebugInfo = useCallback((message: string) => {
@@ -62,6 +59,17 @@ export const useVoiceCollaboration = ({
     const debugMessage = `[${timestamp}] ${message}`;
     console.log('🔍 VOICE DEBUG:', debugMessage);
     setDebugInfo(prev => [...prev.slice(-14), debugMessage]);
+  }, []);
+
+  // Initialize AudioManager
+  useEffect(() => {
+    audioManagerRef.current = AudioManager.getInstance();
+    
+    return () => {
+      if (audioManagerRef.current && !isCleaningUpRef.current) {
+        AudioManager.destroyInstance();
+      }
+    };
   }, []);
 
   // IMPROVED: Create and manage remote audio elements with better autoplay handling
@@ -83,42 +91,28 @@ export const useVoiceCollaboration = ({
       audio.volume = 1.0;
       audio.muted = false;
       
-      // Handle autoplay restrictions
+      // Handle autoplay restrictions with better error handling
       try {
         await audio.play();
         addDebugInfo(`✅ Started playing audio for: ${userId}`);
       } catch (playError: any) {
         addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`);
-        // Try to play on user interaction
-        const playOnInteraction = () => {
-          audio.play().then(() => {
+        
+        // Set up user interaction listener
+        const playOnInteraction = async () => {
+          try {
+            await audio.play();
             addDebugInfo(`🎵 Audio started after user interaction for: ${userId}`);
-          }).catch(e => {
+          } catch (e: any) {
             addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`);
-          });
-          document.removeEventListener('click', playOnInteraction);
-          document.removeEventListener('touchstart', playOnInteraction);
+          }
+          document.removeEventListener('click', playOnInteraction, { once: true });
+          document.removeEventListener('touchstart', playOnInteraction, { once: true });
         };
-        document.addEventListener('click', playOnInteraction);
-        document.addEventListener('touchstart', playOnInteraction);
+        
+        document.addEventListener('click', playOnInteraction, { once: true });
+        document.addEventListener('touchstart', playOnInteraction, { once: true });
       }
-      
-      // Monitor audio playback
-      audio.onloadeddata = () => {
-        addDebugInfo(`📊 Audio loaded for ${userId}: duration=${audio.duration}, readyState=${audio.readyState}`);
-      };
-      
-      audio.onplay = () => {
-        addDebugInfo(`▶️ Audio playing for ${userId}`);
-      };
-      
-      audio.onpause = () => {
-        addDebugInfo(`⏸️ Audio paused for ${userId}`);
-      };
-      
-      audio.onerror = (error) => {
-        addDebugInfo(`❌ Audio error for ${userId}: ${error}`);
-      };
       
       remoteAudiosRef.current.set(userId, audio);
       
@@ -159,73 +153,6 @@ export const useVoiceCollaboration = ({
     onUserLeft?.(userId);
   }, [addDebugInfo, onUserLeft]);
 
-  // Setup audio analysis WITHOUT local playback
-  const setupAudioAnalysis = useCallback((stream: MediaStream) => {
-    addDebugInfo('🎵 Setting up audio analysis (monitoring only)');
-    try {
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-      
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      audioContextRef.current = new AudioContext();
-      
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
-        addDebugInfo('▶️ Resumed audio context');
-      }
-      
-      sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      
-      analyserRef.current.fftSize = 256;
-      analyserRef.current.smoothingTimeConstant = 0.3;
-      
-      // ONLY connect source to analyser - NO connection to destination (speakers)
-      sourceNodeRef.current.connect(analyserRef.current);
-      
-      addDebugInfo('✅ Audio pipeline: source -> analyser (NO local playback)');
-      
-      const startAudioMonitoring = () => {
-        if (audioMonitorIntervalRef.current) {
-          clearInterval(audioMonitorIntervalRef.current);
-        }
-        
-        audioMonitorIntervalRef.current = setInterval(() => {
-          if (!analyserRef.current || !localStreamRef.current?.active) {
-            setAudioLevel(0);
-            return;
-          }
-          
-          const bufferLength = analyserRef.current.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          analyserRef.current.getByteFrequencyData(dataArray);
-          
-          const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-          const normalizedLevel = average / 255;
-          
-          setAudioLevel(normalizedLevel);
-        }, 100);
-        
-        addDebugInfo('✅ Audio monitoring started (level detection only)');
-      };
-      
-      startAudioMonitoring();
-      
-      return () => {
-        if (audioMonitorIntervalRef.current) {
-          clearInterval(audioMonitorIntervalRef.current);
-          audioMonitorIntervalRef.current = null;
-        }
-      };
-      
-    } catch (error) {
-      addDebugInfo(`❌ Audio analysis setup failed: ${error}`);
-      console.error('Audio analysis setup error:', error);
-      return null;
-    }
-  }, [addDebugInfo]);
-
   // Initialize rooms
   const initializeVoiceRooms = useCallback(() => {
     addDebugInfo('🏠 Initializing voice rooms');
@@ -263,7 +190,7 @@ export const useVoiceCollaboration = ({
     addDebugInfo(`✅ ${rooms.length} voice rooms initialized`);
   }, [matchId, addDebugInfo]);
 
-  // Handle WebRTC signaling messages
+  // Handle WebRTC signaling messages with improved error handling
   const handleSignalingMessage = useCallback(async (event: any) => {
     const { type, senderId, data } = event.payload;
     
@@ -283,14 +210,17 @@ export const useVoiceCollaboration = ({
             payload: { type: 'offer', senderId: userId, targetId: senderId, data: offer }
           });
           
-          const iceCandidate = webrtcManagerRef.current.getPendingIceCandidate(senderId);
-          if (iceCandidate) {
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'webrtc_signal',
-              payload: { type: 'ice_candidate', senderId: userId, targetId: senderId, data: iceCandidate }
+          // Send ICE candidates after a short delay to ensure peer is ready
+          setTimeout(() => {
+            const candidates = webrtcManagerRef.current?.getPendingIceCandidates(senderId) || [];
+            candidates.forEach(candidate => {
+              channelRef.current?.send({
+                type: 'broadcast',
+                event: 'webrtc_signal',
+                payload: { type: 'ice_candidate', senderId: userId, targetId: senderId, data: candidate }
+              });
             });
-          }
+          }, 100);
           break;
           
         case 'offer':
@@ -304,14 +234,17 @@ export const useVoiceCollaboration = ({
             payload: { type: 'answer', senderId: userId, targetId: senderId, data: answer }
           });
           
-          const answerIceCandidate = webrtcManagerRef.current.getPendingIceCandidate(senderId);
-          if (answerIceCandidate) {
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'webrtc_signal',
-              payload: { type: 'ice_candidate', senderId: userId, targetId: senderId, data: answerIceCandidate }
+          // Send ICE candidates after answer
+          setTimeout(() => {
+            const candidates = webrtcManagerRef.current?.getPendingIceCandidates(senderId) || [];
+            candidates.forEach(candidate => {
+              channelRef.current?.send({
+                type: 'broadcast',
+                event: 'webrtc_signal',
+                payload: { type: 'ice_candidate', senderId: userId, targetId: senderId, data: candidate }
+              });
             });
-          }
+          }, 100);
           break;
           
         case 'answer':
@@ -325,46 +258,51 @@ export const useVoiceCollaboration = ({
           break;
           
         case 'user_left':
-          webrtcManagerRef.current.closePeerConnection(senderId);
+        case 'user_leaving':
+          await webrtcManagerRef.current.closePeerConnection(senderId);
           removeRemoteAudio(senderId);
           break;
       }
-    } catch (error) {
-      addDebugInfo(`❌ WebRTC signaling error: ${error}`);
+    } catch (error: any) {
+      addDebugInfo(`❌ WebRTC signaling error: ${error.message}`);
       console.error('WebRTC signaling error:', error);
     }
   }, [userId, addDebugInfo, removeRemoteAudio]);
 
-  // Join voice room with WebRTC
+  // Join voice room with improved sequencing
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    addDebugInfo(`🚪 Starting join process for room: ${room.name}`);
-    
-    if (isVoiceEnabled || room.currentParticipants >= room.maxParticipants) {
-      addDebugInfo(`❌ Room unavailable - enabled: ${isVoiceEnabled}, full: ${room.currentParticipants}/${room.maxParticipants}`);
+    if (isConnecting || isVoiceEnabled) {
+      addDebugInfo(`❌ Already connecting or connected`);
       return;
     }
 
+    addDebugInfo(`🚪 Starting join process for room: ${room.name}`);
     setIsConnecting(true);
     
     try {
-      addDebugInfo('🎤 Requesting microphone access...');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
+      // Step 1: Initialize AudioManager
+      if (!audioManagerRef.current) {
+        throw new Error('AudioManager not available');
+      }
+
+      await audioManagerRef.current.initialize({
+        onAudioLevel: setAudioLevel,
+        onError: (error) => {
+          addDebugInfo(`❌ AudioManager error: ${error.message}`);
+          toast.error('Audio system error: ' + error.message);
+        }
       });
+
+      // Step 2: Get user media
+      addDebugInfo('🎤 Requesting microphone access...');
+      const stream = await audioManagerRef.current.getUserMedia(
+        audioManagerRef.current.getStreamConstraints()
+      );
+
+      // Step 3: Setup audio monitoring (no local playback)
+      await audioManagerRef.current.setupAudioMonitoring(stream);
       
-      localStreamRef.current = stream;
-      setCurrentRoom(room);
-      
-      // Setup audio analysis (monitoring only, no local playback)
-      const audioCleanup = setupAudioAnalysis(stream);
-      
-      // Initialize WebRTC manager
+      // Step 4: Initialize WebRTC manager
       webrtcManagerRef.current = new WebRTCManager({
         localStream: stream,
         onRemoteStream: createRemoteAudio,
@@ -374,8 +312,11 @@ export const useVoiceCollaboration = ({
           toast.error('Voice connection error: ' + error.message);
         }
       });
+
+      // Start health monitoring
+      webrtcManagerRef.current.startHealthMonitoring();
       
-      // Setup Supabase channel
+      // Step 5: Setup Supabase channel
       channelRef.current = supabase.channel(`voice_${room.id}`, {
         config: {
           presence: {
@@ -391,6 +332,7 @@ export const useVoiceCollaboration = ({
         addDebugInfo(`📡 Channel status: ${status}`);
         
         if (status === 'SUBSCRIBED') {
+          setCurrentRoom(room);
           setIsVoiceEnabled(true);
           addDebugInfo('✅ Voice room joined successfully');
           
@@ -405,91 +347,94 @@ export const useVoiceCollaboration = ({
         } else if (status === 'CHANNEL_ERROR') {
           addDebugInfo('❌ Channel subscription error');
           toast.error('Failed to connect to voice channel');
+          throw new Error('Channel subscription failed');
         }
       });
-
-      if (audioCleanup) {
-        (channelRef.current as any).audioCleanup = audioCleanup;
-      }
 
     } catch (error: any) {
       addDebugInfo(`❌ JOIN FAILED: ${error.message}`);
       console.error('Voice room join error:', error);
+      
+      // Cleanup on failure
+      await cleanupVoiceResources();
       
       if (error.name === 'NotAllowedError') {
         toast.error('Microphone access denied. Please allow microphone access and try again.');
       } else if (error.name === 'NotFoundError') {
         toast.error('No microphone found. Please connect a microphone and try again.');
       } else {
-        toast.error('Failed to access microphone: ' + error.message);
+        toast.error('Failed to join voice room: ' + error.message);
       }
     } finally {
       setIsConnecting(false);
     }
-  }, [isVoiceEnabled, setupAudioAnalysis, addDebugInfo, userId, handleSignalingMessage, createRemoteAudio, removeRemoteAudio]);
+  }, [isConnecting, isVoiceEnabled, addDebugInfo, userId, handleSignalingMessage, createRemoteAudio, removeRemoteAudio]);
 
-  // Leave voice room
-  const leaveVoiceRoom = useCallback(() => {
-    addDebugInfo('🚪 Leaving voice room');
+  // Improved cleanup sequence
+  const cleanupVoiceResources = useCallback(async () => {
+    if (isCleaningUpRef.current) return;
+    isCleaningUpRef.current = true;
+
+    addDebugInfo('🧹 Starting voice resources cleanup');
     
+    try {
+      // Step 1: Stop WebRTC connections
+      if (webrtcManagerRef.current) {
+        await webrtcManagerRef.current.closeAllConnections();
+        webrtcManagerRef.current = null;
+      }
+
+      // Step 2: Stop all remote audio elements
+      remoteAudiosRef.current.forEach((audio, userId) => {
+        audio.pause();
+        audio.srcObject = null;
+      });
+      remoteAudiosRef.current.clear();
+
+      // Step 3: Cleanup AudioManager
+      if (audioManagerRef.current) {
+        await audioManagerRef.current.cleanup();
+      }
+
+      // Step 4: Unsubscribe from channel
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+
+      addDebugInfo('✅ Voice resources cleanup completed');
+      
+    } catch (error: any) {
+      addDebugInfo(`❌ Cleanup error: ${error.message}`);
+      console.error('Cleanup error:', error);
+    } finally {
+      isCleaningUpRef.current = false;
+    }
+  }, [addDebugInfo]);
+
+  // Leave voice room with proper sequencing
+  const leaveVoiceRoom = useCallback(async () => {
     if (!isVoiceEnabled || !currentRoom) {
       return;
     }
 
+    addDebugInfo('🚪 Leaving voice room');
+    
     // Announce leaving to other users
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'webrtc_signal',
-        payload: { type: 'user_left', senderId: userId }
+        payload: { type: 'user_leaving', senderId: userId }
       });
-    }
-
-    // Stop audio monitoring
-    if (audioMonitorIntervalRef.current) {
-      clearInterval(audioMonitorIntervalRef.current);
-      audioMonitorIntervalRef.current = null;
-    }
-
-    // Close all WebRTC connections
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.closeAllConnections();
-      webrtcManagerRef.current = null;
-    }
-
-    // Stop all remote audio elements
-    remoteAudiosRef.current.forEach((audio, userId) => {
-      audio.pause();
-      audio.srcObject = null;
-    });
-    remoteAudiosRef.current.clear();
-
-    // Stop local stream
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        addDebugInfo(`🛑 Stopped track: ${track.kind}`);
-      });
-      localStreamRef.current = null;
-    }
-
-    // Cleanup audio analysis
-    if ((channelRef.current as any)?.audioCleanup) {
-      (channelRef.current as any).audioCleanup();
-    }
-
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    // Unsubscribe from channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
+      
+      // Wait a moment for the message to be sent
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const roomName = currentRoom.name;
+    
+    // Reset state first
     setIsVoiceEnabled(false);
     setConnectedTrackers([]);
     setAudioLevel(0);
@@ -497,33 +442,32 @@ export const useVoiceCollaboration = ({
     setCurrentRoom(null);
     setIsRoomAdmin(false);
     
+    // Then cleanup resources
+    await cleanupVoiceResources();
+    
     addDebugInfo(`✅ Left voice room: ${roomName}`);
     toast.info(`Left ${roomName}`);
-  }, [isVoiceEnabled, currentRoom, addDebugInfo, userId]);
+  }, [isVoiceEnabled, currentRoom, addDebugInfo, userId, cleanupVoiceResources]);
 
-  // Toggle mute by enabling/disabling the audio track
+  // Toggle mute using AudioManager
   const toggleMute = useCallback(() => {
-    addDebugInfo(`🔇 TOGGLE MUTE: Current state=${isMuted ? 'MUTED' : 'UNMUTED'}`);
-    
-    if (!localStreamRef.current) {
-      addDebugInfo('❌ No local stream available for mute control');
+    if (!audioManagerRef.current || !audioManagerRef.current.isStreamActive()) {
+      addDebugInfo('❌ No active audio stream for mute control');
       toast.error('Audio system not ready');
       return;
     }
     
-    const audioTrack = localStreamRef.current.getAudioTracks()[0];
-    if (!audioTrack) {
-      addDebugInfo('❌ No audio track available');
-      toast.error('No audio track found');
-      return;
-    }
-    
     const newMutedState = !isMuted;
-    audioTrack.enabled = !newMutedState;
-    setIsMuted(newMutedState);
+    const success = audioManagerRef.current.muteStream(newMutedState);
     
-    addDebugInfo(`✅ MUTE STATE: ${newMutedState ? 'MUTED' : 'UNMUTED'}, track enabled=${audioTrack.enabled}`);
-    toast.info(newMutedState ? 'Microphone muted' : 'Microphone unmuted');
+    if (success) {
+      setIsMuted(newMutedState);
+      addDebugInfo(`✅ MUTE STATE: ${newMutedState ? 'MUTED' : 'UNMUTED'}`);
+      toast.info(newMutedState ? 'Microphone muted' : 'Microphone unmuted');
+    } else {
+      addDebugInfo('❌ Failed to toggle mute state');
+      toast.error('Failed to toggle microphone');
+    }
   }, [isMuted, addDebugInfo]);
 
   // Legacy compatibility functions
@@ -534,8 +478,8 @@ export const useVoiceCollaboration = ({
     }
   }, [availableRooms, joinVoiceRoom]);
 
-  const stopVoiceCollaboration = useCallback(() => {
-    leaveVoiceRoom();
+  const stopVoiceCollaboration = useCallback(async () => {
+    await leaveVoiceRoom();
   }, [leaveVoiceRoom]);
 
   // Initialize rooms on mount
@@ -553,24 +497,6 @@ export const useVoiceCollaboration = ({
       }
     };
   }, [isVoiceEnabled, leaveVoiceRoom, addDebugInfo]);
-
-  // Enhanced state monitoring
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (isVoiceEnabled || isConnecting) {
-        const streamInfo = localStreamRef.current ? 
-          `tracks=${localStreamRef.current.getTracks().length}, active=${localStreamRef.current.active}` : 
-          'no stream';
-        const contextInfo = audioContextRef.current ? 
-          `state=${audioContextRef.current.state}` : 
-          'no context';
-        
-        addDebugInfo(`📊 STATE: enabled=${isVoiceEnabled}, muted=${isMuted}, connecting=${isConnecting}, room=${currentRoom?.name}, audio=${audioLevel.toFixed(3)}, stream=${streamInfo}, context=${contextInfo}, peers=${connectedTrackers.length}`);
-      }
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, [isVoiceEnabled, isMuted, isConnecting, currentRoom, audioLevel, connectedTrackers.length, addDebugInfo]);
 
   return {
     // Legacy compatibility
