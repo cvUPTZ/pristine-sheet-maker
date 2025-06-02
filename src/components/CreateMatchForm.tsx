@@ -125,6 +125,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
   const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [selectedTeamForAssignment, setSelectedTeamForAssignment] = useState<{[key: number]: 'home' | 'away' | 'both'}>({});
   
   const [formData, setFormData] = useState({
     name: '',
@@ -504,6 +505,21 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     return 'some';
   };
 
+  const handleTeamFilterChange = (assignmentIndex: number, team: 'home' | 'away' | 'both') => {
+    setSelectedTeamForAssignment(prev => ({
+      ...prev,
+      [assignmentIndex]: team
+    }));
+  };
+
+  const getFilteredPlayers = (assignmentIndex: number, team: 'home' | 'away') => {
+    const teamFilter = selectedTeamForAssignment[assignmentIndex];
+    if (teamFilter && teamFilter !== 'both' && teamFilter !== team) {
+      return [];
+    }
+    return team === 'home' ? homeTeamPlayers : awayTeamPlayers;
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <form onSubmit={handleSubmit}>
@@ -849,52 +865,73 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                     
                     <div>
                       <Label>Assigned Players</Label>
+                      <div className="mb-3">
+                        <Label className="text-sm text-muted-foreground">Filter by Team</Label>
+                        <Select
+                          value={selectedTeamForAssignment[index] || 'both'}
+                          onValueChange={(value: 'home' | 'away' | 'both') => handleTeamFilterChange(index, value)}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="both">Both Teams</SelectItem>
+                            <SelectItem value="home">Home Team Only</SelectItem>
+                            <SelectItem value="away">Away Team Only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        <div>
-                          <Label className="text-sm text-muted-foreground">Home Team</Label>
-                          <div className="space-y-1">
-                            {homeTeamPlayers.map((player) => (
-                              <div key={`home-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`home-player-assignment-${index}-player-${player.id}`}
-                                  checked={assignment.player_ids.includes(player.id)}
-                                  onCheckedChange={(checked) => {
-                                    const newPlayerIds = checked
-                                      ? [...assignment.player_ids, player.id]
-                                      : assignment.player_ids.filter(id => id !== player.id);
-                                    updateTrackerAssignment(index, 'player_ids', newPlayerIds);
-                                  }}
-                                />
-                                <Label htmlFor={`home-player-assignment-${index}-player-${player.id}`} className="text-sm">
-                                  #{player.number} {player.name || 'Unnamed Player'}
-                                </Label>
-                              </div>
-                            ))}
+                        {(!selectedTeamForAssignment[index] || selectedTeamForAssignment[index] === 'both' || selectedTeamForAssignment[index] === 'home') && (
+                          <div>
+                            <Label className="text-sm text-muted-foreground">Home Team</Label>
+                            <div className="space-y-1">
+                              {getFilteredPlayers(index, 'home').map((player) => (
+                                <div key={`home-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`home-player-assignment-${index}-player-${player.id}`}
+                                    checked={assignment.player_ids.includes(player.id)}
+                                    onCheckedChange={(checked) => {
+                                      const newPlayerIds = checked
+                                        ? [...assignment.player_ids, player.id]
+                                        : assignment.player_ids.filter(id => id !== player.id);
+                                      updateTrackerAssignment(index, 'player_ids', newPlayerIds);
+                                    }}
+                                  />
+                                  <Label htmlFor={`home-player-assignment-${index}-player-${player.id}`} className="text-sm">
+                                    #{player.number} {player.name || 'Unnamed Player'}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
                         
-                        <div>
-                          <Label className="text-sm text-muted-foreground">Away Team</Label>
-                          <div className="space-y-1">
-                            {awayTeamPlayers.map((player) => (
-                              <div key={`away-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`away-player-assignment-${index}-player-${player.id}`}
-                                  checked={assignment.player_ids.includes(player.id)}
-                                  onCheckedChange={(checked) => {
-                                    const newPlayerIds = checked
-                                      ? [...assignment.player_ids, player.id]
-                                      : assignment.player_ids.filter(id => id !== player.id);
-                                    updateTrackerAssignment(index, 'player_ids', newPlayerIds);
-                                  }}
-                                />
-                                <Label htmlFor={`away-player-assignment-${index}-player-${player.id}`} className="text-sm">
-                                  #{player.number} {player.name || 'Unnamed Player'}
-                                </Label>
-                              </div>
-                            ))}
+                        {(!selectedTeamForAssignment[index] || selectedTeamForAssignment[index] === 'both' || selectedTeamForAssignment[index] === 'away') && (
+                          <div>
+                            <Label className="text-sm text-muted-foreground">Away Team</Label>
+                            <div className="space-y-1">
+                              {getFilteredPlayers(index, 'away').map((player) => (
+                                <div key={`away-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`away-player-assignment-${index}-player-${player.id}`}
+                                    checked={assignment.player_ids.includes(player.id)}
+                                    onCheckedChange={(checked) => {
+                                      const newPlayerIds = checked
+                                        ? [...assignment.player_ids, player.id]
+                                        : assignment.player_ids.filter(id => id !== player.id);
+                                      updateTrackerAssignment(index, 'player_ids', newPlayerIds);
+                                    }}
+                                  />
+                                  <Label htmlFor={`away-player-assignment-${index}-player-${player.id}`} className="text-sm">
+                                    #{player.number} {player.name || 'Unnamed Player'}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
