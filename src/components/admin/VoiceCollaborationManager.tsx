@@ -39,25 +39,32 @@ interface Match {
 interface VoiceRoom {
   id: string;
   name: string;
-  matchId: string;
-  participantCount: number;
-  maxParticipants: number;
-  isActive: boolean;
+  match_id: string;
+  max_participants: number;
+  is_active: boolean;
   quality: 'excellent' | 'good' | 'fair' | 'poor';
+  created_at: string;
+  participant_count?: number;
 }
 
 interface VoiceParticipant {
-  userId: string;
-  username: string;
-  roomId: string;
-  roomName: string;
-  isMuted: boolean;
-  isSpeaking: boolean;
-  isConnected: boolean;
-  connectionQuality: 'excellent' | 'good' | 'fair' | 'poor';
-  audioLevel: number;
-  role?: 'admin' | 'coordinator' | 'tracker';
-  joinedAt: Date;
+  id: string;
+  user_id: string;
+  room_id: string;
+  is_muted: boolean;
+  is_speaking: boolean;
+  is_connected: boolean;
+  connection_quality: 'excellent' | 'good' | 'fair' | 'poor';
+  audio_level: number;
+  joined_at: string;
+  user_profile?: {
+    full_name?: string;
+    email?: string;
+    role?: string;
+  };
+  room?: {
+    name: string;
+  };
 }
 
 const VoiceCollaborationManager: React.FC = () => {
@@ -77,7 +84,6 @@ const VoiceCollaborationManager: React.FC = () => {
 
   useEffect(() => {
     fetchMatches();
-    // Set up real-time subscriptions for voice activity
     setupRealtimeSubscriptions();
   }, []);
 
@@ -113,92 +119,44 @@ const VoiceCollaborationManager: React.FC = () => {
     
     setRefreshing(true);
     try {
-      // Simulate fetching voice room data (replace with actual implementation)
-      const mockRooms: VoiceRoom[] = [
-        {
-          id: `${selectedMatchId}_main`,
-          name: 'Main Communication',
-          matchId: selectedMatchId,
-          participantCount: 8,
-          maxParticipants: 20,
-          isActive: true,
-          quality: 'excellent'
-        },
-        {
-          id: `${selectedMatchId}_coordinators`,
-          name: 'Match Coordinators',
-          matchId: selectedMatchId,
-          participantCount: 3,
-          maxParticipants: 8,
-          isActive: true,
-          quality: 'good'
-        },
-        {
-          id: `${selectedMatchId}_team_a`,
-          name: 'Team A Trackers',
-          matchId: selectedMatchId,
-          participantCount: 12,
-          maxParticipants: 25,
-          isActive: true,
-          quality: 'fair'
-        },
-        {
-          id: `${selectedMatchId}_team_b`,
-          name: 'Team B Trackers',
-          matchId: selectedMatchId,
-          participantCount: 15,
-          maxParticipants: 25,
-          isActive: true,
-          quality: 'good'
-        }
-      ];
+      // Fetch voice rooms for the selected match
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('voice_rooms')
+        .select('*')
+        .eq('match_id', selectedMatchId);
 
-      const mockParticipants: VoiceParticipant[] = [
-        {
-          userId: 'user1',
-          username: 'John Coordinator',
-          roomId: `${selectedMatchId}_coordinators`,
-          roomName: 'Match Coordinators',
-          isMuted: false,
-          isSpeaking: true,
-          isConnected: true,
-          connectionQuality: 'excellent',
-          audioLevel: 0.8,
-          role: 'coordinator',
-          joinedAt: new Date(Date.now() - 30000)
-        },
-        {
-          userId: 'user2',
-          username: 'Sarah Admin',
-          roomId: `${selectedMatchId}_main`,
-          roomName: 'Main Communication',
-          isMuted: true,
-          isSpeaking: false,
-          isConnected: true,
-          connectionQuality: 'good',
-          audioLevel: 0.0,
-          role: 'admin',
-          joinedAt: new Date(Date.now() - 120000)
-        }
-      ];
+      if (roomsError) {
+        console.error('Error fetching voice rooms:', roomsError);
+        // Create default rooms if none exist
+        await createDefaultRooms();
+        return;
+      }
 
-      setVoiceRooms(mockRooms);
-      setParticipants(mockParticipants);
+      // Fetch participants with user profiles and room info
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('voice_participants')
+        .select(`
+          *,
+          user_profile:profiles(full_name, email, role),
+          room:voice_rooms(name)
+        `)
+        .in('room_id', (roomsData || []).map(room => room.id));
+
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+      }
+
+      // Count participants per room
+      const roomsWithCounts = (roomsData || []).map(room => ({
+        ...room,
+        participant_count: (participantsData || []).filter(p => p.room_id === room.id).length
+      }));
+
+      setVoiceRooms(roomsWithCounts);
+      setParticipants(participantsData || []);
       
       // Calculate system health
-      const totalParticipants = mockParticipants.length;
-      const activeRooms = mockRooms.filter(r => r.isActive).length;
-      const poorConnections = mockParticipants.filter(p => p.connectionQuality === 'poor').length;
-      
-      const avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = poorConnections > totalParticipants * 0.3 ? 'poor' : 'good';
-      
-      setSystemHealth({
-        totalRooms: mockRooms.length,
-        activeRooms,
-        totalParticipants,
-        avgConnectionQuality: avgQuality,
-        issuesDetected: poorConnections
-      });
+      calculateSystemHealth(roomsWithCounts, participantsData || []);
 
     } catch (error) {
       console.error('Error fetching voice data:', error);
@@ -208,38 +166,121 @@ const VoiceCollaborationManager: React.FC = () => {
     }
   };
 
+  const createDefaultRooms = async () => {
+    if (!selectedMatchId) return;
+
+    try {
+      const defaultRooms = [
+        { name: 'Main Communication', match_id: selectedMatchId, max_participants: 20 },
+        { name: 'Match Coordinators', match_id: selectedMatchId, max_participants: 8 },
+        { name: 'Team A Trackers', match_id: selectedMatchId, max_participants: 25 },
+        { name: 'Team B Trackers', match_id: selectedMatchId, max_participants: 25 }
+      ];
+
+      const { error } = await supabase
+        .from('voice_rooms')
+        .insert(defaultRooms);
+
+      if (error) throw error;
+
+      toast.success('Created default voice rooms');
+      fetchVoiceData();
+    } catch (error) {
+      console.error('Error creating default rooms:', error);
+      toast.error('Failed to create default rooms');
+    }
+  };
+
+  const calculateSystemHealth = (rooms: VoiceRoom[], participants: VoiceParticipant[]) => {
+    const totalParticipants = participants.length;
+    const activeRooms = rooms.filter(r => r.is_active).length;
+    const poorConnections = participants.filter(p => p.connection_quality === 'poor').length;
+    
+    const avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = 
+      poorConnections > totalParticipants * 0.3 ? 'poor' : 'good';
+    
+    setSystemHealth({
+      totalRooms: rooms.length,
+      activeRooms,
+      totalParticipants,
+      avgConnectionQuality: avgQuality,
+      issuesDetected: poorConnections
+    });
+  };
+
   const setupRealtimeSubscriptions = () => {
     // Set up real-time subscriptions for voice room updates
-    const channel = supabase.channel('voice_admin');
+    const roomsChannel = supabase.channel('voice_rooms_changes');
+    const participantsChannel = supabase.channel('voice_participants_changes');
     
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('Voice admin channel subscribed');
-      }
-    });
+    roomsChannel
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'voice_rooms' }, 
+        () => fetchVoiceData()
+      )
+      .subscribe();
+
+    participantsChannel
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'voice_participants' }, 
+        () => fetchVoiceData()
+      )
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(roomsChannel);
+      supabase.removeChannel(participantsChannel);
     };
   };
 
   const handleKickParticipant = async (participantId: string) => {
     try {
-      // Implement participant removal logic
-      toast.success(`Removed participant ${participantId}`);
-      fetchVoiceData(); // Refresh data
+      const { error } = await supabase
+        .from('voice_participants')
+        .delete()
+        .eq('id', participantId);
+
+      if (error) throw error;
+
+      toast.success('Participant removed from voice room');
+      fetchVoiceData();
     } catch (error) {
+      console.error('Error removing participant:', error);
       toast.error('Failed to remove participant');
     }
   };
 
   const handleMuteParticipant = async (participantId: string) => {
     try {
-      // Implement participant muting logic
-      toast.success(`Muted participant ${participantId}`);
-      fetchVoiceData(); // Refresh data
+      const { error } = await supabase
+        .from('voice_participants')
+        .update({ is_muted: true })
+        .eq('id', participantId);
+
+      if (error) throw error;
+
+      toast.success('Participant muted');
+      fetchVoiceData();
     } catch (error) {
+      console.error('Error muting participant:', error);
       toast.error('Failed to mute participant');
+    }
+  };
+
+  const handleCloseRoom = async (roomId: string) => {
+    try {
+      const { error } = await supabase
+        .from('voice_rooms')
+        .update({ is_active: false })
+        .eq('id', roomId);
+
+      if (error) throw error;
+
+      toast.success('Voice room closed');
+      fetchVoiceData();
+    } catch (error) {
+      console.error('Error closing room:', error);
+      toast.error('Failed to close room');
     }
   };
 
@@ -404,7 +445,7 @@ const VoiceCollaborationManager: React.FC = () => {
                           <div>
                             <h3 className="font-semibold">{room.name}</h3>
                             <p className="text-sm text-gray-600">
-                              {room.participantCount}/{room.maxParticipants} participants
+                              {room.participant_count || 0}/{room.max_participants} participants
                             </p>
                           </div>
                           <Badge 
@@ -413,7 +454,7 @@ const VoiceCollaborationManager: React.FC = () => {
                           >
                             {room.quality}
                           </Badge>
-                          {room.isActive && (
+                          {room.is_active && (
                             <Badge variant="secondary" className="bg-green-100 text-green-800">
                               Live
                             </Badge>
@@ -425,7 +466,11 @@ const VoiceCollaborationManager: React.FC = () => {
                             <Settings className="h-4 w-4 mr-2" />
                             Manage
                           </Button>
-                          <Button size="sm" variant="destructive">
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleCloseRoom(room.id)}
+                          >
                             <PhoneOff className="h-4 w-4 mr-2" />
                             Close Room
                           </Button>
@@ -441,11 +486,11 @@ const VoiceCollaborationManager: React.FC = () => {
                         </div>
                         <div>
                           <span className="font-medium">Capacity:</span>
-                          <p className="text-gray-600">{Math.round((room.participantCount / room.maxParticipants) * 100)}%</p>
+                          <p className="text-gray-600">{Math.round(((room.participant_count || 0) / room.max_participants) * 100)}%</p>
                         </div>
                         <div>
                           <span className="font-medium">Status:</span>
-                          <p className="text-gray-600">{room.isActive ? 'Active' : 'Inactive'}</p>
+                          <p className="text-gray-600">{room.is_active ? 'Active' : 'Inactive'}</p>
                         </div>
                         <div>
                           <span className="font-medium">Quality:</span>
@@ -466,51 +511,51 @@ const VoiceCollaborationManager: React.FC = () => {
                 <CardContent>
                   <div className="space-y-3">
                     {participants.map((participant) => (
-                      <div key={participant.userId} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={participant.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${participant.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                          {getRoleIcon(participant.role)}
+                          <div className={`w-3 h-3 rounded-full ${participant.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                          {getRoleIcon(participant.user_profile?.role)}
                           <div>
-                            <div className="font-medium">{participant.username}</div>
-                            <div className="text-sm text-gray-600">{participant.roomName}</div>
+                            <div className="font-medium">{participant.user_profile?.full_name || 'Unknown User'}</div>
+                            <div className="text-sm text-gray-600">{participant.room?.name}</div>
                           </div>
                           <Badge 
                             variant="outline" 
-                            className={getQualityColor(participant.connectionQuality)}
+                            className={getQualityColor(participant.connection_quality)}
                           >
-                            {participant.connectionQuality}
+                            {participant.connection_quality}
                           </Badge>
                         </div>
                         
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 text-sm">
-                            {participant.isMuted ? (
+                            {participant.is_muted ? (
                               <MicOff className="h-4 w-4 text-red-500" />
                             ) : (
                               <Mic className="h-4 w-4 text-green-500" />
                             )}
-                            {participant.isSpeaking && (
+                            {participant.is_speaking && (
                               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                             )}
-                            <span>{Math.round(participant.audioLevel * 100)}%</span>
+                            <span>{Math.round(participant.audio_level * 100)}%</span>
                           </div>
                           
                           <div className="text-xs text-gray-500">
-                            {Math.round((Date.now() - participant.joinedAt.getTime()) / 60000)}m ago
+                            {Math.round((Date.now() - new Date(participant.joined_at).getTime()) / 60000)}m ago
                           </div>
                           
                           <div className="flex items-center gap-1">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleMuteParticipant(participant.userId)}
+                              onClick={() => handleMuteParticipant(participant.id)}
                             >
                               <VolumeX className="h-3 w-3" />
                             </Button>
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => handleKickParticipant(participant.userId)}
+                              onClick={() => handleKickParticipant(participant.id)}
                             >
                               <UserX className="h-3 w-3" />
                             </Button>
