@@ -37,7 +37,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     email: '',
     password: '',
     fullName: '',
-    role: 'user', // Default role
+    role: '', // Default role
   });
   const [loading, setLoading] = useState(false);
 
@@ -63,7 +63,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       email: '',
       password: '',
       fullName: '',
-      role: 'user',
+      role: '',
     });
     setLoading(false); // Reset loading state as well
   };
