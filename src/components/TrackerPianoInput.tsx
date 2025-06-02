@@ -8,7 +8,7 @@ import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo, User, CheckCircle, Activity, Zap, Play } from 'lucide-react';
+import { Undo, User, CheckCircle, Activity, Zap } from 'lucide-react';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -34,6 +34,98 @@ interface EnhancedEventType {
   subcategory?: string;
   description?: string;
 }
+
+// SVG Icons for Event Types
+const EventTypeIcons = {
+  goal: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.2"/>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 6L12 10.5 8.5 8 12 5.5 15.5 8zM8.5 16L12 13.5 15.5 16 12 18.5 8.5 16z" fill="currentColor"/>
+      <circle cx="12" cy="12" r="2" fill="currentColor"/>
+    </svg>
+  ),
+  pass: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M4 12L20 12M20 12L14 6M20 12L14 18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="4" cy="12" r="2" fill="currentColor"/>
+    </svg>
+  ),
+  shot: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+      <path d="M12 4V8M12 16V20M4 12H8M16 12H20" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  foul: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M12 9V13M12 17H12.01M21 12C21 16.97 16.97 21 12 21S3 16.97 3 12 7.03 3 12 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 2L12 6M22 12L18 12M12 18L12 22M6 12L2 12" stroke="currentColor" strokeWidth="1" opacity="0.5"/>
+    </svg>
+  ),
+  save: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M9 12L11 14L15 10M21 12C21 16.97 16.97 21 12 21S3 16.97 3 12 7.03 3 12 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M8 8L16 16M16 8L8 16" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+    </svg>
+  ),
+  offside: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M4 15S8 9 12 9 20 15 20 15" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 3V9M12 15V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="12" cy="9" r="2" fill="currentColor"/>
+    </svg>
+  ),
+  corner: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M21 3H3V21H21V3Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <path d="M3 3L10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M3 3C3 6.31 5.69 9 9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="3" cy="3" r="1" fill="currentColor"/>
+    </svg>
+  ),
+  substitution: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M16 3L21 8L16 13M8 21L3 16L8 11" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M21 8H11M3 16H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="11" cy="8" r="2" fill="currentColor" opacity="0.5"/>
+      <circle cx="13" cy="16" r="2" fill="currentColor" opacity="0.5"/>
+    </svg>
+  ),
+  card: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" opacity="0.2"/>
+      <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="3" fill="currentColor"/>
+    </svg>
+  ),
+  tackle: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M8 8L16 16M16 8L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+      <circle cx="16" cy="16" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+      <path d="M12 12L18 6M6 18L12 12" stroke="currentColor" strokeWidth="1" opacity="0.5"/>
+    </svg>
+  ),
+  assist: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="1.5" fill="currentColor" opacity="0.3"/>
+      <path d="M12 8L14 12L18 12L15 15L16 19L12 17L8 19L9 15L6 12L10 12L12 8Z" fill="currentColor"/>
+    </svg>
+  ),
+  default: (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="3" fill="currentColor"/>
+      <path d="M12 6V8M12 16V18M6 12H8M16 12H18" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
+    </svg>
+  )
+};
+
+const getEventIcon = (eventType: string) => {
+  return EventTypeIcons[eventType as keyof typeof EventTypeIcons] || EventTypeIcons.default;
+};
 
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [assignedEventTypes, setAssignedEventTypes] = useState<EnhancedEventType[]>([]);
@@ -665,7 +757,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           </motion.div>
         )}
 
-        {/* Event Types - Simplified Piano Interface */}
+        {/* Event Types - Enhanced Piano Interface with SVG Icons */}
         {assignedEventTypes.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -687,7 +779,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                     </span>
                   </motion.h2>
                   <p className="text-lg text-slate-600 font-medium">
-                    Select an event type to record instantly
+                    Tap any event to record instantly
                   </p>
                 </div>
                 
@@ -704,42 +796,53 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
                         stiffness: 200,
                         damping: 15
                       }}
-                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileHover={{ scale: 1.05, y: -8 }}
                       whileTap={{ scale: 0.95 }}
-                      className="relative"
+                      className="relative group"
                     >
                       <Button
                         onClick={() => handleEventTypeClick(eventType)}
                         disabled={isRecording}
                         className={`
-                          w-full h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 text-sm font-bold transition-all duration-300 shadow-lg
+                          w-24 h-24 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 text-xs font-bold transition-all duration-300 shadow-lg relative overflow-hidden
                           ${recordingEventType === eventType.key 
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-2xl scale-110' 
-                            : 'bg-gradient-to-br from-white to-slate-50 hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 border-slate-200 hover:border-blue-300 hover:shadow-xl'
+                            ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white border-emerald-400 shadow-2xl scale-110 shadow-emerald-500/50' 
+                            : 'bg-gradient-to-br from-white to-slate-50 hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 border-slate-200 hover:border-blue-300 hover:shadow-xl group-hover:shadow-blue-500/20'
                           }
                         `}
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        {/* Icon Container */}
+                        <div className={`w-8 h-8 flex items-center justify-center transition-all duration-300 ${
                           recordingEventType === eventType.key 
-                            ? 'bg-white text-green-600' 
-                            : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                            ? 'text-white' 
+                            : 'text-slate-600 group-hover:text-blue-600'
                         }`}>
-                          <Play className="w-4 h-4" />
+                          {getEventIcon(eventType.key)}
                         </div>
-                        <span className="capitalize">{eventType.label}</span>
+                        
+                        {/* Label */}
+                        <span className="capitalize leading-tight text-center">
+                          {eventType.label}
+                        </span>
+                        
+                        {/* Gradient overlay on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-600/0 group-hover:from-blue-500/10 group-hover:to-indigo-600/10 transition-all duration-300 rounded-3xl" />
                       </Button>
                       
                       {/* Recording pulse effect */}
                       {recordingEventType === eventType.key && (
                         <motion.div
-                          className="absolute inset-0 rounded-2xl border-4 border-green-400 bg-green-400/10"
+                          className="absolute inset-0 rounded-3xl border-4 border-emerald-400 bg-emerald-400/10"
                           animate={{
-                            scale: [1, 1.1, 1],
+                            scale: [1, 1.15, 1],
                             opacity: [0.7, 1, 0.7]
                           }}
                           transition={{ duration: 1, repeat: Infinity }}
                         />
                       )}
+                      
+                      {/* Shine effect on hover */}
+                      <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                     </motion.div>
                   ))}
                 </div>
