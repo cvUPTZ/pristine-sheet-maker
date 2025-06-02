@@ -28,14 +28,25 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const batteryStatus = useBatteryMonitor(trackerUserId);
   
   // Use the enhanced tracker status hook
-  const { broadcastStatus, isConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
+  const { broadcastStatus, isConnected: trackerConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
 
   // Use the realtime match hook to handle presence
-  const { broadcastStatus: legacyBroadcast } = useRealtimeMatch({ 
+  const { broadcastStatus: legacyBroadcast, isConnected: matchConnected } = useRealtimeMatch({ 
     matchId,
     onEventReceived: () => {
       // Handle events if needed
     }
+  });
+
+  // Use tracker connection status as primary indicator
+  const isConnected = trackerConnected;
+
+  console.log('TrackerInterface: Connection states', { 
+    trackerConnected, 
+    matchConnected, 
+    isConnected,
+    trackerUserId,
+    matchId
   });
 
   useEffect(() => {
@@ -79,7 +90,10 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
-    if (!trackerUserId || !matchId || !isConnected) return;
+    if (!trackerUserId || !matchId || !isConnected) {
+      console.log('TrackerInterface: Skipping status broadcast - not ready', { trackerUserId, matchId, isConnected });
+      return;
+    }
     
     const getNetworkQuality = (): 'excellent' | 'good' | 'poor' => {
       // Simple network quality estimation based on connection type
@@ -93,6 +107,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
     // Enhanced status broadcast function
     const broadcastEnhancedStatus = () => {
+      console.log('TrackerInterface: Broadcasting enhanced status');
       broadcastStatus({
         status: 'active',
         timestamp: Date.now(),

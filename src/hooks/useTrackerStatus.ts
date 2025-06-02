@@ -21,6 +21,8 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
 
     const initializeChannel = async () => {
       try {
+        console.log('TrackerStatus: Initializing channel for match:', matchId, 'user:', userId);
+        
         // Clean up existing channel first
         if (channelRef.current) {
           await supabase.removeChannel(channelRef.current);
@@ -33,21 +35,26 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
         
         // Subscribe to the channel
         const status = await channelRef.current.subscribe();
+        console.log('TrackerStatus: Channel subscription status:', status);
         
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
+          console.log('TrackerStatus: Connected successfully');
           
           // Broadcast initial active status after a short delay to ensure channel is ready
           setTimeout(() => {
+            console.log('TrackerStatus: Broadcasting initial active status');
             broadcastStatus({
               status: 'active',
               timestamp: Date.now()
             });
-          }, 500);
+          }, 1000);
         } else {
           setIsConnected(false);
+          console.log('TrackerStatus: Failed to connect');
         }
       } catch (error) {
+        console.error('TrackerStatus: Error initializing channel:', error);
         setIsConnected(false);
       }
     };
@@ -55,6 +62,7 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
     initializeChannel();
 
     return () => {
+      console.log('TrackerStatus: Cleaning up channel');
       if (channelRef.current) {
         // Broadcast inactive status before cleanup
         try {
@@ -79,12 +87,18 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
   }, [matchId, userId]);
 
   const broadcastStatus = useCallback(async (statusData: TrackerStatusData) => {
-    if (!userId || !matchId || !channelRef.current || !isConnected) return;
+    if (!userId || !matchId || !channelRef.current) {
+      console.log('TrackerStatus: Cannot broadcast - missing requirements', { userId, matchId, hasChannel: !!channelRef.current });
+      return;
+    }
 
     const now = Date.now();
     
     // Throttle broadcasts to prevent spam (minimum 2 seconds between broadcasts)
-    if (now - lastBroadcast < 2000) return;
+    if (now - lastBroadcast < 2000) {
+      console.log('TrackerStatus: Broadcast throttled');
+      return;
+    }
 
     try {
       const payload = {
@@ -94,6 +108,8 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
         timestamp: now
       };
 
+      console.log('TrackerStatus: Broadcasting status:', payload);
+
       await channelRef.current.send({
         type: 'broadcast',
         event: 'tracker_update',
@@ -101,12 +117,14 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
       });
 
       setLastBroadcast(now);
+      console.log('TrackerStatus: Status broadcasted successfully');
     } catch (error) {
-      // Silent fail to prevent console spam
+      console.error('TrackerStatus: Failed to broadcast status:', error);
     }
-  }, [matchId, userId, lastBroadcast, isConnected]);
+  }, [matchId, userId, lastBroadcast]);
 
   const cleanup = useCallback(() => {
+    console.log('TrackerStatus: Manual cleanup called');
     if (channelRef.current) {
       try {
         channelRef.current.send({
