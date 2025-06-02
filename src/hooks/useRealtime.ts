@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -13,7 +12,7 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
   const [isOnline, setIsOnline] = useState(false);
   const [presence, setPresence] = useState({});
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
-  const [channelError, setChannelError] = useState<Error | null>(null); // Add channelError state
+  const [channelError, setChannelError] = useState<Error | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
@@ -29,15 +28,15 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
         setOnlineUsers(users);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
+        // Removed excessive logging
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
+        // Removed excessive logging
       })
-      .subscribe(async (status, err) => { // Add err parameter
+      .subscribe(async (status, err) => {
         if (status === 'SUBSCRIBED') {
           setIsOnline(true);
-          setChannelError(null); // Clear error on successful subscription
+          setChannelError(null);
           try {
             await channel.track({
               user_id: userId,
@@ -53,8 +52,6 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
             console.error('Realtime channel error:', status, err);
             setChannelError(err || new Error(`Channel ${status.toLowerCase()}`));
           }
-          // For other statuses, you might not want to set an error, or just a generic one.
-          // For now, only explicit error statuses set channelError.
         }
       });
 
@@ -68,38 +65,30 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
       try {
         channelRef.current.send({
           type: 'broadcast',
-          event: event.type, // This is the Supabase event name, from the `type` passed in the argument
+          event: event.type,
           payload: event.payload,
         });
       } catch (sendError: any) {
         console.error('Error sending event via channel:', sendError);
-        // setChannelError(new Error(`Failed to send event: ${sendError.message || 'Unknown error'}`)); // setChannelError would require it to be a dependency
       }
     } else {
       console.warn('Cannot push event: Realtime channel is not available.');
-      // setChannelError(new Error('Cannot push event: Realtime channel not available.')); // setChannelError would require it to be a dependency
     }
-  }, []); // Empty dependency array as channelRef is stable and setChannelError is omitted for max stability of pushEvent ref
+  }, []);
 
   // Set up event listening
   useEffect(() => {
     if (channelRef.current && onEventReceived) {
       const eventHandlerWrapper = (event: any) => {
-        // console.log('[useRealtime_DEBUG] Raw event received by broadcast listener:', JSON.stringify(event, null, 2)); // Removed
-        onEventReceived(event); // Call the original callback
+        onEventReceived(event);
       };
       channelRef.current.on('broadcast', { event: '*' }, eventHandlerWrapper);
     }
-    // Cleanup: Explicitly remove the listener if the effect re-runs or component unmounts
-    // Although Supabase client might handle this on unsubscribe, being explicit is safer.
+    
     return () => {
-      if (channelRef.current && onEventReceived) {
-        // Supabase RealtimeChannel type doesn't directly expose 'off' for specific wrapped handlers easily.
-        // Relying on channel.unsubscribe() in the main useEffect to clean up all listeners.
-        // If specific 'off' is needed, the handler wrapper instance would need to be stable or managed.
-      }
+      // Cleanup handled by channel.unsubscribe() in main useEffect
     };
-  }, [onEventReceived]); // Dependency array remains the same
+  }, [onEventReceived]);
 
   return {
     channel: channelRef.current,
@@ -107,6 +96,6 @@ export const useRealtime = ({ channelName, onEventReceived, userId }: UseRealtim
     onlineUsers,
     isOnline,
     pushEvent,
-    channelError, // New return value
+    channelError,
   };
 };

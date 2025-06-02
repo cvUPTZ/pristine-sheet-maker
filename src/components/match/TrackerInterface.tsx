@@ -33,7 +33,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const { broadcastStatus: legacyBroadcast } = useRealtimeMatch({ 
     matchId,
     onEventReceived: (event) => {
-      console.log('[TrackerInterface] New event received:', event);
+      // Removed excessive event logging
     }
   });
 
@@ -82,7 +82,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   useEffect(() => {
     if (!trackerUserId || !matchId) return;
 
-    console.log('[TrackerInterface] Tracker joining match:', { trackerUserId, matchId });
+    // Removed excessive joining logging
     
     const getNetworkQuality = (): 'excellent' | 'good' | 'poor' => {
       // Simple network quality estimation based on connection type
@@ -114,7 +114,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     const interval = setInterval(broadcastEnhancedStatus, 30000); // Every 30 seconds
 
     return () => {
-      console.log('[TrackerInterface] Tracker leaving match');
+      // Removed excessive leaving logging
       clearInterval(interval);
       
       // Broadcast inactive status
