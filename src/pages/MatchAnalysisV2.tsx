@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import MatchHeader from '@/components/match/MatchHeader';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
 import MainTabContentV2 from '@/components/match/MainTabContentV2';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
+import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { EventType } from '@/types/matchForm';
@@ -292,7 +292,7 @@ const MatchAnalysisV2: React.FC = () => {
         <TabsList className={`
           grid w-full gap-1 h-auto p-1 mb-3 sm:mb-4
           ${isAdmin 
-            ? (isMobile ? "grid-cols-1" : isSmall ? "grid-cols-2" : "grid-cols-3")
+            ? (isMobile ? "grid-cols-2" : isSmall ? "grid-cols-2" : "grid-cols-4")
             : "grid-cols-1"
           }
         `}>
@@ -311,12 +311,20 @@ const MatchAnalysisV2: React.FC = () => {
             {isMobile ? "Piano" : "Piano Input"}
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger 
-              value="tracker" 
-              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-            >
-              {isMobile ? "Assign" : "Assign Tracker"}
-            </TabsTrigger>
+            <>
+              <TabsTrigger 
+                value="planning" 
+                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+              >
+                {isMobile ? "Plan" : "Planning"}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="tracker" 
+                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+              >
+                {isMobile ? "Assign" : "Assign Tracker"}
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
         
@@ -352,22 +360,32 @@ const MatchAnalysisV2: React.FC = () => {
             </Card>
           </div>
         </TabsContent>
-        
+
         {isAdmin && (
-          <TabsContent value="tracker" className="mt-2 sm:mt-4">
-            <Card>
-              <CardContent className="p-2 sm:p-3 lg:p-6">
-                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                  Tracker Assignment
-                </h2>
-                <TrackerAssignment
-                  matchId={matchId}
-                  homeTeamPlayers={fullMatchRoster?.home || []}
-                  awayTeamPlayers={fullMatchRoster?.away || []}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <>
+            <TabsContent value="planning" className="mt-2 sm:mt-4">
+              <MatchPlanningNetwork 
+                matchId={matchId}
+                width={isMobile ? 350 : 800}
+                height={isMobile ? 400 : 600}
+              />
+            </TabsContent>
+            
+            <TabsContent value="tracker" className="mt-2 sm:mt-4">
+              <Card>
+                <CardContent className="p-2 sm:p-3 lg:p-6">
+                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                    Tracker Assignment
+                  </h2>
+                  <TrackerAssignment
+                    matchId={matchId}
+                    homeTeamPlayers={fullMatchRoster?.home || []}
+                    awayTeamPlayers={fullMatchRoster?.away || []}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </>
         )}
       </Tabs>
     </div>
