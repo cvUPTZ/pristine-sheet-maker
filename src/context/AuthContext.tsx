@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { UserRoleType } from '@/types';
@@ -49,8 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        // Use the security definer function to get role from auth metadata
-        const { data, error } = await supabase.rpc('get_user_role', {
+        // Use the improved security definer function to get role
+        const { data, error } = await supabase.rpc('get_user_role_from_auth', {
           user_id_param: user.id
         });
 
@@ -60,7 +61,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const roleFromMetadata = user.app_metadata?.role as UserRoleType;
           setUserRole(roleFromMetadata || 'user');
         } else {
-          setUserRole((data as UserRoleType) || 'user');
+          const fetchedRole = (data as UserRoleType) || 'user';
+          console.log('Fetched user role:', fetchedRole); // Debug log
+          setUserRole(fetchedRole);
         }
 
         // Fetch assigned event types
