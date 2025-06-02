@@ -17,6 +17,7 @@ import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import MatchHeatMap from '@/components/analytics/MatchHeatMap';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
+import PassMatrixTable from '@/components/analytics/PassMatrixTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics } from '@/types/index';
@@ -406,12 +407,13 @@ const Statistics = () => {
 
           {/* Tabbed Analytics */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
               <TabsTrigger value="players">Players</TabsTrigger>
+              <TabsTrigger value="passes">Passes</TabsTrigger>
               <TabsTrigger value="flow">Ball Flow</TabsTrigger>
             </TabsList>
 
@@ -562,6 +564,16 @@ const Statistics = () => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="passes" className="space-y-6">
+              <PassMatrixTable
+                events={events}
+                homeTeamName={selectedMatchData.home_team_name}
+                awayTeamName={selectedMatchData.away_team_name}
+                homeTeamPlayers={selectedMatchData.home_team_players || []}
+                awayTeamPlayers={selectedMatchData.away_team_players || []}
+              />
             </TabsContent>
 
             <TabsContent value="flow" className="space-y-6">
