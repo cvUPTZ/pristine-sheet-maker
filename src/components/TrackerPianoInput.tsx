@@ -8,8 +8,7 @@ import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
-import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo, User, CheckCircle, Activity } from 'lucide-react';
+import { Undo, User, CheckCircle, Activity, Zap, Play } from 'lucide-react';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -666,84 +665,77 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           </motion.div>
         )}
 
-        {/* Event Types - Piano Interface */}
+        {/* Event Types - Simplified Piano Interface */}
         {assignedEventTypes.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <Card className="border-0 shadow-2xl bg-gradient-to-br from-purple-50 via-white to-pink-50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5" />
-              <CardContent className="relative p-10">
+            <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-10">
                 <div className="text-center mb-10">
                   <motion.h2 
-                    className="text-4xl font-bold mb-4"
+                    className="text-3xl font-bold mb-4"
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <span className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
-                      🎹 Event Piano
+                    <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent flex items-center justify-center gap-3">
+                      <Zap className="w-8 h-8 text-blue-600" />
+                      Event Controls
                     </span>
                   </motion.h2>
-                  <p className="text-lg text-purple-600 font-medium">
-                    Tap any event to record instantly with style
+                  <p className="text-lg text-slate-600 font-medium">
+                    Select an event type to record instantly
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 justify-items-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 justify-items-center">
                   {assignedEventTypes.map((eventType, index) => (
                     <motion.div
                       key={eventType.key}
-                      initial={{ opacity: 0, scale: 0.3, y: 50 }}
+                      initial={{ opacity: 0, scale: 0.3, y: 30 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ 
-                        duration: 0.6, 
+                        duration: 0.5, 
                         delay: index * 0.1,
                         type: "spring",
                         stiffness: 200,
-                        damping: 20
+                        damping: 15
                       }}
-                      whileHover={{ scale: 1.1, y: -10 }}
+                      whileHover={{ scale: 1.05, y: -5 }}
                       whileTap={{ scale: 0.95 }}
-                      className="relative group"
+                      className="relative"
                     >
-                      <div className="text-center">
-                        <motion.div
-                          className="relative mb-4"
-                          whileHover={{ rotate: [0, -10, 10, 0] }}
-                          transition={{ duration: 0.5 }}
-                        >
-                          <EventTypeSvg
-                            eventType={eventType.key}
-                            isRecording={recordingEventType === eventType.key}
-                            disabled={isRecording}
-                            onClick={() => handleEventTypeClick(eventType)}
-                          />
-                          
-                          {/* Glow effect on hover */}
-                          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300 -z-10" />
-                        </motion.div>
-                        
-                        <motion.div
-                          className="px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-purple-200"
-                          whileHover={{ scale: 1.05 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                        >
-                          <span className="text-sm font-bold bg-gradient-to-r from-purple-700 to-pink-700 bg-clip-text text-transparent">
-                            {eventType.label}
-                          </span>
-                        </motion.div>
-                      </div>
+                      <Button
+                        onClick={() => handleEventTypeClick(eventType)}
+                        disabled={isRecording}
+                        className={`
+                          w-full h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 text-sm font-bold transition-all duration-300 shadow-lg
+                          ${recordingEventType === eventType.key 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-2xl scale-110' 
+                            : 'bg-gradient-to-br from-white to-slate-50 hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 border-slate-200 hover:border-blue-300 hover:shadow-xl'
+                          }
+                        `}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          recordingEventType === eventType.key 
+                            ? 'bg-white text-green-600' 
+                            : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                        }`}>
+                          <Play className="w-4 h-4" />
+                        </div>
+                        <span className="capitalize">{eventType.label}</span>
+                      </Button>
                       
-                      {/* Recording indicator */}
+                      {/* Recording pulse effect */}
                       {recordingEventType === eventType.key && (
                         <motion.div
-                          className="absolute -inset-6 rounded-full border-4 border-green-400 bg-green-400/10"
+                          className="absolute inset-0 rounded-2xl border-4 border-green-400 bg-green-400/10"
                           animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.5, 1, 0.5]
+                            scale: [1, 1.1, 1],
+                            opacity: [0.7, 1, 0.7]
                           }}
                           transition={{ duration: 1, repeat: Infinity }}
                         />
