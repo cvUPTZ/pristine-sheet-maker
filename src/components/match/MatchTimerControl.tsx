@@ -45,7 +45,7 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
         console.log('Fetching timer state for match:', matchId);
         const { data: matchData, error } = await supabase
           .from('matches')
-          .select('timer_status, current_timer_value, timer_last_started_at, timer_period, timer_added_time')
+          .select('timer_status, timer_current_value, timer_last_started_at')
           .eq('id', matchId)
           .single();
 
@@ -59,10 +59,10 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
         if (matchData) {
           setTimerState({
             status: (matchData.timer_status as 'stopped' | 'running' | 'paused') || 'stopped',
-            currentValue: matchData.current_timer_value || 0,
+            currentValue: matchData.timer_current_value || 0,
             lastStartedAt: matchData.timer_last_started_at,
-            period: (matchData.timer_period as 'first_half' | 'second_half' | 'extra_time' | 'penalties') || 'first_half',
-            addedTime: matchData.timer_added_time || 0
+            period: 'first_half', // Default since column doesn't exist yet
+            addedTime: 0 // Default since column doesn't exist yet
           });
         }
       } catch (error: any) {
@@ -119,10 +119,8 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
         .from('matches')
         .update({
           timer_status: updates.status || timerState.status,
-          current_timer_value: updates.currentValue !== undefined ? updates.currentValue : timerState.currentValue,
-          timer_last_started_at: updates.lastStartedAt !== undefined ? updates.lastStartedAt : timerState.lastStartedAt,
-          timer_period: updates.period || timerState.period,
-          timer_added_time: updates.addedTime !== undefined ? updates.addedTime : timerState.addedTime
+          timer_current_value: updates.currentValue !== undefined ? updates.currentValue : timerState.currentValue,
+          timer_last_started_at: updates.lastStartedAt !== undefined ? updates.lastStartedAt : timerState.lastStartedAt
         })
         .eq('id', matchId);
 
