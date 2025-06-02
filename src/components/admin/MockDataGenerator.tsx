@@ -41,6 +41,7 @@ const MockDataGenerator: React.FC = () => {
       const mockTrackers = [];
       for (let i = 1; i <= parseInt(trackerCount); i++) {
         const trackerData = {
+          id: crypto.randomUUID(), // Generate a UUID for the id field
           email: `mock.tracker${i}@simulation.com`,
           full_name: `Mock Tracker ${i}`,
           role: 'tracker',
@@ -51,7 +52,7 @@ const MockDataGenerator: React.FC = () => {
 
       const { error } = await supabase
         .from('profiles')
-        .upsert(mockTrackers, { onConflict: 'email' });
+        .insert(mockTrackers);
 
       if (error) throw error;
 
@@ -112,7 +113,7 @@ const MockDataGenerator: React.FC = () => {
 
       const { error } = await supabase
         .from('match_tracker_assignments')
-        .upsert(assignments, { onConflict: 'match_id,player_id,player_team_id' });
+        .insert(assignments);
 
       if (error) throw error;
 
@@ -162,19 +163,20 @@ const MockDataGenerator: React.FC = () => {
         return;
       }
 
-      // Update assignments with replacement trackers
-      const updates = assignments.slice(0, Math.min(assignments.length, replacementTrackers.length)).map((assignment, index) => ({
-        id: assignment.id,
-        replacement_tracker_id: replacementTrackers[index].id
-      }));
+      // Update assignments with replacement trackers using individual updates
+      let updateCount = 0;
+      for (let i = 0; i < Math.min(assignments.length, replacementTrackers.length); i++) {
+        const { error } = await supabase
+          .from('match_tracker_assignments')
+          .update({ tracker_user_id: replacementTrackers[i].id })
+          .eq('id', assignments[i].id);
 
-      const { error } = await supabase
-        .from('match_tracker_assignments')
-        .upsert(updates);
+        if (!error) {
+          updateCount++;
+        }
+      }
 
-      if (error) throw error;
-
-      toast.success(`Generated ${updates.length} mock replacement assignments!`);
+      toast.success(`Generated ${updateCount} mock replacement assignments!`);
     } catch (error) {
       console.error('Error generating mock replacements:', error);
       toast.error('Failed to generate mock replacements');
