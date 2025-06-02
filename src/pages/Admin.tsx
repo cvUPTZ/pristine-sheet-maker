@@ -12,7 +12,9 @@ import AuditLogs from '@/components/admin/AuditLogs';
 import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
 import MatchTrackingMatrix from '@/components/admin/MatchTrackingMatrix';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
+import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
 interface Match {
   id: string;
@@ -213,7 +215,7 @@ const Admin: React.FC = () => {
                   📋 Comprehensive Match Planning Center
                 </CardTitle>
                 <p className="text-sm text-gray-600">
-                  Complete planning, assignment management, and readiness tracking for match operations
+                  Complete planning, assignment management, readiness tracking, and absence monitoring for match operations
                 </p>
               </CardHeader>
               <CardContent className="pt-4">
@@ -268,10 +270,13 @@ const Admin: React.FC = () => {
 
             {/* Planning Overview Cards */}
             {selectedMatchId && planningData && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="border-l-4 border-l-green-500">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Player Assignment Status</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Player Assignment Status
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -294,7 +299,10 @@ const Admin: React.FC = () => {
 
                 <Card className="border-l-4 border-l-blue-500">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Tracker Availability</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Tracker Availability
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -309,6 +317,26 @@ const Admin: React.FC = () => {
                         <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
                           {getTrackerStats().available - getTrackerStats().active} Available
                         </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-orange-500">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Absence Monitoring
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">🔍</div>
+                        <div className="text-sm font-medium text-orange-600">Active</div>
+                      </div>
+                      <div className="text-xs text-center text-gray-600">
+                        Real-time tracker monitoring enabled
                       </div>
                     </div>
                   </CardContent>
@@ -347,6 +375,11 @@ const Admin: React.FC = () => {
                   </CardContent>
                 </Card>
               </div>
+            )}
+
+            {/* Tracker Absence Management */}
+            {selectedMatchId && (
+              <TrackerAbsenceManager matchId={selectedMatchId} />
             )}
 
             {/* Quick Actions */}
