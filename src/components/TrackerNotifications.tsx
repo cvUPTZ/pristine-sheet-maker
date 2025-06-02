@@ -15,6 +15,8 @@ interface NotificationData {
   assigned_event_types?: string[];
   assigned_player_ids?: number[];
   assignment_type?: string;
+  with_sound?: boolean;
+  timestamp?: string;
 }
 
 interface MatchInfo {
@@ -95,7 +97,7 @@ const TrackerNotifications: React.FC = () => {
           type,
           is_read,
           created_at,
-          data,
+          notification_data,
           user_id
         `)
         .eq('user_id', user.id)
@@ -108,7 +110,7 @@ const TrackerNotifications: React.FC = () => {
       
       for (const notification of data || []) {
         // Check if notification should play sound
-        const notificationData = notification.data as any;
+        const notificationData = notification.notification_data as any;
         if (notificationData?.with_sound && !notification.is_read) {
           playNotificationSound();
           
@@ -138,7 +140,7 @@ const TrackerNotifications: React.FC = () => {
               type: notification.type || 'general',
               is_read: notification.is_read || false,
               created_at: notification.created_at || new Date().toISOString(),
-              notification_data: notification.data as NotificationData,
+              notification_data: notification.notification_data as NotificationData,
               matches: matchData
             });
 
@@ -157,7 +159,7 @@ const TrackerNotifications: React.FC = () => {
             type: notification.type || 'general',
             is_read: notification.is_read || false,
             created_at: notification.created_at || new Date().toISOString(),
-            notification_data: notification.data as NotificationData,
+            notification_data: notification.notification_data as NotificationData,
           });
         }
       }
@@ -266,7 +268,7 @@ const TrackerNotifications: React.FC = () => {
               const newNotification = payload.new as any;
               
               // Play sound for urgent notifications
-              if (newNotification?.data?.with_sound) {
+              if (newNotification?.notification_data?.with_sound) {
                 playNotificationSound();
               }
               

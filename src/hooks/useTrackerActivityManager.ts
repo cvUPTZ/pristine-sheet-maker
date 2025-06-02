@@ -111,17 +111,19 @@ export const useTrackerActivityManager = (matchId: string) => {
     withSound: boolean = false
   ) => {
     try {
-      const { error } = await supabase.rpc('insert_notification', {
-        p_user_id: userId,
-        p_match_id: matchId,
-        p_type: type,
-        p_title: title,
-        p_message: message,
-        p_data: { 
-          with_sound: withSound,
-          timestamp: new Date().toISOString()
-        }
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          match_id: matchId,
+          type: type,
+          title: title,
+          message: message,
+          notification_data: { 
+            with_sound: withSound,
+            timestamp: new Date().toISOString()
+          }
+        });
 
       if (error) throw error;
 
