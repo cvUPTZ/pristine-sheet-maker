@@ -26,7 +26,8 @@ export class WebRTCManager {
     const configuration: RTCConfiguration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
       ]
     };
 
@@ -35,32 +36,48 @@ export class WebRTCManager {
 
     // Add local stream tracks
     this.localStream.getTracks().forEach(track => {
+      console.log(`📤 Adding local ${track.kind} track for:`, userId);
       peerConnection.addTrack(track, this.localStream);
     });
 
-    // Handle remote stream
+    // Handle remote stream - IMPROVED
     peerConnection.ontrack = (event) => {
-      console.log('📡 Received remote stream from:', userId);
+      console.log('📡 Received remote track from:', userId, 'streams:', event.streams.length);
       const [remoteStream] = event.streams;
-      this.onRemoteStream(userId, remoteStream);
+      
+      if (remoteStream && remoteStream.getTracks().length > 0) {
+        console.log('🎵 Remote stream has tracks:', remoteStream.getTracks().map(t => t.kind));
+        this.onRemoteStream(userId, remoteStream);
+      } else {
+        console.warn('⚠️ Remote stream has no tracks for:', userId);
+      }
     };
 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('🧊 ICE candidate for:', userId);
-        // This will be handled by the calling code to send via Supabase
+        console.log('🧊 New ICE candidate for:', userId, event.candidate.type);
         (peerConnection as any).pendingIceCandidate = event.candidate;
+      } else {
+        console.log('🧊 ICE gathering complete for:', userId);
       }
     };
 
     // Handle connection state changes
     peerConnection.onconnectionstatechange = () => {
       console.log(`🔌 Connection state for ${userId}:`, peerConnection.connectionState);
-      if (peerConnection.connectionState === 'disconnected' || 
-          peerConnection.connectionState === 'failed') {
+      if (peerConnection.connectionState === 'connected') {
+        console.log('✅ WebRTC connection established with:', userId);
+      } else if (peerConnection.connectionState === 'disconnected' || 
+                 peerConnection.connectionState === 'failed') {
+        console.log('❌ WebRTC connection lost with:', userId);
         this.onPeerDisconnected(userId);
       }
+    };
+
+    // Handle ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`🧊 ICE connection state for ${userId}:`, peerConnection.iceConnectionState);
     };
 
     return peerConnection;
@@ -70,7 +87,10 @@ export class WebRTCManager {
     const peerConnection = this.peerConnections.get(userId);
     if (!peerConnection) throw new Error(`No peer connection for ${userId}`);
 
-    const offer = await peerConnection.createOffer();
+    const offer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: false
+    });
     await peerConnection.setLocalDescription(offer);
     console.log('📤 Created offer for:', userId);
     return offer;
@@ -81,7 +101,10 @@ export class WebRTCManager {
     if (!peerConnection) throw new Error(`No peer connection for ${userId}`);
 
     await peerConnection.setRemoteDescription(offer);
-    const answer = await peerConnection.createAnswer();
+    const answer = await peerConnection.createAnswer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: false
+    });
     await peerConnection.setLocalDescription(answer);
     console.log('📤 Created answer for:', userId);
     return answer;
@@ -99,8 +122,12 @@ export class WebRTCManager {
     const peerConnection = this.peerConnections.get(userId);
     if (!peerConnection) throw new Error(`No peer connection for ${userId}`);
 
-    await peerConnection.addIceCandidate(candidate);
-    console.log('🧊 Added ICE candidate from:', userId);
+    try {
+      await peerConnection.addIceCandidate(candidate);
+      console.log('🧊 Added ICE candidate from:', userId);
+    } catch (error) {
+      console.error('❌ Failed to add ICE candidate:', error);
+    }
   }
 
   getPendingIceCandidate(userId: string): RTCIceCandidate | null {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -63,33 +64,85 @@ export const useVoiceCollaboration = ({
     setDebugInfo(prev => [...prev.slice(-14), debugMessage]);
   }, []);
 
-  // Create and manage remote audio elements
-  const createRemoteAudio = useCallback((userId: string, stream: MediaStream) => {
+  // IMPROVED: Create and manage remote audio elements with better autoplay handling
+  const createRemoteAudio = useCallback(async (userId: string, stream: MediaStream) => {
     addDebugInfo(`🔊 Creating remote audio for user: ${userId}`);
     
-    const audio = new Audio();
-    audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.volume = 1.0;
-    
-    remoteAudiosRef.current.set(userId, audio);
-    
-    // Update connected trackers
-    setConnectedTrackers(prev => {
-      const existing = prev.find(t => t.userId === userId);
-      if (existing) {
-        return prev.map(t => t.userId === userId ? { ...t, isConnected: true } : t);
+    try {
+      // Remove existing audio if any
+      const existingAudio = remoteAudiosRef.current.get(userId);
+      if (existingAudio) {
+        existingAudio.pause();
+        existingAudio.srcObject = null;
+        remoteAudiosRef.current.delete(userId);
+        addDebugInfo(`🗑️ Removed existing audio for: ${userId}`);
       }
-      return [...prev, {
-        userId,
-        isMuted: false,
-        isSpeaking: false,
-        isConnected: true,
-        username: `User ${userId.slice(-4)}`
-      }];
-    });
-    
-    onUserJoined?.(userId);
+      
+      const audio = new Audio();
+      audio.srcObject = stream;
+      audio.volume = 1.0;
+      audio.muted = false;
+      
+      // Handle autoplay restrictions
+      try {
+        await audio.play();
+        addDebugInfo(`✅ Started playing audio for: ${userId}`);
+      } catch (playError: any) {
+        addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`);
+        // Try to play on user interaction
+        const playOnInteraction = () => {
+          audio.play().then(() => {
+            addDebugInfo(`🎵 Audio started after user interaction for: ${userId}`);
+          }).catch(e => {
+            addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`);
+          });
+          document.removeEventListener('click', playOnInteraction);
+          document.removeEventListener('touchstart', playOnInteraction);
+        };
+        document.addEventListener('click', playOnInteraction);
+        document.addEventListener('touchstart', playOnInteraction);
+      }
+      
+      // Monitor audio playback
+      audio.onloadeddata = () => {
+        addDebugInfo(`📊 Audio loaded for ${userId}: duration=${audio.duration}, readyState=${audio.readyState}`);
+      };
+      
+      audio.onplay = () => {
+        addDebugInfo(`▶️ Audio playing for ${userId}`);
+      };
+      
+      audio.onpause = () => {
+        addDebugInfo(`⏸️ Audio paused for ${userId}`);
+      };
+      
+      audio.onerror = (error) => {
+        addDebugInfo(`❌ Audio error for ${userId}: ${error}`);
+      };
+      
+      remoteAudiosRef.current.set(userId, audio);
+      
+      // Update connected trackers
+      setConnectedTrackers(prev => {
+        const existing = prev.find(t => t.userId === userId);
+        if (existing) {
+          return prev.map(t => t.userId === userId ? { ...t, isConnected: true } : t);
+        }
+        return [...prev, {
+          userId,
+          isMuted: false,
+          isSpeaking: false,
+          isConnected: true,
+          username: `User ${userId.slice(-4)}`
+        }];
+      });
+      
+      onUserJoined?.(userId);
+      
+    } catch (error: any) {
+      addDebugInfo(`❌ Failed to create remote audio for ${userId}: ${error.message}`);
+      console.error('Remote audio creation error:', error);
+    }
   }, [addDebugInfo, onUserJoined]);
 
   const removeRemoteAudio = useCallback((userId: string) => {
