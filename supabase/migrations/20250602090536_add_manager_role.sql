@@ -36,3 +36,21 @@ IS 'Check if user has manager-level access (admin or manager role)';
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION public.user_has_manager_access(UUID) TO authenticated;
+
+-- Create a helper function to check if user has admin-level access
+CREATE OR REPLACE FUNCTION public.user_has_admin_access(user_id_param UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role = 'admin'
+  FROM profiles
+  WHERE id = user_id_param;
+$$;
+
+COMMENT ON FUNCTION public.user_has_admin_access(UUID) 
+IS 'Check if user has admin-level access (admin role only)';
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.user_has_admin_access(UUID) TO authenticated;

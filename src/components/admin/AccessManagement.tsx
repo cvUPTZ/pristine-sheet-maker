@@ -9,7 +9,7 @@ import { Users, Settings, Shield, Eye, Save, RotateCcw, AlertCircle } from 'luci
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager';
+type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer';
 
 interface RolePermissions {
   pitchView: boolean;
@@ -69,6 +69,15 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     liveEvents: false,
   },
   user: {
+    pitchView: true,
+    pianoInput: false,
+    statistics: true,
+    timeline: true,
+    analytics: false,
+    ballTracking: false,
+    liveEvents: false,
+  },
+  viewer: {
     pitchView: true,
     pianoInput: false,
     statistics: true,
@@ -240,6 +249,7 @@ const AccessManagement: React.FC = () => {
       case 'tracker': return 'bg-blue-100 text-blue-800';
       case 'teacher': return 'bg-green-100 text-green-800';
       case 'user': return 'bg-gray-100 text-gray-800';
+      case 'viewer': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -313,6 +323,7 @@ const AccessManagement: React.FC = () => {
                       <SelectItem value="tracker">Tracker</SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
-export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | string;
+export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | string;
 
 export interface RolePermissions {
   pitchView: boolean;
@@ -42,7 +43,7 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     ballTracking: false,
     liveEvents: false,
     dashboard: true,
-    matchManagement: false,
+    matchManagement: true,
     timerControl: false,
     reportGeneration: true,
   },
@@ -54,7 +55,7 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: false,
     ballTracking: false,
     liveEvents: false,
-    dashboard: false,
+    dashboard: true,
     matchManagement: false,
     timerControl: false,
     reportGeneration: false,
@@ -67,12 +68,25 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: true,
     ballTracking: false,
     liveEvents: false,
-    dashboard: false,
+    dashboard: true,
     matchManagement: false,
     timerControl: false,
     reportGeneration: false,
   },
   user: {
+    pitchView: true,
+    pianoInput: false,
+    statistics: true,
+    timeline: true,
+    analytics: false,
+    ballTracking: false,
+    liveEvents: false,
+    dashboard: true,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
+  },
+  viewer: {
     pitchView: true,
     pianoInput: false,
     statistics: true,
