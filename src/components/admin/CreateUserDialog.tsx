@@ -1,4 +1,3 @@
-
 // src/components/CreateUserDialog.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -286,6 +285,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="tracker">Tracker</SelectItem>
                   <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
