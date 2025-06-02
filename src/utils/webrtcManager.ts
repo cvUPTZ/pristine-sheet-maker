@@ -1,4 +1,3 @@
-
 interface WebRTCManagerOptions {
   localStream: MediaStream;
   onRemoteStream: (userId: string, stream: MediaStream) => void;
@@ -38,7 +37,7 @@ export class WebRTCManager {
         throw error;
       });
     
-    this.signalingQueue.set(userId, newOperation.catch(() => {})); // Don't propagate errors to queue
+    this.signalingQueue.set(userId, newOperation.then(() => {}).catch(() => {}));
     return newOperation;
   }
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -98,7 +99,7 @@ export const useVoiceCollaboration = ({
       } catch (playError: any) {
         addDebugInfo(`⚠️ Autoplay blocked for ${userId}: ${playError.message}`);
         
-        // Set up user interaction listener
+        // Set up user interaction listener - Fixed TypeScript error
         const playOnInteraction = async () => {
           try {
             await audio.play();
@@ -106,12 +107,12 @@ export const useVoiceCollaboration = ({
           } catch (e: any) {
             addDebugInfo(`❌ Still can't play audio for ${userId}: ${e.message}`);
           }
-          document.removeEventListener('click', playOnInteraction, { once: true });
-          document.removeEventListener('touchstart', playOnInteraction, { once: true });
+          document.removeEventListener('click', playOnInteraction);
+          document.removeEventListener('touchstart', playOnInteraction);
         };
         
-        document.addEventListener('click', playOnInteraction, { once: true });
-        document.addEventListener('touchstart', playOnInteraction, { once: true });
+        document.addEventListener('click', playOnInteraction);
+        document.addEventListener('touchstart', playOnInteraction);
       }
       
       remoteAudiosRef.current.set(userId, audio);
