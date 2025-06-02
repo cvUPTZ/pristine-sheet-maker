@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Play, Pause, Square, RotateCcw, FileText, Timer, Clock } from 'lucide-react';
 
@@ -36,7 +35,52 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
   });
   const [displayTime, setDisplayTime] = useState(0);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Fetch initial timer state from database
+  useEffect(() => {
+    const fetchTimerState = async () => {
+      try {
+        console.log('Fetching timer state for match:', matchId);
+        const { data: matchData, error } = await supabase
+          .from('matches')
+          .select('timer_status, current_timer_value, timer_last_started_at, timer_period, timer_added_time')
+          .eq('id', matchId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching timer state:', error);
+          throw error;
+        }
+
+        console.log('Fetched timer data:', matchData);
+
+        if (matchData) {
+          setTimerState({
+            status: (matchData.timer_status as 'stopped' | 'running' | 'paused') || 'stopped',
+            currentValue: matchData.current_timer_value || 0,
+            lastStartedAt: matchData.timer_last_started_at,
+            period: (matchData.timer_period as 'first_half' | 'second_half' | 'extra_time' | 'penalties') || 'first_half',
+            addedTime: matchData.timer_added_time || 0
+          });
+        }
+      } catch (error: any) {
+        console.error('Error fetching timer state:', error);
+        toast({
+          title: 'Error Loading Timer',
+          description: error.message,
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (matchId) {
+      fetchTimerState();
+    }
+  }, [matchId, toast]);
 
   // Real-time timer update
   useEffect(() => {
@@ -70,6 +114,7 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
 
   const updateTimerInDB = async (updates: Partial<TimerState>) => {
     try {
+      console.log('Updating timer in DB:', updates);
       const { error } = await supabase
         .from('matches')
         .update({
@@ -341,6 +386,17 @@ const MatchTimerControl: React.FC<MatchTimerControlProps> = ({
       default: return 'Match';
     }
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Loading timer...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
