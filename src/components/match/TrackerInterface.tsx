@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
@@ -22,6 +22,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const [error, setError] = useState<string | null>(null);
   const [matchName, setMatchName] = useState<string>('');
   const isMobile = useIsMobile();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
@@ -90,7 +91,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       return 'poor';
     };
 
-    // Enhanced status broadcast
+    // Enhanced status broadcast function
     const broadcastEnhancedStatus = () => {
       broadcastStatus({
         status: 'active',
@@ -106,17 +107,23 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     // Initial broadcast when connected
     broadcastEnhancedStatus();
 
-    // Set up periodic activity updates
-    const interval = setInterval(broadcastEnhancedStatus, 30000); // Every 30 seconds
+    // Set up periodic activity updates every 30 seconds
+    intervalRef.current = setInterval(broadcastEnhancedStatus, 30000);
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [trackerUserId, matchId, isConnected, broadcastStatus, legacyBroadcast, batteryStatus.level]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
       cleanup();
     };
   }, [cleanup]);
