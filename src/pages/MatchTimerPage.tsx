@@ -12,16 +12,16 @@ import { ArrowLeft, Users, Activity } from 'lucide-react';
 
 interface MatchData {
   id: string;
-  name?: string;
+  name: string | null;
   home_team_name: string;
   away_team_name: string;
-  match_date: string;
+  match_date: string | null;
   status: string;
-  timer_status?: string;
-  current_timer_value?: number;
-  timer_last_started_at?: string;
-  timer_period?: string;
-  timer_added_time?: number;
+  timer_status?: string | null;
+  current_timer_value?: number | null;
+  timer_last_started_at?: string | null;
+  timer_period?: string | null;
+  timer_added_time?: number | null;
 }
 
 const MatchTimerPage: React.FC = () => {
@@ -79,42 +79,11 @@ const MatchTimerPage: React.FC = () => {
           setMatch(prev => prev ? { ...prev, ...payload.new } : null);
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'match_tracker_activity',
-          filter: `match_id=eq.${matchId}`
-        },
-        () => {
-          // Update connected trackers count
-          fetchConnectedTrackersCount();
-        }
-      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  };
-
-  const fetchConnectedTrackersCount = async () => {
-    if (!matchId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('match_tracker_activity')
-        .select('tracker_user_id')
-        .eq('match_id', matchId)
-        .eq('status', 'active')
-        .gte('last_activity', new Date(Date.now() - 30000).toISOString()); // Active in last 30 seconds
-
-      if (error) throw error;
-      setConnectedTrackers(data?.length || 0);
-    } catch (error) {
-      console.error('Error fetching connected trackers:', error);
-    }
   };
 
   const handleTimerStateChange = (state: 'running' | 'paused' | 'stopped', currentTime: number) => {
@@ -178,7 +147,7 @@ const MatchTimerPage: React.FC = () => {
               {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
             </h1>
             <p className="text-gray-600">
-              {new Date(match.match_date).toLocaleDateString()} • Status: {match.status}
+              {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date set'} • Status: {match.status}
             </p>
           </div>
         </div>
@@ -240,7 +209,7 @@ const MatchTimerPage: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Date:</span>
                 <span className="font-medium">
-                  {new Date(match.match_date).toLocaleDateString()}
+                  {match.match_date ? new Date(match.match_date).toLocaleDateString() : 'No date set'}
                 </span>
               </div>
               <Separator />

@@ -19,14 +19,14 @@ interface TrackerInterfaceProps {
 
 interface MatchData {
   id: string;
-  name?: string;
+  name: string | null;
   home_team_name: string;
   away_team_name: string;
-  timer_status?: string;
-  current_timer_value?: number;
-  timer_last_started_at?: string;
-  timer_period?: string;
-  timer_added_time?: number;
+  timer_status?: string | null;
+  current_timer_value?: number | null;
+  timer_last_started_at?: string | null;
+  timer_period?: string | null;
+  timer_added_time?: number | null;
 }
 
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
