@@ -8,8 +8,18 @@ interface UseRealtimeMatchOptions {
   onEventReceived?: (event: MatchEvent) => void;
 }
 
+interface TrackerData {
+  user_id: string;
+  email: string;
+  status: 'active' | 'inactive' | 'recording';
+  last_activity: number;
+  event_counts: Record<string, number>;
+  battery_level?: number;
+}
+
 export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchOptions) => {
   const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [trackers, setTrackers] = useState<TrackerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -48,6 +58,29 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     }
   }, [matchId, transformEvent]);
 
+  // Fetch initial tracker data
+  const fetchTrackers = useCallback(async () => {
+    try {
+      const { data: assignments } = await supabase
+        .from('match_tracker_assignments_view')
+        .select('*')
+        .eq('match_id', matchId);
+
+      if (assignments) {
+        const trackerData: TrackerData[] = assignments.map(assignment => ({
+          user_id: assignment.tracker_user_id,
+          email: assignment.tracker_email || '',
+          status: 'inactive' as const,
+          last_activity: Date.now(),
+          event_counts: {}
+        }));
+        setTrackers(trackerData);
+      }
+    } catch (error) {
+      console.error('Error fetching trackers:', error);
+    }
+  }, [matchId]);
+
   // Handle real-time events
   const handleRealtimeEvent = useCallback((payload: any) => {
     if (payload.eventType === 'INSERT') {
@@ -73,6 +106,7 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
 
     // Fetch initial data
     fetchEvents();
+    fetchTrackers();
 
     // Set up match events subscription
     const eventsChannel = supabase
@@ -94,10 +128,11 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     return () => {
       supabase.removeChannel(eventsChannel);
     };
-  }, [matchId, fetchEvents, handleRealtimeEvent]);
+  }, [matchId, fetchEvents, fetchTrackers, handleRealtimeEvent]);
 
   return {
     events,
+    trackers,
     loading,
     isConnected,
     refetch: fetchEvents

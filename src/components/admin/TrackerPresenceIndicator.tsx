@@ -13,7 +13,7 @@ interface TrackerPresenceIndicatorProps {
 }
 
 const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ matchId }) => {
-  const { trackers, isConnected } = useRealtimeMatch({ matchId });
+  const { trackers = [], isConnected } = useRealtimeMatch({ matchId });
 
   const getTotalEventCount = (eventCounts: Record<string, number> | undefined) => {
     if (!eventCounts) return 0;
@@ -22,6 +22,11 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
   const getAggregatedEventCounts = () => {
     const aggregated: Record<string, number> = {};
+    // Add safety check for trackers array
+    if (!trackers || !Array.isArray(trackers)) {
+      return aggregated;
+    }
+    
     trackers.forEach(tracker => {
       if (tracker.event_counts) {
         Object.entries(tracker.event_counts).forEach(([eventType, count]) => {
@@ -39,7 +44,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
 
   return (
     <div className="space-y-4">
-      <TrackerNotificationSystem trackers={trackers} matchId={matchId} />
+      <TrackerNotificationSystem trackers={trackers || []} matchId={matchId} />
       
       {/* Main Tracker Status Card */}
       <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl border-slate-200">
@@ -50,7 +55,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
               transition={{ duration: 2, repeat: isConnected ? Infinity : 0, ease: "linear" }}
               className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0"
             />
-            <span className="truncate">Tracker Status ({trackers.length})</span>
+            <span className="truncate">Tracker Status ({(trackers || []).length})</span>
             <div className="flex items-center gap-1 ml-auto">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
               <span className="text-xs text-slate-600">
@@ -62,7 +67,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
         
         <CardContent className="space-y-2 md:space-y-4">
           <AnimatePresence>
-            {trackers.map((tracker, index) => (
+            {trackers && trackers.map((tracker, index) => (
               <TrackerStatusCard 
                 key={tracker.user_id}
                 tracker={tracker}
@@ -71,7 +76,7 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
             ))}
           </AnimatePresence>
 
-          {trackers.length === 0 && (
+          {(!trackers || trackers.length === 0) && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -129,25 +134,25 @@ const TrackerPresenceIndicator: React.FC<TrackerPresenceIndicatorProps> = ({ mat
           >
             <div className="text-center">
               <div className="text-sm md:text-lg font-bold text-slate-800">
-                {trackers.filter(t => t.status === 'active' || t.status === 'recording').length}
+                {(trackers || []).filter(t => t.status === 'active' || t.status === 'recording').length}
               </div>
               <div className="text-xs text-slate-500">Active</div>
             </div>
             <div className="text-center">
               <div className="text-sm md:text-lg font-bold text-green-600">
-                {trackers.filter(t => t.status === 'recording').length}
+                {(trackers || []).filter(t => t.status === 'recording').length}
               </div>
               <div className="text-xs text-slate-500">Recording</div>
             </div>
             <div className="text-center">
               <div className="text-sm md:text-lg font-bold text-slate-800">
-                {trackers.reduce((sum, t) => sum + getTotalEventCount(t.event_counts), 0)}
+                {(trackers || []).reduce((sum, t) => sum + getTotalEventCount(t.event_counts), 0)}
               </div>
               <div className="text-xs text-slate-500">Events</div>
             </div>
             <div className="text-center">
               <div className="text-sm md:text-lg font-bold text-orange-600">
-                {trackers.filter(t => t.battery_level && t.battery_level <= 20).length}
+                {(trackers || []).filter(t => t.battery_level && t.battery_level <= 20).length}
               </div>
               <div className="text-xs text-slate-500">Low Battery</div>
             </div>

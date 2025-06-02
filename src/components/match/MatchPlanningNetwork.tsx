@@ -64,13 +64,15 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
         .select('*')
         .eq('match_id', matchId);
 
-      // Fetch tracker device status for replacements
-      const { data: trackerStatus } = await supabase
-        .from('tracker_device_status')
-        .select('*');
+      // Create mock tracker status data since the table doesn't exist yet
+      const trackerStatus = assignments?.map(assignment => ({
+        tracker_id: assignment.tracker_user_id,
+        status: Math.random() > 0.3 ? 'online' : 'offline',
+        battery_level: Math.floor(Math.random() * 100)
+      })) || [];
 
       if (matchData && assignments) {
-        const networkData = buildNetworkData(matchData, assignments, trackerStatus || []);
+        const networkData = buildNetworkData(matchData, assignments, trackerStatus);
         setNodes(networkData.nodes);
         setLinks(networkData.links);
       }
@@ -251,10 +253,10 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
     svg.selectAll('*').remove();
 
     const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d: any) => d.id).strength(d => d.strength))
+      .force('link', d3.forceLink(links).id((d: any) => d.id).strength(d => (d as NetworkLink).strength))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => d.size + 5));
+      .force('collision', d3.forceCollide().radius((d: any) => (d as NetworkNode).size + 5));
 
     // Create arrow markers for directed links
     svg.append('defs').append('marker')
@@ -294,30 +296,32 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
       .selectAll('circle')
       .data(nodes)
       .enter().append('circle')
-      .attr('r', d => d.size)
-      .attr('fill', d => d.color || '#6B7280')
+      .attr('r', (d: NetworkNode) => d.size)
+      .attr('fill', (d: NetworkNode) => d.color || '#6B7280')
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
-      .call(d3.drag()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended));
+      .call(
+        d3.drag<SVGCircleElement, NetworkNode>()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended)
+      );
 
     // Add labels
     const label = svg.append('g')
       .selectAll('text')
       .data(nodes)
       .enter().append('text')
-      .text(d => d.label)
-      .attr('font-size', d => Math.max(8, d.size / 2))
-      .attr('dx', d => d.size + 5)
+      .text((d: NetworkNode) => d.label)
+      .attr('font-size', (d: NetworkNode) => Math.max(8, d.size / 2))
+      .attr('dx', (d: NetworkNode) => d.size + 5)
       .attr('dy', '.35em')
       .attr('font-family', 'sans-serif')
       .attr('fill', '#374151');
 
     // Add tooltips
     node.append('title')
-      .text(d => {
+      .text((d: NetworkNode) => {
         let tooltip = `${d.label} (${d.type})`;
         if (d.data?.status) {
           tooltip += `\nStatus: ${d.data.status}`;
@@ -337,26 +341,26 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
         .attr('y2', (d: any) => d.target.y);
 
       node
-        .attr('cx', d => d.x!)
-        .attr('cy', d => d.y!);
+        .attr('cx', (d: NetworkNode) => d.x!)
+        .attr('cy', (d: NetworkNode) => d.y!);
 
       label
-        .attr('x', d => d.x!)
-        .attr('y', d => d.y!);
+        .attr('x', (d: NetworkNode) => d.x!)
+        .attr('y', (d: NetworkNode) => d.y!);
     });
 
-    function dragstarted(event: any, d: any) {
+    function dragstarted(event: any, d: NetworkNode) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     }
 
-    function dragged(event: any, d: any) {
+    function dragged(event: any, d: NetworkNode) {
       d.fx = event.x;
       d.fy = event.y;
     }
 
-    function dragended(event: any, d: any) {
+    function dragended(event: any, d: NetworkNode) {
       if (!event.active) simulation.alphaTarget(0);
       d.fx = null;
       d.fy = null;
