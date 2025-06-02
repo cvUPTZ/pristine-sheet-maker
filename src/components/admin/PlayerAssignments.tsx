@@ -55,6 +55,11 @@ const PlayerAssignments: React.FC = () => {
     fetchAssignments();
   }, []);
 
+  // Reset player selection when team changes
+  useEffect(() => {
+    setSelectedPlayer('');
+  }, [selectedTeam, selectedMatch]);
+
   const fetchAssignments = async () => {
     try {
       const [assignmentsResponse, matchesResponse, usersResponse] = await Promise.all([
@@ -190,6 +195,7 @@ const PlayerAssignments: React.FC = () => {
     const match = matches.find(m => m.id === selectedMatch);
     if (!match) return [];
 
+    // Return only players from the selected team
     const teamPlayers = selectedTeam === 'home' ? match.home_team_players : match.away_team_players;
     return Array.isArray(teamPlayers) ? teamPlayers : [];
   };
@@ -204,6 +210,16 @@ const PlayerAssignments: React.FC = () => {
       console.error('Error parsing player data:', error);
       return `Player ${playerId}`;
     }
+  };
+
+  const handleTeamChange = (value: 'home' | 'away') => {
+    setSelectedTeam(value);
+    setSelectedPlayer(''); // Clear player selection when team changes
+  };
+
+  const handleMatchChange = (value: string) => {
+    setSelectedMatch(value);
+    setSelectedPlayer(''); // Clear player selection when match changes
   };
 
   if (loading) {
@@ -228,7 +244,7 @@ const PlayerAssignments: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Match</label>
-                <Select value={selectedMatch} onValueChange={setSelectedMatch}>
+                <Select value={selectedMatch} onValueChange={handleMatchChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select match" />
                   </SelectTrigger>
@@ -260,7 +276,7 @@ const PlayerAssignments: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium mb-2">Team</label>
-                <Select value={selectedTeam} onValueChange={(value: 'home' | 'away') => setSelectedTeam(value)}>
+                <Select value={selectedTeam} onValueChange={handleTeamChange}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
