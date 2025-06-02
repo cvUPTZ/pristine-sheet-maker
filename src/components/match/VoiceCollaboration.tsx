@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Bug } from 'lucide-react';
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -31,7 +31,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     currentRoom,
     isRoomAdmin,
     joinVoiceRoom,
-    leaveVoiceRoom
+    leaveVoiceRoom,
+    debugInfo
   } = useVoiceCollaboration({
     matchId,
     userId,
@@ -88,6 +89,19 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
       </CardHeader>
       
       <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+        {/* Debug Information */}
+        {debugInfo && debugInfo.length > 0 && (
+          <div className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono max-h-32 overflow-y-auto">
+            <div className="flex items-center gap-1 mb-1">
+              <Bug className="h-3 w-3" />
+              <span className="text-yellow-400">Debug Log:</span>
+            </div>
+            {debugInfo.slice(-5).map((info, index) => (
+              <div key={index} className="break-all">{info}</div>
+            ))}
+          </div>
+        )}
+
         {/* Current Room Status */}
         {isVoiceEnabled && currentRoom && (
           <div className={`p-2 rounded border ${getRoomColorClass(currentRoom.name)}`}>

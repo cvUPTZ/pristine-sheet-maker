@@ -34,7 +34,7 @@ export const useVoiceCollaboration = ({
   onUserJoined,
   onUserLeft
 }: VoiceCollaborationOptions) => {
-  console.log('useVoiceCollaboration: Initializing', { matchId, userId });
+  console.log('🎤 useVoiceCollaboration: INITIALIZING', { matchId, userId });
   
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -44,6 +44,7 @@ export const useVoiceCollaboration = ({
   const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
   const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
   const [isRoomAdmin, setIsRoomAdmin] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -53,29 +54,116 @@ export const useVoiceCollaboration = ({
   const gainNodeRef = useRef<GainNode | null>(null);
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
-  // State-of-the-art audio constraints optimized for large groups
-  const getAudioConstraints = () => ({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      sampleRate: 48000,
-      channelCount: 1,
-      latency: 0.01,
-      googEchoCancellation: true,
-      googNoiseSuppression: true,
-      googAutoGainControl: true,
-      googHighpassFilter: true,
-      googTypingNoiseDetection: true,
-      googAudioMirroring: false,
-      googBeamforming: true,
-      googArrayGeometry: true
-    }
-  });
+  // Add debug info helper
+  const addDebugInfo = useCallback((message: string) => {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const debugMessage = `[${timestamp}] ${message}`;
+    console.log('🔍 VOICE DEBUG:', debugMessage);
+    setDebugInfo(prev => [...prev.slice(-9), debugMessage]); // Keep last 10 messages
+  }, []);
 
-  // Initialize rooms for scalable voice architecture
+  // Comprehensive browser capability check
+  const checkBrowserCapabilities = useCallback(() => {
+    addDebugInfo('🔍 Checking browser capabilities...');
+    
+    // Check getUserMedia support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      addDebugInfo('❌ getUserMedia not supported');
+      return false;
+    }
+    addDebugInfo('✅ getUserMedia supported');
+
+    // Check WebRTC support
+    if (!window.RTCPeerConnection) {
+      addDebugInfo('❌ WebRTC not supported');
+      return false;
+    }
+    addDebugInfo('✅ WebRTC supported');
+
+    // Check AudioContext support
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) {
+      addDebugInfo('❌ AudioContext not supported');
+      return false;
+    }
+    addDebugInfo('✅ AudioContext supported');
+
+    // Check if HTTPS or localhost
+    const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+    addDebugInfo(`🔒 Secure context: ${isSecure ? 'YES' : 'NO'}`);
+    
+    return true;
+  }, [addDebugInfo]);
+
+  // Enhanced audio constraints with debugging
+  const getAudioConstraints = useCallback(() => {
+    addDebugInfo('🎛️ Setting up audio constraints');
+    return {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,
+        channelCount: 1,
+        latency: 0.01,
+        googEchoCancellation: true,
+        googNoiseSuppression: true,
+        googAutoGainControl: true,
+        googHighpassFilter: true,
+        googTypingNoiseDetection: true,
+        googAudioMirroring: false,
+        googBeamforming: true,
+        googArrayGeometry: true
+      }
+    };
+  }, [addDebugInfo]);
+
+  // Setup audio analysis
+  const setupAudioAnalysis = useCallback((stream: MediaStream) => {
+    addDebugInfo('🎵 Setting up audio analysis');
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContext();
+      
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      gainNodeRef.current = audioContextRef.current.createGain();
+      
+      analyserRef.current.fftSize = 256;
+      source.connect(analyserRef.current);
+      analyserRef.current.connect(gainNodeRef.current);
+      
+      addDebugInfo('✅ Audio analysis setup complete');
+      
+      // Start monitoring audio levels
+      const monitorAudioLevel = () => {
+        if (!analyserRef.current) return;
+        
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+        const normalizedLevel = average / 255;
+        setAudioLevel(normalizedLevel);
+        
+        if (normalizedLevel > 0.1) {
+          addDebugInfo(`🔊 Audio detected: ${(normalizedLevel * 100).toFixed(1)}%`);
+        }
+      };
+      
+      const intervalId = setInterval(monitorAudioLevel, 100);
+      return () => clearInterval(intervalId);
+      
+    } catch (error) {
+      addDebugInfo(`❌ Audio analysis setup failed: ${error}`);
+      console.error('Audio analysis setup error:', error);
+    }
+  }, [addDebugInfo]);
+
+  // Initialize rooms with debugging
   const initializeVoiceRooms = useCallback(() => {
-    console.log('useVoiceCollaboration: Initializing voice rooms');
+    addDebugInfo('🏠 Initializing voice rooms');
     const rooms: VoiceRoom[] = [
       {
         id: `${matchId}_main`,
@@ -121,67 +209,147 @@ export const useVoiceCollaboration = ({
       }
     ];
     setAvailableRooms(rooms);
-    console.log('useVoiceCollaboration: Voice rooms initialized', rooms);
-  }, [matchId]);
+    addDebugInfo(`✅ ${rooms.length} voice rooms initialized`);
+  }, [matchId, addDebugInfo]);
 
-  // Join specific voice room
+  // Enhanced join voice room with comprehensive debugging
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    console.log('useVoiceCollaboration: Attempting to join room', room);
+    addDebugInfo(`🚪 Attempting to join room: ${room.name}`);
+    
+    if (!checkBrowserCapabilities()) {
+      addDebugInfo('❌ Browser capabilities check failed');
+      toast.error('Your browser does not support voice chat');
+      return;
+    }
     
     if (isVoiceEnabled || room.currentParticipants >= room.maxParticipants) {
-      console.log('useVoiceCollaboration: Cannot join room - already enabled or room full', { isVoiceEnabled, currentParticipants: room.currentParticipants, maxParticipants: room.maxParticipants });
+      addDebugInfo(`❌ Cannot join room - already enabled: ${isVoiceEnabled}, room full: ${room.currentParticipants}/${room.maxParticipants}`);
       return;
     }
 
     setIsConnecting(true);
+    addDebugInfo('🔄 Setting connecting state');
+    
     try {
-      console.log('useVoiceCollaboration: Requesting microphone access');
-      const stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints());
-      console.log('useVoiceCollaboration: Microphone access granted', stream);
+      addDebugInfo('🎤 Requesting microphone access...');
+      const constraints = getAudioConstraints();
+      addDebugInfo(`📋 Audio constraints: ${JSON.stringify(constraints.audio, null, 2)}`);
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      addDebugInfo(`✅ Microphone access granted - tracks: ${stream.getTracks().length}`);
+      
+      // Log detailed stream info
+      stream.getTracks().forEach((track, index) => {
+        addDebugInfo(`📡 Track ${index}: ${track.kind}, enabled: ${track.enabled}, muted: ${track.muted}, state: ${track.readyState}`);
+        addDebugInfo(`🎛️ Track settings: ${JSON.stringify(track.getSettings(), null, 2)}`);
+      });
       
       localStreamRef.current = stream;
       setCurrentRoom(room);
+      addDebugInfo(`🏠 Current room set: ${room.name}`);
 
-      // Set up room-specific channel
-      console.log('useVoiceCollaboration: Setting up Supabase channel for room', room.id);
+      // Setup audio analysis
+      const cleanupAudioAnalysis = setupAudioAnalysis(stream);
+      
+      // Setup Supabase channel
+      addDebugInfo(`📡 Setting up Supabase channel: voice_${room.id}`);
       channelRef.current = supabase.channel(`voice_${room.id}`);
       
       channelRef.current.subscribe(async (status: string) => {
-        console.log('useVoiceCollaboration: Channel subscription status', status);
+        addDebugInfo(`📡 Channel subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log('useVoiceCollaboration: Successfully subscribed to voice channel');
+          addDebugInfo('✅ Successfully subscribed to voice channel');
           setIsVoiceEnabled(true);
           toast.success(`Joined ${room.name} - You are muted by default`);
+          
+          // Test audio immediately
+          addDebugInfo('🧪 Testing audio capabilities...');
+          if (localStreamRef.current) {
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+              addDebugInfo(`🎵 Audio track active: ${audioTrack.enabled}, muted: ${audioTrack.muted}`);
+              // Temporarily unmute to test
+              audioTrack.enabled = true;
+              setTimeout(() => {
+                addDebugInfo('🔇 Re-muting audio track for default muted state');
+                audioTrack.enabled = false;
+              }, 1000);
+            } else {
+              addDebugInfo('❌ No audio track found in stream');
+            }
+          }
+        } else if (status === 'CHANNEL_ERROR') {
+          addDebugInfo('❌ Channel subscription error');
+          toast.error('Failed to connect to voice channel');
+        } else if (status === 'CLOSED') {
+          addDebugInfo('🔒 Channel closed');
         }
       });
 
+      // Store cleanup function
+      if (cleanupAudioAnalysis) {
+        const originalCleanup = cleanupAudioAnalysis;
+        (channelRef.current as any).audioCleanup = originalCleanup;
+      }
+
     } catch (error: any) {
-      console.error('useVoiceCollaboration: Failed to join voice room:', error);
-      toast.error('Failed to access microphone: ' + error.message);
+      addDebugInfo(`❌ Failed to join voice room: ${error.message}`);
+      console.error('Voice room join error:', error);
+      
+      // Detailed error analysis
+      if (error.name === 'NotAllowedError') {
+        addDebugInfo('🚫 Microphone access denied by user');
+        toast.error('Microphone access denied. Please allow microphone access and try again.');
+      } else if (error.name === 'NotFoundError') {
+        addDebugInfo('🎤 No microphone found');
+        toast.error('No microphone found. Please connect a microphone and try again.');
+      } else if (error.name === 'NotSupportedError') {
+        addDebugInfo('🚫 Browser does not support audio capture');
+        toast.error('Your browser does not support audio capture.');
+      } else {
+        toast.error('Failed to access microphone: ' + error.message);
+      }
     } finally {
       setIsConnecting(false);
+      addDebugInfo('🔄 Cleared connecting state');
     }
-  }, [isVoiceEnabled]);
+  }, [isVoiceEnabled, checkBrowserCapabilities, getAudioConstraints, setupAudioAnalysis, addDebugInfo]);
 
-  // Leave current voice room
+  // Enhanced leave voice room
   const leaveVoiceRoom = useCallback(() => {
-    console.log('useVoiceCollaboration: Leaving voice room');
+    addDebugInfo('🚪 Leaving voice room');
     
     if (!isVoiceEnabled || !currentRoom) {
-      console.log('useVoiceCollaboration: No room to leave');
+      addDebugInfo('❌ No room to leave');
       return;
     }
 
     // Stop local stream
     if (localStreamRef.current) {
-      console.log('useVoiceCollaboration: Stopping local stream');
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      addDebugInfo('🛑 Stopping local stream');
+      localStreamRef.current.getTracks().forEach(track => {
+        addDebugInfo(`🛑 Stopping track: ${track.kind}`);
+        track.stop();
+      });
       localStreamRef.current = null;
+    }
+
+    // Cleanup audio analysis
+    if ((channelRef.current as any)?.audioCleanup) {
+      addDebugInfo('🧹 Cleaning up audio analysis');
+      (channelRef.current as any).audioCleanup();
+    }
+
+    // Stop audio context
+    if (audioContextRef.current) {
+      addDebugInfo('🔊 Closing audio context');
+      audioContextRef.current.close();
+      audioContextRef.current = null;
     }
 
     // Unsubscribe from channel
     if (channelRef.current) {
-      console.log('useVoiceCollaboration: Unsubscribing from channel');
+      addDebugInfo('📡 Unsubscribing from channel');
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
@@ -190,68 +358,76 @@ export const useVoiceCollaboration = ({
     setConnectedTrackers([]);
     setAudioLevel(0);
     setIsMuted(true);
+    const roomName = currentRoom.name;
     setCurrentRoom(null);
     setIsRoomAdmin(false);
-    console.log('useVoiceCollaboration: Left voice room successfully');
-    toast.info(`Left ${currentRoom.name}`);
-  }, [isVoiceEnabled, currentRoom]);
+    addDebugInfo(`✅ Left voice room: ${roomName}`);
+    toast.info(`Left ${roomName}`);
+  }, [isVoiceEnabled, currentRoom, addDebugInfo]);
 
-  // Enhanced mute toggle
+  // Enhanced mute toggle with debugging
   const toggleMute = useCallback(() => {
-    console.log('useVoiceCollaboration: Toggling mute', { currentlyMuted: isMuted });
+    addDebugInfo(`🔇 Toggling mute - currently: ${isMuted ? 'MUTED' : 'UNMUTED'}`);
     
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = isMuted;
         setIsMuted(!isMuted);
-        console.log('useVoiceCollaboration: Mute toggled', { newMutedState: !isMuted });
+        addDebugInfo(`🎵 Audio track enabled: ${audioTrack.enabled}, new muted state: ${!isMuted}`);
         toast.info(isMuted ? 'Microphone unmuted' : 'Microphone muted');
       } else {
-        console.error('useVoiceCollaboration: No audio track found');
+        addDebugInfo('❌ No audio track found for mute toggle');
+        toast.error('No audio track available');
       }
     } else {
-      console.error('useVoiceCollaboration: No local stream available');
+      addDebugInfo('❌ No local stream available for mute toggle');
+      toast.error('No audio stream available');
     }
-  }, [isMuted]);
+  }, [isMuted, addDebugInfo]);
 
   // Legacy compatibility functions
   const startVoiceCollaboration = useCallback(async () => {
-    console.log('useVoiceCollaboration: Starting voice collaboration (legacy)');
+    addDebugInfo('🔄 Starting voice collaboration (legacy)');
     const mainRoom = availableRooms.find(room => room.id.includes('_main'));
     if (mainRoom) {
       await joinVoiceRoom(mainRoom);
+    } else {
+      addDebugInfo('❌ No main room found for legacy start');
     }
-  }, [availableRooms, joinVoiceRoom]);
+  }, [availableRooms, joinVoiceRoom, addDebugInfo]);
 
   const stopVoiceCollaboration = useCallback(() => {
-    console.log('useVoiceCollaboration: Stopping voice collaboration (legacy)');
+    addDebugInfo('🛑 Stopping voice collaboration (legacy)');
     leaveVoiceRoom();
-  }, [leaveVoiceRoom]);
+  }, [leaveVoiceRoom, addDebugInfo]);
 
   // Initialize rooms on mount
   useEffect(() => {
-    console.log('useVoiceCollaboration: Component mounted, initializing rooms');
+    addDebugInfo('🚀 Component mounted, initializing');
     initializeVoiceRooms();
-  }, [initializeVoiceRooms]);
+  }, [initializeVoiceRooms, addDebugInfo]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('useVoiceCollaboration: Component unmounting, cleaning up');
+      addDebugInfo('🧹 Component unmounting, cleaning up');
       if (isVoiceEnabled) {
         leaveVoiceRoom();
       }
     };
-  }, [isVoiceEnabled, leaveVoiceRoom]);
+  }, [isVoiceEnabled, leaveVoiceRoom, addDebugInfo]);
 
-  console.log('useVoiceCollaboration: Current state', {
-    isVoiceEnabled,
-    isMuted,
-    isConnecting,
-    currentRoom: currentRoom?.name,
-    availableRoomsCount: availableRooms.length
-  });
+  // Log current state periodically for debugging
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isVoiceEnabled || isConnecting) {
+        addDebugInfo(`📊 State: enabled=${isVoiceEnabled}, muted=${isMuted}, connecting=${isConnecting}, room=${currentRoom?.name}, audioLevel=${audioLevel.toFixed(3)}`);
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [isVoiceEnabled, isMuted, isConnecting, currentRoom, audioLevel, addDebugInfo]);
 
   return {
     // Legacy compatibility
@@ -269,6 +445,9 @@ export const useVoiceCollaboration = ({
     currentRoom,
     isRoomAdmin,
     joinVoiceRoom,
-    leaveVoiceRoom
+    leaveVoiceRoom,
+    
+    // Debug information
+    debugInfo
   };
 };
