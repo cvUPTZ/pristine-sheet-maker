@@ -169,19 +169,31 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
 
   // Prepare Sankey data for visualization
   const sankeyData = React.useMemo(() => {
-    const nodes = playerSummaries.map(player => ({
-      name: player.name,
-      team: player.team
-    }));
+    const uniquePlayers = [...new Set([
+      ...passConnections.map(c => c.fromPlayerName),
+      ...passConnections.map(c => c.toPlayerName)
+    ])];
 
-    const links = passConnections.map(connection => ({
-      source: connection.fromPlayerName,
-      target: connection.toPlayerName,
-      value: connection.count
-    }));
+    const nodes = uniquePlayers.map(name => {
+      const connection = passConnections.find(c => c.fromPlayerName === name || c.toPlayerName === name);
+      return {
+        name,
+        team: connection?.team || 'home'
+      };
+    });
+
+    const links = passConnections.map(connection => {
+      const sourceIndex = uniquePlayers.indexOf(connection.fromPlayerName);
+      const targetIndex = uniquePlayers.indexOf(connection.toPlayerName);
+      return {
+        source: sourceIndex,
+        target: targetIndex,
+        value: connection.count
+      };
+    });
 
     return { nodes, links };
-  }, [playerSummaries, passConnections]);
+  }, [passConnections]);
 
   const homeConnections = passConnections.filter(conn => conn.team === 'home');
   const awayConnections = passConnections.filter(conn => conn.team === 'away');
@@ -292,12 +304,16 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
               content={({ payload }) => {
                 if (payload && payload[0]) {
                   const data = payload[0].payload;
-                  return (
-                    <div className="bg-white p-2 border rounded shadow">
-                      <p className="font-semibold">{data.source} → {data.target}</p>
-                      <p className="text-sm text-gray-600">{data.value} passes</p>
-                    </div>
-                  );
+                  if (data.source !== undefined && data.target !== undefined) {
+                    const sourceName = sankeyData.nodes[data.source]?.name;
+                    const targetName = sankeyData.nodes[data.target]?.name;
+                    return (
+                      <div className="bg-white p-2 border rounded shadow">
+                        <p className="font-semibold">{sourceName} → {targetName}</p>
+                        <p className="text-sm text-gray-600">{data.value} passes</p>
+                      </div>
+                    );
+                  }
                 }
                 return null;
               }}
