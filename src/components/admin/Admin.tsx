@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -162,7 +161,7 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-10 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-11 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
@@ -172,8 +171,8 @@ const Admin: React.FC = () => {
           <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-blue-100 border-blue-300">
             📋 Match Planning
           </TabsTrigger>
-          <TabsTrigger value="replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
-            {isMobile ? 'Replace' : 'Tracker Replacement'}
+          <TabsTrigger value="replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-purple-100 border-purple-300">
+            {isMobile ? '🔄 Replace' : '🔄 Tracker Replacement'}
           </TabsTrigger>
           <TabsTrigger value="matrix" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Matrix' : 'Tracking Matrix'}
