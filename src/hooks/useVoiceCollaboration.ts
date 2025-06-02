@@ -222,7 +222,7 @@ export const useVoiceCollaboration = ({
               : tracker
           ));
         })
-        .subscribe(async (status) => {
+        .subscribe(async (status: string) => {
           if (status === 'SUBSCRIBED') {
             // Announce joining
             channelRef.current.send({

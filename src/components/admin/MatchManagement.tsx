@@ -171,7 +171,7 @@ const MatchManagement: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/edit-match/${match.id}`)}
+                      onClick={() => navigate(`/match/${match.id}/edit`)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
