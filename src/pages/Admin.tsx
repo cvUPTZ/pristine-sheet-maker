@@ -20,10 +20,10 @@ import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
 interface Match {
   id: string;
-  name?: string;
+  name?: string | null;
   home_team_name: string;
   away_team_name: string;
-  match_date?: string;
+  match_date?: string | null;
   status: string;
 }
 
@@ -74,9 +74,9 @@ const Admin: React.FC = () => {
     
     setLoadingPlanning(true);
     try {
-      // Fetch planning data - you can customize this based on your needs
+      // Fetch planning data using the correct table name
       const { data, error } = await supabase
-        .from('match_assignments')
+        .from('match_tracker_assignments')
         .select('*')
         .eq('match_id', selectedMatchId);
 
@@ -107,7 +107,7 @@ const Admin: React.FC = () => {
     if (!planningData) return { active: 0, inactive: 0, total: 0 };
     
     // This is a placeholder - adjust based on your actual tracker status logic
-    const active = planningData.filter((item: any) => item.status === 'active').length;
+    const active = planningData.filter((item: any) => item.tracker_user_id).length;
     const total = planningData.length;
     const inactive = total - active;
     
