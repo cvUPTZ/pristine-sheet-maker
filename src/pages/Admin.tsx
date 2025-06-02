@@ -13,6 +13,8 @@ import TrackerBatteryMonitor from '@/components/admin/TrackerBatteryMonitor';
 import MatchTrackingMatrix from '@/components/admin/MatchTrackingMatrix';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import TrackerAbsenceManager from '@/components/admin/TrackerAbsenceManager';
+import TrackerReplacementManager from '@/components/admin/TrackerReplacementManager';
+import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
@@ -377,40 +379,25 @@ const Admin: React.FC = () => {
               </div>
             )}
 
+            {/* Tracker Replacement Management */}
+            {selectedMatchId && (
+              <TrackerReplacementManager 
+                matchId={selectedMatchId} 
+                onReplacementUpdate={fetchPlanningData}
+              />
+            )}
+
             {/* Tracker Absence Management */}
             {selectedMatchId && (
               <TrackerAbsenceManager matchId={selectedMatchId} />
             )}
 
-            {/* Quick Actions */}
+            {/* Quick Actions - Now Functional */}
             {selectedMatchId && planningData && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    ⚡ Quick Planning Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <button className="p-4 text-left border rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                      <div className="font-medium">Auto-Assign Trackers</div>
-                      <div className="text-xs text-gray-600">Automatically assign available trackers</div>
-                    </button>
-                    <button className="p-4 text-left border rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors">
-                      <div className="font-medium">Send Notifications</div>
-                      <div className="text-xs text-gray-600">Notify trackers of assignments</div>
-                    </button>
-                    <button className="p-4 text-left border rounded-lg hover:bg-yellow-50 hover:border-yellow-300 transition-colors">
-                      <div className="font-medium">Check Equipment</div>
-                      <div className="text-xs text-gray-600">Verify tracker device status</div>
-                    </button>
-                    <button className="p-4 text-left border rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors">
-                      <div className="font-medium">Generate Report</div>
-                      <div className="text-xs text-gray-600">Create planning summary</div>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+              <QuickPlanningActions 
+                matchId={selectedMatchId} 
+                onActionComplete={fetchPlanningData}
+              />
             )}
 
             {/* Enhanced Planning Network */}
