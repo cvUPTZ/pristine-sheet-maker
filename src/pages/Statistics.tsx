@@ -17,6 +17,7 @@ import PlayerPerformanceChart from '@/components/analytics/PlayerPerformanceChar
 import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import MatchHeatMap from '@/components/analytics/MatchHeatMap';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
+import DetailedStatsTable from '@/components/DetailedStatsTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Statistics, MatchEvent, PlayerStatistics } from '@/types/index';
@@ -406,8 +407,9 @@ const Statistics = () => {
 
           {/* Tabbed Analytics */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="detailed">Detailed</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
               <TabsTrigger value="players">Players</TabsTrigger>
@@ -432,6 +434,25 @@ const Statistics = () => {
                 homeTeamName={selectedMatchData.home_team_name}
                 awayTeamName={selectedMatchData.away_team_name}
               />
+            </TabsContent>
+
+            <TabsContent value="detailed" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Detailed Match Statistics
+                  </CardTitle>
+                  <CardDescription>Comprehensive breakdown of match statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DetailedStatsTable
+                    statistics={statistics}
+                    homeTeamName={selectedMatchData.home_team_name}
+                    awayTeamName={selectedMatchData.away_team_name}
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="performance" className="space-y-6">
@@ -477,43 +498,63 @@ const Statistics = () => {
                           <th className="text-left py-2">Player</th>
                           <th className="text-center py-2">Team</th>
                           <th className="text-center py-2">Passes</th>
+                          <th className="text-center py-2">Pass Accuracy</th>
                           <th className="text-center py-2">Shots</th>
                           <th className="text-center py-2">Goals</th>
+                          <th className="text-center py-2">Assists</th>
                           <th className="text-center py-2">Fouls</th>
                           <th className="text-center py-2">Cards</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {playerStats.map((player, index) => (
-                          <tr key={index} className="border-b">
-                            <td className="py-3 font-medium">{player.playerName}</td>
-                            <td className="py-3 text-center">
+                        {playerStats.map((player) => (
+                          <tr key={player.playerId} className="border-b hover:bg-gray-50">
+                            <td className="py-2 font-medium">{player.playerName}</td>
+                            <td className="text-center py-2">
                               <span className={`px-2 py-1 rounded text-xs ${
                                 player.team === 'home' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                {player.team}
+                                {player.team === 'home' ? selectedMatchData.home_team_name : selectedMatchData.away_team_name}
                               </span>
                             </td>
-                            <td className="py-3 text-center">
+                            <td className="text-center py-2">
                               {player.events.passes.successful}/{player.events.passes.attempted}
                             </td>
-                            <td className="py-3 text-center">
+                            <td className="text-center py-2">
+                              {player.events.passes.attempted > 0 
+                                ? `${Math.round((player.events.passes.successful / player.events.passes.attempted) * 100)}%`
+                                : '0%'
+                              }
+                            </td>
+                            <td className="text-center py-2">
                               {player.events.shots.onTarget + player.events.shots.offTarget}
                             </td>
-                            <td className="py-3 text-center">{player.events.goals}</td>
-                            <td className="py-3 text-center">{player.events.fouls}</td>
-                            <td className="py-3 text-center">
-                              <span className="text-yellow-600">{player.events.cards.yellow}</span>
-                              {player.events.cards.red > 0 && (
-                                <span className="text-red-600 ml-1">{player.events.cards.red}</span>
-                              )}
+                            <td className="text-center py-2">{player.events.goals}</td>
+                            <td className="text-center py-2">{player.events.assists}</td>
+                            <td className="text-center py-2">{player.events.fouls}</td>
+                            <td className="text-center py-2">
+                              <div className="flex justify-center gap-1">
+                                {player.events.cards.yellow > 0 && (
+                                  <span className="bg-yellow-400 text-white px-1 py-0.5 rounded text-xs">
+                                    {player.events.cards.yellow}Y
+                                  </span>
+                                )}
+                                {player.events.cards.red > 0 && (
+                                  <span className="bg-red-500 text-white px-1 py-0.5 rounded text-xs">
+                                    {player.events.cards.red}R
+                                  </span>
+                                )}
+                                {player.events.cards.yellow === 0 && player.events.cards.red === 0 && (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
                         {playerStats.length === 0 && (
                           <tr>
-                            <td colSpan={7} className="py-8 text-center text-gray-500">
-                              No player data available
+                            <td colSpan={9} className="text-center py-8 text-gray-500">
+                              No player statistics available
                             </td>
                           </tr>
                         )}
@@ -525,23 +566,30 @@ const Statistics = () => {
             </TabsContent>
 
             <TabsContent value="flow" className="space-y-6">
-              {ballData.length > 0 ? (
-                <BallFlowVisualization 
-                  ballTrackingPoints={ballData}
-                  homeTeam={{ id: 'home', name: selectedMatchData.home_team_name, players: [], formation: '4-4-2' }}
-                  awayTeam={{ id: 'away', name: selectedMatchData.away_team_name, players: [], formation: '4-4-2' }}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <PieChart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                      <p className="text-gray-500">No ball tracking data available</p>
-                      <p className="text-sm text-gray-400">Enable ball tracking during match recording</p>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Ball Flow Analysis
+                  </CardTitle>
+                  <CardDescription>Visualization of ball movement and flow patterns</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {ballData.length > 0 ? (
+                    <BallFlowVisualization
+                      ballTrackingPoints={ballData}
+                      homeTeam={{ id: 'home', name: selectedMatchData.home_team_name, players: [], formation: '4-4-2' }}
+                      awayTeam={{ id: 'away', name: selectedMatchData.away_team_name, players: [], formation: '4-4-2' }}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No ball tracking data available for visualization</p>
+                      <p className="text-sm">Use ball tracking mode during matches to see flow patterns</p>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </>
