@@ -29,10 +29,13 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Use the enhanced tracker status hook
   const { broadcastStatus, isConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
 
-  console.log('TrackerInterface: Connection state', { 
+  console.log('TrackerInterface: Render state', { 
     isConnected,
     trackerUserId,
-    matchId
+    matchId,
+    batteryLevel: batteryStatus.level,
+    loading,
+    error
   });
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       setError(null);
 
       try {
+        console.log('TrackerInterface: Fetching match info for:', matchId);
         const { data: matchData, error: matchError } = await supabase
           .from('matches')
           .select('name, home_team_name, away_team_name')
@@ -62,9 +66,12 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           throw new Error(`Failed to fetch match data: ${matchError.message}`);
         }
 
-        setMatchName(matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`);
+        const name = matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`;
+        setMatchName(name);
+        console.log('TrackerInterface: Match info loaded:', name);
 
       } catch (e: any) {
+        console.error('TrackerInterface: Error fetching match info:', e);
         setError(e.message || "An unexpected error occurred while fetching match information.");
       } finally {
         setLoading(false);
@@ -76,8 +83,13 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
-    if (!trackerUserId || !matchId || !isConnected) {
-      console.log('TrackerInterface: Skipping status broadcast - not ready', { trackerUserId, matchId, isConnected });
+    if (!trackerUserId || !matchId) {
+      console.log('TrackerInterface: Skipping status broadcast - missing IDs', { trackerUserId, matchId });
+      return;
+    }
+
+    if (!isConnected) {
+      console.log('TrackerInterface: Skipping status broadcast - not connected');
       return;
     }
     
@@ -93,7 +105,11 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
     // Enhanced status broadcast function
     const broadcastEnhancedStatus = () => {
-      console.log('TrackerInterface: Broadcasting enhanced status');
+      console.log('TrackerInterface: Broadcasting enhanced status', {
+        batteryLevel: batteryStatus.level,
+        networkQuality: getNetworkQuality()
+      });
+      
       broadcastStatus({
         status: 'active',
         timestamp: Date.now(),
@@ -103,12 +119,17 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     };
 
     // Initial broadcast when connected
+    console.log('TrackerInterface: Setting up status broadcasting');
     broadcastEnhancedStatus();
 
     // Set up periodic activity updates every 30 seconds
-    intervalRef.current = setInterval(broadcastEnhancedStatus, 30000);
+    intervalRef.current = setInterval(() => {
+      console.log('TrackerInterface: Periodic status broadcast');
+      broadcastEnhancedStatus();
+    }, 30000);
 
     return () => {
+      console.log('TrackerInterface: Cleaning up status broadcasting');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -119,6 +140,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('TrackerInterface: Component unmounting, cleaning up');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
