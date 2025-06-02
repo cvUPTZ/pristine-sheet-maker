@@ -103,33 +103,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           <span>• {activeTrackers}/{totalTrackers} trackers online</span>
         </div>
         
-        {/* Enhanced Tracker Status Display */}
-        {unifiedTrackers.length > 0 && (
-          <div className="mb-3">
-            <div className="text-xs font-medium text-gray-700 mb-1">Tracker Status:</div>
-            <div className="space-y-1">
-              {unifiedTrackers.map(tracker => (
-                <div key={tracker.user_id} className="flex items-center gap-2 text-xs">
-                  <div className={`w-2 h-2 rounded-full ${
-                    tracker.status === 'active' ? 'bg-green-500' : 
-                    tracker.status === 'recording' ? 'bg-blue-500' : 'bg-gray-400'
-                  }`} />
-                  <span className="font-medium">{tracker.email || tracker.user_id}</span>
-                  <span className="text-gray-500">
-                    {tracker.status === 'active' ? 'Online' : 
-                     tracker.status === 'recording' ? 'Recording' : 'Offline'}
-                  </span>
-                  {tracker.battery_level && (
-                    <span className={`text-xs ${tracker.battery_level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
-                      {tracker.battery_level}%
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
+        {/* Replace basic tracker status with TrackerPresenceIndicator */}
         <TrackerPresenceIndicator matchId={matchId} />
       </div>
 
