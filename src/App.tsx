@@ -17,6 +17,7 @@ import Admin from "./pages/Admin";
 import CreateMatch from "./pages/CreateMatch";
 import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
+import LandingPage from "./pages/LandingPage";
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -96,6 +97,7 @@ const AppContent = () => {
     <>
       <Header />
       <Routes>
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
