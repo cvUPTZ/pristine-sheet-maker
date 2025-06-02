@@ -1,4 +1,3 @@
-
 export type EventType =
   | 'pass'
   | 'shot'
@@ -37,7 +36,7 @@ export type Formation =
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
   | 'Unknown';
 
-export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user';
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user' | 'manager';
 
 export interface Player {
   id: string | number;

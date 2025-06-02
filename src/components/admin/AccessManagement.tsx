@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { Users, Settings, Shield, Eye, Save, RotateCcw, AlertCircle } from 'luci
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user';
+type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager';
 
 interface RolePermissions {
   pitchView: boolean;
@@ -41,6 +40,15 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: true,
     ballTracking: true,
     liveEvents: true,
+  },
+  manager: {
+    pitchView: true,
+    pianoInput: false,
+    statistics: true,
+    timeline: true,
+    analytics: true,
+    ballTracking: false,
+    liveEvents: false,
   },
   tracker: {
     pitchView: false,
@@ -228,6 +236,7 @@ const AccessManagement: React.FC = () => {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
+      case 'manager': return 'bg-purple-100 text-purple-800';
       case 'tracker': return 'bg-blue-100 text-blue-800';
       case 'teacher': return 'bg-green-100 text-green-800';
       case 'user': return 'bg-gray-100 text-gray-800';
@@ -300,6 +309,7 @@ const AccessManagement: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="tracker">Tracker</SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="user">User</SelectItem>

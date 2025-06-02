@@ -1,9 +1,9 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { UserRoleType } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
   user: User | null;
@@ -50,9 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        // Use the new security definer function to get role from auth metadata
-        const { data, error } = await supabase.rpc('get_user_role_from_auth', {
-          user_id_param: user.id
+        // Use the security definer function to get role from auth metadata
+        const { data, error } = await supabase.rpc('get_user_role', {
+          p_user_id: user.id
         });
 
         if (error) {
