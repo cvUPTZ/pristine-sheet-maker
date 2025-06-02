@@ -91,7 +91,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
       <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
         {/* Debug Information */}
         {debugInfo && debugInfo.length > 0 && (
-          <div className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono max-h-32 overflow-y-auto">
+          <div className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono max-h-96 overflow-y-auto">
             <div className="flex items-center gap-1 mb-1">
               <Bug className="h-3 w-3" />
               <span className="text-yellow-400">Debug Log:</span>
