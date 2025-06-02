@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface TrackerStatusData {
@@ -15,8 +15,61 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<any>(null);
 
-  const broadcastStatus = useCallback(async (statusData: TrackerStatusData) => {
+  // Initialize channel and connection
+  useEffect(() => {
     if (!userId || !matchId) return;
+
+    const initializeChannel = async () => {
+      try {
+        if (channelRef.current) {
+          supabase.removeChannel(channelRef.current);
+        }
+
+        channelRef.current = supabase.channel(`match-${matchId}`);
+        
+        const status = await channelRef.current.subscribe();
+        setIsConnected(status === 'SUBSCRIBED');
+        
+        if (status === 'SUBSCRIBED') {
+          // Broadcast initial active status
+          broadcastStatus({
+            status: 'active',
+            timestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('Failed to initialize channel:', error);
+        setIsConnected(false);
+      }
+    };
+
+    initializeChannel();
+
+    return () => {
+      if (channelRef.current) {
+        // Broadcast inactive status before cleanup
+        try {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'tracker_update',
+            payload: {
+              type: 'tracker_status',
+              user_id: userId,
+              status: 'inactive',
+              timestamp: Date.now()
+            }
+          });
+        } catch (error) {
+          // Ignore errors during cleanup
+        }
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [matchId, userId]);
+
+  const broadcastStatus = useCallback(async (statusData: TrackerStatusData) => {
+    if (!userId || !matchId || !channelRef.current) return;
 
     const now = Date.now();
     
@@ -24,11 +77,6 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
     if (now - lastBroadcast < 1000) return;
 
     try {
-      if (!channelRef.current) {
-        channelRef.current = supabase.channel(`match-${matchId}`);
-        await channelRef.current.subscribe();
-      }
-
       const payload = {
         type: 'tracker_status',
         user_id: userId,
@@ -50,10 +98,25 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
 
   const cleanup = useCallback(() => {
     if (channelRef.current) {
+      try {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'tracker_update',
+          payload: {
+            type: 'tracker_status',
+            user_id: userId,
+            status: 'inactive',
+            timestamp: Date.now()
+          }
+        });
+      } catch (error) {
+        // Ignore errors during cleanup
+      }
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
-  }, []);
+    setIsConnected(false);
+  }, [userId]);
 
   return {
     broadcastStatus,

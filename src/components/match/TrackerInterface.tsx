@@ -27,7 +27,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const batteryStatus = useBatteryMonitor(trackerUserId);
   
   // Use the enhanced tracker status hook
-  const { broadcastStatus, cleanup } = useTrackerStatus(matchId, trackerUserId);
+  const { broadcastStatus, isConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
 
   // Use the realtime match hook to handle presence
   const { broadcastStatus: legacyBroadcast } = useRealtimeMatch({ 
@@ -61,14 +61,12 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           .single();
 
         if (matchError) {
-          console.error('Error fetching match data:', matchError);
           throw new Error(`Failed to fetch match data: ${matchError.message}`);
         }
 
         setMatchName(matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`);
 
       } catch (e: any) {
-        console.error("Error fetching match info:", e);
         setError(e.message || "An unexpected error occurred while fetching match information.");
       } finally {
         setLoading(false);
@@ -80,7 +78,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
-    if (!trackerUserId || !matchId) return;
+    if (!trackerUserId || !matchId || !isConnected) return;
     
     const getNetworkQuality = (): 'excellent' | 'good' | 'poor' => {
       // Simple network quality estimation based on connection type
@@ -105,7 +103,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       legacyBroadcast('active');
     };
 
-    // Initial broadcast
+    // Initial broadcast when connected
     broadcastEnhancedStatus();
 
     // Set up periodic activity updates
@@ -113,18 +111,15 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
     return () => {
       clearInterval(interval);
-      
-      // Broadcast inactive status
-      broadcastStatus({
-        status: 'inactive',
-        timestamp: Date.now(),
-        battery_level: batteryStatus.level || undefined
-      });
-      
-      legacyBroadcast('inactive');
+    };
+  }, [trackerUserId, matchId, isConnected, broadcastStatus, legacyBroadcast, batteryStatus.level]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
       cleanup();
     };
-  }, [trackerUserId, matchId, broadcastStatus, legacyBroadcast, batteryStatus.level, cleanup]);
+  }, [cleanup]);
 
   if (loading) {
     return (
@@ -164,6 +159,9 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
             <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
               <span>Tracker: {trackerUserId}</span>
               <span>Match: {matchId}</span>
+              <span className={`font-medium ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                Status: {isConnected ? 'Online' : 'Offline'}
+              </span>
               {batteryStatus.level !== null && (
                 <span className={`font-medium ${batteryStatus.level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
                   Battery: {batteryStatus.level}% {batteryStatus.charging ? '⚡' : '🔋'}
