@@ -133,7 +133,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
       console.log('Assignments data:', assignmentsData);
       console.log('Tracker profiles:', trackerProfiles);
 
-      // Transform match data to handle nullable fields
+      // Transform match data to handle nullable fields and ensure arrays
       const transformedMatch: MatchData = {
         id: match.id,
         name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
@@ -141,8 +141,8 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
         away_team_name: match.away_team_name,
         match_date: match.match_date,
         status: match.status,
-        home_team_players: match.home_team_players || [],
-        away_team_players: match.away_team_players || [],
+        home_team_players: Array.isArray(match.home_team_players) ? match.home_team_players : [],
+        away_team_players: Array.isArray(match.away_team_players) ? match.away_team_players : [],
         description: match.description,
         location: match.location
       };
