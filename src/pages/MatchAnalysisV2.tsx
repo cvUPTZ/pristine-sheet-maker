@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
 import MainTabContentV2 from '@/components/match/MainTabContentV2';
+import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { EventType } from '@/types/matchForm';
@@ -332,14 +333,24 @@ const MatchAnalysisV2: React.FC = () => {
         )}
         
         <TabsContent value="piano" className="mt-2 sm:mt-4">
-          <Card>
-            <CardContent className="p-2 sm:p-3 lg:p-6">
-              <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                Piano Input
-              </h2>
-              <TrackerPianoInput matchId={matchId} />
-            </CardContent>
-          </Card>
+          <div className="space-y-3 sm:space-y-4">
+            {/* Voice Collaboration for Piano Input */}
+            {user?.id && (
+              <VoiceCollaboration
+                matchId={matchId}
+                userId={user.id}
+              />
+            )}
+            
+            <Card>
+              <CardContent className="p-2 sm:p-3 lg:p-6">
+                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                  Piano Input
+                </h2>
+                <TrackerPianoInput matchId={matchId} />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
         {isAdmin && (

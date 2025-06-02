@@ -1,8 +1,10 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
+import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
@@ -174,6 +176,14 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           </div>
         </CardContent>
       </Card>
+
+      {/* Voice Collaboration */}
+      <div className="mb-3 sm:mb-6">
+        <VoiceCollaboration
+          matchId={matchId}
+          userId={trackerUserId}
+        />
+      </div>
       
       <div className="w-full">
         <TrackerPianoInput matchId={matchId} />
