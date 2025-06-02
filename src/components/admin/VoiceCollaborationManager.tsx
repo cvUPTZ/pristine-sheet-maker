@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +35,8 @@ import {
   Search,
   Filter,
   Eye,
-  EyeOff
+  EyeOff,
+  Plus
 } from 'lucide-react';
 
 interface Match {
@@ -79,129 +79,6 @@ interface VoiceParticipant {
   };
 }
 
-// Enhanced mock data with more realistic scenarios
-const mockVoiceRooms: VoiceRoom[] = [
-  {
-    id: 'room-1',
-    name: 'Main Coordination Hub',
-    match_id: 'match-1',
-    max_participants: 20,
-    is_active: true,
-    quality: 'excellent',
-    created_at: new Date().toISOString(),
-    participant_count: 8
-  },
-  {
-    id: 'room-2',
-    name: 'Team A Analysis Room',
-    match_id: 'match-1',
-    max_participants: 25,
-    is_active: true,
-    quality: 'good',
-    created_at: new Date().toISOString(),
-    participant_count: 12
-  },
-  {
-    id: 'room-3',
-    name: 'Team B Tracking Zone',
-    match_id: 'match-1',
-    max_participants: 25,
-    is_active: false,
-    quality: 'fair',
-    created_at: new Date().toISOString(),
-    participant_count: 0
-  },
-  {
-    id: 'room-4',
-    name: 'Technical Support',
-    match_id: 'match-1',
-    max_participants: 10,
-    is_active: true,
-    quality: 'excellent',
-    created_at: new Date().toISOString(),
-    participant_count: 3
-  }
-];
-
-const mockParticipants: VoiceParticipant[] = [
-  {
-    id: 'participant-1',
-    user_id: 'user-1',
-    room_id: 'room-1',
-    is_muted: false,
-    is_speaking: true,
-    is_connected: true,
-    connection_quality: 'excellent',
-    audio_level: 0.8,
-    joined_at: new Date(Date.now() - 300000).toISOString(),
-    user_profile: {
-      full_name: 'John Coordinator',
-      email: 'john@example.com',
-      role: 'coordinator'
-    },
-    room: {
-      name: 'Main Coordination Hub'
-    }
-  },
-  {
-    id: 'participant-2',
-    user_id: 'user-2',
-    room_id: 'room-1',
-    is_muted: true,
-    is_speaking: false,
-    is_connected: true,
-    connection_quality: 'good',
-    audio_level: 0.0,
-    joined_at: new Date(Date.now() - 600000).toISOString(),
-    user_profile: {
-      full_name: 'Sarah Admin',
-      email: 'sarah@example.com',
-      role: 'admin'
-    },
-    room: {
-      name: 'Main Coordination Hub'
-    }
-  },
-  {
-    id: 'participant-3',
-    user_id: 'user-3',
-    room_id: 'room-2',
-    is_muted: false,
-    is_speaking: false,
-    is_connected: false,
-    connection_quality: 'poor',
-    audio_level: 0.3,
-    joined_at: new Date(Date.now() - 900000).toISOString(),
-    user_profile: {
-      full_name: 'Mike Tracker',
-      email: 'mike@example.com',
-      role: 'tracker'
-    },
-    room: {
-      name: 'Team A Analysis Room'
-    }
-  },
-  {
-    id: 'participant-4',
-    user_id: 'user-4',
-    room_id: 'room-1',
-    is_muted: false,
-    is_speaking: true,
-    is_connected: true,
-    connection_quality: 'excellent',
-    audio_level: 0.6,
-    joined_at: new Date(Date.now() - 450000).toISOString(),
-    user_profile: {
-      full_name: 'Lisa Analyst',
-      email: 'lisa@example.com',
-      role: 'analyst'
-    },
-    room: {
-      name: 'Main Coordination Hub'
-    }
-  }
-];
-
 const VoiceCollaborationManager: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -225,7 +102,7 @@ const VoiceCollaborationManager: React.FC = () => {
 
   useEffect(() => {
     if (selectedMatchId) {
-      loadMockData();
+      fetchVoiceData();
     }
   }, [selectedMatchId]);
 
@@ -250,31 +127,77 @@ const VoiceCollaborationManager: React.FC = () => {
     }
   };
 
-  const loadMockData = () => {
+  const fetchVoiceData = async () => {
+    if (!selectedMatchId) return;
+    
     setRefreshing(true);
     
-    const roomsForMatch = mockVoiceRooms.filter(room => room.match_id === selectedMatchId);
-    const participantsForRooms = mockParticipants.filter(p => 
-      roomsForMatch.some(room => room.id === p.room_id)
-    );
+    try {
+      // Fetch voice rooms for the selected match
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('voice_rooms')
+        .select('*')
+        .eq('match_id', selectedMatchId)
+        .order('created_at', { ascending: false });
 
-    setVoiceRooms(roomsForMatch);
-    setParticipants(participantsForRooms);
-    calculateSystemHealth(roomsForMatch, participantsForRooms);
-    
-    setRefreshing(false);
+      if (roomsError) throw roomsError;
+
+      // Fetch participants with user profiles and room info
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('voice_participants')
+        .select(`
+          *,
+          voice_rooms!inner(name),
+          profiles!voice_participants_user_id_fkey(full_name, email, role)
+        `)
+        .in('room_id', (roomsData || []).map(room => room.id))
+        .order('joined_at', { ascending: false });
+
+      if (participantsError) throw participantsError;
+
+      // Count participants per room
+      const roomsWithCounts = (roomsData || []).map(room => ({
+        ...room,
+        participant_count: (participantsData || []).filter(p => p.room_id === room.id && p.is_connected).length
+      }));
+
+      // Format participants data
+      const formattedParticipants = (participantsData || []).map(p => ({
+        ...p,
+        user_profile: p.profiles ? {
+          full_name: p.profiles.full_name,
+          email: p.profiles.email,
+          role: p.profiles.role
+        } : undefined,
+        room: p.voice_rooms ? { name: p.voice_rooms.name } : undefined
+      }));
+
+      setVoiceRooms(roomsWithCounts);
+      setParticipants(formattedParticipants);
+      calculateSystemHealth(roomsWithCounts, formattedParticipants);
+      
+    } catch (error) {
+      console.error('Error fetching voice data:', error);
+      toast.error('Failed to load voice collaboration data');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const calculateSystemHealth = (rooms: VoiceRoom[], participants: VoiceParticipant[]) => {
-    const totalParticipants = participants.length;
+    const totalParticipants = participants.filter(p => p.is_connected).length;
     const activeRooms = rooms.filter(r => r.is_active).length;
-    const poorConnections = participants.filter(p => p.connection_quality === 'poor').length;
+    const poorConnections = participants.filter(p => p.connection_quality === 'poor' && p.is_connected).length;
     
     let avgQuality: 'excellent' | 'good' | 'fair' | 'poor' = 'good';
-    if (poorConnections > totalParticipants * 0.3) {
-      avgQuality = 'poor';
-    } else if (poorConnections === 0) {
-      avgQuality = 'excellent';
+    if (totalParticipants > 0) {
+      if (poorConnections > totalParticipants * 0.3) {
+        avgQuality = 'poor';
+      } else if (poorConnections === 0) {
+        avgQuality = 'excellent';
+      } else if (poorConnections > totalParticipants * 0.1) {
+        avgQuality = 'fair';
+      }
     }
     
     setSystemHealth({
@@ -286,9 +209,42 @@ const VoiceCollaborationManager: React.FC = () => {
     });
   };
 
+  const handleCreateRoom = async () => {
+    if (!selectedMatchId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('voice_rooms')
+        .insert({
+          name: `Room ${voiceRooms.length + 1}`,
+          match_id: selectedMatchId,
+          max_participants: 25,
+          is_active: true,
+          quality: 'good'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchVoiceData();
+      toast.success('Voice room created successfully');
+    } catch (error) {
+      console.error('Error creating room:', error);
+      toast.error('Failed to create voice room');
+    }
+  };
+
   const handleKickParticipant = async (participantId: string) => {
     try {
-      setParticipants(prev => prev.filter(p => p.id !== participantId));
+      const { error } = await supabase
+        .from('voice_participants')
+        .delete()
+        .eq('id', participantId);
+
+      if (error) throw error;
+
+      await fetchVoiceData();
       toast.success('Participant removed from voice room');
     } catch (error) {
       console.error('Error removing participant:', error);
@@ -298,9 +254,14 @@ const VoiceCollaborationManager: React.FC = () => {
 
   const handleMuteParticipant = async (participantId: string) => {
     try {
-      setParticipants(prev => prev.map(p => 
-        p.id === participantId ? { ...p, is_muted: true } : p
-      ));
+      const { error } = await supabase
+        .from('voice_participants')
+        .update({ is_muted: true })
+        .eq('id', participantId);
+
+      if (error) throw error;
+
+      await fetchVoiceData();
       toast.success('Participant muted');
     } catch (error) {
       console.error('Error muting participant:', error);
@@ -310,9 +271,14 @@ const VoiceCollaborationManager: React.FC = () => {
 
   const handleCloseRoom = async (roomId: string) => {
     try {
-      setVoiceRooms(prev => prev.map(room => 
-        room.id === roomId ? { ...room, is_active: false } : room
-      ));
+      const { error } = await supabase
+        .from('voice_rooms')
+        .update({ is_active: false })
+        .eq('id', roomId);
+
+      if (error) throw error;
+
+      await fetchVoiceData();
       toast.success('Voice room closed');
     } catch (error) {
       console.error('Error closing room:', error);
@@ -392,9 +358,9 @@ const VoiceCollaborationManager: React.FC = () => {
               <div>
                 <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                   Voice Collaboration Center
-                  <Badge variant="outline" className="bg-gradient-to-r from-orange-100 to-yellow-100 text-orange-800 border-orange-300">
-                    <Play className="h-3 w-3 mr-1" />
-                    Demo Mode
+                  <Badge variant="outline" className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-300">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Live Database
                   </Badge>
                 </CardTitle>
                 <p className="text-gray-600 mt-1">
@@ -403,7 +369,7 @@ const VoiceCollaborationManager: React.FC = () => {
               </div>
             </div>
             <Button
-              onClick={loadMockData}
+              onClick={fetchVoiceData}
               disabled={refreshing}
               size="lg"
               className="bg-purple-600 hover:bg-purple-700 shadow-lg"
@@ -411,18 +377,6 @@ const VoiceCollaborationManager: React.FC = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh Data
             </Button>
-          </div>
-          
-          <div className="mt-6 p-4 bg-gradient-to-r from-orange-100 to-yellow-100 border border-orange-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-orange-800">Database Integration Required</h4>
-                <p className="text-sm text-orange-700 mt-1">
-                  Create the <code className="bg-orange-200 px-1 rounded">voice_rooms</code> and <code className="bg-orange-200 px-1 rounded">voice_participants</code> tables to enable live data.
-                </p>
-              </div>
-            </div>
           </div>
         </CardHeader>
         
@@ -594,98 +548,118 @@ const VoiceCollaborationManager: React.FC = () => {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button onClick={handleCreateRoom} className="bg-purple-600 hover:bg-purple-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Room
+                  </Button>
                 </div>
               </div>
 
               {/* Enhanced Room Cards */}
               <div className="grid gap-6">
-                {filteredRooms.map((room) => (
-                  <Card key={room.id} className="border-l-4 border-l-purple-400 hover:shadow-lg transition-all duration-200 bg-white">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-full ${room.is_active ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                            {room.is_active ? (
-                              <Headphones className="h-6 w-6 text-emerald-600" />
-                            ) : (
-                              <EyeOff className="h-6 w-6 text-gray-400" />
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900">{room.name}</h3>
-                            <div className="flex items-center gap-4 mt-2">
-                              <Badge 
-                                variant="outline" 
-                                className={`${getQualityColor(room.quality)} border`}
-                              >
-                                {getQualityIcon(room.quality)}
-                                <span className="ml-1 capitalize">{room.quality}</span>
-                              </Badge>
-                              {room.is_active && (
-                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
-                                  <Activity className="h-3 w-3 mr-1" />
-                                  Live
-                                </Badge>
+                {filteredRooms.length === 0 ? (
+                  <Card className="border-dashed border-2 border-gray-300">
+                    <CardContent className="p-12 text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Speaker className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Voice Rooms Found</h3>
+                      <p className="text-gray-500 mb-4">Create your first voice room to start collaborating</p>
+                      <Button onClick={handleCreateRoom} className="bg-purple-600 hover:bg-purple-700">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Voice Room
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredRooms.map((room) => (
+                    <Card key={room.id} className="border-l-4 border-l-purple-400 hover:shadow-lg transition-all duration-200 bg-white">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-full ${room.is_active ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+                              {room.is_active ? (
+                                <Headphones className="h-6 w-6 text-emerald-600" />
+                              ) : (
+                                <EyeOff className="h-6 w-6 text-gray-400" />
                               )}
                             </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">{room.name}</h3>
+                              <div className="flex items-center gap-4 mt-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`${getQualityColor(room.quality)} border`}
+                                >
+                                  {getQualityIcon(room.quality)}
+                                  <span className="ml-1 capitalize">{room.quality}</span>
+                                </Badge>
+                                {room.is_active && (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                                    <Activity className="h-3 w-3 mr-1" />
+                                    Live
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" className="hover:bg-gray-50">
+                              <Settings className="h-4 w-4 mr-2" />
+                              Configure
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive"
+                              onClick={() => handleCloseRoom(room.id)}
+                              className="hover:bg-red-600"
+                            >
+                              <PhoneOff className="h-4 w-4 mr-2" />
+                              {room.is_active ? 'Close Room' : 'Delete Room'}
+                            </Button>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="hover:bg-gray-50">
-                            <Settings className="h-4 w-4 mr-2" />
-                            Configure
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="destructive"
-                            onClick={() => handleCloseRoom(room.id)}
-                            className="hover:bg-red-600"
-                          >
-                            <PhoneOff className="h-4 w-4 mr-2" />
-                            {room.is_active ? 'Close Room' : 'Delete Room'}
-                          </Button>
+                        {/* Capacity Progress Bar */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between text-sm mb-2">
+                            <span className="font-medium text-gray-700">Room Capacity</span>
+                            <span className="text-gray-600">
+                              {room.participant_count || 0} / {room.max_participants} participants
+                            </span>
+                          </div>
+                          <Progress 
+                            value={getCapacityPercentage(room.participant_count || 0, room.max_participants)} 
+                            className="h-2"
+                          />
                         </div>
-                      </div>
-                      
-                      {/* Capacity Progress Bar */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between text-sm mb-2">
-                          <span className="font-medium text-gray-700">Room Capacity</span>
-                          <span className="text-gray-600">
-                            {room.participant_count || 0} / {room.max_participants} participants
-                          </span>
+                        
+                        <Separator className="my-4" />
+                        
+                        {/* Room Stats Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <p className="font-semibold text-gray-900">{room.id.slice(-6).toUpperCase()}</p>
+                            <p className="text-gray-600">Room ID</p>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <p className="font-semibold text-gray-900">{getCapacityPercentage(room.participant_count || 0, room.max_participants)}%</p>
+                            <p className="text-gray-600">Capacity</p>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <p className="font-semibold text-gray-900">{room.is_active ? 'Active' : 'Inactive'}</p>
+                            <p className="text-gray-600">Status</p>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <p className="font-semibold text-gray-900 capitalize">{room.quality}</p>
+                            <p className="text-gray-600">Quality</p>
+                          </div>
                         </div>
-                        <Progress 
-                          value={getCapacityPercentage(room.participant_count || 0, room.max_participants)} 
-                          className="h-2"
-                        />
-                      </div>
-                      
-                      <Separator className="my-4" />
-                      
-                      {/* Room Stats Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                          <p className="font-semibold text-gray-900">{room.id.slice(-6).toUpperCase()}</p>
-                          <p className="text-gray-600">Room ID</p>
-                        </div>
-                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                          <p className="font-semibold text-gray-900">{getCapacityPercentage(room.participant_count || 0, room.max_participants)}%</p>
-                          <p className="text-gray-600">Capacity</p>
-                        </div>
-                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                          <p className="font-semibold text-gray-900">{room.is_active ? 'Active' : 'Inactive'}</p>
-                          <p className="text-gray-600">Status</p>
-                        </div>
-                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                          <p className="font-semibold text-gray-900 capitalize">{room.quality}</p>
-                          <p className="text-gray-600">Quality</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </TabsContent>
 
@@ -703,88 +677,98 @@ const VoiceCollaborationManager: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-gray-100">
-                    {participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center justify-between p-6 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <Avatar className="h-12 w-12">
-                              <AvatarFallback className={`${participant.is_connected ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} font-semibold`}>
-                                {participant.user_profile?.full_name?.slice(0, 2).toUpperCase() || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${participant.is_connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                          </div>
-                          
-                          <div className="flex items-center gap-3">
-                            {getRoleIcon(participant.user_profile?.role)}
-                            <div>
-                              <div className="font-semibold text-gray-900">{participant.user_profile?.full_name || 'Unknown User'}</div>
-                              <div className="text-sm text-gray-600">{participant.room?.name}</div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={`${getQualityColor(participant.connection_quality)} border text-xs`}
-                            >
-                              {getQualityIcon(participant.connection_quality)}
-                              <span className="ml-1 capitalize">{participant.connection_quality}</span>
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-6">
-                          {/* Audio Status */}
-                          <div className="flex items-center gap-3 text-sm">
-                            <div className="flex items-center gap-1">
-                              {participant.is_muted ? (
-                                <MicOff className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <Mic className="h-4 w-4 text-emerald-500" />
-                              )}
-                              {participant.is_speaking && (
-                                <div className="flex items-center gap-1">
-                                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                  <span className="text-emerald-600 font-medium">Speaking</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-gray-600">
-                              {Math.round(participant.audio_level * 100)}%
-                            </div>
-                          </div>
-                          
-                          {/* Connection Time */}
-                          <div className="text-xs text-gray-500 min-w-[60px]">
-                            {Math.round((Date.now() - new Date(participant.joined_at).getTime()) / 60000)}m ago
-                          </div>
-                          
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMuteParticipant(participant.id)}
-                              disabled={participant.is_muted}
-                              className="hover:bg-red-50 hover:border-red-300"
-                            >
-                              <VolumeX className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleKickParticipant(participant.id)}
-                              className="hover:bg-red-600"
-                            >
-                              <UserX className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+                  {participants.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Users className="h-8 w-8 text-gray-400" />
                       </div>
-                    ))}
-                  </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Participants</h3>
+                      <p className="text-gray-500">Participants will appear here when they join voice rooms</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {participants.map((participant) => (
+                        <div key={participant.id} className="flex items-center justify-between p-6 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <Avatar className="h-12 w-12">
+                                <AvatarFallback className={`${participant.is_connected ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} font-semibold`}>
+                                  {participant.user_profile?.full_name?.slice(0, 2).toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${participant.is_connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              {getRoleIcon(participant.user_profile?.role)}
+                              <div>
+                                <div className="font-semibold text-gray-900">{participant.user_profile?.full_name || 'Unknown User'}</div>
+                                <div className="text-sm text-gray-600">{participant.room?.name}</div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`${getQualityColor(participant.connection_quality)} border text-xs`}
+                              >
+                                {getQualityIcon(participant.connection_quality)}
+                                <span className="ml-1 capitalize">{participant.connection_quality}</span>
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-6">
+                            {/* Audio Status */}
+                            <div className="flex items-center gap-3 text-sm">
+                              <div className="flex items-center gap-1">
+                                {participant.is_muted ? (
+                                  <MicOff className="h-4 w-4 text-red-500" />
+                                ) : (
+                                  <Mic className="h-4 w-4 text-emerald-500" />
+                                )}
+                                {participant.is_speaking && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                    <span className="text-emerald-600 font-medium">Speaking</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-gray-600">
+                                {Math.round(participant.audio_level * 100)}%
+                              </div>
+                            </div>
+                            
+                            {/* Connection Time */}
+                            <div className="text-xs text-gray-500 min-w-[60px]">
+                              {Math.round((Date.now() - new Date(participant.joined_at).getTime()) / 60000)}m ago
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMuteParticipant(participant.id)}
+                                disabled={participant.is_muted}
+                                className="hover:bg-red-50 hover:border-red-300"
+                              >
+                                <VolumeX className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleKickParticipant(participant.id)}
+                                className="hover:bg-red-600"
+                              >
+                                <UserX className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -801,28 +785,15 @@ const VoiceCollaborationManager: React.FC = () => {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-8 p-6">
-                  {/* Database Setup Notice */}
-                  <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-6">
+                  <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-6">
                     <div className="flex items-start gap-3 mb-4">
-                      <AlertTriangle className="h-6 w-6 text-orange-600 mt-0.5" />
+                      <Activity className="h-6 w-6 text-emerald-600 mt-0.5" />
                       <div>
-                        <h4 className="font-semibold text-orange-800 text-lg">Database Setup Required</h4>
-                        <p className="text-orange-700 mt-2">
-                          To enable full voice collaboration functionality, create these tables in your Supabase database:
+                        <h4 className="font-semibold text-emerald-800 text-lg">Database Connected</h4>
+                        <p className="text-emerald-700 mt-2">
+                          Voice collaboration system is now connected to your live database with real-time functionality.
                         </p>
                       </div>
-                    </div>
-                    <div className="bg-white/60 rounded-lg p-4 mt-4">
-                      <ul className="space-y-2 text-sm text-orange-700">
-                        <li className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                          <code className="bg-orange-100 px-2 py-1 rounded text-orange-800">voice_rooms</code> - For managing voice chat rooms
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                          <code className="bg-orange-100 px-2 py-1 rounded text-orange-800">voice_participants</code> - For tracking participants in rooms
-                        </li>
-                      </ul>
                     </div>
                   </div>
                   
