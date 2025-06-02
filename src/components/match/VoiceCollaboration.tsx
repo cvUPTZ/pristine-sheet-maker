@@ -198,9 +198,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-600">Your audio:</span>
               <AudioLevelIndicator level={audioLevel} />
-              <span className="text-xs text-gray-500">
-                {(level * 100).toFixed(1)}%
-              </span>
               {isRecovering && (
                 <span className="text-xs text-yellow-600">• Recovering</span>
               )}
