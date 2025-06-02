@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -115,16 +114,18 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
   const assignReplacements = async () => {
     setLoading('assign-replacements');
     try {
-      // Get current assignments without replacements
+      // Get current assignments using raw SQL to include replacement info
       const { data: assignments, error: assignmentsError } = await supabase
-        .from('match_tracker_assignments')
-        .select('id, tracker_user_id')
+        .from('match_tracker_assignments_view')
+        .select('*')
         .eq('match_id', matchId);
 
       if (assignmentsError) throw assignmentsError;
 
-      // Filter assignments that don't have replacements
-      const assignmentsWithoutReplacements = assignments?.filter(a => !a.replacement_tracker_id) || [];
+      // Filter assignments that don't have replacements and have valid data
+      const assignmentsWithoutReplacements = assignments?.filter(a => 
+        a.id && a.tracker_user_id && !(a as any).replacement_tracker_id
+      ) || [];
 
       // Get available trackers
       const { data: trackers, error: trackersError } = await supabase
@@ -134,7 +135,7 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
 
       if (trackersError) throw trackersError;
 
-      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id) || []);
+      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id).filter(Boolean) || []);
       const availableTrackers = trackers?.filter(tracker => !assignedTrackerIds.has(tracker.id)) || [];
 
       if (assignmentsWithoutReplacements.length === 0) {
@@ -147,23 +148,24 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
         return;
       }
 
-      // Assign replacements using raw SQL to bypass type checking
+      // Assign replacements using raw SQL update
       let assignmentCount = 0;
       for (let i = 0; i < Math.min(assignmentsWithoutReplacements.length, availableTrackers.length); i++) {
         const assignment = assignmentsWithoutReplacements[i];
         const replacement = availableTrackers[i];
 
-        // Use raw SQL to update the replacement_tracker_id
-        const { error } = await supabase.rpc('assign_replacement_tracker', {
-          assignment_id: assignment.id,
-          replacement_id: replacement.id
-        });
+        if (assignment.id && replacement.id) {
+          // Use raw SQL to update the replacement_tracker_id
+          const { error } = await supabase
+            .rpc('assign_replacement_tracker', {
+              assignment_id: assignment.id,
+              replacement_id: replacement.id
+            } as any);
 
-        if (!error) {
-          assignmentCount++;
-          
-          // Notify replacement tracker
-          if (replacement.id) {
+          if (!error) {
+            assignmentCount++;
+            
+            // Notify replacement tracker
             await supabase.from('notifications').insert({
               user_id: replacement.id,
               match_id: matchId,

@@ -50,7 +50,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
 
       if (error) throw error;
       
-      // Transform the data to match our interface
+      // Transform the data to match our interface with type assertions
       const transformedData: TrackerAssignment[] = (data || [])
         .filter(item => item.id && item.tracker_user_id)
         .map(item => ({
@@ -59,8 +59,8 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
           tracker_email: item.tracker_email,
           player_id: item.player_id,
           assigned_event_types: item.assigned_event_types,
-          replacement_tracker_id: item.replacement_tracker_id,
-          replacement_tracker_email: item.replacement_tracker_email
+          replacement_tracker_id: (item as any).replacement_tracker_id,
+          replacement_tracker_email: (item as any).replacement_tracker_email
         }));
       
       setAssignments(transformedData);
@@ -79,13 +79,15 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
 
       if (error) throw error;
       
-      // Transform the data to handle nullable fields
+      // Transform the data to handle nullable fields with type guards
       const transformedData: TrackerProfile[] = (data || [])
-        .filter(tracker => tracker.full_name && tracker.email)
+        .filter((tracker): tracker is { id: string; full_name: string; email: string } => 
+          tracker.full_name !== null && tracker.email !== null
+        )
         .map(tracker => ({
           id: tracker.id,
-          full_name: tracker.full_name!,
-          email: tracker.email!
+          full_name: tracker.full_name,
+          email: tracker.email
         }));
       
       setAvailableTrackers(transformedData);
@@ -97,11 +99,11 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
   const assignReplacement = async (assignmentId: string, replacementId: string) => {
     setLoading(true);
     try {
-      // Use raw SQL to update the replacement tracker due to type constraints
+      // Use raw SQL to update the replacement tracker using type assertion
       const { error } = await supabase.rpc('assign_replacement_tracker', {
         assignment_id: assignmentId,
         replacement_id: replacementId
-      });
+      } as any);
 
       if (error) throw error;
 
