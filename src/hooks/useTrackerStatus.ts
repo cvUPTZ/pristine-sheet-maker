@@ -43,9 +43,8 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
       });
 
       setLastBroadcast(now);
-      // Removed excessive logging
     } catch (error) {
-      console.error('[TrackerStatus] Failed to broadcast status:', error);
+      console.error('Failed to broadcast status:', error);
     }
   }, [matchId, userId, lastBroadcast]);
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MatchEvent, EventType } from '@/types';
@@ -60,7 +61,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
 
   // Fetch initial events
   const fetchEvents = useCallback(async () => {
-    console.log('[useRealtimeMatch] Fetching events for match:', matchId);
     try {
       const { data, error } = await supabase
         .from('match_events')
@@ -80,9 +80,8 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
         event_counts: eventCounts[tracker.user_id] || {}
       })));
       
-      console.log('[useRealtimeMatch] Loaded events:', transformedEvents.length);
     } catch (error) {
-      console.error('[useRealtimeMatch] Error fetching events:', error);
+      console.error('Error fetching events:', error);
     } finally {
       setLoading(false);
     }
@@ -112,17 +111,14 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
         
         const initialTrackers = Array.from(trackerMap.values());
         setTrackers(initialTrackers);
-        console.log('[useRealtimeMatch] Initial trackers loaded:', initialTrackers);
       }
     } catch (error) {
-      console.error('[useRealtimeMatch] Error fetching trackers:', error);
+      console.error('Error fetching trackers:', error);
     }
   }, [matchId]);
 
   // Handle real-time events
   const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('[useRealtimeMatch] Real-time event:', payload);
-
     if (payload.eventType === 'INSERT') {
       const newEvent = transformEvent(payload.new);
       
@@ -156,7 +152,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
       setEvents(prev => {
         if (prev.find(e => e.id === newEvent.id)) return prev;
         const updated = [...prev, newEvent].sort((a, b) => a.timestamp - b.timestamp);
-        console.log('[useRealtimeMatch] Event added, total:', updated.length);
         return updated;
       });
       onEventReceived?.(newEvent);
@@ -187,8 +182,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
 
   // Handle tracker presence updates
   const handleTrackerUpdate = useCallback((payload: any) => {
-    console.log('[useRealtimeMatch] Tracker update received:', payload);
-    
     if (payload.type === 'tracker_status') {
       setTrackers(prev => {
         const updated = prev.map(t => 
@@ -213,7 +206,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
           });
         }
         
-        console.log('[useRealtimeMatch] Trackers updated:', updated);
         return updated;
       });
     }
@@ -222,8 +214,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
   // Broadcast tracker status
   const broadcastStatus = useCallback((status: 'active' | 'inactive' | 'recording', action?: string) => {
     if (!user?.id) return;
-    
-    console.log('[useRealtimeMatch] Broadcasting status:', { status, action, userId: user.id });
     
     const channel = supabase.channel(`match-${matchId}`);
     channel.send({
@@ -236,18 +226,14 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
         action,
         timestamp: Date.now()
       }
-    }).then(() => {
-      console.log('[useRealtimeMatch] Status broadcast sent successfully');
     }).catch((error) => {
-      console.error('[useRealtimeMatch] Error broadcasting status:', error);
+      console.error('Error broadcasting status:', error);
     });
   }, [matchId, user?.id]);
 
   // Set up real-time subscriptions
   useEffect(() => {
     if (!matchId) return;
-
-    console.log('[useRealtimeMatch] Setting up subscriptions for match:', matchId);
 
     // Fetch initial data
     fetchEvents();
@@ -267,7 +253,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
         handleRealtimeEvent
       )
       .subscribe((status) => {
-        console.log('[useRealtimeMatch] Events subscription status:', status);
         setIsConnected(status === 'SUBSCRIBED');
       });
 
@@ -275,9 +260,7 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     const trackerChannel = supabase
       .channel(`match_${matchId}`)
       .on('broadcast', { event: 'tracker_update' }, handleTrackerUpdate)
-      .subscribe((status) => {
-        console.log('[useRealtimeMatch] Tracker subscription status:', status);
-      });
+      .subscribe();
 
     // Broadcast that we're online
     if (user?.id) {
@@ -287,7 +270,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     }
 
     return () => {
-      console.log('[useRealtimeMatch] Cleaning up subscriptions');
       if (user?.id) {
         broadcastStatus('inactive');
       }
