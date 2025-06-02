@@ -67,13 +67,15 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
         .eq('match_id', matchId);
 
       if (assignments) {
-        const trackerData: TrackerData[] = assignments.map(assignment => ({
-          user_id: assignment.tracker_user_id,
-          email: assignment.tracker_email || '',
-          status: 'inactive' as const,
-          last_activity: Date.now(),
-          event_counts: {}
-        }));
+        const trackerData: TrackerData[] = assignments
+          .filter(assignment => assignment.tracker_user_id) // Filter out null user_ids
+          .map(assignment => ({
+            user_id: assignment.tracker_user_id,
+            email: assignment.tracker_email || '',
+            status: 'inactive' as const,
+            last_activity: Date.now(),
+            event_counts: {}
+          }));
         setTrackers(trackerData);
       }
     } catch (error) {
