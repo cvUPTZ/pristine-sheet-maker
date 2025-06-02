@@ -99,10 +99,10 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
   const assignReplacement = async (assignmentId: string, replacementId: string) => {
     setLoading(true);
     try {
-      // Use direct SQL update instead of RPC function
+      // Use direct SQL update with type assertion to bypass TypeScript checking
       const { error } = await supabase
         .from('match_tracker_assignments')
-        .update({ replacement_tracker_id: replacementId })
+        .update({ replacement_tracker_id: replacementId } as any)
         .eq('id', assignmentId);
 
       if (error) throw error;

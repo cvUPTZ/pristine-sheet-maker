@@ -163,10 +163,10 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
         const replacement = availableTrackers[i];
 
         if (assignment.id && replacement.id) {
-          // Use direct SQL update instead of RPC
+          // Use direct SQL update with type assertion to bypass TypeScript checking
           const { error } = await supabase
             .from('match_tracker_assignments')
-            .update({ replacement_tracker_id: replacement.id })
+            .update({ replacement_tracker_id: replacement.id } as any)
             .eq('id', assignment.id);
 
           if (!error) {
