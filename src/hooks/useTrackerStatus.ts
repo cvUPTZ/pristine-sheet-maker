@@ -29,7 +29,7 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
           channelRef.current = null;
         }
 
-        // Create new channel
+        // Use the same channel name as useRealtimeMatch for consistency
         const channelName = `match-${matchId}`;
         channelRef.current = supabase.channel(channelName);
         
@@ -94,8 +94,8 @@ export const useTrackerStatus = (matchId: string, userId: string) => {
 
     const now = Date.now();
     
-    // Throttle broadcasts to prevent spam (minimum 2 seconds between broadcasts)
-    if (now - lastBroadcast < 2000) {
+    // Throttle broadcasts to prevent spam (minimum 5 seconds between broadcasts)
+    if (now - lastBroadcast < 5000) {
       console.log('TrackerStatus: Broadcast throttled');
       return;
     }

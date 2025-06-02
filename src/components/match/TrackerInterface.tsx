@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
 import useBatteryMonitor from '@/hooks/useBatteryMonitor';
-import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useTrackerStatus } from '@/hooks/useTrackerStatus';
 
 interface TrackerInterfaceProps {
@@ -28,22 +27,9 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const batteryStatus = useBatteryMonitor(trackerUserId);
   
   // Use the enhanced tracker status hook
-  const { broadcastStatus, isConnected: trackerConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
+  const { broadcastStatus, isConnected, cleanup } = useTrackerStatus(matchId, trackerUserId);
 
-  // Use the realtime match hook to handle presence
-  const { broadcastStatus: legacyBroadcast, isConnected: matchConnected } = useRealtimeMatch({ 
-    matchId,
-    onEventReceived: () => {
-      // Handle events if needed
-    }
-  });
-
-  // Use tracker connection status as primary indicator
-  const isConnected = trackerConnected;
-
-  console.log('TrackerInterface: Connection states', { 
-    trackerConnected, 
-    matchConnected, 
+  console.log('TrackerInterface: Connection state', { 
     isConnected,
     trackerUserId,
     matchId
@@ -114,9 +100,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         battery_level: batteryStatus.level || undefined,
         network_quality: getNetworkQuality()
       });
-      
-      // Also use legacy broadcast for backward compatibility
-      legacyBroadcast('active');
     };
 
     // Initial broadcast when connected
@@ -131,7 +114,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         intervalRef.current = null;
       }
     };
-  }, [trackerUserId, matchId, isConnected, broadcastStatus, legacyBroadcast, batteryStatus.level]);
+  }, [trackerUserId, matchId, isConnected, broadcastStatus, batteryStatus.level]);
 
   // Cleanup on unmount
   useEffect(() => {
