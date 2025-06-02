@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -216,23 +215,15 @@ const MockDataGenerator: React.FC = () => {
         const trackerAssignment = assignments.find(a => a.tracker_user_id === trackerId);
         if (!trackerAssignment) continue;
 
-        // Assign a replacement tracker
+        // Assign a replacement tracker using direct database update
         const replacementTracker = availableReplacements[replacementCount % availableReplacements.length];
         
-        // Use the database function to assign replacement
-        const { error } = await supabase.rpc('assign_replacement_tracker', {
-          assignment_id: trackerAssignment.id,
-          replacement_id: replacementTracker.id
-        });
+        const { error } = await supabase
+          .from('match_tracker_assignments')
+          .update({ tracker_user_id: replacementTracker.id })
+          .eq('id', trackerAssignment.id);
 
-        if (error) {
-          console.warn('RPC function not available, using direct update:', error);
-          // Fallback to direct update if RPC function doesn't exist
-          await supabase
-            .from('match_tracker_assignments')
-            .update({ tracker_user_id: replacementTracker.id })
-            .eq('id', trackerAssignment.id);
-        }
+        if (error) throw error;
 
         replacementCount++;
       }
