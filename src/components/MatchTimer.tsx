@@ -1,21 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-// Icons are removed as controls are removed from this component
-// import { TimerReset, Play, Pause, Plus, Minus } from 'lucide-react'; 
-// useToast is removed as this component will no longer show toasts for local actions
-// import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 interface MatchTimerProps {
   dbTimerValue?: number | null; // from match.current_timer_value
   timerStatus?: string | null; // from match.timer_status: 'stopped', 'running', 'paused'
   timerLastStartedAt?: string | null; // from match.timer_last_started_at (ISO string)
+  timerPeriod?: string | null; // from match.timer_period
+  timerAddedTime?: number | null; // from match.timer_added_time
+  showControls?: boolean; // whether to show admin controls
 }
 
 const MatchTimer: React.FC<MatchTimerProps> = ({ 
   dbTimerValue = 0, 
   timerStatus = 'stopped', 
-  timerLastStartedAt 
+  timerLastStartedAt,
+  timerPeriod = 'first_half',
+  timerAddedTime = 0,
+  showControls = false
 }) => {
   const [displayTime, setDisplayTime] = useState(dbTimerValue || 0);
 
@@ -48,6 +51,16 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
     const seconds = Math.floor(totalSeconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  const getPeriodDisplay = () => {
+    switch (timerPeriod) {
+      case 'first_half': return 'First Half';
+      case 'second_half': return 'Second Half';
+      case 'extra_time': return 'Extra Time';
+      case 'penalties': return 'Penalties';
+      default: return 'Match';
+    }
+  };
   
   // Ensure displayTime is a number to avoid NaN display
   const safeDisplayTime = isNaN(displayTime) ? 0 : displayTime;
@@ -59,14 +72,27 @@ const MatchTimer: React.FC<MatchTimerProps> = ({
           <div className="text-3xl font-mono font-bold flex items-center justify-center bg-black/5 dark:bg-white/10 rounded-md px-4 py-2 w-32">
             {formatTime(safeDisplayTime)}
           </div>
-          <div className="mt-2 text-sm text-muted-foreground">
-            Status: <span className={`font-semibold ${
-              timerStatus === 'running' ? 'text-green-500' :
-              timerStatus === 'paused' ? 'text-yellow-500' :
-              'text-red-500'
-            }`}>
+          <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+            <span>Status: </span>
+            <Badge variant={
+              timerStatus === 'running' ? 'default' :
+              timerStatus === 'paused' ? 'secondary' :
+              'outline'
+            } className={
+              timerStatus === 'running' ? 'bg-green-500' :
+              timerStatus === 'paused' ? 'bg-yellow-500' :
+              'bg-red-500'
+            }>
               {timerStatus ? timerStatus.charAt(0).toUpperCase() + timerStatus.slice(1) : 'Unknown'}
-            </span>
+            </Badge>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground flex items-center gap-2">
+            <Badge variant="outline">{getPeriodDisplay()}</Badge>
+            {timerAddedTime && timerAddedTime > 0 && (
+              <Badge variant="secondary">
+                +{Math.floor(timerAddedTime / 60)}min
+              </Badge>
+            )}
           </div>
         </div>
       </CardContent>

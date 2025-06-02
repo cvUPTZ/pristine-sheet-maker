@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
-export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | string;
+export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | string;
 
 export interface RolePermissions {
   pitchView: boolean;
@@ -13,6 +12,10 @@ export interface RolePermissions {
   analytics: boolean;
   ballTracking: boolean;
   liveEvents: boolean;
+  dashboard: boolean;
+  matchManagement: boolean;
+  timerControl: boolean;
+  reportGeneration: boolean;
   [key: string]: boolean;
 }
 
@@ -25,6 +28,23 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: true,
     ballTracking: true,
     liveEvents: true,
+    dashboard: true,
+    matchManagement: true,
+    timerControl: true,
+    reportGeneration: true,
+  },
+  manager: {
+    pitchView: true,
+    pianoInput: false,
+    statistics: true,
+    timeline: true,
+    analytics: true,
+    ballTracking: false,
+    liveEvents: false,
+    dashboard: true,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: true,
   },
   tracker: {
     pitchView: false,
@@ -34,6 +54,10 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: false,
     ballTracking: false,
     liveEvents: false,
+    dashboard: false,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
   },
   teacher: {
     pitchView: true,
@@ -43,6 +67,10 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: true,
     ballTracking: false,
     liveEvents: false,
+    dashboard: false,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
   },
   user: {
     pitchView: true,
@@ -52,6 +80,10 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: false,
     ballTracking: false,
     liveEvents: false,
+    dashboard: false,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
   },
   default: { 
     pitchView: false,
@@ -61,6 +93,10 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     analytics: false,
     ballTracking: false,
     liveEvents: false,
+    dashboard: false,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
   }
 };
 

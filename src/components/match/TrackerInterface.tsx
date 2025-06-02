@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
+import MatchTimer from '@/components/MatchTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
@@ -16,10 +17,22 @@ interface TrackerInterfaceProps {
   matchId: string;
 }
 
+interface MatchData {
+  id: string;
+  name?: string;
+  home_team_name: string;
+  away_team_name: string;
+  timer_status?: string;
+  current_timer_value?: number;
+  timer_last_started_at?: string;
+  timer_period?: string;
+  timer_added_time?: number;
+}
+
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [matchName, setMatchName] = useState<string>('');
+  const [matchData, setMatchData] = useState<MatchData | null>(null);
   const isMobile = useIsMobile();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -58,7 +71,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         console.log('TrackerInterface: Fetching match info for:', matchId);
         const { data: matchData, error: matchError } = await supabase
           .from('matches')
-          .select('name, home_team_name, away_team_name')
+          .select('*')
           .eq('id', matchId)
           .single();
 
@@ -66,9 +79,8 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           throw new Error(`Failed to fetch match data: ${matchError.message}`);
         }
 
-        const name = matchData.name || `${matchData.home_team_name} vs ${matchData.away_team_name}`;
-        setMatchName(name);
-        console.log('TrackerInterface: Match info loaded:', name);
+        setMatchData(matchData);
+        console.log('TrackerInterface: Match info loaded:', matchData);
 
       } catch (e: any) {
         console.error('TrackerInterface: Error fetching match info:', e);
@@ -79,6 +91,28 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     }
 
     fetchMatchInfo();
+
+    // Set up real-time subscription for timer updates
+    const channel = supabase
+      .channel(`match-timer-tracker-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `id=eq.${matchId}`
+        },
+        (payload) => {
+          console.log('TrackerInterface: Timer update received:', payload.new);
+          setMatchData(prev => prev ? { ...prev, ...payload.new } : null);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [trackerUserId, matchId]);
 
   // Enhanced status broadcasting with battery and network info
@@ -155,6 +189,8 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     );
   }
 
+  const matchName = matchData?.name || `${matchData?.home_team_name} vs ${matchData?.away_team_name}`;
+
   return (
     <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-6xl">
       <Card className="mb-3 sm:mb-6">
@@ -183,6 +219,19 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           </div>
         </CardContent>
       </Card>
+
+      {/* Match Timer Display */}
+      {matchData && (
+        <div className="mb-3 sm:mb-6">
+          <MatchTimer
+            dbTimerValue={matchData.current_timer_value}
+            timerStatus={matchData.timer_status}
+            timerLastStartedAt={matchData.timer_last_started_at}
+            timerPeriod={matchData.timer_period}
+            timerAddedTime={matchData.timer_added_time}
+          />
+        </div>
+      )}
 
       {/* Voice Collaboration */}
       <div className="mb-3 sm:mb-6">
