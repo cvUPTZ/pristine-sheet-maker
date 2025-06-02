@@ -10,8 +10,14 @@ import MatchManagement from './MatchManagement';
 import EventAssignments from './EventAssignments';
 import PlayerAssignments from './PlayerAssignments';
 import AuditLogs from './AuditLogs';
+import TrackerBatteryMonitor from './TrackerBatteryMonitor';
+import MatchTrackingMatrix from './MatchTrackingMatrix';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
+import TrackerAbsenceManager from './TrackerAbsenceManager';
+import TrackerReplacementManager from './TrackerReplacementManager';
+import QuickPlanningActions from './QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 
 interface Match {
   id: string;
@@ -32,11 +38,19 @@ const Admin: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [planningData, setPlanningData] = useState<any>(null);
+  const [loadingPlanning, setLoadingPlanning] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchMatches();
   }, []);
+
+  useEffect(() => {
+    if (selectedMatchId) {
+      fetchPlanningData();
+    }
+  }, [selectedMatchId]);
 
   const fetchMatches = async () => {
     try {
@@ -76,23 +90,99 @@ const Admin: React.FC = () => {
     }
   };
 
+  const fetchPlanningData = async () => {
+    if (!selectedMatchId) return;
+    
+    setLoadingPlanning(true);
+    try {
+      // Fetch tracker assignments
+      const { data: assignments } = await supabase
+        .from('match_tracker_assignments_view')
+        .select('*')
+        .eq('match_id', selectedMatchId);
+
+      // Fetch available trackers
+      const { data: trackers } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'tracker');
+
+      // Fetch match details
+      const { data: match } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', selectedMatchId)
+        .single();
+
+      setPlanningData({
+        assignments: assignments || [],
+        trackers: trackers || [],
+        match: match
+      });
+    } catch (error) {
+      console.error('Error fetching planning data:', error);
+    } finally {
+      setLoadingPlanning(false);
+    }
+  };
+
+  const getAssignmentStats = () => {
+    if (!planningData) return { assigned: 0, total: 0, coverage: 0 };
+    
+    const totalPlayers = (planningData.match?.home_team_players?.length || 0) + 
+                        (planningData.match?.away_team_players?.length || 0);
+    const assignedPlayers = planningData.assignments.filter((a: any) => a.player_id).length;
+    const coverage = totalPlayers > 0 ? Math.round((assignedPlayers / totalPlayers) * 100) : 0;
+    
+    return {
+      assigned: assignedPlayers,
+      total: totalPlayers,
+      coverage
+    };
+  };
+
+  const getTrackerStats = () => {
+    if (!planningData) return { assigned: 0, available: 0, active: 0 };
+    
+    const assignedTrackers = new Set(planningData.assignments.map((a: any) => a.tracker_user_id)).size;
+    const availableTrackers = planningData.trackers.length;
+    const activeTrackers = planningData.trackers.filter((t: any) => 
+      planningData.assignments.some((a: any) => a.tracker_user_id === t.id)
+    ).length;
+    
+    return {
+      assigned: assignedTrackers,
+      available: availableTrackers,
+      active: activeTrackers
+    };
+  };
+
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6 max-w-7xl">
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-7 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-10 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
           <TabsTrigger value="matches" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Matches
           </TabsTrigger>
-          <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
-            Planning
+          <TabsTrigger value="planning" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-blue-100 border-blue-300">
+            📋 Match Planning
+          </TabsTrigger>
+          <TabsTrigger value="replacement" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            {isMobile ? 'Replace' : 'Tracker Replacement'}
+          </TabsTrigger>
+          <TabsTrigger value="matrix" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            {isMobile ? 'Matrix' : 'Tracking Matrix'}
           </TabsTrigger>
           <TabsTrigger value="events" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             {isMobile ? 'Events' : 'Event Assignments'}
+          </TabsTrigger>
+          <TabsTrigger value="battery" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
+            Battery
           </TabsTrigger>
           {!isMobile && (
             <>
@@ -123,41 +213,256 @@ const Admin: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="planning" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Match Planning & Organization</CardTitle>
+          <div className="space-y-6">
+            {/* Enhanced Match Selection Header */}
+            <Card className="border-l-4 border-l-blue-500">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                <CardTitle className="flex items-center gap-2">
+                  📋 Comprehensive Match Planning Center
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Complete planning, assignment management, readiness tracking, and absence monitoring for match operations
+                </p>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    Loading matches...
+                  </div>
+                ) : matches.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="text-4xl mb-4">📅</div>
+                    <p className="text-lg font-medium">No matches available for planning</p>
+                    <p className="text-sm">Create a match first to access comprehensive planning features</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium mb-2">Select Match to Plan</label>
+                        <select
+                          value={selectedMatchId || ''}
+                          onChange={(e) => setSelectedMatchId(e.target.value)}
+                          className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          {matches.map((match) => (
+                            <option key={match.id} value={match.id}>
+                              {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                              {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                              {` (${match.status.toUpperCase()})`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {planningData && (
+                        <div className="flex gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="font-bold text-lg text-blue-600">{getAssignmentStats().coverage}%</div>
+                            <div className="text-gray-600">Coverage</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg text-green-600">{getTrackerStats().active}</div>
+                            <div className="text-gray-600">Active Trackers</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Planning Overview Cards */}
+            {selectedMatchId && planningData && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="border-l-4 border-l-green-500">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Player Assignment Status
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-2xl font-bold text-green-600">{getAssignmentStats().assigned}</span>
+                        <span className="text-sm text-gray-500">of {getAssignmentStats().total}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-500 h-2 rounded-full" 
+                          style={{ width: `${getAssignmentStats().coverage}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {getAssignmentStats().coverage}% players assigned to trackers
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Tracker Availability
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-2xl font-bold text-blue-600">{getTrackerStats().active}</span>
+                        <span className="text-sm text-gray-500">of {getTrackerStats().available}</span>
+                      </div>
+                      <div className="flex gap-2 text-xs">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                          {getTrackerStats().active} Active
+                        </span>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
+                          {getTrackerStats().available - getTrackerStats().active} Available
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-orange-500">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Absence Monitoring
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">🔍</div>
+                        <div className="text-sm font-medium text-orange-600">Active</div>
+                      </div>
+                      <div className="text-xs text-center text-gray-600">
+                        Real-time tracker monitoring enabled
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-purple-500">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Match Readiness</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="text-center">
+                        {getAssignmentStats().coverage >= 80 ? (
+                          <>
+                            <div className="text-2xl">✅</div>
+                            <div className="text-sm font-medium text-green-600">Ready</div>
+                          </>
+                        ) : getAssignmentStats().coverage >= 50 ? (
+                          <>
+                            <div className="text-2xl">⚠️</div>
+                            <div className="text-sm font-medium text-yellow-600">Partial</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-2xl">❌</div>
+                            <div className="text-sm font-medium text-red-600">Not Ready</div>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-xs text-center text-gray-600">
+                        {getAssignmentStats().coverage >= 80 ? 'Match is ready to start' : 
+                         getAssignmentStats().coverage >= 50 ? 'More assignments needed' : 
+                         'Critical assignments missing'}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Tracker Absence Management */}
+            {selectedMatchId && (
+              <TrackerAbsenceManager matchId={selectedMatchId} />
+            )}
+
+            {/* Quick Actions - Now Functional */}
+            {selectedMatchId && planningData && (
+              <QuickPlanningActions 
+                matchId={selectedMatchId} 
+                onActionComplete={fetchPlanningData}
+              />
+            )}
+
+            {/* Enhanced Planning Network */}
+            {selectedMatchId && (
+              <>
+                {loadingPlanning ? (
+                  <Card>
+                    <CardContent className="py-12">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <div className="text-lg font-semibold">Loading planning data...</div>
+                        <div className="text-sm text-gray-600">Analyzing assignments and tracker status</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <MatchPlanningNetwork matchId={selectedMatchId} />
+                )}
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="replacement" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
+              <CardTitle className="flex items-center gap-2">
+                🔄 Tracker Replacement Management
+              </CardTitle>
               <p className="text-sm text-gray-600">
-                Comprehensive match planning dashboard for tracker assignments and event coordination
+                Manage backup tracker assignments and replacement procedures for match operations
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               {loading ? (
-                <div className="text-center py-8">Loading matches...</div>
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                  Loading matches...
+                </div>
               ) : matches.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No matches available for planning</p>
-                  <p className="text-sm">Create a match first to access planning features</p>
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-4xl mb-4">👥</div>
+                  <p className="text-lg font-medium">No matches available</p>
+                  <p className="text-sm">Create a match first to manage tracker replacements</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Select Match to Plan</label>
+                    <label className="block text-sm font-medium mb-2">Select Match for Replacement Management</label>
                     <select
                       value={selectedMatchId || ''}
                       onChange={(e) => setSelectedMatchId(e.target.value)}
-                      className="w-full max-w-md p-2 border border-gray-300 rounded-md"
+                      className="w-full max-w-md p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     >
                       {matches.map((match) => (
                         <option key={match.id} value={match.id}>
                           {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
                           {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                          {` (${match.status.toUpperCase()})`}
                         </option>
                       ))}
                     </select>
                   </div>
                   
                   {selectedMatchId && (
-                    <MatchPlanningNetwork matchId={selectedMatchId} />
+                    <TrackerReplacementManager 
+                      matchId={selectedMatchId} 
+                      onReplacementUpdate={fetchPlanningData}
+                    />
                   )}
                 </div>
               )}
@@ -165,8 +470,16 @@ const Admin: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="matrix" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <MatchTrackingMatrix />
+        </TabsContent>
+
         <TabsContent value="events" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <EventAssignments />
+        </TabsContent>
+
+        <TabsContent value="battery" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <TrackerBatteryMonitor />
         </TabsContent>
 
         {isMobile ? (
