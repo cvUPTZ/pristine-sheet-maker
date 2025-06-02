@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +17,7 @@ import TrackerReplacementManager from '@/components/admin/TrackerReplacementMana
 import QuickPlanningActions from '@/components/admin/QuickPlanningActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
+import MockDataGenerator from '@/components/admin/MockDataGenerator';
 
 interface Match {
   id: string;
@@ -120,7 +120,7 @@ const Admin: React.FC = () => {
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 lg:mb-6">Admin Panel</h1>
       
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-11 h-10'} gap-1 sm:gap-0`}>
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-12 h-10'} gap-1 sm:gap-0`}>
           <TabsTrigger value="users" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Users
           </TabsTrigger>
@@ -141,6 +141,9 @@ const Admin: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="battery" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5">
             Battery
+          </TabsTrigger>
+          <TabsTrigger value="mock-data" className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-1.5 bg-green-100 border-green-300">
+            {isMobile ? '🎭 Mock' : '🎭 Mock Data'}
           </TabsTrigger>
           {!isMobile && (
             <>
@@ -367,6 +370,10 @@ const Admin: React.FC = () => {
 
         <TabsContent value="battery" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <TrackerBatteryMonitor />
+        </TabsContent>
+
+        <TabsContent value="mock-data" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <MockDataGenerator />
         </TabsContent>
 
         {isMobile ? (
