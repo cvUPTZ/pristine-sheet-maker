@@ -1,4 +1,3 @@
-
 # YouTube Video Analysis with Gemini AI
 
 This Supabase edge function uses Google's Gemini AI to analyze soccer match videos from YouTube and extract detailed statistics.
@@ -40,4 +39,3 @@ The function returns a structured JSON object with:
 - Analysis accuracy depends on video quality and the AI model's capabilities
 - Processing time varies based on video length and complexity
 - The edge function has a maximum execution time of 60 seconds
-```
