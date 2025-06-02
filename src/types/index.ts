@@ -36,7 +36,7 @@ export type Formation =
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
   | 'Unknown';
 
-export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user' | 'manager';
+export type UserRoleType = 'admin' | 'tracker' | 'viewer' | 'user' | 'manager' | 'teacher';
 
 export interface Player {
   id: string | number;
@@ -190,14 +190,14 @@ export interface MatchEvent {
 
 export interface Match {
   id: string;
-  name?: string;
+  name?: string | null;
   status: string;
   home_team_name: string;
   away_team_name: string;
   home_team_formation?: string | null;
   away_team_formation?: string | null;
   match_date?: string | null;
-  location?: string | null; // Changed from string to string | null
+  location?: string | null;
   created_at?: string;
   updated_at?: string;
   created_by?: string;
