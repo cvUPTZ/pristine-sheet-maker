@@ -68,9 +68,9 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
 
       if (assignments) {
         const trackerData: TrackerData[] = assignments
-          .filter(assignment => assignment.tracker_user_id) // Filter out null user_ids
+          .filter(assignment => assignment.tracker_user_id && assignment.tracker_user_id !== null)
           .map(assignment => ({
-            user_id: assignment.tracker_user_id,
+            user_id: assignment.tracker_user_id!,
             email: assignment.tracker_email || '',
             status: 'inactive' as const,
             last_activity: Date.now(),

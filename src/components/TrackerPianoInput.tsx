@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { EventType } from '@/types';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
+import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
 import { Undo } from 'lucide-react';
@@ -52,7 +53,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const { user } = useAuth();
 
   // Use the centralized real-time system
-  const { broadcastStatus } = useRealtimeMatch({
+  const { } = useRealtimeMatch({
     matchId,
     onEventReceived: (event) => {
       console.log('[TrackerPianoInput] Event received via real-time:', event);
@@ -68,6 +69,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       }
     }
   });
+
+  // Use unified tracker connection for status broadcasting
+  const { broadcastStatus } = useUnifiedTrackerConnection(matchId, user?.id || '');
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -255,7 +259,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     setRecordingEventType(eventType.key);
     
     // Broadcast that we're recording
-    broadcastStatus('recording', `recording_${eventType.key}`);
+    broadcastStatus({
+      status: 'recording',
+      timestamp: Date.now(),
+      activity: `recording_${eventType.key}`
+    });
 
     try {
       let teamContext = null;
@@ -302,7 +310,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       console.log('Event recorded successfully:', data);
       
       // Broadcast that we're back to active status
-      broadcastStatus('active', `recorded_${eventType.key}`);
+      broadcastStatus({
+        status: 'active',
+        timestamp: Date.now(),
+        activity: `recorded_${eventType.key}`
+      });
       
       toast({
         title: "Event Recorded",
@@ -311,7 +323,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       
     } catch (error: any) {
       console.error("Error in recordEvent:", error);
-      broadcastStatus('active'); // Reset status on error
+      broadcastStatus({ status: 'active', timestamp: Date.now() }); // Reset status on error
       toast({
         title: "Error",
         description: error.message || "Failed to record event",
