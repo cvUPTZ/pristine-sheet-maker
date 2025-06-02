@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -63,88 +62,7 @@ export const useVoiceCollaboration = ({
     setDebugInfo(prev => [...prev.slice(-14), debugMessage]); // Keep last 15 messages
   }, []);
 
-  // Comprehensive browser capability check
-  const checkBrowserCapabilities = useCallback(() => {
-    addDebugInfo('🔍 Checking browser capabilities...');
-    
-    const capabilities = {
-      getUserMedia: !!navigator.mediaDevices?.getUserMedia,
-      webRTC: !!window.RTCPeerConnection,
-      audioContext: !!(window.AudioContext || (window as any).webkitAudioContext),
-      isSecure: location.protocol === 'https:' || location.hostname === 'localhost',
-      userAgent: navigator.userAgent
-    };
-    
-    addDebugInfo(`📊 Browser info: ${JSON.stringify(capabilities)}`);
-    
-    if (!capabilities.getUserMedia) {
-      addDebugInfo('❌ getUserMedia not supported');
-      return false;
-    }
-    
-    if (!capabilities.webRTC) {
-      addDebugInfo('❌ WebRTC not supported');
-      return false;
-    }
-    
-    if (!capabilities.audioContext) {
-      addDebugInfo('❌ AudioContext not supported');
-      return false;
-    }
-    
-    if (!capabilities.isSecure) {
-      addDebugInfo('⚠️ Not in secure context - some features may not work');
-    }
-    
-    addDebugInfo('✅ All required capabilities supported');
-    return true;
-  }, [addDebugInfo]);
-
-  // Enhanced audio constraints with debugging
-  const getAudioConstraints = useCallback(() => {
-    addDebugInfo('🎛️ Setting up audio constraints');
-    const constraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: { ideal: 48000 },
-        channelCount: { ideal: 1 },
-        latency: { ideal: 0.01 }
-      },
-      video: false
-    };
-    addDebugInfo(`🎛️ Constraints: ${JSON.stringify(constraints)}`);
-    return constraints;
-  }, [addDebugInfo]);
-
-  // Enhanced media device enumeration
-  const enumerateAudioDevices = useCallback(async () => {
-    try {
-      addDebugInfo('🎤 Enumerating audio devices...');
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
-      
-      addDebugInfo(`🎤 Found ${audioInputs.length} audio inputs, ${audioOutputs.length} audio outputs`);
-      
-      audioInputs.forEach((device, index) => {
-        addDebugInfo(`📡 Input ${index}: ${device.label || 'Unknown'} (${device.deviceId.slice(0, 8)}...)`);
-      });
-      
-      if (audioInputs.length === 0) {
-        addDebugInfo('❌ No audio input devices found');
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      addDebugInfo(`❌ Device enumeration failed: ${error}`);
-      return false;
-    }
-  }, [addDebugInfo]);
-
-  // Setup audio analysis with error handling
+  // Setup audio analysis with FIXED monitoring logic
   const setupAudioAnalysis = useCallback((stream: MediaStream) => {
     addDebugInfo('🎵 Setting up audio analysis');
     try {
@@ -169,16 +87,26 @@ export const useVoiceCollaboration = ({
       gainNodeRef.current = audioContextRef.current.createGain();
       
       analyserRef.current.fftSize = 256;
-      analyserRef.current.smoothingTimeConstant = 0.8;
+      analyserRef.current.smoothingTimeConstant = 0.3; // Reduced for more responsive readings
       
       source.connect(analyserRef.current);
       analyserRef.current.connect(gainNodeRef.current);
       
       addDebugInfo('✅ Audio analysis pipeline connected');
       
-      // Start monitoring audio levels
+      // FIXED: Monitor audio directly from MediaStream source, not track state
       const monitorAudioLevel = () => {
-        if (!analyserRef.current) return;
+        if (!analyserRef.current || !localStreamRef.current) {
+          setAudioLevel(0);
+          return;
+        }
+        
+        // Check if stream is still active
+        if (!localStreamRef.current.active) {
+          addDebugInfo('⚠️ Stream is not active');
+          setAudioLevel(0);
+          return;
+        }
         
         const bufferLength = analyserRef.current.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
@@ -186,10 +114,14 @@ export const useVoiceCollaboration = ({
         
         const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
         const normalizedLevel = average / 255;
-        setAudioLevel(normalizedLevel);
         
-        if (normalizedLevel > 0.05) {
-          addDebugInfo(`🔊 Audio detected: ${(normalizedLevel * 100).toFixed(1)}%`);
+        // Only update if there's a meaningful change
+        if (Math.abs(normalizedLevel - audioLevel) > 0.01) {
+          setAudioLevel(normalizedLevel);
+          
+          if (normalizedLevel > 0.05) {
+            addDebugInfo(`🔊 Audio detected: ${(normalizedLevel * 100).toFixed(1)}% (track enabled: ${localStreamRef.current?.getAudioTracks()[0]?.enabled})`);
+          }
         }
       };
       
@@ -197,7 +129,7 @@ export const useVoiceCollaboration = ({
         clearInterval(audioMonitorIntervalRef.current);
       }
       
-      audioMonitorIntervalRef.current = setInterval(monitorAudioLevel, 200);
+      audioMonitorIntervalRef.current = setInterval(monitorAudioLevel, 100); // More frequent updates
       addDebugInfo('✅ Audio monitoring started');
       
       return () => {
@@ -212,7 +144,7 @@ export const useVoiceCollaboration = ({
       console.error('Audio analysis setup error:', error);
       return null;
     }
-  }, [addDebugInfo]);
+  }, [addDebugInfo, audioLevel]);
 
   // Initialize rooms with debugging
   const initializeVoiceRooms = useCallback(() => {
@@ -265,69 +197,52 @@ export const useVoiceCollaboration = ({
     addDebugInfo(`✅ ${rooms.length} voice rooms initialized`);
   }, [matchId, addDebugInfo]);
 
-  // Enhanced join voice room with step-by-step debugging
+  // SIMPLIFIED join voice room with better error handling
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
     addDebugInfo(`🚪 Starting join process for room: ${room.name}`);
     
-    // Step 1: Check capabilities
-    if (!checkBrowserCapabilities()) {
-      addDebugInfo('❌ STEP 1 FAILED: Browser capabilities insufficient');
-      toast.error('Your browser does not support voice chat');
-      return;
-    }
-    addDebugInfo('✅ STEP 1: Browser capabilities OK');
-    
-    // Step 2: Check room availability
     if (isVoiceEnabled || room.currentParticipants >= room.maxParticipants) {
-      addDebugInfo(`❌ STEP 2 FAILED: Room unavailable - enabled: ${isVoiceEnabled}, full: ${room.currentParticipants}/${room.maxParticipants}`);
+      addDebugInfo(`❌ Room unavailable - enabled: ${isVoiceEnabled}, full: ${room.currentParticipants}/${room.maxParticipants}`);
       return;
     }
-    addDebugInfo('✅ STEP 2: Room available');
 
     setIsConnecting(true);
-    addDebugInfo('🔄 STEP 3: Setting connecting state');
+    addDebugInfo('🔄 Setting connecting state');
     
     try {
-      // Step 4: Enumerate devices
-      addDebugInfo('🔄 STEP 4: Checking audio devices');
-      const hasDevices = await enumerateAudioDevices();
-      if (!hasDevices) {
-        throw new Error('No audio input devices available');
-      }
-      addDebugInfo('✅ STEP 4: Audio devices available');
+      addDebugInfo('🔄 Requesting microphone access with basic constraints...');
       
-      // Step 5: Request media access
-      addDebugInfo('🔄 STEP 5: Requesting microphone access...');
-      const constraints = getAudioConstraints();
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      addDebugInfo(`✅ STEP 5: Microphone access granted - ${stream.getTracks().length} tracks`);
+      // Use simpler, more compatible constraints
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
       
-      // Step 6: Validate stream
+      addDebugInfo(`✅ Got stream with ${stream.getTracks().length} tracks`);
+      
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length === 0) {
         throw new Error('No audio tracks in stream');
       }
       
-      addDebugInfo(`✅ STEP 6: Stream validation OK - ${audioTracks.length} audio tracks`);
-      
-      // Log detailed track info
-      audioTracks.forEach((track, index) => {
-        const settings = track.getSettings();
-        addDebugInfo(`📡 Track ${index}: enabled=${track.enabled}, muted=${track.muted}, state=${track.readyState}`);
-        addDebugInfo(`🎛️ Settings: sampleRate=${settings.sampleRate}, channelCount=${settings.channelCount}`);
-      });
+      const audioTrack = audioTracks[0];
+      const settings = audioTrack.getSettings();
+      addDebugInfo(`📡 Track: enabled=${audioTrack.enabled}, muted=${audioTrack.muted}, state=${audioTrack.readyState}`);
+      addDebugInfo(`🎛️ Settings: sampleRate=${settings.sampleRate}, channelCount=${settings.channelCount}`);
       
       localStreamRef.current = stream;
       setCurrentRoom(room);
-      addDebugInfo(`✅ STEP 7: Local stream and room set`);
-
-      // Step 8: Setup audio analysis
-      addDebugInfo('🔄 STEP 8: Setting up audio analysis');
-      const cleanupAudioAnalysis = setupAudioAnalysis(stream);
-      addDebugInfo(cleanupAudioAnalysis ? '✅ STEP 8: Audio analysis setup OK' : '⚠️ STEP 8: Audio analysis setup failed');
       
-      // Step 9: Setup Supabase channel
-      addDebugInfo(`🔄 STEP 9: Setting up Supabase channel: voice_${room.id}`);
+      // Setup audio analysis
+      addDebugInfo('🔄 Setting up audio analysis');
+      const cleanupAudioAnalysis = setupAudioAnalysis(stream);
+      
+      // Setup Supabase channel
+      addDebugInfo(`🔄 Setting up Supabase channel: voice_${room.id}`);
       channelRef.current = supabase.channel(`voice_${room.id}`, {
         config: {
           presence: {
@@ -340,39 +255,20 @@ export const useVoiceCollaboration = ({
         addDebugInfo(`📡 Channel status: ${status}`);
         
         if (status === 'SUBSCRIBED') {
-          addDebugInfo('✅ STEP 9: Successfully subscribed to voice channel');
+          addDebugInfo('✅ Successfully subscribed to voice channel');
           setIsVoiceEnabled(true);
           
-          // Test audio immediately
-          addDebugInfo('🧪 STEP 10: Testing audio capabilities...');
-          if (localStreamRef.current) {
-            const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            if (audioTrack) {
-              addDebugInfo(`🎵 Audio track test: enabled=${audioTrack.enabled}, muted=${audioTrack.muted}`);
-              
-              // Brief unmute test
-              audioTrack.enabled = true;
-              addDebugInfo('🔊 Temporarily enabled audio for test');
-              
-              setTimeout(() => {
-                if (audioTrack) {
-                  audioTrack.enabled = false;
-                  addDebugInfo('🔇 Re-muted audio (default state)');
-                }
-              }, 1000);
-              
-              toast.success(`Joined ${room.name} - You are muted by default`);
-              addDebugInfo('✅ JOIN COMPLETE: All steps successful');
-            } else {
-              addDebugInfo('❌ STEP 10 FAILED: No audio track found');
-              toast.error('Audio track not available');
-            }
+          // Start muted by default, but KEEP THE TRACK ENABLED for monitoring
+          if (audioTrack) {
+            audioTrack.enabled = true; // FIXED: Keep track enabled for audio monitoring
+            addDebugInfo('🎵 Audio track enabled for monitoring (starting muted)');
           }
+          
+          toast.success(`Joined ${room.name} - You are muted by default`);
+          addDebugInfo('✅ JOIN COMPLETE: All steps successful');
         } else if (status === 'CHANNEL_ERROR') {
-          addDebugInfo('❌ STEP 9 FAILED: Channel subscription error');
+          addDebugInfo('❌ Channel subscription error');
           toast.error('Failed to connect to voice channel');
-        } else if (status === 'CLOSED') {
-          addDebugInfo('🔒 Channel closed');
         }
       });
 
@@ -385,63 +281,38 @@ export const useVoiceCollaboration = ({
       addDebugInfo(`❌ JOIN FAILED: ${error.message}`);
       console.error('Voice room join error:', error);
       
-      // Enhanced error analysis
       if (error.name === 'NotAllowedError') {
-        addDebugInfo('🚫 ERROR TYPE: Microphone access denied by user');
         toast.error('Microphone access denied. Please allow microphone access and try again.');
       } else if (error.name === 'NotFoundError') {
-        addDebugInfo('🎤 ERROR TYPE: No microphone found');
         toast.error('No microphone found. Please connect a microphone and try again.');
-      } else if (error.name === 'NotSupportedError') {
-        addDebugInfo('🚫 ERROR TYPE: Browser does not support audio capture');
-        toast.error('Your browser does not support audio capture.');
-      } else if (error.name === 'OverconstrainedError') {
-        addDebugInfo('🎛️ ERROR TYPE: Audio constraints too restrictive');
-        toast.error('Audio constraints could not be satisfied. Trying with basic settings...');
-        
-        // Retry with basic constraints
-        try {
-          addDebugInfo('🔄 RETRY: Attempting with basic audio constraints');
-          const basicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          localStreamRef.current = basicStream;
-          setCurrentRoom(room);
-          setIsVoiceEnabled(true);
-          setupAudioAnalysis(basicStream);
-          addDebugInfo('✅ RETRY SUCCESS: Basic audio working');
-          toast.success(`Joined ${room.name} with basic audio settings`);
-        } catch (retryError) {
-          addDebugInfo(`❌ RETRY FAILED: ${retryError}`);
-          toast.error('Failed to access microphone even with basic settings');
-        }
       } else {
-        addDebugInfo(`🚨 ERROR TYPE: Unknown - ${error.name}: ${error.message}`);
         toast.error('Failed to access microphone: ' + error.message);
       }
     } finally {
       setIsConnecting(false);
       addDebugInfo('🔄 Cleared connecting state');
     }
-  }, [isVoiceEnabled, checkBrowserCapabilities, getAudioConstraints, setupAudioAnalysis, enumerateAudioDevices, addDebugInfo, userId]);
+  }, [isVoiceEnabled, setupAudioAnalysis, addDebugInfo, userId]);
 
   // Enhanced leave voice room
   const leaveVoiceRoom = useCallback(() => {
-    addDebugInfo('🚪 CLEANUP: Starting leave voice room process');
+    addDebugInfo('🚪 Starting leave voice room process');
     
     if (!isVoiceEnabled || !currentRoom) {
-      addDebugInfo('❌ CLEANUP: No room to leave');
+      addDebugInfo('❌ No room to leave');
       return;
     }
 
     // Stop audio monitoring
     if (audioMonitorIntervalRef.current) {
-      addDebugInfo('🛑 CLEANUP: Stopping audio monitoring');
+      addDebugInfo('🛑 Stopping audio monitoring');
       clearInterval(audioMonitorIntervalRef.current);
       audioMonitorIntervalRef.current = null;
     }
 
     // Stop local stream
     if (localStreamRef.current) {
-      addDebugInfo('🛑 CLEANUP: Stopping local stream');
+      addDebugInfo('🛑 Stopping local stream');
       localStreamRef.current.getTracks().forEach(track => {
         addDebugInfo(`🛑 Stopping track: ${track.kind}, enabled: ${track.enabled}`);
         track.stop();
@@ -451,20 +322,20 @@ export const useVoiceCollaboration = ({
 
     // Cleanup audio analysis
     if ((channelRef.current as any)?.audioCleanup) {
-      addDebugInfo('🧹 CLEANUP: Running audio analysis cleanup');
+      addDebugInfo('🧹 Running audio analysis cleanup');
       (channelRef.current as any).audioCleanup();
     }
 
     // Stop audio context
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      addDebugInfo(`🔊 CLEANUP: Closing audio context (state: ${audioContextRef.current.state})`);
+      addDebugInfo(`🔊 Closing audio context (state: ${audioContextRef.current.state})`);
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
 
     // Unsubscribe from channel
     if (channelRef.current) {
-      addDebugInfo('📡 CLEANUP: Unsubscribing from channel');
+      addDebugInfo('📡 Unsubscribing from channel');
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
@@ -481,7 +352,7 @@ export const useVoiceCollaboration = ({
     toast.info(`Left ${roomName}`);
   }, [isVoiceEnabled, currentRoom, addDebugInfo]);
 
-  // Enhanced mute toggle with debugging
+  // FIXED mute toggle - now controls gain instead of track.enabled
   const toggleMute = useCallback(() => {
     addDebugInfo(`🔇 TOGGLE MUTE: Current state=${isMuted ? 'MUTED' : 'UNMUTED'}`);
     
@@ -499,10 +370,19 @@ export const useVoiceCollaboration = ({
     }
     
     const newMutedState = !isMuted;
-    audioTrack.enabled = !newMutedState;
+    
+    // FIXED: Use gain node to control audio output, keep track enabled for monitoring
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = newMutedState ? 0 : 1;
+      addDebugInfo(`✅ GAIN CONTROL: Set gain to ${newMutedState ? 0 : 1}`);
+    }
+    
+    // Keep track enabled for audio level monitoring
+    audioTrack.enabled = true;
+    
     setIsMuted(newMutedState);
     
-    addDebugInfo(`✅ TOGGLE MUTE SUCCESS: track.enabled=${audioTrack.enabled}, muted=${newMutedState}`);
+    addDebugInfo(`✅ TOGGLE MUTE SUCCESS: track.enabled=${audioTrack.enabled}, muted=${newMutedState}, gain=${gainNodeRef.current?.gain.value}`);
     toast.info(newMutedState ? 'Microphone muted' : 'Microphone unmuted');
   }, [isMuted, addDebugInfo]);
 
