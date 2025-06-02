@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -47,6 +46,7 @@ export const useVoiceCollaboration = ({
   const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
   const [isRoomAdmin, setIsRoomAdmin] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
+  const [connectionQualities, setConnectionQualities] = useState<Map<string, any>>(new Map());
 
   const channelRef = useRef<any>(null);
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -303,7 +303,7 @@ export const useVoiceCollaboration = ({
       // Step 3: Setup audio monitoring (no local playback)
       await audioManagerRef.current.setupAudioMonitoring(stream);
       
-      // Step 4: Initialize WebRTC manager
+      // Step 4: Initialize WebRTC manager with connection monitoring
       webrtcManagerRef.current = new WebRTCManager({
         localStream: stream,
         onRemoteStream: createRemoteAudio,
@@ -311,6 +311,14 @@ export const useVoiceCollaboration = ({
         onError: (error) => {
           addDebugInfo(`❌ WebRTC error: ${error.message}`);
           toast.error('Voice connection error: ' + error.message);
+        },
+        onConnectionQuality: (userId, quality) => {
+          setConnectionQualities(prev => new Map(prev).set(userId, quality));
+          
+          if (quality.quality === 'poor') {
+            addDebugInfo(`⚠️ Poor connection quality with ${userId}`);
+            toast.warning(`Poor voice quality with ${userId.slice(-4)}`);
+          }
         }
       });
 
@@ -516,6 +524,9 @@ export const useVoiceCollaboration = ({
     isRoomAdmin,
     joinVoiceRoom,
     leaveVoiceRoom,
+    
+    // Enhanced features
+    connectionQualities,
     
     // Debug information
     debugInfo

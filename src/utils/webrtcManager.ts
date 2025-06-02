@@ -3,6 +3,7 @@ interface WebRTCManagerOptions {
   onRemoteStream: (userId: string, stream: MediaStream) => void;
   onPeerDisconnected: (userId: string) => void;
   onError: (error: Error) => void;
+  onConnectionQuality?: (userId: string, quality: any) => void;
 }
 
 interface PeerState {
@@ -12,19 +13,36 @@ interface PeerState {
   lastActivity: number;
 }
 
+import { ConnectionMonitor } from './connectionMonitor';
+
 export class WebRTCManager {
   private peers = new Map<string, PeerState>();
   private localStream: MediaStream;
   private onRemoteStream: (userId: string, stream: MediaStream) => void;
   private onPeerDisconnected: (userId: string) => void;
   private onError: (error: Error) => void;
+  private onConnectionQuality?: (userId: string, quality: any) => void;
   private signalingQueue = new Map<string, Promise<void>>();
+  private connectionMonitor: ConnectionMonitor;
 
   constructor(options: WebRTCManagerOptions) {
     this.localStream = options.localStream;
     this.onRemoteStream = options.onRemoteStream;
     this.onPeerDisconnected = options.onPeerDisconnected;
     this.onError = options.onError;
+    this.onConnectionQuality = options.onConnectionQuality;
+
+    // Initialize connection monitor
+    this.connectionMonitor = new ConnectionMonitor({
+      onQualityChange: (userId, quality) => {
+        console.log(`📊 Connection quality for ${userId}:`, quality.quality, `(${quality.rtt}ms RTT)`);
+        this.onConnectionQuality?.(userId, quality);
+      },
+      onConnectionLoss: (userId) => {
+        console.log(`📡 Connection lost detected for: ${userId}`);
+        this.handlePeerDisconnection(userId);
+      }
+    });
   }
 
   private queueSignalingOperation<T>(userId: string, operation: () => Promise<T>): Promise<T> {
@@ -69,6 +87,9 @@ export class WebRTCManager {
       };
       
       this.peers.set(userId, peerState);
+
+      // Add to connection monitor
+      this.connectionMonitor.addPeer(userId, peerConnection);
 
       // Add local stream tracks
       this.localStream.getTracks().forEach(track => {
@@ -183,6 +204,9 @@ export class WebRTCManager {
     const peerState = this.peers.get(userId);
     if (!peerState) return;
     
+    // Remove from connection monitor
+    this.connectionMonitor.removePeer(userId);
+    
     // Clean up the peer connection
     peerState.connection.close();
     this.peers.delete(userId);
@@ -286,6 +310,7 @@ export class WebRTCManager {
     
     await Promise.all(closePromises);
     this.signalingQueue.clear();
+    this.connectionMonitor.cleanup();
     console.log('🔌 Closed all peer connections');
   }
 
@@ -302,6 +327,10 @@ export class WebRTCManager {
 
   // Health monitoring
   startHealthMonitoring(): void {
+    // Start connection quality monitoring
+    this.connectionMonitor.startMonitoring();
+    
+    // Keep existing peer activity monitoring
     setInterval(() => {
       const now = Date.now();
       this.peers.forEach((state, userId) => {
@@ -317,5 +346,13 @@ export class WebRTCManager {
         }
       });
     }, 30000); // Check every 30 seconds
+  }
+
+  // Add method to get connection quality
+  getConnectionQuality(userId: string): string | null {
+    const peerState = this.peers.get(userId);
+    if (!peerState) return null;
+    
+    return peerState.connection.connectionState;
   }
 }

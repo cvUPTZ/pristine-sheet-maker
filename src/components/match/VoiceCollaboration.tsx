@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +32,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     isRoomAdmin,
     joinVoiceRoom,
     leaveVoiceRoom,
+    connectionQualities,
     debugInfo
   } = useVoiceCollaboration({
     matchId,
@@ -76,6 +76,26 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     if (roomName.includes('Events')) return 'bg-red-100 border-red-300';
     if (roomName.includes('Technical')) return 'bg-gray-100 border-gray-300';
     return 'bg-gray-100 border-gray-300';
+  };
+
+  const getQualityColor = (quality: string) => {
+    switch (quality) {
+      case 'excellent': return 'text-green-600';
+      case 'good': return 'text-blue-600';
+      case 'fair': return 'text-yellow-600';
+      case 'poor': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getQualityIcon = (quality: string) => {
+    switch (quality) {
+      case 'excellent': return '🟢';
+      case 'good': return '🟡';
+      case 'fair': return '🟠';
+      case 'poor': return '🔴';
+      default: return '⚪';
+    }
   };
 
   return (
@@ -181,44 +201,66 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Connected Trackers in Current Room */}
+          {/* Connected Trackers with Connection Quality */}
           {isVoiceEnabled && connectedTrackers.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-medium text-gray-700">
                 Room Participants ({connectedTrackers.length})
               </div>
               <div className="space-y-1 max-h-32 overflow-y-auto">
-                {connectedTrackers.map((tracker) => (
-                  <div
-                    key={tracker.userId}
-                    className="flex items-center justify-between p-2 rounded bg-white border text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          tracker.isConnected ? 'bg-green-500' : 'bg-gray-400'
-                        }`}
-                      />
-                      {getRoleIcon(tracker.role)}
-                      <span className="truncate max-w-[80px]">
-                        {tracker.username || `Tracker ${tracker.userId.slice(-4)}`}
-                      </span>
+                {connectedTrackers.map((tracker) => {
+                  const quality = connectionQualities.get(tracker.userId);
+                  return (
+                    <div
+                      key={tracker.userId}
+                      className="flex items-center justify-between p-2 rounded bg-white border text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            tracker.isConnected ? 'bg-green-500' : 'bg-gray-400'
+                          }`}
+                        />
+                        {getRoleIcon(tracker.role)}
+                        <span className="truncate max-w-[80px]">
+                          {tracker.username || `Tracker ${tracker.userId.slice(-4)}`}
+                        </span>
+                        {quality && (
+                          <span className={`text-xs ${getQualityColor(quality.quality)}`} title={`RTT: ${quality.rtt}ms`}>
+                            {getQualityIcon(quality.quality)}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-1">
+                        {tracker.isMuted ? (
+                          <MicOff className="h-3 w-3 text-red-500" />
+                        ) : (
+                          <Mic className="h-3 w-3 text-green-500" />
+                        )}
+                        {tracker.isSpeaking && (
+                          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                        )}
+                        {tracker.audioLevel && tracker.audioLevel > 0.1 && (
+                          <AudioLevelIndicator level={tracker.audioLevel} />
+                        )}
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-1">
-                      {tracker.isMuted ? (
-                        <MicOff className="h-3 w-3 text-red-500" />
-                      ) : (
-                        <Mic className="h-3 w-3 text-green-500" />
-                      )}
-                      {tracker.isSpeaking && (
-                        <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                      )}
-                      {tracker.audioLevel && tracker.audioLevel > 0.1 && (
-                        <AudioLevelIndicator level={tracker.audioLevel} />
-                      )}
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Connection Quality Summary */}
+          {isVoiceEnabled && connectionQualities.size > 0 && (
+            <div className="text-xs p-2 bg-gray-50 rounded border">
+              <div className="font-medium mb-1">Connection Quality</div>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(connectionQualities.entries()).map(([userId, quality]) => (
+                  <span key={userId} className={`${getQualityColor(quality.quality)}`}>
+                    {getQualityIcon(quality.quality)} {userId.slice(-4)} ({quality.rtt}ms)
+                  </span>
                 ))}
               </div>
             </div>
