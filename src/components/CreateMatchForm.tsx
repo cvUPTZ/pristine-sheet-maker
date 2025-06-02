@@ -169,8 +169,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     };
 
     const positions = positionMap[formation];
+    const baseId = Date.now();
     const players: Player[] = positions.map((position, index) => ({
-      id: team === 'home' ? Date.now() + index : Date.now() + index + 1000,
+      id: team === 'home' ? baseId + index : baseId + index + 10000,
       name: '',
       number: index + 1,
       position
