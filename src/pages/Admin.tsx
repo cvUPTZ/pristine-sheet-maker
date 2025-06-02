@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -96,7 +97,7 @@ const Admin: React.FC = () => {
   const getAssignmentStats = () => {
     if (!planningData) return { assigned: 0, unassigned: 0, total: 0 };
     
-    const assigned = planningData.filter((item: any) => item.tracker_id).length;
+    const assigned = planningData.filter((item: any) => item.tracker_user_id).length;
     const total = planningData.length;
     const unassigned = total - assigned;
     
