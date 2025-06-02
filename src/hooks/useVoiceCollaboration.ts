@@ -511,11 +511,8 @@ export const useVoiceCollaboration = ({
         const contextInfo = audioContextRef.current ? 
           `state=${audioContextRef.current.state}` : 
           'no context';
-        const gainInfo = gainNodeRef.current ? 
-          `gain=${gainNodeRef.current.gain.value}` : 
-          'no gain';
         
-        addDebugInfo(`📊 STATE: enabled=${isVoiceEnabled}, muted=${isMuted}, connecting=${isConnecting}, room=${currentRoom?.name}, audio=${audioLevel.toFixed(3)}, stream=${streamInfo}, context=${contextInfo}, ${gainInfo}, peers=${connectedTrackers.length}`);
+        addDebugInfo(`📊 STATE: enabled=${isVoiceEnabled}, muted=${isMuted}, connecting=${isConnecting}, room=${currentRoom?.name}, audio=${audioLevel.toFixed(3)}, stream=${streamInfo}, context=${contextInfo}, peers=${connectedTrackers.length}`);
       }
     }, 5000);
     
