@@ -15,32 +15,25 @@ interface TrackerAssignment {
   tracker_user_id: string;
   assigned_player_id: number | null;
   assigned_event_types: string[] | null;
-  is_specialized: boolean;
-  backup_tracker_id: string | null;
+  replacement_tracker_id: string | null;
   tracker?: {
     id: string;
-    username: string;
     full_name: string;
+    email: string;
     role: string;
   };
-  backup_tracker?: {
+  replacement_tracker?: {
     id: string;
-    username: string;
     full_name: string;
+    email: string;
     role: string;
-  };
-  player?: {
-    id: number;
-    name: string;
-    position: string;
-    jersey_number: number;
   };
 }
 
 interface AvailableTracker {
   id: string;
-  username: string;
   full_name: string;
+  email: string;
   role: string;
   is_available: boolean;
 }
@@ -78,25 +71,18 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
           tracker_user_id,
           assigned_player_id,
           assigned_event_types,
-          is_specialized,
-          backup_tracker_id,
+          replacement_tracker_id,
           tracker:profiles!tracker_user_id (
             id,
-            username,
             full_name,
+            email,
             role
           ),
-          backup_tracker:profiles!backup_tracker_id (
+          replacement_tracker:profiles!replacement_tracker_id (
             id,
-            username,
             full_name,
+            email,
             role
-          ),
-          player:players (
-            id,
-            name,
-            position,
-            jersey_number
           )
         `)
         .eq('match_id', matchId)
@@ -104,31 +90,23 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
 
       if (error) throw error;
       
-      // Transform the data safely
       const transformedAssignments: TrackerAssignment[] = (data || []).map(assignment => ({
         id: assignment.id,
         tracker_user_id: assignment.tracker_user_id,
         assigned_player_id: assignment.assigned_player_id,
         assigned_event_types: assignment.assigned_event_types,
-        is_specialized: assignment.is_specialized || false,
-        backup_tracker_id: assignment.backup_tracker_id,
+        replacement_tracker_id: assignment.replacement_tracker_id,
         tracker: assignment.tracker ? {
           id: assignment.tracker.id,
-          username: assignment.tracker.username || '',
           full_name: assignment.tracker.full_name || '',
+          email: assignment.tracker.email || '',
           role: assignment.tracker.role || 'tracker'
         } : undefined,
-        backup_tracker: assignment.backup_tracker ? {
-          id: assignment.backup_tracker.id,
-          username: assignment.backup_tracker.username || '',
-          full_name: assignment.backup_tracker.full_name || '',
-          role: assignment.backup_tracker.role || 'tracker'
-        } : undefined,
-        player: assignment.player ? {
-          id: assignment.player.id,
-          name: assignment.player.name || '',
-          position: assignment.player.position || '',
-          jersey_number: assignment.player.jersey_number || 0
+        replacement_tracker: assignment.replacement_tracker ? {
+          id: assignment.replacement_tracker.id,
+          full_name: assignment.replacement_tracker.full_name || '',
+          email: assignment.replacement_tracker.email || '',
+          role: assignment.replacement_tracker.role || 'tracker'
         } : undefined
       }));
       
@@ -145,25 +123,23 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, full_name, role')
+        .select('id, full_name, email, role')
         .eq('role', 'tracker')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
       
       const trackersWithAvailability = (data || []).map(tracker => {
-        // Safely transform each tracker
         const trackerObj: AvailableTracker = {
           id: tracker.id || '',
-          username: tracker.username || '',
           full_name: tracker.full_name || '',
+          email: tracker.email || '',
           role: tracker.role || 'tracker',
           is_available: true
         };
         
-        // Check availability
         trackerObj.is_available = !assignments.some(a => 
-          a.tracker_user_id === tracker.id || a.backup_tracker_id === tracker.id
+          a.tracker_user_id === tracker.id || a.replacement_tracker_id === tracker.id
         );
         
         return trackerObj;
@@ -181,7 +157,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
     try {
       const { error } = await supabase
         .from('match_tracker_assignments')
-        .update({ backup_tracker_id: replacementTrackerId })
+        .update({ replacement_tracker_id: replacementTrackerId })
         .eq('id', assignmentId);
 
       if (error) throw error;
@@ -203,7 +179,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
     try {
       const { error } = await supabase
         .from('match_tracker_assignments')
-        .update({ backup_tracker_id: null })
+        .update({ replacement_tracker_id: null })
         .eq('id', assignmentId);
 
       if (error) throw error;
@@ -223,17 +199,17 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
   const getFilteredAssignments = () => {
     switch (filterStatus) {
       case 'needs_replacement':
-        return assignments.filter(a => !a.backup_tracker_id);
+        return assignments.filter(a => !a.replacement_tracker_id);
       case 'has_replacement':
-        return assignments.filter(a => !!a.backup_tracker_id);
+        return assignments.filter(a => !!a.replacement_tracker_id);
       default:
         return assignments;
     }
   };
 
   const getAssignmentTypeDisplay = (assignment: TrackerAssignment) => {
-    if (assignment.assigned_player_id && assignment.player) {
-      return `Player: ${assignment.player.name} (#${assignment.player.jersey_number})`;
+    if (assignment.assigned_player_id) {
+      return `Player ID: ${assignment.assigned_player_id}`;
     }
     if (assignment.assigned_event_types && assignment.assigned_event_types.length > 0) {
       return `Events: ${assignment.assigned_event_types.join(', ').replace(/_/g, ' ')}`;
@@ -243,7 +219,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
 
   const getReplacementStatus = () => {
     const total = assignments.length;
-    const withReplacement = assignments.filter(a => a.backup_tracker_id).length;
+    const withReplacement = assignments.filter(a => a.replacement_tracker_id).length;
     const needsReplacement = total - withReplacement;
     
     return { total, withReplacement, needsReplacement };
@@ -397,23 +373,15 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900`}>
                           <span className="text-blue-600">Primary:</span> {' '}
-                          {assignment.tracker?.full_name || assignment.tracker?.username || 'Unknown Tracker'}
+                          {assignment.tracker?.full_name || assignment.tracker?.email || 'Unknown Tracker'}
                         </div>
                         <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 mt-1`}>
                           {getAssignmentTypeDisplay(assignment)}
                         </div>
-                        {assignment.is_specialized && (
-                          <Badge 
-                            variant="secondary" 
-                            className={`mt-1 ${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}
-                          >
-                            Specialized
-                          </Badge>
-                        )}
                       </div>
                       
                       <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
-                        {assignment.backup_tracker_id ? (
+                        {assignment.replacement_tracker_id ? (
                           <Badge className={`bg-green-100 text-green-800 ${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}>
                             <CheckCircle className={`${isMobile ? 'h-2 w-2 mr-0.5' : 'h-3 w-3 mr-1'}`} />
                             {isMobile ? 'Has Backup' : 'Has Replacement'}
@@ -428,13 +396,13 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
                     </div>
 
                     {/* Replacement Tracker Section */}
-                    {assignment.backup_tracker_id && assignment.backup_tracker ? (
+                    {assignment.replacement_tracker_id && assignment.replacement_tracker ? (
                       <div className={`${isMobile ? 'p-2' : 'p-3'} bg-green-50 rounded border border-green-200`}>
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-green-800`}>
                               <span className="text-green-600">Replacement:</span> {' '}
-                              {assignment.backup_tracker.full_name || assignment.backup_tracker.username}
+                              {assignment.replacement_tracker.full_name || assignment.replacement_tracker.email}
                             </div>
                           </div>
                           <Button
@@ -475,13 +443,13 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
                                     tracker.id !== assignment.tracker_user_id &&
                                     !assignments.some(a => 
                                       a.tracker_user_id === tracker.id || 
-                                      a.backup_tracker_id === tracker.id
+                                      a.replacement_tracker_id === tracker.id
                                     )
                                   )
                                   .map((tracker) => (
                                     <SelectItem key={tracker.id} value={tracker.id}>
                                       <span className={isMobile ? 'text-xs' : 'text-sm'}>
-                                        {tracker.full_name || tracker.username}
+                                        {tracker.full_name || tracker.email}
                                       </span>
                                     </SelectItem>
                                   ))}
