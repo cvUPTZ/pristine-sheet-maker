@@ -2,223 +2,380 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Edit, Trash2, Plus } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Calendar, Target, TrendingUp, Filter, RefreshCw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 
-interface User {
+interface EventAssignment {
   id: string;
-  email: string;
-  full_name: string;
-  role: string;
+  tracker_user_id: string;
+  event_type: string;
+  priority: number;
+  is_specialized: boolean;
+  created_at: string;
+  tracker?: {
+    username: string;
+    full_name: string;
+  };
 }
 
-interface UserEventAssignment {
+interface Match {
   id: string;
-  user_id: string;
-  event_type: string;
-  created_at: string;
-  user_email?: string;
-  user_full_name?: string;
+  name: string;
+  home_team_name: string;
+  away_team_name: string;
+  status: string;
+  match_date: string;
 }
 
 const EventAssignments: React.FC = () => {
-  const [assignments, setAssignments] = useState<UserEventAssignment[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newEvent, setNewEvent] = useState<{ userId: string; eventType: string }>({
-    userId: '',
-    eventType: ''
+  const [assignments, setAssignments] = useState<EventAssignment[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<string>('');
+  const [selectedEventType, setSelectedEventType] = useState<string>('all');
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalAssignments: 0,
+    specializedTrackers: 0,
+    eventTypesCovered: 0,
+    averagePriority: 0
   });
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const isMobile = useIsMobile();
+
+  const eventTypes = [
+    'goal', 'assist', 'pass', 'tackle', 'foul', 'yellow_card', 'red_card',
+    'substitution', 'corner_kick', 'free_kick', 'penalty', 'offside'
+  ];
 
   useEffect(() => {
-    fetchAssignments();
+    fetchMatches();
   }, []);
 
-  const fetchAssignments = async () => {
+  useEffect(() => {
+    if (selectedMatch) {
+      fetchAssignments();
+    }
+  }, [selectedMatch, selectedEventType]);
+
+  const fetchMatches = async () => {
     try {
-      // Fetch assignments and users separately since the join might not work
-      const [assignmentsResponse, usersResponse] = await Promise.all([
-        supabase
-          .from('user_event_assignments')
-          .select('id, user_id, event_type, created_at'),
-        supabase
-          .from('profiles')
-          .select('id, email, full_name, role')
-      ]);
+      const { data, error } = await supabase
+        .from('matches')
+        .select('id, name, home_team_name, away_team_name, status, match_date')
+        .order('created_at', { ascending: false });
 
-      if (assignmentsResponse.error) throw assignmentsResponse.error;
-      if (usersResponse.error) throw usersResponse.error;
+      if (error) throw error;
+      setMatches(data || []);
+      if (data && data.length > 0) {
+        setSelectedMatch(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      toast.error('Failed to load matches');
+    }
+  };
 
-      // Transform assignments data with manual join
-      const transformedAssignments = (assignmentsResponse.data || []).map(assignment => {
-        const user = (usersResponse.data || []).find(u => u.id === assignment.user_id);
-        return {
-          id: String(assignment.id),
-          user_id: assignment.user_id || '',
-          event_type: assignment.event_type,
-          created_at: assignment.created_at || new Date().toISOString(),
-          user_email: user?.email || '',
-          user_full_name: user?.full_name || ''
-        };
-      });
+  const fetchAssignments = async () => {
+    if (!selectedMatch) return;
+    
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('match_tracker_assignments')
+        .select(`
+          id,
+          tracker_user_id,
+          event_type,
+          priority,
+          is_specialized,
+          created_at,
+          profiles:tracker_user_id (
+            username,
+            full_name
+          )
+        `)
+        .eq('match_id', selectedMatch)
+        .not('event_type', 'is', null);
 
-      // Transform users data with proper filtering
-      const transformedUsers = (usersResponse.data || [])
-        .filter(user => user.email && user.full_name)
-        .map(user => ({
-          id: user.id,
-          email: user.email!,
-          full_name: user.full_name!,
-          role: user.role || 'user'
-        }));
+      if (selectedEventType !== 'all') {
+        query = query.eq('event_type', selectedEventType);
+      }
 
-      setAssignments(transformedAssignments);
-      setUsers(transformedUsers);
+      const { data, error } = await query.order('priority', { ascending: true });
+
+      if (error) throw error;
+      
+      const formattedData = data?.map(assignment => ({
+        ...assignment,
+        tracker: assignment.profiles
+      })) || [];
+
+      setAssignments(formattedData);
+      calculateStats(formattedData);
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      toast.error('Failed to fetch assignments');
+      toast.error('Failed to load event assignments');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateAssignment = async () => {
-    if (!newEvent.userId || !newEvent.eventType) {
-      toast.error('Please select a user and event type');
-      return;
-    }
+  const calculateStats = (data: EventAssignment[]) => {
+    const totalAssignments = data.length;
+    const specializedTrackers = data.filter(a => a.is_specialized).length;
+    const eventTypesCovered = new Set(data.map(a => a.event_type)).size;
+    const averagePriority = data.length > 0 
+      ? Math.round(data.reduce((sum, a) => sum + a.priority, 0) / data.length * 10) / 10
+      : 0;
 
-    try {
-      const { error } = await supabase
-        .from('user_event_assignments')
-        .insert([{
-          user_id: newEvent.userId,
-          event_type: newEvent.eventType
-        }]);
-
-      if (error) throw error;
-
-      await fetchAssignments();
-      setShowCreateDialog(false);
-      setNewEvent({ userId: '', eventType: '' });
-      toast.success('Assignment created successfully');
-    } catch (error) {
-      console.error('Error creating assignment:', error);
-      toast.error('Failed to create assignment');
-    }
+    setStats({
+      totalAssignments,
+      specializedTrackers,
+      eventTypesCovered,
+      averagePriority
+    });
   };
 
-  const handleDeleteAssignment = async (assignmentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('user_event_assignments')
-        .delete()
-        .eq('id', parseInt(assignmentId));
-
-      if (error) throw error;
-
-      await fetchAssignments();
-      toast.success('Assignment deleted successfully');
-    } catch (error) {
-      console.error('Error deleting assignment:', error);
-      toast.error('Failed to delete assignment');
-    }
+  const getPriorityColor = (priority: number) => {
+    if (priority <= 2) return 'bg-red-100 text-red-800';
+    if (priority <= 4) return 'bg-orange-100 text-orange-800';
+    if (priority <= 6) return 'bg-yellow-100 text-yellow-800';
+    if (priority <= 8) return 'bg-blue-100 text-blue-800';
+    return 'bg-green-100 text-green-800';
   };
 
-  if (loading) {
-    return <div className="p-4">Loading assignments...</div>;
-  }
+  const getEventTypeColor = (eventType: string) => {
+    const colors = {
+      goal: 'bg-green-500',
+      assist: 'bg-blue-500',
+      pass: 'bg-gray-500',
+      tackle: 'bg-orange-500',
+      foul: 'bg-red-500',
+      yellow_card: 'bg-yellow-500',
+      red_card: 'bg-red-600',
+      substitution: 'bg-purple-500',
+      corner_kick: 'bg-indigo-500',
+      free_kick: 'bg-cyan-500',
+      penalty: 'bg-pink-500',
+      offside: 'bg-gray-600'
+    };
+    return colors[eventType as keyof typeof colors] || 'bg-gray-400';
+  };
 
   return (
-    <Card>
-      <CardHeader className="p-4 sm:p-6">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-lg sm:text-xl">Event Assignments</CardTitle>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-gray-900 text-white hover:bg-gray-800">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Assignment
+    <div className={`space-y-3 sm:space-y-4 lg:space-y-6`}>
+      <Card>
+        <CardHeader className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg sm:text-xl'}`}>
+            <Target className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-blue-600`} />
+            Event Assignments Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'} pt-0`}>
+          <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+            <div>
+              <label className={`block ${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2`}>
+                Select Match
+              </label>
+              <Select value={selectedMatch} onValueChange={setSelectedMatch}>
+                <SelectTrigger className={isMobile ? 'h-8 text-xs' : ''}>
+                  <SelectValue placeholder="Choose a match" />
+                </SelectTrigger>
+                <SelectContent>
+                  {matches.map((match) => (
+                    <SelectItem key={match.id} value={match.id}>
+                      <span className={isMobile ? 'text-xs' : 'text-sm'}>
+                        {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className={`block ${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2`}>
+                Filter by Event Type
+              </label>
+              <Select value={selectedEventType} onValueChange={setSelectedEventType}>
+                <SelectTrigger className={isMobile ? 'h-8 text-xs' : ''}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Events</SelectItem>
+                  {eventTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      <span className="capitalize">
+                        {type.replace('_', ' ')}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className={`flex ${isMobile ? 'justify-center' : 'justify-end'} items-end`}>
+              <Button 
+                onClick={fetchAssignments} 
+                disabled={loading || !selectedMatch}
+                size={isMobile ? "sm" : "default"}
+                className={isMobile ? 'h-8 px-3 text-xs' : ''}
+              >
+                <RefreshCw className={`${loading ? 'animate-spin' : ''} ${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
+                {isMobile ? 'Refresh' : 'Refresh Data'}
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Assignment</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedMatch && (
+        <div className={`grid gap-3 sm:gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="user">User</Label>
-                  <Select onValueChange={(value) => setNewEvent(prev => ({ ...prev, userId: value }))}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.full_name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
+                    Total Assignments
+                  </p>
+                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-blue-600`}>
+                    {stats.totalAssignments}
+                  </p>
                 </div>
+                <Users className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-blue-500`} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="eventType">Event Type</Label>
-                  <Input
-                    id="eventType"
-                    placeholder="Enter event type"
-                    value={newEvent.eventType}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, eventType: e.target.value }))}
-                  />
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
+                    {isMobile ? 'Specialized' : 'Specialized Trackers'}
+                  </p>
+                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-green-600`}>
+                    {stats.specializedTrackers}
+                  </p>
                 </div>
+                <Target className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-green-500`} />
               </div>
-              <Button onClick={handleCreateAssignment}>Create Assignment</Button>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-0">
-        <div className="space-y-4">
-          {assignments.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No event assignments found</p>
-          ) : (
-            assignments.map((assignment) => (
-              <div key={assignment.id} className="border rounded-lg p-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base truncate">
-                      {assignment.event_type}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">
-                      {assignment.user_full_name || 'Unknown User'} - {assignment.user_email || 'No email'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Created at: {new Date(assignment.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
+                    {isMobile ? 'Event Types' : 'Event Types Covered'}
+                  </p>
+                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-purple-600`}>
+                    {stats.eventTypesCovered}
+                  </p>
                 </div>
+                <Calendar className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-purple-500`} />
               </div>
-            ))
-          )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500">
+            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
+                    {isMobile ? 'Avg Priority' : 'Average Priority'}
+                  </p>
+                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-orange-600`}>
+                    {stats.averagePriority}
+                  </p>
+                </div>
+                <TrendingUp className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-orange-500`} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {selectedMatch && (
+        <Card>
+          <CardHeader className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'}`}>
+            <CardTitle className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'}`}>
+              Event Assignment Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'} pt-0`}>
+            {loading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+                <p className={`${isMobile ? 'text-sm' : 'text-base'} text-gray-600`}>
+                  Loading assignments...
+                </p>
+              </div>
+            ) : assignments.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <AlertCircle className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} mx-auto mb-4`} />
+                <p className={`${isMobile ? 'text-sm' : 'text-lg'} font-medium`}>
+                  No event assignments found
+                </p>
+                <p className={`${isMobile ? 'text-xs' : 'text-sm'} mt-2`}>
+                  {selectedEventType !== 'all' 
+                    ? `No assignments for ${selectedEventType.replace('_', ' ')} events`
+                    : 'No event assignments configured for this match'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className={`space-y-2 sm:space-y-3 ${isMobile ? 'max-h-96' : 'max-h-[500px]'} overflow-y-auto`}>
+                {assignments.map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} border rounded-lg hover:bg-gray-50 transition-colors`}
+                  >
+                    <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-4'}`}>
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div
+                          className={`w-3 h-3 rounded-full ${getEventTypeColor(assignment.event_type)}`}
+                          title={assignment.event_type}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate`}>
+                            {assignment.tracker?.full_name || assignment.tracker?.username || 'Unknown Tracker'}
+                          </div>
+                          <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 capitalize`}>
+                            {assignment.event_type.replace('_', ' ')}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
+                        <Badge 
+                          className={`${getPriorityColor(assignment.priority)} ${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}
+                        >
+                          Priority {assignment.priority}
+                        </Badge>
+                        {assignment.is_specialized && (
+                          <Badge 
+                            variant="secondary" 
+                            className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}
+                          >
+                            {isMobile ? 'Spec' : 'Specialized'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 
