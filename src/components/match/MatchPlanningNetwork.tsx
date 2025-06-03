@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Users, Calendar, MapPin, Clock, CheckCircle, AlertCircle, UserCheck, Settings, Activity, Battery, Wifi, Mail, Phone, Target, Zap, RotateCcw } from 'lucide-react';
 import { useTrackerAbsenceDetection } from '@/hooks/useTrackerAbsenceDetection';
 import ReplacementTrackerFinder from '@/components/admin/ReplacementTrackerFinder';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MatchData {
   id: string;
@@ -82,6 +83,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showReplacementFinder, setShowReplacementFinder] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const {
     detectedAbsences,
@@ -259,26 +261,26 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   if (loading) {
     return (
       <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+        <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+            <Settings className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             Match Organization & Planning
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64">
+        <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <div className={`flex items-center justify-center ${isMobile ? 'h-48' : 'h-64'}`}>
             <motion.div 
               className="text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               <motion.div 
-                className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full"
+                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full`}
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               />
-              <div className="text-lg font-semibold">Loading match planning data...</div>
-              <div className="text-sm text-gray-600">Fetching assignments and tracker status</div>
+              <div className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold`}>Loading match planning data...</div>
+              <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Fetching assignments and tracker status</div>
             </motion.div>
           </div>
         </CardContent>
@@ -289,11 +291,11 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   if (error || !matchData) {
     return (
       <Card className="w-full">
-        <CardContent className="p-8 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-          <p className="text-lg font-semibold text-red-600">Error Loading Planning Data</p>
-          <p className="text-sm text-gray-600 mt-2">{error || 'Match data not found'}</p>
-          <Button onClick={fetchMatchPlanningData} className="mt-4">Retry</Button>
+        <CardContent className={`${isMobile ? 'p-4' : 'p-8'} text-center`}>
+          <AlertCircle className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} mx-auto mb-4 text-red-400`} />
+          <p className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold text-red-600`}>Error Loading Planning Data</p>
+          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 mt-2`}>{error || 'Match data not found'}</p>
+          <Button onClick={fetchMatchPlanningData} className="mt-4" size={isMobile ? "sm" : "default"}>Retry</Button>
         </CardContent>
       </Card>
     );
@@ -318,33 +320,33 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-3 sm:space-y-4 lg:space-y-6 ${isMobile ? 'max-w-full' : ''}`}>
       {/* Match Overview Header */}
       <Card>
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-green-50">
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Calendar className="h-6 w-6" />
-            Match Organization Dashboard
+        <CardHeader className={`bg-gradient-to-r from-blue-50 to-green-50 ${isMobile ? 'p-3' : 'p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg sm:text-xl'}`}>
+            <Calendar className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5 sm:h-6 sm:w-6'}`} />
+            {isMobile ? 'Match Organization' : 'Match Organization Dashboard'}
           </CardTitle>
-          <div className="text-sm text-gray-600">
-            Complete organizational planning for {matchData.name}
+          <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+            {isMobile ? `Planning for ${matchData.name}` : `Complete organizational planning for ${matchData.name}`}
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <div className={`grid gap-3 sm:gap-4 lg:gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
             {/* Match Information */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                <MapPin className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <div className={`flex items-center gap-2 font-medium text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                <MapPin className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 Match Details
               </div>
-              <div className="space-y-2">
-                <div className="text-lg font-semibold">{matchData.home_team_name}</div>
-                <div className="text-center text-gray-500 text-sm">vs</div>
-                <div className="text-lg font-semibold">{matchData.away_team_name}</div>
-                <div className="text-sm text-gray-500">
+              <div className="space-y-1 sm:space-y-2">
+                <div className={`font-semibold ${isMobile ? 'text-sm' : 'text-base lg:text-lg'}`}>{matchData.home_team_name}</div>
+                <div className={`text-center text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>vs</div>
+                <div className={`font-semibold ${isMobile ? 'text-sm' : 'text-base lg:text-lg'}`}>{matchData.away_team_name}</div>
+                <div className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                   {matchData.match_date ? new Date(matchData.match_date).toLocaleDateString('en-US', {
-                    weekday: 'short',
+                    weekday: isMobile ? undefined : 'short',
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
@@ -352,35 +354,35 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                   }) : 'Date TBD'}
                 </div>
                 {matchData.location && (
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {matchData.location}
+                  <div className={`text-gray-500 flex items-center gap-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                    <MapPin className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'}`} />
+                    <span className="truncate">{matchData.location}</span>
                   </div>
                 )}
-                <Badge variant={matchData.status === 'live' ? 'default' : 'secondary'}>
+                <Badge variant={matchData.status === 'live' ? 'default' : 'secondary'} className={`${isMobile ? 'text-xs' : ''}`}>
                   {matchData.status.toUpperCase()}
                 </Badge>
               </div>
             </div>
 
             {/* Coverage Statistics */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                <Users className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <div className={`flex items-center gap-2 font-medium text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 Coverage Status
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Total Players</span>
-                  <Badge variant="outline">{totalPlayers}</Badge>
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Total Players</span>
+                  <Badge variant="outline" className={`${isMobile ? 'text-xs' : ''}`}>{totalPlayers}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Assigned</span>
-                  <Badge className="bg-blue-100 text-blue-800">{assignedPlayers}</Badge>
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Assigned</span>
+                  <Badge className={`bg-blue-100 text-blue-800 ${isMobile ? 'text-xs' : ''}`}>{assignedPlayers}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Coverage</span>
-                  <Badge className={coveragePercentage >= 80 ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Coverage</span>
+                  <Badge className={`${coveragePercentage >= 80 ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"} ${isMobile ? 'text-xs' : ''}`}>
                     {coveragePercentage}%
                   </Badge>
                 </div>
@@ -388,25 +390,25 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
             </div>
 
             {/* Event Type Coverage */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                <Target className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <div className={`flex items-center gap-2 font-medium text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                <Target className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 Event Coverage
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Total Types</span>
-                  <Badge variant="outline">{EVENT_TYPES.length}</Badge>
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Total Types</span>
+                  <Badge variant="outline" className={`${isMobile ? 'text-xs' : ''}`}>{EVENT_TYPES.length}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Covered</span>
-                  <Badge className="bg-blue-100 text-blue-800">
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Covered</span>
+                  <Badge className={`bg-blue-100 text-blue-800 ${isMobile ? 'text-xs' : ''}`}>
                     {eventTypeCoverage.filter(e => e.assigned_trackers > 0).length}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Critical Events</span>
-                  <Badge className={criticalEventTypes.every(e => e.assigned_trackers > 0) ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                  <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Critical Events</span>
+                  <Badge className={`${criticalEventTypes.every(e => e.assigned_trackers > 0) ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} ${isMobile ? 'text-xs' : ''}`}>
                     {criticalEventTypes.filter(e => e.assigned_trackers > 0).length}/{criticalEventTypes.length}
                   </Badge>
                 </div>
@@ -414,23 +416,23 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
             </div>
 
             {/* Tracker Readiness */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                <Clock className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <div className={`flex items-center gap-2 font-medium text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                <Clock className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 Match Readiness
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <div className="text-center">
                   {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) ? (
-                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <CheckCircle className={`${isMobile ? 'h-6 w-6' : 'h-8 w-8'} text-green-500 mx-auto mb-2`} />
                   ) : (
-                    <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                    <AlertCircle className={`${isMobile ? 'h-6 w-6' : 'h-8 w-8'} text-yellow-500 mx-auto mb-2`} />
                   )}
                 </div>
-                <div className="text-center text-sm font-medium">
+                <div className={`text-center font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>
                   {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) ? "Ready to Start" : "Setup Required"}
                 </div>
-                <div className="text-xs text-center text-gray-500">
+                <div className={`text-center text-gray-500 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                   Coverage: {coveragePercentage}% | Trackers: {trackerReadiness}%
                 </div>
               </div>
@@ -441,17 +443,17 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
       {/* Event Type Coverage Details */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+        <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+            <Target className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             Event Type Coverage Analysis
           </CardTitle>
-          <div className="text-sm text-gray-600">
-            Detailed breakdown of event type assignments and priorities
+          <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+            {isMobile ? 'Event type assignments and priorities' : 'Detailed breakdown of event type assignments and priorities'}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className={`${isMobile ? 'p-3' : 'p-6'} ${isMobile ? 'pt-0' : 'pt-0'}`}>
+          <div className={`grid gap-2 sm:gap-3 lg:gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
             {EVENT_TYPES.map((eventType) => {
               const coverage = eventTypeCoverage.find(e => e.event_type === eventType.key);
               const priorityColor = {
@@ -462,16 +464,16 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               }[eventType.priority];
 
               return (
-                <div key={eventType.key} className={`p-3 rounded-lg border-2 ${priorityColor}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-sm">{eventType.label}</span>
-                    <Badge variant="outline" className="text-xs">
+                <div key={eventType.key} className={`${isMobile ? 'p-2' : 'p-3'} rounded-lg border-2 ${priorityColor}`}>
+                  <div className={`flex justify-between items-center ${isMobile ? 'mb-1' : 'mb-2'}`}>
+                    <span className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>{eventType.label}</span>
+                    <Badge variant="outline" className={`${isMobile ? 'text-xs' : 'text-xs'}`}>
                       {eventType.priority}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Trackers Assigned</span>
-                    <Badge className={coverage?.assigned_trackers === 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                    <span className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-xs'}`}>Trackers Assigned</span>
+                    <Badge className={`${coverage?.assigned_trackers === 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"} ${isMobile ? 'text-xs' : ''}`}>
                       {coverage?.assigned_trackers || 0}
                     </Badge>
                   </div>
@@ -483,20 +485,20 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
       </Card>
 
       {/* Detailed Planning Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={`grid gap-3 sm:gap-4 lg:gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
         {/* Tracker Status Details */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Tracker Status & Replacement Strategy
+          <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+              <Activity className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
+              {isMobile ? 'Tracker Status & Replacements' : 'Tracker Status & Replacement Strategy'}
             </CardTitle>
-            <div className="text-sm text-gray-600">
-              Real-time status with absence detection and replacement options
+            <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+              {isMobile ? 'Real-time status with replacement options' : 'Real-time status with absence detection and replacement options'}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'} ${isMobile ? 'pt-0' : 'pt-0'}`}>
+            <div className={`space-y-2 sm:space-y-3 lg:space-y-4 ${isMobile ? 'max-h-80' : 'max-h-96'} overflow-y-auto`}>
               {trackerStatuses
                 .filter(tracker => tracker.assigned_players > 0 || tracker.assigned_events.length > 0)
                 .map((tracker, index) => (
@@ -505,69 +507,73 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-4 bg-gray-50 rounded-lg border"
+                  className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-gray-50 rounded-lg border`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-start justify-between'}`}>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-3 h-3 rounded-full ${
+                      <div className={`flex items-center gap-2 ${isMobile ? 'mb-1' : 'mb-2'}`}>
+                        <div className={`${isMobile ? 'w-2 h-2' : 'w-3 h-3'} rounded-full ${
                           tracker.status === 'active' ? 'bg-green-500' :
                           tracker.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
                         }`} />
-                        <span className="font-medium text-sm">{tracker.full_name}</span>
-                        <Badge variant="outline" className="text-xs">
+                        <span className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>{tracker.full_name}</span>
+                        <Badge variant="outline" className={`${isMobile ? 'text-xs' : 'text-xs'}`}>
                           {tracker.status}
                         </Badge>
                         {detectedAbsences.includes(tracker.id) && (
-                          <Badge className="bg-red-100 text-red-800 text-xs">
+                          <Badge className={`bg-red-100 text-red-800 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                             ABSENT
                           </Badge>
                         )}
                       </div>
                       
-                      <div className="text-xs text-gray-600 space-y-1">
+                      <div className={`text-gray-600 space-y-0.5 sm:space-y-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                         <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {tracker.email}
+                          <Mail className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'}`} />
+                          <span className="truncate">{tracker.email}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Users className="h-3 w-3" />
+                          <Users className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'}`} />
                           {tracker.assigned_players} players assigned
                         </div>
                         {tracker.assigned_events.length > 0 && (
                           <div className="flex items-center gap-1">
-                            <Activity className="h-3 w-3" />
-                            {tracker.assigned_events.slice(0, 3).join(', ')}
-                            {tracker.assigned_events.length > 3 && ` +${tracker.assigned_events.length - 3} more`}
+                            <Activity className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'}`} />
+                            <span className="truncate">
+                              {tracker.assigned_events.slice(0, isMobile ? 2 : 3).join(', ')}
+                              {tracker.assigned_events.length > (isMobile ? 2 : 3) && ` +${tracker.assigned_events.length - (isMobile ? 2 : 3)} more`}
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-1">
-                      {tracker.battery_level !== undefined && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Battery className={`h-3 w-3 ${
-                            tracker.battery_level > 20 ? 'text-green-600' : 'text-red-600'
-                          }`} />
-                          {tracker.battery_level}%
-                        </div>
-                      )}
-                      {tracker.status === 'active' && (
-                        <div className="flex items-center gap-1 text-xs text-green-600">
-                          <Wifi className="h-3 w-3" />
-                          Online
-                        </div>
-                      )}
+                    <div className={`flex ${isMobile ? 'justify-between items-center w-full' : 'flex-col items-end gap-1'}`}>
+                      <div className={`flex items-center gap-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                        {tracker.battery_level !== undefined && (
+                          <div className="flex items-center gap-1">
+                            <Battery className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'} ${
+                              tracker.battery_level > 20 ? 'text-green-600' : 'text-red-600'
+                            }`} />
+                            {tracker.battery_level}%
+                          </div>
+                        )}
+                        {tracker.status === 'active' && (
+                          <div className={`flex items-center gap-1 text-green-600 ${isMobile ? 'ml-2' : ''}`}>
+                            <Wifi className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'}`} />
+                            {!isMobile && 'Online'}
+                          </div>
+                        )}
+                      </div>
                       {detectedAbsences.includes(tracker.id) && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs border-orange-500 text-orange-700 hover:bg-orange-50"
+                          className={`text-orange-700 border-orange-500 hover:bg-orange-50 ${isMobile ? 'text-xs px-2' : 'text-xs'}`}
                           onClick={() => handleReplacementRequest(tracker.id)}
                         >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Find Replacement
+                          <RotateCcw className={`${isMobile ? 'h-2 w-2 mr-0.5' : 'h-3 w-3 mr-1'}`} />
+                          {isMobile ? 'Replace' : 'Find Replacement'}
                         </Button>
                       )}
                     </div>
@@ -576,10 +582,10 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               ))}
               
               {trackerStatuses.filter(t => t.assigned_players > 0 || t.assigned_events.length > 0).length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No trackers assigned yet</p>
-                  <p className="text-xs">Use the assignment panel to assign trackers</p>
+                <div className={`text-center ${isMobile ? 'py-6' : 'py-8'} text-gray-500`}>
+                  <Users className={`${isMobile ? 'h-6 w-6' : 'h-8 w-8'} mx-auto mb-2 opacity-50`} />
+                  <p className={`${isMobile ? 'text-sm' : 'text-base'}`}>No trackers assigned yet</p>
+                  <p className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Use the assignment panel to assign trackers</p>
                 </div>
               )}
             </div>
@@ -588,48 +594,48 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
         {/* Assignment Summary */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
+          <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+              <CheckCircle className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
               Assignment Summary
             </CardTitle>
-            <div className="text-sm text-gray-600">
-              Overview of current assignment status and critical gaps
+            <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+              {isMobile ? 'Current assignment status and gaps' : 'Overview of current assignment status and critical gaps'}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'} ${isMobile ? 'pt-0' : 'pt-0'}`}>
+            <div className={`space-y-3 sm:space-y-4 lg:space-y-6`}>
               {/* Team Coverage */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
+              <div className={`grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4`}>
+                <div className={`text-center ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-blue-50 rounded-lg`}>
+                  <div className={`font-bold text-blue-600 ${isMobile ? 'text-lg' : 'text-xl sm:text-2xl'}`}>
                     {matchData.home_team_players?.length || 0}
                   </div>
-                  <div className="text-sm text-gray-600">{matchData.home_team_name}</div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>{matchData.home_team_name}</div>
+                  <div className={`text-gray-500 mt-0.5 sm:mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {assignments.filter(a => a.player_team_id === 'home' && a.player_id).length} assigned
                   </div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
+                <div className={`text-center ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-red-50 rounded-lg`}>
+                  <div className={`font-bold text-red-600 ${isMobile ? 'text-lg' : 'text-xl sm:text-2xl'}`}>
                     {matchData.away_team_players?.length || 0}
                   </div>
-                  <div className="text-sm text-gray-600">{matchData.away_team_name}</div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>{matchData.away_team_name}</div>
+                  <div className={`text-gray-500 mt-0.5 sm:mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {assignments.filter(a => a.player_team_id === 'away' && a.player_id).length} assigned
                   </div>
                 </div>
               </div>
               
               {/* Critical Event Types Status */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Critical Event Types Status</h4>
+              <div className="space-y-2 sm:space-y-3">
+                <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Critical Event Types Status</h4>
                 {criticalEventTypes.map(eventType => (
-                  <div key={eventType.event_type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">
+                  <div key={eventType.event_type} className={`flex justify-between items-center ${isMobile ? 'p-1.5' : 'p-2'} bg-gray-50 rounded`}>
+                    <span className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       {EVENT_TYPES.find(e => e.key === eventType.event_type)?.label}
                     </span>
-                    <Badge className={eventType.assigned_trackers > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                    <Badge className={`${eventType.assigned_trackers > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} ${isMobile ? 'text-xs' : ''}`}>
                       {eventType.assigned_trackers > 0 ? '✓ Covered' : '⚠ Uncovered'}
                     </Badge>
                   </div>
@@ -637,16 +643,16 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
               </div>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+              <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${isMobile ? 'pt-2' : 'pt-4'} border-t`}>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">{assignments.length}</div>
-                  <div className="text-xs text-gray-600">Total Assignments</div>
+                  <div className={`font-bold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'}`}>{assignments.length}</div>
+                  <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-xs'}`}>Total Assignments</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">
+                  <div className={`font-bold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'}`}>
                     {new Set(assignments.map(a => a.tracker_user_id)).size}
                   </div>
-                  <div className="text-xs text-gray-600">Unique Trackers</div>
+                  <div className={`text-gray-600 ${isMobile ? 'text-xs' : 'text-xs'}`}>Unique Trackers</div>
                 </div>
               </div>
             </div>
@@ -656,7 +662,7 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
       {/* Replacement Tracker Finder Modal */}
       {showReplacementFinder && (
-        <div className="mt-6">
+        <div className={`${isMobile ? 'mt-3' : 'mt-6'}`}>
           <ReplacementTrackerFinder
             absentTrackerId={showReplacementFinder}
             availableTrackers={[]}
@@ -668,101 +674,101 @@ export const MatchPlanningNetwork: React.FC<MatchPlanningNetworkProps> = ({
 
       {/* Action Items */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            Action Items & Recommendations
+        <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+            <AlertCircle className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
+            {isMobile ? 'Action Items' : 'Action Items & Recommendations'}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className={`${isMobile ? 'p-3' : 'p-6'} ${isMobile ? 'pt-0' : 'pt-0'}`}>
+          <div className={`space-y-2 sm:space-y-3`}>
             {coveragePercentage < 80 && (
-              <div className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-yellow-800">Incomplete Player Coverage</div>
-                  <div className="text-xs text-yellow-700">
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-yellow-50 rounded-lg border border-yellow-200`}>
+                <AlertCircle className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-yellow-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-yellow-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>Incomplete Player Coverage</div>
+                  <div className={`text-yellow-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {totalPlayers - assignedPlayers} players still need tracker assignments. Current coverage: {coveragePercentage}%
                   </div>
                 </div>
-                <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700">
-                  Assign Trackers
+                <Button size="sm" className={`bg-yellow-600 hover:bg-yellow-700 flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  {isMobile ? 'Assign' : 'Assign Trackers'}
                 </Button>
               </div>
             )}
 
             {highPriorityUncovered.length > 0 && (
-              <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <Target className="h-5 w-5 text-orange-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-orange-800">High Priority Events Uncovered</div>
-                  <div className="text-xs text-orange-700">
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-orange-50 rounded-lg border border-orange-200`}>
+                <Target className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-orange-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-orange-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>High Priority Events Uncovered</div>
+                  <div className={`text-orange-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {highPriorityUncovered.map(e => EVENT_TYPES.find(et => et.key === e.event_type)?.label).join(', ')} need tracker assignment
                   </div>
                 </div>
-                <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
-                  Assign Event Trackers
+                <Button size="sm" className={`bg-orange-600 hover:bg-orange-700 flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  {isMobile ? 'Assign' : 'Assign Event Trackers'}
                 </Button>
               </div>
             )}
             
             {pendingTrackers > 0 && (
-              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <Clock className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-blue-800">Tracker Confirmation Pending</div>
-                  <div className="text-xs text-blue-700">
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-blue-50 rounded-lg border border-blue-200`}>
+                <Clock className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-blue-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-blue-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>Tracker Confirmation Pending</div>
+                  <div className={`text-blue-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {pendingTrackers} trackers need to confirm availability and check their devices
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                  Send Reminders
+                <Button size="sm" variant="outline" className={`border-blue-600 text-blue-600 hover:bg-blue-50 flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  {isMobile ? 'Remind' : 'Send Reminders'}
                 </Button>
               </div>
             )}
 
             {detectedAbsences.length > 0 && (
-              <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
-                <RotateCcw className="h-5 w-5 text-red-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-red-800">Tracker Absences Detected</div>
-                  <div className="text-xs text-red-700">
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-red-50 rounded-lg border border-red-200`}>
+                <RotateCcw className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-red-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-red-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>Tracker Absences Detected</div>
+                  <div className={`text-red-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {detectedAbsences.length} tracker(s) are absent and need replacement
                   </div>
                 </div>
-                <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                  Manage Replacements
+                <Button size="sm" className={`bg-red-600 hover:bg-red-700 flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  {isMobile ? 'Manage' : 'Manage Replacements'}
                 </Button>
               </div>
             )}
 
             {coveragePercentage >= 80 && trackerReadiness >= 70 && criticalEventTypes.every(e => e.assigned_trackers > 0) && detectedAbsences.length === 0 && (
-              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-green-800">Match Ready for Kickoff</div>
-                  <div className="text-xs text-green-700">
-                    Excellent coverage ({coveragePercentage}%), all critical events covered, and all trackers ready!
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-green-50 rounded-lg border border-green-200`}>
+                <CheckCircle className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-green-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-green-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>Match Ready for Kickoff</div>
+                  <div className={`text-green-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                    {isMobile ? `${coveragePercentage}% coverage, all critical events covered!` : `Excellent coverage (${coveragePercentage}%), all critical events covered, and all trackers ready!`}
                   </div>
                 </div>
-                <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                  <Zap className="h-4 w-4 mr-1" />
-                  Start Match Tracking
+                <Button size="sm" className={`bg-green-600 hover:bg-green-700 flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  <Zap className={`${isMobile ? 'h-3 w-3 mr-0.5' : 'h-4 w-4 mr-1'}`} />
+                  {isMobile ? 'Start' : 'Start Match Tracking'}
                 </Button>
               </div>
             )}
 
             {assignments.length === 0 && (
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <Users className="h-5 w-5 text-gray-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-gray-800">No Assignments Yet</div>
-                  <div className="text-xs text-gray-700">
-                    Start by assigning trackers to players and event types to begin match preparation
+              <div className={`flex items-center gap-2 sm:gap-3 ${isMobile ? 'p-2' : 'p-3 sm:p-4'} bg-gray-50 rounded-lg border border-gray-200`}>
+                <Users className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-gray-600 flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium text-gray-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>No Assignments Yet</div>
+                  <div className={`text-gray-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                    {isMobile ? 'Start by assigning trackers to players and events' : 'Start by assigning trackers to players and event types to begin match preparation'}
                   </div>
                 </div>
-                <Button size="sm" variant="outline">
-                  Create Assignments
+                <Button size="sm" variant="outline" className={`flex-shrink-0 ${isMobile ? 'text-xs px-2' : ''}`}>
+                  {isMobile ? 'Create' : 'Create Assignments'}
                 </Button>
               </div>
             )}
