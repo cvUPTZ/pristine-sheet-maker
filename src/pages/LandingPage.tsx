@@ -19,7 +19,11 @@ import {
   Globe,
   Check,
   Crown,
-  Star
+  Star,
+  Share2, // Added for new features
+  Lightbulb, // Added for new benefits
+  Building, // Added for target audience
+  School // Added for target audience
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,34 +32,34 @@ const LandingPage: React.FC = () => {
 
   const features = [
     {
+      icon: <Target className="h-8 w-8 text-red-600" />,
+      title: "Enregistrement d'Événements en Direct et Précis",
+      description: "Saisissez chaque action avec notre interface de 'piano' optimisée, suivi de la position du ballon, et collaboration multi-opérateurs en temps réel."
+    },
+    {
       icon: <Video className="h-8 w-8 text-blue-600" />,
-      title: "Analyse Vidéo Avancée",
-      description: "Synchronisez vos vidéos de match avec les données d'événements pour une analyse complète et détaillée."
+      title: "Analyse Vidéo Intégrée et Synchronisée",
+      description: "Liez les données d'événements aux séquences vidéo (y compris YouTube) pour des revues tactiques approfondies et une compréhension visuelle."
     },
     {
       icon: <Users className="h-8 w-8 text-green-600" />,
-      title: "Collaboration en Temps Réel",
-      description: "Plusieurs analystes peuvent travailler simultanément sur le même match avec des assignations spécialisées."
+      title: "Gestion Complète des Équipes et Joueurs",
+      description: "Administrez vos effectifs, profils de joueurs, formations tactiques et assignations de rôles avec une flexibilité totale."
     },
     {
       icon: <BarChart3 className="h-8 w-8 text-purple-600" />,
-      title: "Statistiques Avancées",
-      description: "Tableaux de bord KPI, cartes de chaleur, graphiques radar et visualisations statistiques complètes."
+      title: "Analyses et Visualisations Puissantes",
+      description: "Tableaux de bord KPI, cartes de chaleur, graphiques radar, statistiques détaillées et analyse tactique pour une performance optimale."
     },
     {
-      icon: <Target className="h-8 w-8 text-red-600" />,
-      title: "Suivi d'Événements Précis",
-      description: "Enregistrement détaillé des buts, passes, fautes, remplacements et mouvements de ballon."
-    },
-    {
-      icon: <Eye className="h-8 w-8 text-indigo-600" />,
-      title: "Analyse Tactique",
-      description: "Gestion des formations, positionnement des joueurs et analyse des stratégies d'équipe."
+      icon: <Share2 className="h-8 w-8 text-indigo-600" />,
+      title: "Collaboration d'Équipe Optimisée",
+      description: "Permettez à plusieurs analystes de travailler simultanément avec assignations spécialisées, synchronisation en temps réel et outils de communication."
     },
     {
       icon: <Shield className="h-8 w-8 text-orange-600" />,
-      title: "Gestion Sécurisée",
-      description: "Authentification utilisateur, rôles d'accès et gestion administrative complète."
+      title: "Administration et Contrôle Avancés",
+      description: "Gérez les utilisateurs avec des rôles précis, suivez l'activité des trackers (absences, batterie), et accédez à des journaux d'audit complets."
     }
   ];
 
@@ -63,22 +67,22 @@ const LandingPage: React.FC = () => {
     {
       icon: <TrendingUp className="h-6 w-6 text-blue-500" />,
       title: "Performance Améliorée",
-      description: "Identifiez les points forts et faibles pour optimiser les performances de l'équipe."
+      description: "Identifiez les points forts, faibles, et tendances pour optimiser les stratégies et performances de l'équipe."
     },
     {
       icon: <Timer className="h-6 w-6 text-green-500" />,
-      title: "Analyse en Temps Réel",
-      description: "Suivez les événements en direct pendant les matchs avec des notifications automatiques."
+      title: "Analyse en Temps Réel & Collaborative",
+      description: "Suivez et enregistrez les événements en direct avec plusieurs analystes, recevez des notifications et communiquez efficacement."
     },
     {
-      icon: <Database className="h-6 w-6 text-purple-500" />,
-      title: "Historique Complet",
-      description: "Conservez et analysez l'historique complet de tous vos matchs et joueurs."
+      icon: <Zap className="h-6 w-6 text-purple-500" />,
+      title: "Efficacité Opérationnelle",
+      description: "Optimisez les workflows d'analyse grâce aux outils administratifs, assignations spécialisées et gestion des trackers."
     },
     {
-      icon: <Smartphone className="h-6 w-6 text-red-500" />,
-      title: "Interface Mobile",
-      description: "Accédez à vos analyses depuis n'importe quel appareil, où que vous soyez."
+      icon: <Lightbulb className="h-6 w-6 text-red-500" />,
+      title: "Prise de Décision Éclairée",
+      description: "Basez vos décisions tactiques et de développement sur des données précises, des analyses vidéo et des rapports complets."
     }
   ];
 
@@ -92,7 +96,8 @@ const LandingPage: React.FC = () => {
       features: [
         "Jusqu'à 5 matchs par mois",
         "2 analystes simultanés",
-        "Statistiques de base",
+        "Statistiques de base et suivi d'événements",
+        "Gestion d'équipe de base",
         "Support par email",
         "Stockage 10GB"
       ],
@@ -102,13 +107,15 @@ const LandingPage: React.FC = () => {
       name: "Professional",
       price: "299€",
       period: "/mois",
-      description: "Idéal pour les clubs semi-professionnels",
+      description: "Idéal pour les clubs semi-professionnels et académies",
       icon: <Crown className="h-6 w-6 text-purple-600" />,
       features: [
         "Matchs illimités",
         "10 analystes simultanés",
-        "Statistiques avancées",
-        "Analyse vidéo complète",
+        "Statistiques avancées et visualisations (heatmaps, radar)",
+        "Analyse vidéo complète avec synchronisation",
+        "Gestion d'équipe et formations tactiques",
+        "Collaboration multi-utilisateurs",
         "Support prioritaire",
         "Stockage 100GB",
         "API d'intégration"
@@ -119,14 +126,15 @@ const LandingPage: React.FC = () => {
       name: "Enterprise",
       price: "Sur devis",
       period: "",
-      description: "Solution complète pour les clubs professionnels",
+      description: "Solution complète pour les clubs professionnels et fédérations",
       icon: <Shield className="h-6 w-6 text-green-600" />,
       features: [
         "Tout du plan Professional",
-        "Analystes illimités",
-        "Infrastructure dédiée",
-        "Formation personnalisée",
-        "Support 24/7",
+        "Analystes illimités et rôles personnalisés",
+        "Fonctionnalités de collaboration avancées (voice, etc.)",
+        "Administration complète (audit, gestion des trackers)",
+        "Infrastructure dédiée et SLA",
+        "Formation personnalisée et support 24/7",
         "Stockage illimité",
         "Développement sur mesure"
       ],
@@ -155,15 +163,14 @@ const LandingPage: React.FC = () => {
       <section className="py-20 px-4">
         <div className="container mx-auto text-center max-w-4xl">
           <Badge className="mb-4 bg-blue-100 text-blue-800 border-blue-200">
-            Plateforme d'Analyse Football Professionnelle
+            Plateforme d'Analyse et Gestion Football Professionnelle
           </Badge>
           <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
             Révolutionnez Votre
-            <span className="text-blue-600 block">Analyse de Match</span>
+            <span className="text-blue-600 block">Analyse et Gestion de Match</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Une plateforme complète pour l'enregistrement, l'analyse et la visualisation des données de match football. 
-            Transformez vos analyses en avantage concurrentiel avec nos outils professionnels.
+            Une plateforme tout-en-un pour l'enregistrement détaillé, l'analyse vidéo poussée, la collaboration en temps réel et la gestion complète des données de match de football. Transformez vos analyses en avantage concurrentiel.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button 
@@ -191,10 +198,10 @@ const LandingPage: React.FC = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Nos Services Professionnels
+              Nos Fonctionnalités Clés Professionnelles
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Découvrez comment notre plateforme transforme l'analyse football avec des outils de pointe
+              Découvrez comment notre plateforme transforme l'analyse et la gestion football avec des outils de pointe.
             </p>
           </div>
           
@@ -223,10 +230,10 @@ const LandingPage: React.FC = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Notre Modèle Économique
+              Notre Modèle Économique Flexible
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Des solutions adaptées à chaque niveau, du club amateur aux équipes professionnelles
+              Des solutions adaptées à chaque niveau, du club amateur aux organisations professionnelles.
             </p>
           </div>
           
@@ -254,8 +261,8 @@ const LandingPage: React.FC = () => {
                 <CardContent>
                   <ul className="space-y-3 mb-6">
                     {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <li key={featureIndex} className="flex items-start gap-2">
+                        <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-1" />
                         <span className="text-gray-700">{feature}</span>
                       </li>
                     ))}
@@ -312,10 +319,10 @@ const LandingPage: React.FC = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Pourquoi Choisir Notre Plateforme ?
+              Les Avantages Stratégiques de Notre Plateforme
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Les avantages qui font la différence pour votre équipe
+              Découvrez les bénéfices concrets qui font la différence pour votre équipe et votre organisation.
             </p>
           </div>
           
@@ -341,19 +348,19 @@ const LandingPage: React.FC = () => {
 
       {/* Target Audience Section */}
       <section className="py-16 px-4 bg-white">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Conçu Pour Les Professionnels du Football
+        <div className="container mx-auto max-w-5xl text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-12">
+            Une Solution Adaptée à Tous les Acteurs du Football
           </h2>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="p-6">
               <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Users className="h-8 w-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Entraîneurs</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Entraîneurs & Staff</h3>
               <p className="text-gray-600">
-                Analysez les performances d'équipe, les stratégies adverses et les contributions individuelles des joueurs.
+                Optimisez les stratégies, analysez les performances d'équipe et individuelles, et préparez les matchs efficacement.
               </p>
             </div>
             
@@ -361,19 +368,28 @@ const LandingPage: React.FC = () => {
               <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <BarChart3 className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Analystes Sportifs</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Analystes Données & Vidéo</h3>
               <p className="text-gray-600">
-                Conduisez des analyses statistiques approfondies et générez des rapports détaillés.
+                Exploitez des outils pointus pour l'enregistrement, l'analyse vidéo synchronisée, et la génération de rapports.
               </p>
             </div>
             
             <div className="p-6">
               <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Globe className="h-8 w-8 text-purple-600" />
+                <Building className="h-8 w-8 text-purple-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Passionnés</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Clubs & Organisations</h3>
               <p className="text-gray-600">
-                Explorez les données de match et approfondissez votre compréhension du jeu.
+                Gérez plusieurs équipes, centralisez les données, coordonnez les analystes et structurez vos opérations d'analyse.
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="w-16 h-16 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <School className="h-8 w-8 text-orange-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Éducation & Recherche</h3>
+              <p className="text-gray-600">
+                Utilisez notre plateforme comme outil pédagogique pour la science du sport ou pour mener des recherches avancées.
               </p>
             </div>
           </div>
@@ -387,15 +403,15 @@ const LandingPage: React.FC = () => {
             Technologies de Pointe
           </h2>
           <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto">
-            Notre plateforme utilise les dernières technologies web pour offrir une expérience utilisateur exceptionnelle
+            Notre plateforme utilise les dernières technologies web pour offrir une expérience utilisateur exceptionnelle, robuste et sécurisée.
           </p>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { name: "React", description: "Interface moderne" },
-              { name: "TypeScript", description: "Code robuste" },
-              { name: "Supabase", description: "Backend sécurisé" },
-              { name: "Tailwind CSS", description: "Design responsive" }
+              { name: "React", description: "Interface dynamique" },
+              { name: "TypeScript", description: "Code fiable" },
+              { name: "Supabase", description: "Backend & BDD scalable" },
+              { name: "Tailwind CSS", description: "Design moderne" }
             ].map((tech, index) => (
               <div key={index} className="p-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
@@ -413,10 +429,10 @@ const LandingPage: React.FC = () => {
       <section className="py-20 px-4 bg-gradient-to-r from-blue-600 to-blue-700">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-4xl font-bold text-white mb-6">
-            Prêt à Transformer Votre Analyse ?
+            Prêt à Transformer Votre Analyse et Gestion de Match ?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Rejoignez les professionnels qui utilisent déjà notre plateforme pour améliorer leurs performances
+            Rejoignez les entraîneurs, analystes et clubs qui optimisent leurs performances avec notre plateforme.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button 
@@ -450,17 +466,17 @@ const LandingPage: React.FC = () => {
                 <h3 className="text-lg font-bold">FootballAnalytics Pro</h3>
               </div>
               <p className="text-gray-400">
-                La plateforme de référence pour l'analyse professionnelle de matchs de football.
+                La plateforme de référence pour l'analyse et la gestion professionnelle de matchs de football.
               </p>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4">Services</h4>
+              <h4 className="font-semibold mb-4">Services Clés</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>Analyse Vidéo</li>
-                <li>Statistiques Avancées</li>
-                <li>Collaboration Temps Réel</li>
-                <li>Rapports Personnalisés</li>
+                <li>Analyse Vidéo & Données</li>
+                <li>Collaboration en Temps Réel</li>
+                <li>Gestion d'Équipes & Joueurs</li>
+                <li>Outils Administratifs</li>
               </ul>
             </div>
             
@@ -468,16 +484,16 @@ const LandingPage: React.FC = () => {
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
                 <li>Documentation</li>
-                <li>Tutoriels</li>
-                <li>Support Client</li>
-                <li>Formation</li>
+                <li>Tutoriels Vidéo</li>
+                <li>Support Client Réactif</li>
+                <li>Formations Personnalisées</li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>contact@footballanalytics.fr</li>
+                <li>contact@footballanalytics.pro</li>
                 <li>+33 1 23 45 67 89</li>
                 <li>Paris, France</li>
               </ul>
@@ -485,7 +501,7 @@ const LandingPage: React.FC = () => {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 FootballAnalytics Pro. Tous droits réservés.</p>
+            <p>© {new Date().getFullYear()} FootballAnalytics Pro. Tous droits réservés.</p>
           </div>
         </div>
       </footer>
