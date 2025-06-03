@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -121,67 +122,67 @@ const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto p-3 sm:p-4 lg:p-6 max-w-full">
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Admin Panel</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage users, matches, and system settings</p>
+      <div className="container mx-auto p-2 sm:p-4 lg:p-6 max-w-full">
+        <div className="mb-3 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Admin Panel</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">Manage users, matches, and system settings</p>
         </div>
         
         <Tabs defaultValue="users" className="w-full">
-          <div className="mb-4 overflow-x-auto">
-            <TabsList className={`inline-flex h-auto ${isMobile ? 'w-full flex-wrap' : 'w-auto'} bg-white border border-gray-200 rounded-lg p-1`}>
-              <div className={`${isMobile ? 'grid grid-cols-2 gap-1 w-full' : 'flex flex-wrap'}`}>
+          <div className="mb-3 sm:mb-4 overflow-x-auto">
+            <TabsList className={`inline-flex h-auto ${isMobile ? 'w-full flex-wrap gap-1' : 'w-auto'} bg-white border border-gray-200 rounded-lg p-1`}>
+              <div className={`${isMobile ? 'grid grid-cols-2 gap-1 w-full' : 'flex flex-wrap gap-1'}`}>
                 <TabsTrigger 
                   value="users" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap`}
                 >
                   👥 Users
                 </TabsTrigger>
                 <TabsTrigger 
                   value="matches" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap`}
                 >
                   ⚽ Matches
                 </TabsTrigger>
                 <TabsTrigger 
                   value="voice" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap bg-purple-50 border-purple-200`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap bg-purple-50 border-purple-200`}
                 >
                   🎤 Voice
                 </TabsTrigger>
                 <TabsTrigger 
                   value="planning" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap bg-blue-50 border-blue-200`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap bg-blue-50 border-blue-200`}
                 >
                   📋 Planning
                 </TabsTrigger>
                 <TabsTrigger 
                   value="replacement" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap bg-purple-50 border-purple-200`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap bg-purple-50 border-purple-200`}
                 >
                   🔄 Replace
                 </TabsTrigger>
                 <TabsTrigger 
                   value="matrix" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap`}
                 >
                   📊 Matrix
                 </TabsTrigger>
                 <TabsTrigger 
                   value="events" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap`}
                 >
                   🎯 Events
                 </TabsTrigger>
                 <TabsTrigger 
                   value="battery" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap`}
                 >
                   🔋 Battery
                 </TabsTrigger>
                 <TabsTrigger 
                   value="mock-data" 
-                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1' : 'text-sm px-3 py-2'} whitespace-nowrap bg-green-50 border-green-200`}
+                  className={`${isMobile ? 'text-xs px-2 py-2 flex-1 min-w-0' : 'text-sm px-3 py-2'} whitespace-nowrap bg-green-50 border-green-200`}
                 >
                   🎭 Mock
                 </TabsTrigger>
@@ -199,7 +200,7 @@ const Admin: React.FC = () => {
                   </>
                 )}
                 {isMobile && (
-                  <TabsTrigger value="more" className="text-xs px-2 py-2 flex-1">
+                  <TabsTrigger value="more" className="text-xs px-2 py-2 flex-1 min-w-0">
                     <Menu className="h-3 w-3 mr-1" />
                     More
                   </TabsTrigger>
@@ -208,51 +209,57 @@ const Admin: React.FC = () => {
             </TabsList>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 min-h-[600px]">
-            <TabsContent value="users" className="p-4 sm:p-6 m-0">
-              <UserManagement />
+          <div className="bg-white rounded-lg border border-gray-200 min-h-[500px] sm:min-h-[600px]">
+            <TabsContent value="users" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <UserManagement />
+              </div>
             </TabsContent>
             
-            <TabsContent value="matches" className="p-4 sm:p-6 m-0">
-              <MatchManagement />
+            <TabsContent value="matches" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <MatchManagement />
+              </div>
             </TabsContent>
 
-            <TabsContent value="voice" className="p-4 sm:p-6 m-0">
-              <VoiceCollaborationManager />
+            <TabsContent value="voice" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <VoiceCollaborationManager />
+              </div>
             </TabsContent>
 
-            <TabsContent value="planning" className="p-4 sm:p-6 m-0">
-              <div className="space-y-6">
+            <TabsContent value="planning" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Enhanced Match Selection Header */}
                 <Card className="border-l-4 border-l-blue-500">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 sm:p-6">
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 lg:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg lg:text-xl">
                       📋 Comprehensive Match Planning Center
                     </CardTitle>
-                    <p className="text-sm text-gray-600 mt-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mt-2">
                       Complete planning, assignment management, readiness tracking, and absence monitoring for match operations
                     </p>
                   </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
+                  <CardContent className="p-3 sm:p-4 lg:p-6">
                     {loading ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        Loading matches...
+                      <div className="text-center py-6 sm:py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <p className="text-sm sm:text-base">Loading matches...</p>
                       </div>
                     ) : matches.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">
-                        <div className="text-4xl mb-4">📋</div>
-                        <p className="text-lg font-medium">No matches available</p>
-                        <p className="text-sm">Create a match first to start planning</p>
+                      <div className="text-center py-8 sm:py-12 text-gray-500">
+                        <div className="text-3xl sm:text-4xl mb-4">📋</div>
+                        <p className="text-base sm:text-lg font-medium">No matches available</p>
+                        <p className="text-xs sm:text-sm">Create a match first to start planning</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium mb-2">Select Match for Planning</label>
+                          <label className="block text-xs sm:text-sm font-medium mb-2">Select Match for Planning</label>
                           <select
                             value={selectedMatchId || ''}
                             onChange={(e) => setSelectedMatchId(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                            className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm lg:text-base"
                           >
                             {matches.map((match) => (
                               <option key={match.id} value={match.id}>
@@ -270,51 +277,51 @@ const Admin: React.FC = () => {
 
                 {/* Planning Overview Cards */}
                 {selectedMatchId && planningData && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                     <Card className="border-green-200 bg-green-50">
-                      <CardContent className="p-3 sm:p-4">
+                      <CardContent className="p-2 sm:p-3 lg:p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs sm:text-sm font-medium text-green-800">Assigned</p>
-                            <p className="text-xl sm:text-2xl font-bold text-green-900">{getAssignmentStats().assigned}</p>
+                            <p className="text-xs font-medium text-green-800">Assigned</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-900">{getAssignmentStats().assigned}</p>
                           </div>
-                          <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+                          <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-green-600" />
                         </div>
                       </CardContent>
                     </Card>
 
                     <Card className="border-yellow-200 bg-yellow-50">
-                      <CardContent className="p-3 sm:p-4">
+                      <CardContent className="p-2 sm:p-3 lg:p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs sm:text-sm font-medium text-yellow-800">Unassigned</p>
-                            <p className="text-xl sm:text-2xl font-bold text-yellow-900">{getAssignmentStats().unassigned}</p>
+                            <p className="text-xs font-medium text-yellow-800">Unassigned</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-yellow-900">{getAssignmentStats().unassigned}</p>
                           </div>
-                          <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600" />
+                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-yellow-600" />
                         </div>
                       </CardContent>
                     </Card>
 
                     <Card className="border-blue-200 bg-blue-50">
-                      <CardContent className="p-3 sm:p-4">
+                      <CardContent className="p-2 sm:p-3 lg:p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs sm:text-sm font-medium text-blue-800">Active</p>
-                            <p className="text-xl sm:text-2xl font-bold text-blue-900">{getTrackerStats().active}</p>
+                            <p className="text-xs font-medium text-blue-800">Active</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-900">{getTrackerStats().active}</p>
                           </div>
-                          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+                          <Users className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-blue-600" />
                         </div>
                       </CardContent>
                     </Card>
 
                     <Card className="border-gray-200 bg-gray-50">
-                      <CardContent className="p-3 sm:p-4">
+                      <CardContent className="p-2 sm:p-3 lg:p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs sm:text-sm font-medium text-gray-800">Total</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900">{getAssignmentStats().total}</p>
+                            <p className="text-xs font-medium text-gray-800">Total</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{getAssignmentStats().total}</p>
                           </div>
-                          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
+                          <Users className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-gray-600" />
                         </div>
                       </CardContent>
                     </Card>
@@ -383,109 +390,125 @@ const Admin: React.FC = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="replacement" className="p-4 sm:p-6 m-0">
-              <Card className="border-l-4 border-l-purple-500">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                    🔄 Tracker Replacement Management
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Manage backup tracker assignments and replacement procedures for match operations
-                  </p>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  {loading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                      Loading matches...
-                    </div>
-                  ) : matches.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <div className="text-4xl mb-4">👥</div>
-                      <p className="text-lg font-medium">No matches available</p>
-                      <p className="text-sm">Create a match first to manage tracker replacements</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Select Match for Replacement Management</label>
-                        <select
-                          value={selectedMatchId || ''}
-                          onChange={(e) => setSelectedMatchId(e.target.value)}
-                          className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base"
-                        >
-                          {matches.map((match) => (
-                            <option key={match.id} value={match.id}>
-                              {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                              {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
-                              {` (${match.status.toUpperCase()})`}
-                            </option>
-                          ))}
-                        </select>
+            <TabsContent value="replacement" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <Card className="border-l-4 border-l-purple-500">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 p-3 sm:p-4 lg:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg lg:text-xl">
+                      🔄 Tracker Replacement Management
+                    </CardTitle>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-2">
+                      Manage backup tracker assignments and replacement procedures for match operations
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4 lg:p-6">
+                    {loading ? (
+                      <div className="text-center py-6 sm:py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                        <p className="text-sm sm:text-base">Loading matches...</p>
                       </div>
-                      
-                      {selectedMatchId && (
-                        <TrackerReplacementManager 
-                          matchId={selectedMatchId} 
-                          onReplacementUpdate={fetchPlanningData}
-                        />
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    ) : matches.length === 0 ? (
+                      <div className="text-center py-8 sm:py-12 text-gray-500">
+                        <div className="text-3xl sm:text-4xl mb-4">👥</div>
+                        <p className="text-base sm:text-lg font-medium">No matches available</p>
+                        <p className="text-xs sm:text-sm">Create a match first to manage tracker replacements</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 sm:space-y-6">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium mb-2">Select Match for Replacement Management</label>
+                          <select
+                            value={selectedMatchId || ''}
+                            onChange={(e) => setSelectedMatchId(e.target.value)}
+                            className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-xs sm:text-sm lg:text-base"
+                          >
+                            {matches.map((match) => (
+                              <option key={match.id} value={match.id}>
+                                {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                                {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                                {` (${match.status.toUpperCase()})`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        {selectedMatchId && (
+                          <TrackerReplacementManager 
+                            matchId={selectedMatchId} 
+                            onReplacementUpdate={fetchPlanningData}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
-            <TabsContent value="matrix" className="p-4 sm:p-6 m-0">
-              <MatchTrackingMatrix />
+            <TabsContent value="matrix" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <MatchTrackingMatrix />
+              </div>
             </TabsContent>
 
-            <TabsContent value="events" className="p-4 sm:p-6 m-0">
-              <EventAssignments />
+            <TabsContent value="events" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <EventAssignments />
+              </div>
             </TabsContent>
 
-            <TabsContent value="battery" className="p-4 sm:p-6 m-0">
-              <TrackerBatteryMonitor />
+            <TabsContent value="battery" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <TrackerBatteryMonitor />
+              </div>
             </TabsContent>
 
-            <TabsContent value="mock-data" className="p-4 sm:p-6 m-0">
-              <MockDataGenerator />
+            <TabsContent value="mock-data" className="p-3 sm:p-4 lg:p-6 m-0">
+              <div className="space-y-4">
+                <MockDataGenerator />
+              </div>
             </TabsContent>
 
             {isMobile ? (
-              <TabsContent value="more" className="p-4 sm:p-6 m-0">
+              <TabsContent value="more" className="p-3 sm:p-4 lg:p-6 m-0">
                 <Tabs defaultValue="players" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 mb-4">
-                    <TabsTrigger value="players" className="text-xs sm:text-sm">🏃 Players</TabsTrigger>
-                    <TabsTrigger value="access" className="text-xs sm:text-sm">🔐 Access</TabsTrigger>
-                    <TabsTrigger value="audit" className="text-xs sm:text-sm">📝 Audit</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 mb-3 sm:mb-4 h-auto">
+                    <TabsTrigger value="players" className="text-xs sm:text-sm p-2">🏃 Players</TabsTrigger>
+                    <TabsTrigger value="access" className="text-xs sm:text-sm p-2">🔐 Access</TabsTrigger>
+                    <TabsTrigger value="audit" className="text-xs sm:text-sm p-2">📝 Audit</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="players" className="mt-4">
+                  <TabsContent value="players" className="mt-3 sm:mt-4 space-y-4">
                     <PlayerAssignments />
                   </TabsContent>
                   
-                  <TabsContent value="access" className="mt-4">
+                  <TabsContent value="access" className="mt-3 sm:mt-4 space-y-4">
                     <AccessManagement />
                   </TabsContent>
                   
-                  <TabsContent value="audit" className="mt-4">
+                  <TabsContent value="audit" className="mt-3 sm:mt-4 space-y-4">
                     <AuditLogs />
                   </TabsContent>
                 </Tabs>
               </TabsContent>
             ) : (
               <>
-                <TabsContent value="players" className="p-4 sm:p-6 m-0">
-                  <PlayerAssignments />
+                <TabsContent value="players" className="p-3 sm:p-4 lg:p-6 m-0">
+                  <div className="space-y-4">
+                    <PlayerAssignments />
+                  </div>
                 </TabsContent>
                 
-                <TabsContent value="access" className="p-4 sm:p-6 m-0">
-                  <AccessManagement />
+                <TabsContent value="access" className="p-3 sm:p-4 lg:p-6 m-0">
+                  <div className="space-y-4">
+                    <AccessManagement />
+                  </div>
                 </TabsContent>
 
-                <TabsContent value="audit" className="p-4 sm:p-6 m-0">
-                  <AuditLogs />
+                <TabsContent value="audit" className="p-3 sm:p-4 lg:p-6 m-0">
+                  <div className="space-y-4">
+                    <AuditLogs />
+                  </div>
                 </TabsContent>
               </>
             )}
