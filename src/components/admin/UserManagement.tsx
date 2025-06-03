@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,14 +57,31 @@ const UserManagement: React.FC = () => {
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
       // Update the role in the profiles table
-      const { error } = await supabase
+      const { error: profilesError } = await supabase
         .from('profiles')
         .update({ role: newRole })
         .eq('id', userId);
 
-      if (error) {
-        console.error('Error updating user role:', error);
-        throw new Error(`Failed to update user role: ${error.message}`);
+      if (profilesError) {
+        console.error('Error updating user role in profiles:', profilesError);
+        throw new Error(`Failed to update user role in profiles: ${profilesError.message}`);
+      }
+
+      // Also update or insert in user_roles table for consistency
+      const { error: userRolesError } = await supabase
+        .from('user_roles')
+        .upsert({ 
+          user_id: userId, 
+          role: newRole as any, // Cast to match the enum type
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (userRolesError) {
+        console.error('Error updating user role in user_roles:', userRolesError);
+        // Don't throw here as profiles was updated successfully
+        console.warn('Profile updated but user_roles table update failed');
       }
 
       // Update the local state to reflect the change
