@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -224,19 +223,27 @@ const Admin: React.FC = () => {
 
             <TabsContent value="voice" className="p-3 sm:p-4 lg:p-6 m-0">
               <div className="space-y-4">
-                <VoiceCollaborationManager />
+                <div className="mb-4 sm:mb-6">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">Voice Collaboration Management</h2>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Manage real-time voice communication and collaboration features for match operations
+                  </p>
+                </div>
+                <div className="w-full">
+                  <VoiceCollaborationManager />
+                </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="planning" className="p-3 sm:p-4 lg:p-6 m-0">
-              <div className="space-y-4 sm:space-y-6">
+            <TabsContent value="planning" className="p-2 sm:p-3 lg:p-6 m-0">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                 {/* Enhanced Match Selection Header */}
                 <Card className="border-l-4 border-l-blue-500">
                   <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 lg:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg lg:text-xl">
+                    <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-xl">
                       📋 Comprehensive Match Planning Center
                     </CardTitle>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
                       Complete planning, assignment management, readiness tracking, and absence monitoring for match operations
                     </p>
                   </CardHeader>
@@ -244,16 +251,16 @@ const Admin: React.FC = () => {
                     {loading ? (
                       <div className="text-center py-6 sm:py-8">
                         <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <p className="text-sm sm:text-base">Loading matches...</p>
+                        <p className="text-xs sm:text-sm lg:text-base">Loading matches...</p>
                       </div>
                     ) : matches.length === 0 ? (
-                      <div className="text-center py-8 sm:py-12 text-gray-500">
-                        <div className="text-3xl sm:text-4xl mb-4">📋</div>
-                        <p className="text-base sm:text-lg font-medium">No matches available</p>
+                      <div className="text-center py-6 sm:py-8 lg:py-12 text-gray-500">
+                        <div className="text-2xl sm:text-3xl lg:text-4xl mb-4">📋</div>
+                        <p className="text-sm sm:text-base lg:text-lg font-medium">No matches available</p>
                         <p className="text-xs sm:text-sm">Create a match first to start planning</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         <div>
                           <label className="block text-xs sm:text-sm font-medium mb-2">Select Match for Planning</label>
                           <select
@@ -285,7 +292,7 @@ const Admin: React.FC = () => {
                             <p className="text-xs font-medium text-green-800">Assigned</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-900">{getAssignmentStats().assigned}</p>
                           </div>
-                          <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-green-600" />
+                          <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 lg:h-8 lg:w-8 text-green-600" />
                         </div>
                       </CardContent>
                     </Card>
@@ -297,7 +304,7 @@ const Admin: React.FC = () => {
                             <p className="text-xs font-medium text-yellow-800">Unassigned</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-bold text-yellow-900">{getAssignmentStats().unassigned}</p>
                           </div>
-                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-yellow-600" />
+                          <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-8 lg:w-8 text-yellow-600" />
                         </div>
                       </CardContent>
                     </Card>
@@ -309,7 +316,7 @@ const Admin: React.FC = () => {
                             <p className="text-xs font-medium text-blue-800">Active</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-900">{getTrackerStats().active}</p>
                           </div>
-                          <Users className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-blue-600" />
+                          <Users className="h-4 w-4 sm:h-5 sm:w-5 lg:h-8 lg:w-8 text-blue-600" />
                         </div>
                       </CardContent>
                     </Card>
@@ -321,7 +328,7 @@ const Admin: React.FC = () => {
                             <p className="text-xs font-medium text-gray-800">Total</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{getAssignmentStats().total}</p>
                           </div>
-                          <Users className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-gray-600" />
+                          <Users className="h-4 w-4 sm:h-5 sm:w-5 lg:h-8 lg:w-8 text-gray-600" />
                         </div>
                       </CardContent>
                     </Card>
@@ -394,10 +401,10 @@ const Admin: React.FC = () => {
               <div className="space-y-4">
                 <Card className="border-l-4 border-l-purple-500">
                   <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 p-3 sm:p-4 lg:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg lg:text-xl">
+                    <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-xl">
                       🔄 Tracker Replacement Management
                     </CardTitle>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
                       Manage backup tracker assignments and replacement procedures for match operations
                     </p>
                   </CardHeader>
@@ -405,12 +412,12 @@ const Admin: React.FC = () => {
                     {loading ? (
                       <div className="text-center py-6 sm:py-8">
                         <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                        <p className="text-sm sm:text-base">Loading matches...</p>
+                        <p className="text-xs sm:text-sm lg:text-base">Loading matches...</p>
                       </div>
                     ) : matches.length === 0 ? (
-                      <div className="text-center py-8 sm:py-12 text-gray-500">
-                        <div className="text-3xl sm:text-4xl mb-4">👥</div>
-                        <p className="text-base sm:text-lg font-medium">No matches available</p>
+                      <div className="text-center py-6 sm:py-8 lg:py-12 text-gray-500">
+                        <div className="text-2xl sm:text-3xl lg:text-4xl mb-4">👥</div>
+                        <p className="text-sm sm:text-base lg:text-lg font-medium">No matches available</p>
                         <p className="text-xs sm:text-sm">Create a match first to manage tracker replacements</p>
                       </div>
                     ) : (
@@ -447,13 +454,27 @@ const Admin: React.FC = () => {
 
             <TabsContent value="matrix" className="p-3 sm:p-4 lg:p-6 m-0">
               <div className="space-y-4">
+                <div className="mb-4 sm:mb-6">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">Match Tracking Matrix</h2>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Comprehensive view of all tracking assignments and coverage across matches
+                  </p>
+                </div>
                 <MatchTrackingMatrix />
               </div>
             </TabsContent>
 
             <TabsContent value="events" className="p-3 sm:p-4 lg:p-6 m-0">
               <div className="space-y-4">
-                <EventAssignments />
+                <div className="mb-4 sm:mb-6">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">Event Assignments</h2>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Manage event tracking assignments and specialized tracker roles for different event types
+                  </p>
+                </div>
+                <div className="w-full">
+                  <EventAssignments />
+                </div>
               </div>
             </TabsContent>
 

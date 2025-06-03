@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Battery, BatteryLow, Zap, User, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import TrackerAbsenceNotifier from './TrackerAbsenceNotifier';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TrackerStatusDisplay {
   userId: string;
@@ -25,6 +26,7 @@ const TrackerBatteryMonitor: React.FC = () => {
   const [absentTrackerId, setAbsentTrackerId] = useState<string>('');
   const [currentMatchId, setCurrentMatchId] = useState<string>('');
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchTrackerData();
@@ -155,77 +157,85 @@ const TrackerBatteryMonitor: React.FC = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Battery className="h-5 w-5" />
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+            <Battery className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             Tracker Battery Monitor
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">Loading tracker data...</div>
+          <div className={`text-center ${isMobile ? 'py-6' : 'py-8'}`}>
+            <div className={`animate-spin rounded-full ${isMobile ? 'h-6 w-6' : 'h-8 w-8'} border-b-2 border-blue-500 mx-auto mb-4`}></div>
+            <p className={`${isMobile ? 'text-sm' : 'text-base'}`}>Loading tracker data...</p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Battery className="h-5 w-5" />
+        <CardHeader className={`${isMobile ? 'p-3' : 'p-6'}`}>
+          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg'}`}>
+            <Battery className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             Tracker Battery Monitor
           </CardTitle>
+          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 mt-1`}>
+            Monitor battery levels and tracker status in real-time
+          </p>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
+        <CardContent className={`${isMobile ? 'p-3' : 'p-6'} ${isMobile ? 'pt-0' : 'pt-0'}`}>
+          <div className="grid gap-3 sm:gap-4">
             {trackers.map((tracker) => (
               <motion.div
                 key={tracker.userId}
-                className="flex items-center justify-between p-4 border rounded-lg"
+                className={`flex flex-col sm:flex-row items-start sm:items-center justify-between ${isMobile ? 'p-3' : 'p-4'} border rounded-lg gap-3 sm:gap-4`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <User className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-white`} />
                   </div>
-                  <div>
-                    <div className="font-semibold">{tracker.identifier}</div>
-                    <div className="text-sm text-gray-500">
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-semibold ${isMobile ? 'text-sm' : 'text-base'} truncate`}>
+                      {tracker.identifier}
+                    </div>
+                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-500 truncate`}>
                       Last update: {formatLastUpdate(tracker.lastUpdatedAt)}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>
                   <div className="flex items-center gap-2">
                     {getBatteryIcon(tracker.batteryLevel)}
-                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any}>
+                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any} className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
                       {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
                     </Badge>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className={`flex gap-2 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>
                     {tracker.batteryLevel !== null && tracker.batteryLevel <= 20 && (
                       <Button
-                        size="sm"
+                        size={isMobile ? "sm" : "sm"}
                         variant="outline"
                         onClick={() => sendLowBatteryNotification(tracker.userId, tracker.batteryLevel!)}
-                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        className={`text-orange-600 border-orange-300 hover:bg-orange-50 ${isMobile ? 'flex-1 text-xs px-2' : ''}`}
                       >
-                        <AlertTriangle className="h-4 w-4 mr-1" />
-                        Notify Low Battery
+                        <AlertTriangle className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} ${isMobile ? 'mr-1' : 'mr-1'}`} />
+                        {isMobile ? 'Notify' : 'Notify Low Battery'}
                       </Button>
                     )}
                     
                     <Button
-                      size="sm"
+                      size={isMobile ? "sm" : "sm"}
                       variant="outline"
                       onClick={() => markTrackerAbsent(tracker.userId)}
-                      className="text-red-600 border-red-300 hover:bg-red-50"
+                      className={`text-red-600 border-red-300 hover:bg-red-50 ${isMobile ? 'flex-1 text-xs px-2' : ''}`}
                     >
-                      Mark Absent
+                      {isMobile ? 'Absent' : 'Mark Absent'}
                     </Button>
                   </div>
                 </div>
@@ -233,14 +243,22 @@ const TrackerBatteryMonitor: React.FC = () => {
             ))}
 
             {trackers.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No tracker data available
+              <div className={`text-center ${isMobile ? 'py-6' : 'py-8'} text-gray-500`}>
+                <div className={`${isMobile ? 'text-2xl' : 'text-3xl'} mb-4`}>🔋</div>
+                <p className={`${isMobile ? 'text-sm' : 'text-base'} font-medium mb-2`}>No tracker data available</p>
+                <p className={`${isMobile ? 'text-xs' : 'text-sm'}`}>Trackers will appear here once they start reporting battery status</p>
               </div>
             )}
           </div>
 
-          <div className="mt-6 flex justify-center">
-            <Button onClick={fetchTrackerData} variant="outline">
+          <div className={`${isMobile ? 'mt-4' : 'mt-6'} flex justify-center`}>
+            <Button 
+              onClick={fetchTrackerData} 
+              variant="outline"
+              size={isMobile ? "sm" : "default"}
+              className={`${isMobile ? 'text-xs px-4' : ''}`}
+            >
+              <Zap className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
               Refresh Data
             </Button>
           </div>
