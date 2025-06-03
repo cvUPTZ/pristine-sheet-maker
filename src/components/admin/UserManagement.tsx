@@ -67,21 +67,49 @@ const UserManagement: React.FC = () => {
         throw new Error(`Failed to update user role in profiles: ${profilesError.message}`);
       }
 
-      // Also update or insert in user_roles table for consistency
-      const { error: userRolesError } = await supabase
+      // Check if user exists in user_roles table
+      const { data: existingRole, error: checkError } = await supabase
         .from('user_roles')
-        .upsert({ 
-          user_id: userId, 
-          role: newRole as any, // Cast to match the enum type
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
+        .select('user_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is expected if user doesn't exist
+        console.error('Error checking user_roles:', checkError);
+      }
+
+      // Update or insert in user_roles table
+      let userRolesError;
+      if (existingRole) {
+        // User exists, update the role
+        const { error } = await supabase
+          .from('user_roles')
+          .update({ 
+            role: newRole as any,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+        userRolesError = error;
+      } else {
+        // User doesn't exist, insert new record
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ 
+            user_id: userId, 
+            role: newRole as any,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        userRolesError = error;
+      }
 
       if (userRolesError) {
         console.error('Error updating user role in user_roles:', userRolesError);
-        // Don't throw here as profiles was updated successfully
         console.warn('Profile updated but user_roles table update failed');
+        toast.error('Role updated in profiles but failed to sync with user_roles table');
+      } else {
+        console.log('Successfully updated role in both profiles and user_roles tables');
       }
 
       // Update the local state to reflect the change
