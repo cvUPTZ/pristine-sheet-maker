@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { toast } from 'sonner';
 interface EventAssignment {
   id: string;
   tracker_user_id: string;
-  event_type: string;
+  assigned_event_types?: string[] | null;
   priority: number;
   is_specialized: boolean;
   created_at: string;
@@ -25,11 +24,11 @@ interface EventAssignment {
 
 interface Match {
   id: string;
-  name: string;
+  name: string | null;
   home_team_name: string;
   away_team_name: string;
   status: string;
-  match_date: string;
+  match_date: string | null;
 }
 
 const EventAssignments: React.FC = () => {
@@ -69,9 +68,20 @@ const EventAssignments: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMatches(data || []);
-      if (data && data.length > 0) {
-        setSelectedMatch(data[0].id);
+      
+      // Transform the data to match our interface
+      const transformedMatches: Match[] = (data || []).map(match => ({
+        id: match.id,
+        name: match.name,
+        home_team_name: match.home_team_name,
+        away_team_name: match.away_team_name,
+        status: match.status,
+        match_date: match.match_date
+      }));
+      
+      setMatches(transformedMatches);
+      if (transformedMatches.length > 0) {
+        setSelectedMatch(transformedMatches[0].id);
       }
     } catch (error) {
       console.error('Error fetching matches:', error);
@@ -89,7 +99,7 @@ const EventAssignments: React.FC = () => {
         .select(`
           id,
           tracker_user_id,
-          event_type,
+          assigned_event_types,
           priority,
           is_specialized,
           created_at,
@@ -98,21 +108,29 @@ const EventAssignments: React.FC = () => {
             full_name
           )
         `)
-        .eq('match_id', selectedMatch)
-        .not('event_type', 'is', null);
+        .eq('match_id', selectedMatch);
 
       if (selectedEventType !== 'all') {
-        query = query.eq('event_type', selectedEventType);
+        query = query.contains('assigned_event_types', [selectedEventType]);
       }
 
       const { data, error } = await query.order('priority', { ascending: true });
 
       if (error) throw error;
       
-      const formattedData = data?.map(assignment => ({
-        ...assignment,
-        tracker: assignment.profiles
-      })) || [];
+      // Transform the data safely
+      const formattedData: EventAssignment[] = (data || []).map(assignment => ({
+        id: assignment.id,
+        tracker_user_id: assignment.tracker_user_id,
+        assigned_event_types: assignment.assigned_event_types,
+        priority: assignment.priority || 1,
+        is_specialized: assignment.is_specialized || false,
+        created_at: assignment.created_at,
+        tracker: assignment.profiles ? {
+          username: assignment.profiles.username || '',
+          full_name: assignment.profiles.full_name || ''
+        } : undefined
+      }));
 
       setAssignments(formattedData);
       calculateStats(formattedData);
@@ -127,7 +145,16 @@ const EventAssignments: React.FC = () => {
   const calculateStats = (data: EventAssignment[]) => {
     const totalAssignments = data.length;
     const specializedTrackers = data.filter(a => a.is_specialized).length;
-    const eventTypesCovered = new Set(data.map(a => a.event_type)).size;
+    
+    // Calculate event types covered from assigned_event_types arrays
+    const allEventTypes = new Set<string>();
+    data.forEach(assignment => {
+      if (assignment.assigned_event_types) {
+        assignment.assigned_event_types.forEach(type => allEventTypes.add(type));
+      }
+    });
+    const eventTypesCovered = allEventTypes.size;
+    
     const averagePriority = data.length > 0 
       ? Math.round(data.reduce((sum, a) => sum + a.priority, 0) / data.length * 10) / 10
       : 0;
@@ -338,16 +365,15 @@ const EventAssignments: React.FC = () => {
                   >
                     <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-4'}`}>
                       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div
-                          className={`w-3 h-3 rounded-full ${getEventTypeColor(assignment.event_type)}`}
-                          title={assignment.event_type}
-                        />
                         <div className="flex-1 min-w-0">
                           <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate`}>
                             {assignment.tracker?.full_name || assignment.tracker?.username || 'Unknown Tracker'}
                           </div>
-                          <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 capitalize`}>
-                            {assignment.event_type.replace('_', ' ')}
+                          <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500`}>
+                            {assignment.assigned_event_types ? 
+                              assignment.assigned_event_types.join(', ').replace(/_/g, ' ') : 
+                              'No specific events assigned'
+                            }
                           </div>
                         </div>
                       </div>
