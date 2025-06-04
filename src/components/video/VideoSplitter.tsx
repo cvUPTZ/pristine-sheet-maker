@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scissors, Play, Clock, FileVideo, AlertCircle, Settings, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseDurationToSeconds, formatTime, formatFileSize } from '@/utils/formatters';
 
 interface VideoSegment {
   id: string;
@@ -33,8 +35,9 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoInfo, 
   onSegmentsReady 
 }) => {
-  // Calculate appropriate default segment duration based on video length
-  const videoDurationSeconds = parseDuration(videoInfo.duration);
+  // Parse the duration string to get total seconds
+  const videoDurationSeconds = parseDurationToSeconds(videoInfo.duration);
+  
   const getDefaultSegmentDuration = (totalDuration: number): number => {
     if (totalDuration <= 60) return Math.max(10, Math.floor(totalDuration / 3)); // Very short videos: 3 segments minimum
     if (totalDuration <= 300) return 60; // Short videos: 1 minute segments
@@ -55,34 +58,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     const newDefaultDuration = getDefaultSegmentDuration(videoDurationSeconds);
     setSegmentDuration(newDefaultDuration);
   }, [videoDurationSeconds]);
-
-  function parseDuration(duration: string): number {
-    const parts = duration.split(':').map(Number);
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-      return parts[0] * 60 + parts[1];
-    }
-    return parts[0] || 0;
-  }
-
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  };
 
   const estimateSegmentSize = (duration: number): number => {
     const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 : 
