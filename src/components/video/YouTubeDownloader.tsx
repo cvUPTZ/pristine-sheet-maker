@@ -161,8 +161,8 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     } catch (error) {
       console.error('Error extracting video info:', error);
       
-      // Fallback to mock data for development - with realistic duration
-      const mockDurationSeconds = 1800 + Math.floor(Math.random() * 3600); // 30-90 minutes
+      // Fallback to mock data for development - with realistic 6 minute duration
+      const mockDurationSeconds = 6 * 60; // Exactly 6 minutes (360 seconds)
       const videoInfo: VideoInfo = {
         title: 'Soccer Match Analysis Video',
         duration: formatDuration(mockDurationSeconds),
@@ -209,10 +209,8 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
       clearInterval(progressInterval);
       setDownloadProgress(100);
       
-      // Create a more realistic mock video file with substantial size
-      const mockVideoSize = selectedQuality === '1080p' ? 50 * 1024 * 1024 : // 50MB for demo
-                           selectedQuality === '720p' ? 30 * 1024 * 1024 :   // 30MB for demo
-                           20 * 1024 * 1024; // 20MB for demo
+      // Create a more realistic mock video file with substantial size (30MB as shown in the error)
+      const mockVideoSize = 30 * 1024 * 1024; // 30MB to match what user sees
       
       const videoBlob = new Blob([new ArrayBuffer(mockVideoSize)], { type: 'video/mp4' });
       const mockVideoFile = new File([videoBlob], `${videoInfo.title.replace(/[^a-zA-Z0-9]/g, '_')}_${selectedQuality}.mp4`, {
