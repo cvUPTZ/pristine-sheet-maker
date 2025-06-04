@@ -1,20 +1,25 @@
+import { ConnectionMonitor } from './connectionMonitor';
+import { VoiceConnectionRecovery } from './connectionRecovery';
+import { PRODUCTION_VOICE_CONFIG } from '@/config/voiceConfig';
+
 interface WebRTCManagerOptions {
   localStream: MediaStream;
   onRemoteStream: (userId: string, stream: MediaStream) => void;
   onPeerDisconnected: (userId: string) => void;
   onError: (error: Error) => void;
   onConnectionQuality?: (userId: string, quality: any) => void;
+  onDataChannel?: (userId: string, channel: RTCDataChannel) => void;
 }
 
 interface PeerState {
   connection: RTCPeerConnection;
+  dataChannel?: RTCDataChannel;
   isNegotiating: boolean;
   pendingIceCandidates: RTCIceCandidateInit[];
   lastActivity: number;
+  connectionAttempts: number;
+  isStable: boolean;
 }
-
-import { ConnectionMonitor } from './connectionMonitor';
-import { VoiceConnectionRecovery } from './connectionRecovery';
 
 export class WebRTCManager {
   private peers = new Map<string, PeerState>();
@@ -23,11 +28,12 @@ export class WebRTCManager {
   private onPeerDisconnected: (userId: string) => void;
   private onError: (error: Error) => void;
   private onConnectionQuality?: (userId: string, quality: any) => void;
+  private onDataChannel?: (userId: string, channel: RTCDataChannel) => void;
   private signalingQueue = new Map<string, Promise<void>>();
   private connectionMonitor: ConnectionMonitor;
   private connectionRecovery: VoiceConnectionRecovery;
-  private reconnectionAttempts = new Map<string, number>();
-  private maxReconnectionAttempts = 3;
+  private healthCheckInterval?: NodeJS.Timeout;
+  private statsCollectionInterval?: NodeJS.Timeout;
 
   constructor(options: WebRTCManagerOptions) {
     this.localStream = options.localStream;
@@ -35,23 +41,46 @@ export class WebRTCManager {
     this.onPeerDisconnected = options.onPeerDisconnected;
     this.onError = options.onError;
     this.onConnectionQuality = options.onConnectionQuality;
+    this.onDataChannel = options.onDataChannel;
 
-    // Initialize connection monitor
+    // Initialize connection monitor with production settings
     this.connectionMonitor = new ConnectionMonitor({
       onQualityChange: (userId, quality) => {
-        console.log(`📊 Connection quality for ${userId}:`, quality.quality, `(${quality.rtt}ms RTT)`);
+        console.log(`📊 Connection quality for ${userId}:`, quality.quality, `(${quality.rtt}ms RTT, ${quality.packetsLost} lost)`);
         this.onConnectionQuality?.(userId, quality);
+        
+        // Auto-handle poor connections
+        if (quality.quality === 'poor') {
+          this.handlePoorConnection(userId);
+        }
       },
       onConnectionLoss: (userId) => {
-        console.log(`📡 Connection lost detected for: ${userId}`);
+        console.log(`📡 Connection loss detected for: ${userId}`);
         this.handlePeerDisconnection(userId);
-      }
+      },
+      checkInterval: 3000 // More frequent monitoring for production
     });
 
-    // Initialize connection recovery
+    // Initialize connection recovery with production settings
     this.connectionRecovery = new VoiceConnectionRecovery((attempt, maxRetries) => {
       console.log(`🔄 Voice connection recovery attempt ${attempt}/${maxRetries}`);
     });
+  }
+
+  private async handlePoorConnection(userId: string): Promise<void> {
+    const peerState = this.peers.get(userId);
+    if (!peerState || !peerState.isStable) return;
+
+    console.log(`⚠️ Handling poor connection for ${userId}`);
+    
+    try {
+      // Try ICE restart first
+      await peerState.connection.restartIce();
+      console.log(`🔄 ICE restart initiated for ${userId}`);
+    } catch (error) {
+      console.error(`❌ ICE restart failed for ${userId}:`, error);
+      this.attemptReconnection(userId);
+    }
   }
 
   private queueSignalingOperation<T>(userId: string, operation: () => Promise<T>): Promise<T> {
@@ -60,7 +89,7 @@ export class WebRTCManager {
     const newOperation = existingOperation
       .then(() => operation())
       .catch(error => {
-        console.error(`Signaling operation failed for ${userId}:`, error);
+        console.error(`❌ Signaling operation failed for ${userId}:`, error);
         throw error;
       });
     
@@ -77,22 +106,20 @@ export class WebRTCManager {
         await this.closePeerConnection(userId);
       }
       
-      const configuration: RTCConfiguration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-        ],
-        iceCandidatePoolSize: 10
-      };
-
-      const peerConnection = new RTCPeerConnection(configuration);
+      const peerConnection = new RTCPeerConnection({
+        iceServers: PRODUCTION_VOICE_CONFIG.iceServers,
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'balanced',
+        rtcpMuxPolicy: 'require'
+      });
       
       const peerState: PeerState = {
         connection: peerConnection,
         isNegotiating: false,
         pendingIceCandidates: [],
-        lastActivity: Date.now()
+        lastActivity: Date.now(),
+        connectionAttempts: 0,
+        isStable: false
       };
       
       this.peers.set(userId, peerState);
@@ -100,100 +127,131 @@ export class WebRTCManager {
       // Add to connection monitor
       this.connectionMonitor.addPeer(userId, peerConnection);
 
-      // Add local stream tracks
+      // Add local stream tracks with production audio settings
       this.localStream.getTracks().forEach(track => {
         console.log(`📤 Adding local ${track.kind} track for:`, userId);
-        peerConnection.addTrack(track, this.localStream);
+        const sender = peerConnection.addTrack(track, this.localStream);
+        
+        // Configure audio encoding parameters for production
+        if (track.kind === 'audio') {
+          sender.setParameters({
+            encodings: [{
+              codec: 'opus',
+              maxBitrate: 64000,
+              priority: 'high'
+            }]
+          }).catch(error => console.warn('Failed to set encoding parameters:', error));
+        }
       });
 
-      // FIXED: Handle remote stream with proper audio setup
+      // Create data channel for control messages
+      const dataChannel = peerConnection.createDataChannel('control', {
+        ordered: true
+      });
+      
+      dataChannel.onopen = () => {
+        console.log(`📱 Data channel opened for ${userId}`);
+        peerState.dataChannel = dataChannel;
+        this.onDataChannel?.(userId, dataChannel);
+      };
+
+      dataChannel.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleDataChannelMessage(userId, message);
+        } catch (error) {
+          console.error('Failed to parse data channel message:', error);
+        }
+      };
+
+      // Handle incoming data channels
+      peerConnection.ondatachannel = (event) => {
+        const channel = event.channel;
+        channel.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            this.handleDataChannelMessage(userId, message);
+          } catch (error) {
+            console.error('Failed to parse incoming data channel message:', error);
+          }
+        };
+      };
+
+      // Enhanced remote stream handling
       peerConnection.ontrack = (event) => {
         console.log('📡 Received remote track from:', userId, 'streams:', event.streams.length);
         const [remoteStream] = event.streams;
         
         if (remoteStream && remoteStream.getTracks().length > 0) {
-          console.log('🎵 Remote stream has tracks:', remoteStream.getTracks().map(t => t.kind));
+          console.log('🎵 Remote stream tracks:', remoteStream.getTracks().map(t => `${t.kind}:${t.id}`));
           
-          // Ensure audio tracks are enabled and properly configured
+          // Configure audio tracks for production
           const audioTracks = remoteStream.getAudioTracks();
           audioTracks.forEach(track => {
             track.enabled = true;
-            console.log(`🎤 Audio track enabled for ${userId}:`, track.id, track.readyState);
+            console.log(`🎤 Audio track configured for ${userId}:`, {
+              id: track.id,
+              readyState: track.readyState,
+              muted: track.muted,
+              settings: track.getSettings()
+            });
           });
           
           this.onRemoteStream(userId, remoteStream);
           peerState.lastActivity = Date.now();
-          // Reset reconnection attempts on successful connection
-          this.reconnectionAttempts.delete(userId);
+          peerState.isStable = true;
         } else {
           console.warn('⚠️ Remote stream has no tracks for:', userId);
         }
       };
 
-      // Handle ICE candidates - buffer them properly
+      // ICE candidate handling with better buffering
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('🧊 New ICE candidate for:', userId, event.candidate.type);
+          console.log('🧊 ICE candidate for:', userId, event.candidate.type);
           peerState.pendingIceCandidates.push(event.candidate.toJSON());
         } else {
           console.log('🧊 ICE gathering complete for:', userId);
         }
       };
 
-      // Handle negotiation needed
-      peerConnection.onnegotiationneeded = async () => {
-        if (peerState.isNegotiating) {
-          console.log('⚠️ Already negotiating for:', userId);
-          return;
-        }
-        
-        try {
-          peerState.isNegotiating = true;
-          console.log('🤝 Negotiation needed for:', userId);
-        } catch (error) {
-          console.error('❌ Negotiation error for:', userId, error);
-          this.onError(error as Error);
-        } finally {
-          peerState.isNegotiating = false;
-        }
-      };
-
-      // Enhanced connection state handling with auto-recovery
+      // Production connection state handling
       peerConnection.onconnectionstatechange = () => {
         console.log(`🔌 Connection state for ${userId}:`, peerConnection.connectionState);
         peerState.lastActivity = Date.now();
         
-        if (peerConnection.connectionState === 'connected') {
-          console.log('✅ WebRTC connection established with:', userId);
-          // Process any pending ICE candidates
-          this.processPendingIceCandidates(userId);
-          // Reset reconnection attempts
-          this.reconnectionAttempts.delete(userId);
-        } else if (peerConnection.connectionState === 'disconnected') {
-          console.log('⚠️ WebRTC connection disconnected with:', userId);
-          this.attemptReconnection(userId);
-        } else if (peerConnection.connectionState === 'failed') {
-          console.log('❌ WebRTC connection failed with:', userId);
-          this.attemptReconnection(userId);
+        switch (peerConnection.connectionState) {
+          case 'connected':
+            console.log('✅ WebRTC connection established with:', userId);
+            peerState.isStable = true;
+            peerState.connectionAttempts = 0;
+            this.processPendingIceCandidates(userId);
+            break;
+          case 'disconnected':
+            console.log('⚠️ WebRTC connection disconnected with:', userId);
+            peerState.isStable = false;
+            this.attemptReconnection(userId);
+            break;
+          case 'failed':
+            console.log('❌ WebRTC connection failed with:', userId);
+            peerState.isStable = false;
+            this.attemptReconnection(userId);
+            break;
+          case 'closed':
+            console.log('🔒 WebRTC connection closed with:', userId);
+            this.handlePeerDisconnection(userId);
+            break;
         }
       };
 
-      // Enhanced ICE connection state handling
+      // ICE connection state handling
       peerConnection.oniceconnectionstatechange = () => {
-        console.log(`🧊 ICE connection state for ${userId}:`, peerConnection.iceConnectionState);
+        console.log(`🧊 ICE state for ${userId}:`, peerConnection.iceConnectionState);
         peerState.lastActivity = Date.now();
         
         if (peerConnection.iceConnectionState === 'failed') {
-          console.log('🔄 ICE connection failed, attempting restart for:', userId);
+          console.log('🔄 ICE connection failed, restarting for:', userId);
           this.restartIce(userId);
-        } else if (peerConnection.iceConnectionState === 'disconnected') {
-          console.log('⚠️ ICE connection disconnected for:', userId);
-          // Give it a moment before attempting recovery
-          setTimeout(() => {
-            if (peerConnection.iceConnectionState === 'disconnected') {
-              this.attemptReconnection(userId);
-            }
-          }, 5000);
         }
       };
 
@@ -201,91 +259,110 @@ export class WebRTCManager {
     });
   }
 
-  private async processPendingIceCandidates(userId: string): Promise<void> {
+  private handleDataChannelMessage(userId: string, message: any): void {
+    console.log(`📱 Data channel message from ${userId}:`, message);
+    
+    switch (message.type) {
+      case 'mute_status':
+        // Handle mute status updates
+        break;
+      case 'quality_report':
+        // Handle quality reports
+        break;
+      case 'ping':
+        // Respond to ping for latency measurement
+        this.sendDataChannelMessage(userId, { type: 'pong', timestamp: message.timestamp });
+        break;
+    }
+  }
+
+  sendDataChannelMessage(userId: string, message: any): void {
     const peerState = this.peers.get(userId);
-    if (!peerState || peerState.pendingIceCandidates.length === 0) return;
-    
-    console.log(`🧊 Processing ${peerState.pendingIceCandidates.length} pending ICE candidates for:`, userId);
-    
-    for (const candidate of peerState.pendingIceCandidates) {
+    if (peerState?.dataChannel && peerState.dataChannel.readyState === 'open') {
       try {
-        await peerState.connection.addIceCandidate(candidate);
+        peerState.dataChannel.send(JSON.stringify(message));
       } catch (error) {
-        console.error('❌ Failed to add pending ICE candidate:', error);
+        console.error(`Failed to send data channel message to ${userId}:`, error);
       }
     }
-    
-    peerState.pendingIceCandidates = [];
   }
 
-  private async restartIce(userId: string): Promise<void> {
-    const peerState = this.peers.get(userId);
-    if (!peerState) return;
+  startProductionMonitoring(): void {
+    console.log('🎯 Starting production voice monitoring');
     
-    try {
-      await peerState.connection.restartIce();
-      console.log('🔄 ICE restart initiated for:', userId);
-    } catch (error) {
-      console.error('❌ ICE restart failed for:', userId, error);
-      this.handlePeerDisconnection(userId);
-    }
+    // Start connection quality monitoring
+    this.connectionMonitor.startMonitoring();
+    
+    // Health check every 30 seconds
+    this.healthCheckInterval = setInterval(() => {
+      this.performHealthCheck();
+    }, 30000);
+    
+    // Stats collection every 10 seconds
+    this.statsCollectionInterval = setInterval(() => {
+      this.collectConnectionStats();
+    }, 10000);
   }
 
-  private async attemptReconnection(userId: string): Promise<void> {
-    const attempts = this.reconnectionAttempts.get(userId) || 0;
+  private performHealthCheck(): void {
+    const now = Date.now();
     
-    if (attempts >= this.maxReconnectionAttempts) {
-      console.log(`❌ Max reconnection attempts reached for ${userId}, giving up`);
-      this.handlePeerDisconnection(userId);
-      return;
-    }
-
-    this.reconnectionAttempts.set(userId, attempts + 1);
-    
-    try {
-      console.log(`🔄 Attempting reconnection ${attempts + 1}/${this.maxReconnectionAttempts} for:`, userId);
+    this.peers.forEach((state, userId) => {
+      const timeSinceActivity = now - state.lastActivity;
       
-      await this.connectionRecovery.attemptRecovery(async () => {
-        // Try ICE restart first
-        await this.restartIce(userId);
-        
-        // Wait a moment for ICE restart to take effect
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const peerState = this.peers.get(userId);
-        if (peerState && peerState.connection.connectionState !== 'connected') {
-          throw new Error('ICE restart did not restore connection');
+      // Send ping if no activity for 60 seconds
+      if (timeSinceActivity > 60000) {
+        this.sendDataChannelMessage(userId, {
+          type: 'ping',
+          timestamp: now
+        });
+      }
+      
+      // Force reconnection if no activity for 5 minutes
+      if (timeSinceActivity > 300000) {
+        console.warn(`⚠️ Forcing reconnection for inactive peer: ${userId}`);
+        this.attemptReconnection(userId);
+      }
+    });
+  }
+
+  private async collectConnectionStats(): Promise<void> {
+    for (const [userId, peerState] of this.peers.entries()) {
+      if (peerState.connection.connectionState === 'connected') {
+        try {
+          const stats = await peerState.connection.getStats();
+          // Process and log important stats for monitoring
+          this.processConnectionStats(userId, stats);
+        } catch (error) {
+          console.warn(`Failed to collect stats for ${userId}:`, error);
         }
-      });
-      
-      console.log(`✅ Reconnection successful for: ${userId}`);
-      
-    } catch (error) {
-      console.error(`❌ Reconnection failed for ${userId}:`, error);
-      
-      if (attempts + 1 >= this.maxReconnectionAttempts) {
-        this.handlePeerDisconnection(userId);
       }
     }
   }
 
-  private handlePeerDisconnection(userId: string): void {
-    const peerState = this.peers.get(userId);
-    if (!peerState) return;
-    
-    // Remove from connection monitor
-    this.connectionMonitor.removePeer(userId);
-    
-    // Clean up reconnection attempts
-    this.reconnectionAttempts.delete(userId);
-    
-    // Clean up the peer connection
-    peerState.connection.close();
-    this.peers.delete(userId);
-    this.signalingQueue.delete(userId);
-    
-    console.log('🔌 Cleaned up peer connection for:', userId);
-    this.onPeerDisconnected(userId);
+  private processConnectionStats(userId: string, stats: RTCStatsReport): void {
+    let bytesReceived = 0;
+    let bytesSent = 0;
+    let packetsLost = 0;
+    let jitter = 0;
+
+    stats.forEach((report) => {
+      if (report.type === 'inbound-rtp' && report.mediaType === 'audio') {
+        bytesReceived += report.bytesReceived || 0;
+        packetsLost += report.packetsLost || 0;
+        jitter += report.jitter || 0;
+      } else if (report.type === 'outbound-rtp' && report.mediaType === 'audio') {
+        bytesSent += report.bytesSent || 0;
+      }
+    });
+
+    // Log stats for monitoring (could be sent to analytics service)
+    console.log(`📊 Stats for ${userId}:`, {
+      bytesReceived,
+      bytesSent,
+      packetsLost,
+      jitter: Math.round(jitter * 1000) / 1000
+    });
   }
 
   async createOffer(userId: string): Promise<RTCSessionDescriptionInit> {
@@ -386,11 +463,23 @@ export class WebRTCManager {
     );
     
     await Promise.all(closePromises);
+    
+    // Clean up intervals
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
+    }
+    
+    if (this.statsCollectionInterval) {
+      clearInterval(this.statsCollectionInterval);
+      this.statsCollectionInterval = undefined;
+    }
+    
     this.signalingQueue.clear();
-    this.reconnectionAttempts.clear();
     this.connectionMonitor.cleanup();
     this.connectionRecovery.cleanup();
-    console.log('🔌 Closed all peer connections');
+    
+    console.log('🔌 All peer connections closed and monitoring stopped');
   }
 
   getConnectionState(userId: string): RTCPeerConnectionState | null {
@@ -404,7 +493,21 @@ export class WebRTCManager {
       .map(([userId]) => userId);
   }
 
-  // Enhanced health monitoring with recovery
+  getConnectionMetrics(): Record<string, any> {
+    const metrics = {
+      totalPeers: this.peers.size,
+      connectedPeers: this.getConnectedPeers().length,
+      reconnectionAttempts: 0,
+      avgConnectionTime: 0
+    };
+
+    this.peers.forEach((state) => {
+      metrics.reconnectionAttempts += state.connectionAttempts;
+    });
+
+    return metrics;
+  }
+
   startHealthMonitoring(): void {
     // Start connection quality monitoring
     this.connectionMonitor.startMonitoring();
@@ -430,7 +533,6 @@ export class WebRTCManager {
     }, 30000); // Check every 30 seconds
   }
 
-  // New methods for recovery status
   isRecovering(): boolean {
     return this.connectionRecovery.isInRecovery();
   }

@@ -1,12 +1,13 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Bug } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, WifiOff, Activity } from 'lucide-react';
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
-import AudioTest from '@/components/AudioTest';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceCollaborationProps {
   matchId: string;
@@ -20,6 +21,29 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   className = ''
 }) => {
   const isMobile = useIsMobile();
+  const [userRole, setUserRole] = useState<string>('tracker');
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  
+  // Fetch user role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        
+        if (data && !error) {
+          setUserRole(data.role || 'tracker');
+        }
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+    
+    fetchUserRole();
+  }, [userId]);
   
   const {
     isVoiceEnabled,
@@ -36,29 +60,32 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     connectionQualities,
     retryAttempts,
     isRecovering,
-    debugInfo
+    networkStatus,
+    connectionMetrics
   } = useVoiceCollaboration({
     matchId,
     userId,
+    userRole,
     onUserJoined: (userId) => console.log('User joined voice:', userId),
-    onUserLeft: (userId) => console.log('User left voice:', userId)
+    onUserLeft: (userId) => console.log('User left voice:', userId),
+    onRoomChanged: (room) => console.log('Room changed:', room?.name)
   });
 
   const AudioLevelIndicator = ({ level }: { level: number }) => (
     <div className="flex items-center gap-1">
       <Volume2 className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-gray-500`} />
       <div className="flex gap-0.5">
-        {[...Array(5)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <div
             key={i}
             className={`${isMobile ? 'w-0.5 h-2' : 'w-1 h-3'} rounded-sm transition-colors ${
-              level > (i + 1) * 0.2 ? 'bg-green-500' : 'bg-gray-300'
+              level > (i + 1) * 0.125 ? 'bg-green-500' : 'bg-gray-300'
             }`}
           />
         ))}
       </div>
       <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} font-mono ml-1`}>
-        {(level * 100).toFixed(1)}%
+        {Math.round(level * 100)}%
       </span>
     </div>
   );
@@ -67,7 +94,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     const iconSize = isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3';
     switch (role) {
       case 'admin': return <Crown className={`${iconSize} text-yellow-500`} />;
-      case 'specialized': return <Shield className={`${iconSize} text-blue-500`} />;
+      case 'coordinator': return <Shield className={`${iconSize} text-blue-500`} />;
       default: return null;
     }
   };
@@ -75,10 +102,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const getRoomColorClass = (roomName: string) => {
     if (roomName.includes('Main')) return 'bg-blue-100 border-blue-300';
     if (roomName.includes('Coordinators')) return 'bg-purple-100 border-purple-300';
-    if (roomName.includes('Team A')) return 'bg-green-100 border-green-300';
-    if (roomName.includes('Team B')) return 'bg-orange-100 border-orange-300';
-    if (roomName.includes('Events')) return 'bg-red-100 border-red-300';
     if (roomName.includes('Technical')) return 'bg-gray-100 border-gray-300';
+    if (roomName.includes('Emergency')) return 'bg-red-100 border-red-300';
     return 'bg-gray-100 border-gray-300';
   };
 
@@ -102,78 +127,84 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     }
   };
 
+  const getNetworkIcon = () => {
+    switch (networkStatus) {
+      case 'online': return <Wifi className="h-3 w-3 text-green-500" />;
+      case 'offline': return <WifiOff className="h-3 w-3 text-red-500" />;
+      case 'unstable': return <Wifi className="h-3 w-3 text-yellow-500" />;
+      default: return <Wifi className="h-3 w-3 text-gray-500" />;
+    }
+  };
+
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
-      {/* Audio Test Component */}
-      <AudioTest />
-      
       <Card className="border-blue-200 bg-blue-50/50">
         <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
           <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
             <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />
-            Voice Collaboration
+            Voice Collaboration Center
             {isVoiceEnabled && (
               <Badge variant="secondary" className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}>
-                Live • {isMobile ? currentRoom?.name.split(' ')[0] : currentRoom?.name}
+                Production • {isMobile ? currentRoom?.name.split(' ')[0] : currentRoom?.name}
               </Badge>
             )}
+            {getNetworkIcon()}
+          </CardTitle>
+          
+          {/* Production Status Indicators */}
+          <div className="flex items-center gap-2 mt-2">
             {isRecovering && (
-              <Badge variant="destructive" className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'} animate-pulse`}>
-                Recovering...
+              <Badge variant="destructive" className="animate-pulse">
+                <Activity className="h-3 w-3 mr-1" />
+                Recovering
               </Badge>
             )}
             {retryAttempts > 0 && !isVoiceEnabled && (
-              <Badge variant="outline" className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}>
-                Retry {retryAttempts}/3
+              <Badge variant="outline">
+                Retry {retryAttempts}/5
               </Badge>
             )}
-          </CardTitle>
+            {isVoiceEnabled && (
+              <Badge variant="secondary">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
+                Live
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         
-        <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-2 sm:space-y-3`}>
-          {/* Audio Playback Status */}
-          {isVoiceEnabled && connectedTrackers.length > 0 && (
-            <div className={`${isMobile ? 'p-1.5' : 'p-2'} rounded border bg-green-50 border-green-200`}>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-green-700`}>
-                  🔊 Audio playback active for {connectedTrackers.length} participant(s)
-                </span>
-              </div>
-              {!isMobile && (
-                <div className="text-xs text-green-600 mt-1">
-                  If you can't hear others, click anywhere to enable audio playback
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Connection Status Banner */}
-          {(isRecovering || retryAttempts > 0) && (
-            <div className={`${isMobile ? 'p-1.5' : 'p-2'} rounded border bg-yellow-50 border-yellow-200`}>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-yellow-700`}>
-                  {isRecovering ? 'Recovering connection...' : `Connection attempt ${retryAttempts}/3`}
-                </span>
-              </div>
-            </div>
+        <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
+          {/* Network Status Alert */}
+          {networkStatus !== 'online' && (
+            <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
+              <AlertDescription className="text-sm">
+                {networkStatus === 'offline' 
+                  ? '🔴 Network offline - Voice features unavailable' 
+                  : '🟡 Network unstable - Voice quality may be affected'
+                }
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Current Room Status */}
           {isVoiceEnabled && currentRoom && (
-            <div className={`${isMobile ? 'p-1.5' : 'p-2'} rounded border ${getRoomColorClass(currentRoom.name)}`}>
-              <div className={`flex items-center justify-between ${isMobile ? 'gap-1' : 'gap-2'}`}>
+            <div className={`${isMobile ? 'p-2' : 'p-3'} rounded border ${getRoomColorClass(currentRoom.name)}`}>
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className={`font-medium ${isMobile ? 'text-xs truncate' : 'text-sm'}`}>
+                  <div className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                    {getRoleIcon(userRole)}
                     {isMobile ? currentRoom.name.split(' ')[0] : currentRoom.name}
+                    {isRoomAdmin && <Crown className="h-3 w-3 text-yellow-500" />}
                   </div>
                   <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
-                    {connectedTrackers.length + 1}/{currentRoom.maxParticipants} {isMobile ? '' : 'participants'}
+                    {connectedTrackers.length + 1}/{currentRoom.maxParticipants} participants
                   </div>
+                  {currentRoom.description && !isMobile && (
+                    <div className="text-xs text-gray-500 mt-1">{currentRoom.description}</div>
+                  )}
                 </div>
+                
                 <div className="flex items-center gap-1">
-                  {isRoomAdmin && <Crown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-yellow-500`} />}
                   <Button
                     onClick={toggleMute}
                     size={isMobile ? "sm" : "sm"}
@@ -203,9 +234,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
           {/* Audio Level Indicator */}
           {isVoiceEnabled && (
-            <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
+            <div className={`flex items-center justify-between ${isMobile ? 'gap-1' : 'gap-2'}`}>
               <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
-                {isMobile ? 'Audio:' : 'Your audio:'}
+                Your audio:
               </span>
               <AudioLevelIndicator level={audioLevel} />
               {isRecovering && (
@@ -217,35 +248,47 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           {/* Available Rooms */}
           {!isVoiceEnabled && (
             <div className="space-y-2">
-              <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} font-medium text-gray-700`}>
-                {isMobile ? 'Voice Rooms' : 'Available Voice Rooms'}
+              <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>
+                Production Voice Rooms
+                <Badge variant="outline" className="text-xs">
+                  Role: {userRole}
+                </Badge>
               </div>
               <div className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                 {availableRooms.map((room) => (
                   <div
                     key={room.id}
-                    className={`${isMobile ? 'p-1.5' : 'p-2'} rounded border ${getRoomColorClass(room.name)} ${
+                    className={`${isMobile ? 'p-2' : 'p-3'} rounded border ${getRoomColorClass(room.name)} ${
                       room.currentParticipants >= room.maxParticipants ? 'opacity-50' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className={`font-medium ${isMobile ? 'text-[10px] truncate' : 'text-xs'}`}>
-                          {isMobile ? room.name.split(' ')[0] : room.name}
+                        <div className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
+                          {room.name}
+                          {room.isPrivate && <Shield className="h-3 w-3 text-blue-500" />}
                         </div>
                         <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
                           {room.currentParticipants}/{room.maxParticipants} • 
                           {room.isPrivate ? ' Private' : ' Open'}
                         </div>
+                        {!isMobile && room.description && (
+                          <div className="text-xs text-gray-500 mt-1 truncate">
+                            {room.description}
+                          </div>
+                        )}
                       </div>
                       <Button
                         onClick={() => joinVoiceRoom(room)}
-                        disabled={isConnecting || room.currentParticipants >= room.maxParticipants || isRecovering}
+                        disabled={isConnecting || room.currentParticipants >= room.maxParticipants || isRecovering || networkStatus === 'offline'}
                         size={isMobile ? "sm" : "sm"}
                         className={`bg-green-600 hover:bg-green-700 text-white ${isMobile ? 'h-6 px-2 text-[10px]' : ''}`}
                       >
                         <Phone className={`${isMobile ? 'h-2 w-2 mr-0.5' : 'h-3 w-3 mr-1'}`} />
-                        {isConnecting ? (retryAttempts > 0 ? `Retry ${retryAttempts}` : 'Connecting...') : 'Join'}
+                        {isConnecting ? 
+                          (retryAttempts > 0 ? `${retryAttempts}/5` : 'Joining...') : 
+                          'Join'
+                        }
                       </Button>
                     </div>
                   </div>
@@ -254,11 +297,21 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Connected Trackers */}
+          {/* Connected Participants */}
           {isVoiceEnabled && connectedTrackers.length > 0 && (
             <div className="space-y-2">
-              <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} font-medium text-gray-700`}>
-                {isMobile ? `Participants (${connectedTrackers.length})` : `Room Participants (${connectedTrackers.length})`}
+              <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>
+                Connected Participants ({connectedTrackers.length})
+                {!isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+                    className="text-xs"
+                  >
+                    {showConnectionDetails ? 'Hide Details' : 'Show Details'}
+                  </Button>
+                )}
               </div>
               <div className={`space-y-1 ${isMobile ? 'max-h-24' : 'max-h-32'} overflow-y-auto`}>
                 {connectedTrackers.map((tracker) => {
@@ -266,20 +319,22 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                   return (
                     <div
                       key={tracker.userId}
-                      className={`flex items-center justify-between ${isMobile ? 'p-1.5' : 'p-2'} rounded bg-white border ${isMobile ? 'text-[10px]' : 'text-xs'}`}
+                      className={`flex items-center justify-between ${isMobile ? 'p-1.5' : 'p-2'} rounded bg-white border transition-colors ${
+                        tracker.isSpeaking ? 'border-green-300 bg-green-50' : ''
+                      }`}
                     >
                       <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
                         <div
                           className={`w-2 h-2 rounded-full ${
                             tracker.isConnected ? 'bg-green-500' : 'bg-gray-400'
-                          }`}
+                          } ${tracker.isSpeaking ? 'animate-pulse' : ''}`}
                         />
                         {getRoleIcon(tracker.role)}
-                        <span className={`truncate ${isMobile ? 'max-w-[60px]' : 'max-w-[80px]'}`}>
-                          {tracker.username || `Tracker ${tracker.userId.slice(-4)}`}
+                        <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} truncate flex-1`}>
+                          {tracker.username || `Participant ${tracker.userId.slice(-4)}`}
                         </span>
                         {quality && (
-                          <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} ${getQualityColor(quality.quality)}`} title={`RTT: ${quality.rtt}ms`}>
+                          <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} ${getQualityColor(quality.quality)}`}>
                             {getQualityIcon(quality.quality)}
                           </span>
                         )}
@@ -287,12 +342,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                       
                       <div className="flex items-center gap-1">
                         {tracker.isMuted ? (
-                          <MicOff className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-red-500`} />
+                          <MicOff className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'} text-red-500`} />
                         ) : (
-                          <Mic className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-green-500`} />
-                        )}
-                        {tracker.isSpeaking && (
-                          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                          <Mic className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'} text-green-500`} />
                         )}
                       </div>
                     </div>
@@ -302,53 +354,44 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Connection Quality Summary */}
-          {isVoiceEnabled && connectionQualities.size > 0 && !isMobile && (
+          {/* Production Connection Details */}
+          {showConnectionDetails && isVoiceEnabled && connectionMetrics && !isMobile && (
             <div className="text-xs p-2 bg-gray-50 rounded border">
-              <div className="font-medium mb-1">Connection Quality</div>
-              <div className="flex flex-wrap gap-2">
-                {Array.from(connectionQualities.entries()).map(([userId, quality]) => (
-                  <span key={userId} className={`${getQualityColor(quality.quality)}`}>
-                    {getQualityIcon(quality.quality)} {userId.slice(-4)} ({quality.rtt}ms)
-                  </span>
-                ))}
+              <div className="font-medium mb-1">Production Metrics</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>Total Peers: {connectionMetrics.totalPeers}</div>
+                <div>Connected: {connectionMetrics.connectedPeers}</div>
+                <div>Reconnects: {connectionMetrics.reconnectionAttempts}</div>
+                <div>Network: {networkStatus}</div>
               </div>
+              {connectionQualities.size > 0 && (
+                <div className="mt-2">
+                  <div className="font-medium mb-1">Connection Quality</div>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(connectionQualities.entries()).map(([userId, quality]) => (
+                      <span key={userId} className={`${getQualityColor(quality.quality)} text-xs`}>
+                        {getQualityIcon(quality.quality)} {userId.slice(-4)} ({quality.rtt}ms)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Instructions */}
+          {/* Production Instructions */}
           {!isVoiceEnabled && !isConnecting && (
             <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 ${isMobile ? 'p-1.5' : 'p-2'} bg-blue-50 rounded border border-blue-200`}>
-              🎤 <strong>{isMobile ? 'Test audio, then join!' : 'Test your audio first, then join a voice room!'}</strong>
-              {!isMobile && (
-                <>
-                  <br/>Use the Audio Test above to verify your microphone works before joining.
-                </>
-              )}
+              🎤 <strong>Production Voice System</strong>
+              <br/>✅ Enterprise-grade audio quality and reliability
+              <br/>✅ Automatic connection recovery and health monitoring
+              <br/>✅ Role-based room access and permissions
               {retryAttempts > 0 && (
                 <>
-                  <br/>⚠️ <strong>Connection issues detected.</strong> {isMobile ? 'Auto-retry enabled.' : 'The system will automatically retry.'}
+                  <br/>⚠️ <strong>Connection recovery in progress...</strong>
                 </>
               )}
             </div>
-          )}
-
-          {/* Debug Information */}
-          {debugInfo && debugInfo.length > 0 && !isMobile && (
-            <details className="bg-gray-900 text-green-400 text-xs p-2 rounded font-mono">
-              <summary className="cursor-pointer text-yellow-400 mb-1">
-                <Bug className="h-3 w-3 inline mr-1" />
-                Debug Log ({debugInfo.length} entries)
-                {retryAttempts > 0 && (
-                  <span className="text-orange-400 ml-2">• Retry {retryAttempts}/3</span>
-                )}
-              </summary>
-              <div className="max-h-32 overflow-y-auto space-y-0.5">
-                {debugInfo.slice(-10).map((info, index) => (
-                  <div key={index} className="break-all text-xs">{info}</div>
-                ))}
-              </div>
-            </details>
           )}
         </CardContent>
       </Card>
