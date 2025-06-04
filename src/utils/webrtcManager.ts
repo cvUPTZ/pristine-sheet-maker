@@ -175,12 +175,14 @@ export class WebRTCManager {
         
         // Configure audio encoding parameters for production
         if (track.kind === 'audio') {
-          sender.setParameters({
-            encodings: [{
-              maxBitrate: 64000,
-              priority: 'high'
-            }]
-          }).catch(error => console.warn('Failed to set encoding parameters:', error));
+          // Get current parameters and modify only the encodings
+          const currentParams = sender.getParameters();
+          if (currentParams.encodings && currentParams.encodings.length > 0) {
+            currentParams.encodings[0].maxBitrate = 64000;
+            sender.setParameters(currentParams).catch(error => 
+              console.warn('Failed to set encoding parameters:', error)
+            );
+          }
         }
       });
 
