@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { useToast } from '@/components/ui/use-toast';
@@ -41,6 +42,7 @@ export const useVoiceCollaboration = ({
 }: UseVoiceCollaborationProps) => {
   const { toast } = useToast();
   const voiceService = useRef(VoiceRoomService.getInstance());
+  const initializedRef = useRef(false);
   
   // Core state
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
@@ -61,14 +63,15 @@ export const useVoiceCollaboration = ({
   // Admin status
   const [isRoomAdmin, setIsRoomAdmin] = useState(false);
 
-  // Initialize voice rooms on component mount
+  // Initialize voice rooms on component mount - only once
   useEffect(() => {
-    const initializeRooms = async () => {
-      if (!matchId || !userRole) {
-        console.log('Missing matchId or userRole, skipping room initialization');
-        return;
-      }
+    if (initializedRef.current || !matchId || !userRole) {
+      return;
+    }
 
+    initializedRef.current = true;
+
+    const initializeRooms = async () => {
       try {
         console.log('🏗️ Initializing voice rooms for match:', matchId, 'userRole:', userRole);
         const rooms = await voiceService.current.initializeRoomsForMatch(matchId);
@@ -109,7 +112,7 @@ export const useVoiceCollaboration = ({
     };
 
     initializeRooms();
-  }, [matchId, userRole, toast]);
+  }, []); // Empty dependency array to run only once
 
   // Monitor network status
   useEffect(() => {
@@ -185,7 +188,7 @@ export const useVoiceCollaboration = ({
     } catch (error: any) {
       console.error('❌ Failed to join voice room:', error);
       
-      if (retryAttempts < 3) { // Reduced retry attempts
+      if (retryAttempts < 3) {
         setRetryAttempts(prev => prev + 1);
         setIsRecovering(true);
         
