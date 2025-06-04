@@ -53,7 +53,8 @@ export const VOICE_ROOM_TEMPLATES = {
     description: 'Primary coordination channel for all match activities',
     maxParticipants: 25,
     priority: 1,
-    permissions: ['tracker', 'admin', 'coordinator']
+    permissions: ['tracker', 'admin', 'coordinator'],
+    isPrivate: false
   },
   coordinators: {
     name: 'Match Coordinators',
@@ -68,13 +69,15 @@ export const VOICE_ROOM_TEMPLATES = {
     description: 'Technical assistance and troubleshooting',
     maxParticipants: 12,
     priority: 3,
-    permissions: ['tracker', 'admin', 'technical']
+    permissions: ['tracker', 'admin', 'technical'],
+    isPrivate: false
   },
   emergency: {
     name: 'Emergency Channel',
     description: 'Emergency communications only',
     maxParticipants: 50,
     priority: 0,
-    permissions: ['tracker', 'admin', 'coordinator', 'emergency']
+    permissions: ['tracker', 'admin', 'coordinator', 'emergency'],
+    isPrivate: false
   }
 };

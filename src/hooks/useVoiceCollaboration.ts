@@ -244,10 +244,14 @@ export const useVoiceCollaboration = ({
           }
         });
 
-        // Get user media with production constraints
-        const stream = await audioManagerRef.current.getUserMedia(
-          PRODUCTION_VOICE_CONFIG.audioConstraints
-        );
+        // Get user media with production constraints - fix the type issue
+        const audioConstraints = PRODUCTION_VOICE_CONFIG.audioConstraints;
+        const mediaConstraints: MediaStreamConstraints = {
+          audio: audioConstraints,
+          video: false
+        };
+        
+        const stream = await audioManagerRef.current.getUserMedia(mediaConstraints);
 
         console.log('🎤 Audio stream acquired with production settings');
         await audioManagerRef.current.setupAudioMonitoring(stream);

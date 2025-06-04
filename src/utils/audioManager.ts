@@ -181,6 +181,22 @@ export class AudioManager {
     }
   }
 
+  public async setMuted(muted: boolean): Promise<void> {
+    if (!this.currentStream) {
+      console.warn('⚠️ No current stream to mute/unmute');
+      return;
+    }
+
+    const audioTrack = this.currentStream.getAudioTracks()[0];
+    if (!audioTrack) {
+      console.warn('⚠️ No audio track found in current stream');
+      return;
+    }
+
+    audioTrack.enabled = !muted;
+    console.log(`${muted ? '🔇' : '🔊'} Stream ${muted ? 'muted' : 'unmuted'}`);
+  }
+
   public async cleanup(): Promise<void> {
     console.log('🧹 Cleaning up AudioManager');
     

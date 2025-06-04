@@ -1,3 +1,4 @@
+
 import { ConnectionMonitor } from './connectionMonitor';
 import { VoiceConnectionRecovery } from './connectionRecovery';
 import { PRODUCTION_VOICE_CONFIG } from '@/config/voiceConfig';
@@ -34,6 +35,7 @@ export class WebRTCManager {
   private connectionRecovery: VoiceConnectionRecovery;
   private healthCheckInterval?: NodeJS.Timeout;
   private statsCollectionInterval?: NodeJS.Timeout;
+  private reconnectionAttempts = new Map<string, number>();
 
   constructor(options: WebRTCManagerOptions) {
     this.localStream = options.localStream;
@@ -75,11 +77,50 @@ export class WebRTCManager {
     
     try {
       // Try ICE restart first
-      await peerState.connection.restartIce();
+      await this.restartIce(userId);
       console.log(`🔄 ICE restart initiated for ${userId}`);
     } catch (error) {
       console.error(`❌ ICE restart failed for ${userId}:`, error);
       this.attemptReconnection(userId);
+    }
+  }
+
+  private async attemptReconnection(userId: string): Promise<void> {
+    const currentAttempts = this.reconnectionAttempts.get(userId) || 0;
+    if (currentAttempts >= PRODUCTION_VOICE_CONFIG.reconnectionAttempts) {
+      console.error(`❌ Max reconnection attempts reached for ${userId}`);
+      this.handlePeerDisconnection(userId);
+      return;
+    }
+
+    this.reconnectionAttempts.set(userId, currentAttempts + 1);
+    console.log(`🔄 Attempting reconnection ${currentAttempts + 1}/${PRODUCTION_VOICE_CONFIG.reconnectionAttempts} for ${userId}`);
+    
+    try {
+      await this.closePeerConnection(userId);
+      await this.createPeerConnection(userId);
+    } catch (error) {
+      console.error(`❌ Reconnection attempt failed for ${userId}:`, error);
+    }
+  }
+
+  private handlePeerDisconnection(userId: string): void {
+    console.log(`🔌 Handling peer disconnection for: ${userId}`);
+    this.reconnectionAttempts.delete(userId);
+    this.connectionMonitor.removePeer(userId);
+    this.onPeerDisconnected(userId);
+  }
+
+  private async restartIce(userId: string): Promise<void> {
+    const peerState = this.peers.get(userId);
+    if (!peerState) return;
+
+    try {
+      await peerState.connection.restartIce();
+      console.log(`🧊 ICE restart completed for ${userId}`);
+    } catch (error) {
+      console.error(`❌ ICE restart failed for ${userId}:`, error);
+      throw error;
     }
   }
 
@@ -136,7 +177,6 @@ export class WebRTCManager {
         if (track.kind === 'audio') {
           sender.setParameters({
             encodings: [{
-              codec: 'opus',
               maxBitrate: 64000,
               priority: 'high'
             }]
@@ -409,6 +449,23 @@ export class WebRTCManager {
       // Process any pending ICE candidates after setting remote description
       await this.processPendingIceCandidates(userId);
     });
+  }
+
+  private async processPendingIceCandidates(userId: string): Promise<void> {
+    const peerState = this.peers.get(userId);
+    if (!peerState || !peerState.connection.remoteDescription) return;
+
+    const candidates = [...peerState.pendingIceCandidates];
+    peerState.pendingIceCandidates = [];
+
+    for (const candidate of candidates) {
+      try {
+        await peerState.connection.addIceCandidate(candidate);
+        console.log('🧊 Added pending ICE candidate for:', userId);
+      } catch (error) {
+        console.error('❌ Failed to add pending ICE candidate:', error);
+      }
+    }
   }
 
   async addIceCandidate(userId: string, candidate: RTCIceCandidateInit): Promise<void> {
