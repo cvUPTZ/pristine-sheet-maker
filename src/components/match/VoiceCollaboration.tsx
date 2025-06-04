@@ -32,10 +32,16 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   useEffect(() => {
     const checkDatabase = async () => {
       try {
-        // Since voice_rooms tables don't exist, we always run in offline mode
-        setDatabaseConnected(false);
+        const voiceService = VoiceRoomService.getInstance();
+        const connected = await voiceService.testDatabaseConnection();
+        setDatabaseConnected(connected);
         setError(null);
-        console.log('VoiceCollaboration: Running in offline mode - voice_rooms tables not available');
+        
+        if (connected) {
+          console.log('VoiceCollaboration: Connected to database, using real-time data');
+        } else {
+          console.log('VoiceCollaboration: Database connection failed, using offline mode');
+        }
       } catch (error: any) {
         console.log('VoiceCollaboration: Database connection failed, using offline mode:', error);
         setDatabaseConnected(false);
