@@ -43,7 +43,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoInfo, 
   onSegmentsReady 
 }) => {
-  const [segmentDuration, setSegmentDuration] = useState(5); // 5 seconds default
+  const [segmentDuration, setSegmentDuration] = useState(30); // 30 seconds default for 6-minute video
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [processing, setProcessing] = useState(false);
   const [currentSegment, setCurrentSegment] = useState(0);
@@ -58,9 +58,10 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     
     const str = duration.toString();
     
-    // If it's just a number as string (like "6")
+    // If it's just a number as string (like "6" representing minutes)
     if (/^\d+$/.test(str)) {
-      return parseInt(str);
+      // Assume it's minutes and convert to seconds
+      return parseInt(str) * 60;
     }
     
     // If it's in time format
@@ -70,7 +71,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     } else if (parts.length === 2) {
       return parts[0] * 60 + parts[1];
     }
-    return parseInt(str) || 0;
+    return parseInt(str) * 60 || 0; // Default to treating as minutes
   };
 
   const formatTime = (seconds: number): string => {
@@ -222,7 +223,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
             <div className="flex-1">
               <p className="font-medium text-sm">{videoFile.name}</p>
               <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                <span>Duration: {formatTime(totalDuration)} ({totalDuration}s)</span>
+                <span>Duration: {formatTime(totalDuration)} ({Math.floor(totalDuration/60)} min {totalDuration%60} sec)</span>
                 <span>Size: {formatFileSize(videoFile.size)}</span>
               </div>
             </div>
@@ -249,7 +250,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
                   disabled={processing}
                 />
                 <p className="text-xs text-gray-600">
-                  Max: {maxSegmentDuration}s (Video is {totalDuration}s total)
+                  Max: {maxSegmentDuration}s (Video is {Math.floor(totalDuration/60)} min {totalDuration%60} sec total)
                 </p>
               </div>
               <div className="space-y-2">
@@ -368,7 +369,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           <div className="text-xs text-amber-800">
             <p className="font-medium">Production Guidelines:</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Shorter segments (3-5 seconds for short videos) are optimal for analysis processing</li>
+              <li>For 6-minute videos: Use 30-60 second segments for optimal analysis</li>
               <li>Higher compression reduces file size but may affect analysis accuracy</li>
               <li>Processing time scales with video length and compression settings</li>
               <li>Keep segments under 500MB each for optimal Colab performance</li>
