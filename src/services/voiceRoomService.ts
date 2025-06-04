@@ -31,12 +31,31 @@ export interface VoiceParticipant {
   user_email?: string;
 }
 
+export interface CreateRoomRequest {
+  match_id: string;
+  name: string;
+  description?: string;
+  max_participants?: number;
+  priority?: number;
+  permissions?: string[];
+  is_private?: boolean;
+}
+
+export interface UpdateRoomRequest {
+  name?: string;
+  description?: string;
+  max_participants?: number;
+  priority?: number;
+  permissions?: string[];
+  is_private?: boolean;
+  is_active?: boolean;
+}
+
 export class VoiceRoomService {
   private static instance: VoiceRoomService;
   private roomCache = new Map<string, VoiceRoom>();
   private participantCache = new Map<string, VoiceParticipant[]>();
-  private isConnected = false;
-  private offlineMode = true; // Force offline mode since voice tables don't exist in schema
+  private offlineMode = true; // Always use offline mode since tables don't exist
 
   static getInstance(): VoiceRoomService {
     if (!VoiceRoomService.instance) {
@@ -45,21 +64,104 @@ export class VoiceRoomService {
     return VoiceRoomService.instance;
   }
 
-  private async checkDatabaseConnection(): Promise<boolean> {
+  async createRoom(request: CreateRoomRequest): Promise<{ success: boolean; room?: VoiceRoom; error?: string }> {
     try {
-      console.log('VoiceRoomService: Checking database connection...');
+      console.log('🏗️ Creating new voice room:', request.name);
+
+      // Generate unique ID for offline mode
+      const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Since voice_rooms table doesn't exist in the schema, we'll always use offline mode
-      // This prevents TypeScript errors while maintaining functionality
-      console.log('VoiceRoomService: Voice room tables not available in schema, using offline mode');
-      this.isConnected = false;
-      this.offlineMode = true;
-      return false;
+      const newRoom: VoiceRoom = {
+        id: roomId,
+        match_id: request.match_id,
+        name: request.name,
+        description: request.description || 'Custom voice room',
+        max_participants: request.max_participants || 25,
+        priority: request.priority || 1,
+        permissions: request.permissions || ['all'],
+        is_private: request.is_private || false,
+        is_active: true,
+        participant_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Store in cache
+      this.roomCache.set(roomId, newRoom);
+      
+      console.log('✅ Room created successfully:', newRoom.name);
+      return { success: true, room: newRoom };
+
     } catch (error: any) {
-      console.log('VoiceRoomService: Database connection failed, using offline mode:', error);
-      this.isConnected = false;
-      this.offlineMode = true;
-      return false;
+      console.error('❌ Failed to create room:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getRooms(matchId: string): Promise<VoiceRoom[]> {
+    try {
+      console.log('📋 Retrieving rooms for match:', matchId);
+
+      // Filter rooms by match ID from cache
+      const matchRooms = Array.from(this.roomCache.values())
+        .filter(room => room.match_id === matchId && room.is_active);
+
+      console.log(`✅ Retrieved ${matchRooms.length} rooms for match`);
+      return matchRooms;
+
+    } catch (error: any) {
+      console.error('❌ Failed to retrieve rooms:', error);
+      return [];
+    }
+  }
+
+  async updateRoom(roomId: string, updates: UpdateRoomRequest): Promise<{ success: boolean; room?: VoiceRoom; error?: string }> {
+    try {
+      console.log('🔧 Updating room:', roomId, updates);
+
+      const existingRoom = this.roomCache.get(roomId);
+      if (!existingRoom) {
+        return { success: false, error: 'Room not found' };
+      }
+
+      const updatedRoom: VoiceRoom = {
+        ...existingRoom,
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+
+      this.roomCache.set(roomId, updatedRoom);
+      
+      console.log('✅ Room updated successfully');
+      return { success: true, room: updatedRoom };
+
+    } catch (error: any) {
+      console.error('❌ Failed to update room:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteRoom(roomId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🗑️ Deleting room:', roomId);
+
+      const room = this.roomCache.get(roomId);
+      if (!room) {
+        return { success: false, error: 'Room not found' };
+      }
+
+      // Remove all participants from the room first
+      this.participantCache.delete(roomId);
+      
+      // Remove the room from cache
+      this.roomCache.delete(roomId);
+      
+      console.log('✅ Room deleted successfully');
+      return { success: true };
+
+    } catch (error: any) {
+      console.error('❌ Failed to delete room:', error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -67,40 +169,50 @@ export class VoiceRoomService {
     try {
       console.log(`🏗️ Initializing voice rooms for match: ${matchId}`);
 
-      // Always use offline mode since database tables don't exist
-      console.log('VoiceRoomService: Creating template rooms for offline operation');
-      const templateRooms = Object.entries(VOICE_ROOM_TEMPLATES || {}).map(([key, template]) => ({
-        id: `offline-${key}`,
-        match_id: matchId,
-        name: template.name || `Room ${key}`,
-        description: template.description || 'Voice collaboration room',
-        max_participants: template.maxParticipants || 25,
-        priority: template.priority || 1,
-        permissions: template.permissions || ['all'],
-        is_private: template.isPrivate || false,
-        is_active: true,
-        participant_count: 0
-      }));
+      // Check if rooms already exist for this match
+      const existingRooms = await this.getRooms(matchId);
+      if (existingRooms.length > 0) {
+        console.log('✅ Using existing rooms for match');
+        return existingRooms;
+      }
 
-      templateRooms.forEach(room => this.roomCache.set(room.id, room));
+      // Create template rooms
+      const templateRooms: VoiceRoom[] = [];
+      
+      for (const [key, template] of Object.entries(VOICE_ROOM_TEMPLATES || {})) {
+        const createResult = await this.createRoom({
+          match_id: matchId,
+          name: template.name || `Room ${key}`,
+          description: template.description || 'Voice collaboration room',
+          max_participants: template.maxParticipants || 25,
+          priority: template.priority || 1,
+          permissions: template.permissions || ['all'],
+          is_private: template.isPrivate || false
+        });
+
+        if (createResult.success && createResult.room) {
+          templateRooms.push(createResult.room);
+        }
+      }
+
+      console.log(`✅ Initialized ${templateRooms.length} template rooms`);
       return templateRooms;
+
     } catch (error: any) {
       console.error('❌ Failed to initialize voice rooms:', error);
-      // Return a default room as fallback
-      const defaultRoom: VoiceRoom = {
-        id: `fallback-default`,
+      
+      // Return a fallback room
+      const fallbackResult = await this.createRoom({
         match_id: matchId,
         name: 'Default Voice Room',
         description: 'Default voice collaboration room',
         max_participants: 25,
         priority: 1,
         permissions: ['all'],
-        is_private: false,
-        is_active: true,
-        participant_count: 0
-      };
-      this.roomCache.set(defaultRoom.id, defaultRoom);
-      return [defaultRoom];
+        is_private: false
+      });
+
+      return fallbackResult.success && fallbackResult.room ? [fallbackResult.room] : [];
     }
   }
 
@@ -108,28 +220,24 @@ export class VoiceRoomService {
     try {
       console.log(`🚪 User ${userId} joining room ${roomId}`);
 
-      // Always use offline mode logic
-      let room = this.roomCache.get(roomId);
+      const room = this.roomCache.get(roomId);
       if (!room) {
-        room = {
-          id: roomId,
-          match_id: 'mock-match',
-          name: 'Mock Voice Room',
-          description: 'Simulated voice room',
-          max_participants: 25,
-          priority: 1,
-          permissions: ['all'],
-          is_private: false,
-          is_active: true,
-          participant_count: 0
-        };
-        this.roomCache.set(roomId, room);
+        return { success: false, error: 'Room not found' };
+      }
+
+      if (!room.is_active) {
+        return { success: false, error: 'Room is not active' };
       }
 
       if (!room.permissions.includes(userRole) && !room.permissions.includes('all')) {
         return { success: false, error: 'Insufficient permissions' };
       }
 
+      if ((room.participant_count || 0) >= room.max_participants) {
+        return { success: false, error: 'Room is full' };
+      }
+
+      // Update participant count
       room.participant_count = (room.participant_count || 0) + 1;
       this.roomCache.set(roomId, room);
       
@@ -146,7 +254,6 @@ export class VoiceRoomService {
     try {
       console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
-      // Update local cache
       const room = this.roomCache.get(roomId);
       if (room && room.participant_count) {
         room.participant_count = Math.max(0, room.participant_count - 1);
@@ -165,9 +272,6 @@ export class VoiceRoomService {
   async updateParticipantStatus(roomId: string, userId: string, updates: Partial<Pick<VoiceParticipant, 'is_muted' | 'is_speaking' | 'connection_quality'>>): Promise<boolean> {
     try {
       console.log(`📊 Updating participant status for user ${userId} in room ${roomId}`, updates);
-
-      // In offline mode, we just simulate the update
-      this.participantCache.delete(roomId);
       return true;
     } catch (error: any) {
       console.error(`❌ Failed to update participant status:`, error);
@@ -177,9 +281,6 @@ export class VoiceRoomService {
 
   async getRoomParticipants(roomId: string): Promise<VoiceParticipant[]> {
     try {
-      console.log(`👥 Getting participants for room ${roomId}`);
-
-      // Return cached participants or empty array in offline mode
       return this.participantCache.get(roomId) || [];
     } catch (error: any) {
       console.error(`❌ Failed to get room participants:`, error);
@@ -189,28 +290,17 @@ export class VoiceRoomService {
 
   getAvailableRooms(userRole: string): VoiceRoom[] {
     return Array.from(this.roomCache.values())
-      .filter(room => room.permissions.includes(userRole) || room.permissions.includes('all'))
+      .filter(room => room.is_active && (room.permissions.includes(userRole) || room.permissions.includes('all')))
       .sort((a, b) => a.priority - b.priority);
   }
 
   async cleanupInactiveParticipants(): Promise<void> {
     try {
       console.log('🧹 Cleaning up inactive participants');
-
-      // Clear caches in offline mode
       this.participantCache.clear();
-      console.log('🧹 Cleaned up inactive participants');
     } catch (error: any) {
       console.error('❌ Failed to cleanup inactive participants:', error);
     }
-  }
-
-  isDatabaseConnected(): boolean {
-    return this.isConnected && !this.offlineMode;
-  }
-
-  async reconnectDatabase(): Promise<boolean> {
-    return await this.checkDatabaseConnection();
   }
 
   clearCaches(): void {
