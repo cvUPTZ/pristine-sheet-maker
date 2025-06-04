@@ -71,8 +71,8 @@ export class VoiceRoomService {
     }
 
     try {
-      // Test with voice_rooms table first
-      const { data, error } = await supabase.from('voice_rooms').select('count').limit(1);
+      // Test with voice_rooms table first - use type casting
+      const { data, error } = await (supabase as any).from('voice_rooms').select('count').limit(1);
       if (error) {
         console.log('Voice rooms table not available, falling back to offline mode:', error);
         this.databaseAvailable = false;
