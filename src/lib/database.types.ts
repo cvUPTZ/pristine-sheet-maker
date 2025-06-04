@@ -130,6 +130,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      voice_rooms: {
+        Row: {
+          id: string;
+          match_id: string;
+          name: string;
+          description: string | null;
+          max_participants: number;
+          priority: number;
+          permissions: string[];
+          is_private: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          name: string;
+          description?: string | null;
+          max_participants?: number;
+          priority?: number;
+          permissions?: string[];
+          is_private?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          name?: string;
+          description?: string | null;
+          max_participants?: number;
+          priority?: number;
+          permissions?: string[];
+          is_private?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      voice_room_participants: {
+        Row: {
+          id: string;
+          room_id: string;
+          user_id: string;
+          user_role: string;
+          is_muted: boolean;
+          is_speaking: boolean;
+          joined_at: string;
+          last_activity: string;
+          connection_quality: string;
+        };
+        Insert: {
+          id?: string;
+          room_id: string;
+          user_id: string;
+          user_role: string;
+          is_muted?: boolean;
+          is_speaking?: boolean;
+          joined_at?: string;
+          last_activity?: string;
+          connection_quality?: string;
+        };
+        Update: {
+          id?: string;
+          room_id?: string;
+          user_id?: string;
+          user_role?: string;
+          is_muted?: boolean;
+          is_speaking?: boolean;
+          joined_at?: string;
+          last_activity?: string;
+          connection_quality?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

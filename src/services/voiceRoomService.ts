@@ -1,15 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
-import type { Database } from '@/lib/database.types';
 
-// Use the proper types from our database schema
-type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
-type VoiceRoomInsert = Database['public']['Tables']['voice_rooms']['Insert'];
-type VoiceRoomUpdate = Database['public']['Tables']['voice_rooms']['Update'];
-type VoiceParticipantRow = Database['public']['Tables']['voice_room_participants']['Row'];
-type VoiceParticipantInsert = Database['public']['Tables']['voice_room_participants']['Insert'];
-
+// Define the voice room types directly since they may not be in the database types
 export interface VoiceRoom {
   id: string;
   match_id: string;
@@ -91,7 +83,7 @@ export class VoiceRoomService {
     try {
       console.log('🏗️ Creating new voice room:', request.name);
 
-      const insertData: VoiceRoomInsert = {
+      const insertData = {
         match_id: request.match_id,
         name: request.name,
         description: request.description || 'Custom voice room',
@@ -149,7 +141,7 @@ export class VoiceRoomService {
 
       // Get participant counts
       const roomsWithCounts = await Promise.all(
-        (data || []).map(async (room: VoiceRoomRow) => {
+        (data || []).map(async (room: any) => {
           const { count } = await (supabase as any)
             .from('voice_room_participants')
             .select('*', { count: 'exact', head: true })
@@ -327,7 +319,7 @@ export class VoiceRoomService {
       }
 
       // Add participant
-      const participantData: VoiceParticipantInsert = {
+      const participantData = {
         room_id: roomId,
         user_id: userId,
         user_role: userRole,
