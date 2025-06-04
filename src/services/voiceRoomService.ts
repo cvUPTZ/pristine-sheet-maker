@@ -36,7 +36,7 @@ export class VoiceRoomService {
   private roomCache = new Map<string, VoiceRoom>();
   private participantCache = new Map<string, VoiceParticipant[]>();
   private isConnected = false;
-  private offlineMode = true; // Force offline mode since tables don't exist
+  private offlineMode = false; // Start with database mode
 
   static getInstance(): VoiceRoomService {
     if (!VoiceRoomService.instance) {
@@ -46,45 +46,90 @@ export class VoiceRoomService {
   }
 
   private async checkDatabaseConnection(): Promise<boolean> {
-    // Force offline mode since voice room tables don't exist in current schema
-    console.log('VoiceRoomService: Operating in offline mode - voice room tables not available');
-    this.isConnected = false;
-    this.offlineMode = true;
-    return false;
+    try {
+      console.log('VoiceRoomService: Checking database connection...');
+      
+      // Test if voice_rooms table exists by attempting a simple query
+      const { data, error } = await supabase
+        .from('voice_rooms')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        console.log('VoiceRoomService: Database tables not available, switching to offline mode:', error.message);
+        this.isConnected = false;
+        this.offlineMode = true;
+        return false;
+      }
+
+      console.log('VoiceRoomService: Database connection successful');
+      this.isConnected = true;
+      this.offlineMode = false;
+      return true;
+    } catch (error: any) {
+      console.log('VoiceRoomService: Database connection failed, using offline mode:', error);
+      this.isConnected = false;
+      this.offlineMode = true;
+      return false;
+    }
   }
 
   async initializeRoomsForMatch(matchId: string): Promise<VoiceRoom[]> {
     try {
-      console.log(`🏗️ Initializing voice rooms for match: ${matchId} (offline mode)`);
+      console.log(`🏗️ Initializing voice rooms for match: ${matchId}`);
 
-      // Always return template rooms in offline mode
-      console.log('VoiceRoomService: Creating template rooms for offline operation');
-      
-      const templateRooms = Object.entries(VOICE_ROOM_TEMPLATES || {}).map(([key, template]) => ({
-        id: `offline-${key}`,
-        match_id: matchId,
-        name: template.name || `Room ${key}`,
-        description: template.description || 'Voice collaboration room',
-        max_participants: template.maxParticipants || 25,
-        priority: template.priority || 1,
-        permissions: template.permissions || ['all'],
-        is_private: template.isPrivate || false,
-        is_active: true,
-        participant_count: 0
-      }));
+      // Check database connection first
+      const connected = await this.checkDatabaseConnection();
 
-      // Cache the rooms
-      templateRooms.forEach(room => {
-        this.roomCache.set(room.id, room);
-      });
+      if (connected) {
+        // Try to get existing rooms from database
+        const { data: existingRooms, error } = await supabase
+          .from('voice_rooms')
+          .select('*')
+          .eq('match_id', matchId)
+          .eq('is_active', true);
 
-      console.log(`VoiceRoomService: Created ${templateRooms.length} template rooms`);
-      return templateRooms;
+        if (!error && existingRooms && existingRooms.length > 0) {
+          console.log(`VoiceRoomService: Found ${existingRooms.length} existing rooms`);
+          const rooms = existingRooms.map(room => ({
+            ...room,
+            permissions: room.permissions || ['all'],
+            participant_count: 0
+          }));
+          
+          rooms.forEach(room => this.roomCache.set(room.id, room));
+          return rooms;
+        }
+
+        // Create template rooms in database
+        console.log('VoiceRoomService: Creating template rooms in database');
+        const templateRooms = await this.createTemplateRooms(matchId);
+        templateRooms.forEach(room => this.roomCache.set(room.id, room));
+        return templateRooms;
+      } else {
+        // Fallback to offline mode
+        console.log('VoiceRoomService: Creating template rooms for offline operation');
+        const templateRooms = Object.entries(VOICE_ROOM_TEMPLATES || {}).map(([key, template]) => ({
+          id: `offline-${key}`,
+          match_id: matchId,
+          name: template.name || `Room ${key}`,
+          description: template.description || 'Voice collaboration room',
+          max_participants: template.maxParticipants || 25,
+          priority: template.priority || 1,
+          permissions: template.permissions || ['all'],
+          is_private: template.isPrivate || false,
+          is_active: true,
+          participant_count: 0
+        }));
+
+        templateRooms.forEach(room => this.roomCache.set(room.id, room));
+        return templateRooms;
+      }
     } catch (error: any) {
       console.error('❌ Failed to initialize voice rooms:', error);
-      // Return a default room even if templates fail
+      // Return a default room as fallback
       const defaultRoom: VoiceRoom = {
-        id: `offline-default`,
+        id: `fallback-default`,
         match_id: matchId,
         name: 'Default Voice Room',
         description: 'Default voice collaboration room',
@@ -100,38 +145,105 @@ export class VoiceRoomService {
     }
   }
 
+  private async createTemplateRooms(matchId: string): Promise<VoiceRoom[]> {
+    const rooms: VoiceRoom[] = [];
+    
+    for (const [key, template] of Object.entries(VOICE_ROOM_TEMPLATES || {})) {
+      try {
+        const { data, error } = await supabase
+          .from('voice_rooms')
+          .insert({
+            match_id: matchId,
+            name: template.name || `Room ${key}`,
+            description: template.description || 'Voice collaboration room',
+            max_participants: template.maxParticipants || 25,
+            priority: template.priority || 1,
+            permissions: template.permissions || ['all'],
+            is_private: template.isPrivate || false,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          rooms.push({
+            ...data,
+            permissions: data.permissions || ['all'],
+            participant_count: 0
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to create room ${key}:`, error);
+      }
+    }
+
+    return rooms;
+  }
+
   async joinRoom(roomId: string, userId: string, userRole: string): Promise<{ success: boolean; room?: VoiceRoom; error?: string }> {
     try {
-      console.log(`🚪 User ${userId} joining room ${roomId} (offline mode)`);
+      console.log(`🚪 User ${userId} joining room ${roomId}`);
 
-      // Get room from cache or create a mock room
-      let room = this.roomCache.get(roomId);
-      if (!room) {
-        room = {
-          id: roomId,
-          match_id: 'mock-match',
-          name: 'Mock Voice Room',
-          description: 'Simulated voice room',
-          max_participants: 25,
-          priority: 1,
-          permissions: ['all'],
-          is_private: false,
-          is_active: true,
-          participant_count: 0
-        };
+      if (this.offlineMode) {
+        // Offline mode logic
+        let room = this.roomCache.get(roomId);
+        if (!room) {
+          room = {
+            id: roomId,
+            match_id: 'mock-match',
+            name: 'Mock Voice Room',
+            description: 'Simulated voice room',
+            max_participants: 25,
+            priority: 1,
+            permissions: ['all'],
+            is_private: false,
+            is_active: true,
+            participant_count: 0
+          };
+          this.roomCache.set(roomId, room);
+        }
+
+        if (!room.permissions.includes(userRole) && !room.permissions.includes('all')) {
+          return { success: false, error: 'Insufficient permissions' };
+        }
+
+        room.participant_count = (room.participant_count || 0) + 1;
         this.roomCache.set(roomId, room);
+        return { success: true, room };
       }
 
-      // Check permissions
+      // Database mode logic
+      const room = this.roomCache.get(roomId);
+      if (!room) {
+        return { success: false, error: 'Room not found' };
+      }
+
       if (!room.permissions.includes(userRole) && !room.permissions.includes('all')) {
         return { success: false, error: 'Insufficient permissions' };
       }
 
-      // Simulate successful join
+      // Add participant to database
+      const { error } = await supabase
+        .from('voice_room_participants')
+        .upsert({
+          room_id: roomId,
+          user_id: userId,
+          user_role: userRole,
+          is_muted: true,
+          is_speaking: false,
+          connection_quality: 'good'
+        });
+
+      if (error) {
+        console.error('Failed to add participant to database:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Update room participant count
       room.participant_count = (room.participant_count || 0) + 1;
       this.roomCache.set(roomId, room);
 
-      console.log(`✅ User ${userId} joined room ${room.name} (offline mode)`);
+      console.log(`✅ User ${userId} joined room ${room.name}`);
       return { success: true, room };
 
     } catch (error: any) {
@@ -142,19 +254,30 @@ export class VoiceRoomService {
 
   async leaveRoom(roomId: string, userId: string): Promise<boolean> {
     try {
-      console.log(`🚪 User ${userId} leaving room ${roomId} (offline mode)`);
+      console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
-      // Update participant count
+      if (!this.offlineMode) {
+        // Remove from database
+        const { error } = await supabase
+          .from('voice_room_participants')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('Failed to remove participant from database:', error);
+        }
+      }
+
+      // Update local cache
       const room = this.roomCache.get(roomId);
       if (room && room.participant_count) {
         room.participant_count = Math.max(0, room.participant_count - 1);
         this.roomCache.set(roomId, room);
       }
 
-      // Clear participant cache for this room
       this.participantCache.delete(roomId);
-
-      console.log(`✅ User ${userId} left room (offline mode)`);
+      console.log(`✅ User ${userId} left room`);
       return true;
     } catch (error: any) {
       console.error(`❌ Failed to leave room:`, error);
@@ -164,9 +287,22 @@ export class VoiceRoomService {
 
   async updateParticipantStatus(roomId: string, userId: string, updates: Partial<Pick<VoiceParticipant, 'is_muted' | 'is_speaking' | 'connection_quality'>>): Promise<boolean> {
     try {
-      console.log(`📊 Updating participant status for user ${userId} in room ${roomId} (offline mode)`, updates);
+      console.log(`📊 Updating participant status for user ${userId} in room ${roomId}`, updates);
 
-      // Clear participant cache to force refresh
+      if (!this.offlineMode) {
+        const { error } = await supabase
+          .from('voice_room_participants')
+          .update(updates)
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('Failed to update participant status in database:', error);
+          return false;
+        }
+      }
+
+      // Clear cache to force refresh
       this.participantCache.delete(roomId);
       return true;
     } catch (error: any) {
@@ -177,10 +313,42 @@ export class VoiceRoomService {
 
   async getRoomParticipants(roomId: string): Promise<VoiceParticipant[]> {
     try {
-      console.log(`👥 Getting participants for room ${roomId} (offline mode)`);
+      console.log(`👥 Getting participants for room ${roomId}`);
 
-      // Return cached participants or empty array
-      return this.participantCache.get(roomId) || [];
+      if (this.offlineMode) {
+        return this.participantCache.get(roomId) || [];
+      }
+
+      // Get from database
+      const { data, error } = await supabase
+        .from('voice_room_participants')
+        .select(`
+          *,
+          user:profiles(full_name, email)
+        `)
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Failed to get participants from database:', error);
+        return [];
+      }
+
+      const participants = (data || []).map(p => ({
+        id: p.id,
+        room_id: p.room_id,
+        user_id: p.user_id,
+        user_role: p.user_role,
+        is_muted: p.is_muted,
+        is_speaking: p.is_speaking,
+        joined_at: p.joined_at,
+        last_activity: p.last_activity,
+        connection_quality: p.connection_quality as 'excellent' | 'good' | 'fair' | 'poor',
+        user_name: p.user?.full_name,
+        user_email: p.user?.email
+      }));
+
+      this.participantCache.set(roomId, participants);
+      return participants;
     } catch (error: any) {
       console.error(`❌ Failed to get room participants:`, error);
       return [];
@@ -195,27 +363,38 @@ export class VoiceRoomService {
 
   async cleanupInactiveParticipants(): Promise<void> {
     try {
-      console.log('🧹 Cleaning up inactive participants (offline mode)');
+      console.log('🧹 Cleaning up inactive participants');
 
-      // Clear caches to force refresh
+      if (!this.offlineMode) {
+        // Remove participants inactive for more than 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        
+        const { error } = await supabase
+          .from('voice_room_participants')
+          .delete()
+          .lt('last_activity', fiveMinutesAgo);
+
+        if (error) {
+          console.error('Failed to cleanup inactive participants:', error);
+        }
+      }
+
+      // Clear caches
       this.participantCache.clear();
-      console.log('🧹 Cleaned up inactive participants (offline mode)');
+      console.log('🧹 Cleaned up inactive participants');
     } catch (error: any) {
       console.error('❌ Failed to cleanup inactive participants:', error);
     }
   }
 
-  // Check if service is connected to database
   isDatabaseConnected(): boolean {
-    return false; // Always false since we're in offline mode
+    return this.isConnected && !this.offlineMode;
   }
 
-  // Force reconnection check
   async reconnectDatabase(): Promise<boolean> {
     return await this.checkDatabaseConnection();
   }
 
-  // Clear caches - useful for testing and cleanup
   clearCaches(): void {
     this.roomCache.clear();
     this.participantCache.clear();

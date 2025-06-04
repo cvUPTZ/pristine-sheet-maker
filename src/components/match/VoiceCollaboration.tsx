@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, WifiOff, Activity, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, WifiOff, Activity, AlertTriangle, RefreshCw, Database } from 'lucide-react';
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { VoiceRoomService } from '@/services/voiceRoomService';
@@ -23,7 +23,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const isMobile = useIsMobile();
   const [userRole, setUserRole] = useState<string>('tracker');
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
-  const [databaseConnected, setDatabaseConnected] = useState<boolean>(false); // Default to false
+  const [databaseConnected, setDatabaseConnected] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -37,14 +37,15 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         setDatabaseConnected(connected);
         setError(null);
         
-        if (!connected) {
+        if (connected) {
+          console.log('VoiceCollaboration: Connected to database, using real data');
+        } else {
           console.log('VoiceCollaboration: Running in offline mode');
-          setError(null); // Don't show error for offline mode
         }
       } catch (error: any) {
         console.log('VoiceCollaboration: Database connection failed, using offline mode:', error);
         setDatabaseConnected(false);
-        setError(null); // Don't show error for offline mode
+        setError(null);
       } finally {
         setInitialized(true);
       }
@@ -177,7 +178,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     }
   };
 
-  // Show loading state if not initialized
   if (!initialized) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
@@ -199,7 +199,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     );
   }
 
-  // Show error state only if there's a real error
   if (error) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
@@ -233,7 +232,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     );
   }
 
-  // Show loading state if no rooms are available yet
   if (availableRooms.length === 0 && !isConnecting && !isVoiceEnabled) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
@@ -243,6 +241,11 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />
               Voice Collaboration Center
               {getNetworkIcon()}
+              {databaseConnected ? (
+                <Database className="h-3 w-3 text-green-500" />
+              ) : (
+                <Database className="h-3 w-3 text-orange-500" />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}>
@@ -269,9 +272,13 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               </Badge>
             )}
             {getNetworkIcon()}
+            {databaseConnected ? (
+              <Database className="h-3 w-3 text-green-500" title="Database Connected" />
+            ) : (
+              <Database className="h-3 w-3 text-orange-500" title="Offline Mode" />
+            )}
           </CardTitle>
           
-          {/* Status Indicators */}
           <div className="flex items-center gap-2 mt-2">
             {isRecovering && (
               <Badge variant="destructive" className="animate-pulse">
@@ -295,10 +302,17 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                 {availableRooms.length} rooms available
               </Badge>
             )}
-            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
-              <Activity className="h-3 w-3 mr-1" />
-              Offline Mode
-            </Badge>
+            {databaseConnected ? (
+              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                <Database className="h-3 w-3 mr-1" />
+                Database Mode
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                <Activity className="h-3 w-3 mr-1" />
+                Offline Mode
+              </Badge>
+            )}
           </div>
         </CardHeader>
         
@@ -311,6 +325,15 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                   ? '🔴 Network offline - Voice features unavailable' 
                   : '🟡 Network unstable - Voice quality may be affected'
                 }
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Database Status Info */}
+          {!databaseConnected && (
+            <Alert variant="default">
+              <AlertDescription className="text-sm">
+                ⚠️ Voice system running in offline mode - database tables not available
               </AlertDescription>
             </Alert>
           )}
@@ -510,12 +533,24 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
           {/* System Status */}
           {!isVoiceEnabled && !isConnecting && availableRooms.length > 0 && (
-            <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 ${isMobile ? 'p-1.5' : 'p-2'} bg-orange-50 rounded border border-orange-200`}>
-              🎤 <strong>Voice System Active (Offline Mode)</strong>
-              <br/>⚠️ Voice collaboration running in demonstration mode
-              <br/>✅ {availableRooms.length} template rooms available
+            <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 ${isMobile ? 'p-1.5' : 'p-2'} ${databaseConnected ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'} rounded border`}>
+              🎤 <strong>Voice System Active</strong>
+              <br/>
+              {databaseConnected ? (
+                <>
+                  ✅ Connected to database - real-time collaboration enabled
+                  <br/>✅ {availableRooms.length} rooms available with persistent data
+                </>
+              ) : (
+                <>
+                  ⚠️ Running in offline mode - demonstration functionality
+                  <br/>✅ {availableRooms.length} template rooms available
+                </>
+              )}
               <br/>✅ Role-based access configured for: {userRole}
-              <br/>⚠️ Database tables not configured - contact administrator for full functionality
+              {!databaseConnected && (
+                <><br/>⚠️ Contact administrator to enable database tables for full functionality</>
+              )}
             </div>
           )}
         </CardContent>
