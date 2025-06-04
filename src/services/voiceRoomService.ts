@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -49,17 +48,10 @@ export class VoiceRoomService {
 
     try {
       // Check if voice_rooms table exists by trying to query it
-      // Using raw SQL since the tables aren't in TypeScript definitions
-      const { data, error } = await supabase
-        .rpc('get_user_role', { user_id_param: 'test' })
-        .then(async () => {
-          // If we can call functions, try to query voice_rooms directly
-          return await (supabase as any).from('voice_rooms').select('id').limit(1);
-        })
-        .catch(async () => {
-          // Fallback: just try to access the table directly
-          return await (supabase as any).from('voice_rooms').select('id').limit(1);
-        });
+      const { data, error } = await (supabase as any)
+        .from('voice_rooms')
+        .select('id')
+        .limit(1);
 
       if (error) {
         console.error('Voice rooms table check failed:', error.message);
@@ -114,7 +106,7 @@ export class VoiceRoomService {
 
       if (existingRooms && existingRooms.length > 0) {
         console.log(`✅ Found ${existingRooms.length} existing rooms`);
-        const rooms = existingRooms.map(this.mapDatabaseToRoom);
+        const rooms = existingRooms.map((room: any) => this.mapDatabaseToRoom(room));
         
         // Get participant counts for each room
         for (const room of rooms) {
@@ -125,7 +117,7 @@ export class VoiceRoomService {
           room.participant_count = count || 0;
         }
         
-        rooms.forEach(room => this.roomCache.set(room.id, room));
+        rooms.forEach((room: VoiceRoom) => this.roomCache.set(room.id, room));
         return rooms;
       }
 
@@ -155,9 +147,9 @@ export class VoiceRoomService {
 
       console.log(`✅ Created ${createdRooms?.length || 0} voice rooms`);
 
-      const rooms = (createdRooms || []).map(this.mapDatabaseToRoom);
+      const rooms = (createdRooms || []).map((room: any) => this.mapDatabaseToRoom(room));
       // Initialize participant count to 0 for new rooms
-      rooms.forEach(room => {
+      rooms.forEach((room: VoiceRoom) => {
         room.participant_count = 0;
         this.roomCache.set(room.id, room);
       });
