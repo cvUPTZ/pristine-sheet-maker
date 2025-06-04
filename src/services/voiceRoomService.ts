@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -48,7 +49,7 @@ export class VoiceRoomService {
 
     try {
       // Check if voice_rooms table exists by trying to query it
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('voice_rooms')
         .select('id')
         .limit(1);
@@ -92,8 +93,8 @@ export class VoiceRoomService {
         }));
       }
 
-      // Check if rooms already exist for this match
-      const { data: existingRooms, error: fetchError } = await (supabase as any)
+      // Check if rooms already exist for this match - Fixed query
+      const { data: existingRooms, error: fetchError } = await supabase
         .from('voice_rooms')
         .select('*')
         .eq('match_id', matchId)
@@ -110,7 +111,7 @@ export class VoiceRoomService {
         
         // Get participant counts for each room
         for (const room of rooms) {
-          const { count } = await (supabase as any)
+          const { count } = await supabase
             .from('voice_room_participants')
             .select('*', { count: 'exact', head: true })
             .eq('room_id', room.id);
@@ -135,7 +136,7 @@ export class VoiceRoomService {
 
       console.log('Creating rooms:', roomsToCreate);
 
-      const { data: createdRooms, error: createError } = await (supabase as any)
+      const { data: createdRooms, error: createError } = await supabase
         .from('voice_rooms')
         .insert(roomsToCreate)
         .select('*');
@@ -170,8 +171,8 @@ export class VoiceRoomService {
 
       console.log(`🚪 User ${userId} joining room ${roomId}`);
 
-      // Get room details
-      const { data: roomData, error: roomError } = await (supabase as any)
+      // Get room details - Fixed query
+      const { data: roomData, error: roomError } = await supabase
         .from('voice_rooms')
         .select('*')
         .eq('id', roomId)
@@ -190,7 +191,7 @@ export class VoiceRoomService {
       }
 
       // Check room capacity
-      const { count: participantCount } = await (supabase as any)
+      const { count: participantCount } = await supabase
         .from('voice_room_participants')
         .select('*', { count: 'exact', head: true })
         .eq('room_id', roomId);
@@ -200,7 +201,7 @@ export class VoiceRoomService {
       }
 
       // Add participant (upsert to handle reconnections)
-      const { error: joinError } = await (supabase as any)
+      const { error: joinError } = await supabase
         .from('voice_room_participants')
         .upsert({
           room_id: roomId,
@@ -238,7 +239,7 @@ export class VoiceRoomService {
 
       console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('voice_room_participants')
         .delete()
         .eq('room_id', roomId)
@@ -265,7 +266,7 @@ export class VoiceRoomService {
         return false;
       }
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('voice_room_participants')
         .update({
           ...updates,
@@ -297,7 +298,7 @@ export class VoiceRoomService {
       const cached = this.participantCache.get(roomId);
       if (cached) return cached;
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('voice_room_participants')
         .select(`
           *,
@@ -352,7 +353,7 @@ export class VoiceRoomService {
       }
 
       // Remove participants inactive for more than 5 minutes
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('voice_room_participants')
         .delete()
         .lt('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString());
