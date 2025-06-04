@@ -6,6 +6,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 // CORS headers for browser requests
 const getAllowedOrigin = (origin: string | null) => {
   const allowedOrigins = [
+    'preview--pristine-sheet-maker.lovable.app'
     'http://localhost:5173',
     'https://localhost:5173',
     /https:\/\/.*\.lovable\.app$/,
