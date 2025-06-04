@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -48,24 +47,91 @@ export class VoiceRoomService {
     if (this.isConnected) return true;
 
     try {
+      // Check if voice_rooms table exists
       const { data, error } = await supabase
-        .from('voice_rooms' as any)
+        .from('voice_rooms')
         .select('id')
         .limit(1);
 
-      if (!error) {
-        this.isConnected = true;
-        console.log('✅ Voice database connection verified');
-        return true;
-      } else {
-        console.warn('⚠️ Voice tables not available:', error.message);
+      if (error) {
+        console.error('Voice rooms table check failed:', error.message);
+        
+        // If table doesn't exist, try to create it
+        if (error.message.includes('relation "voice_rooms" does not exist')) {
+          console.log('Voice rooms table does not exist. Creating voice collaboration tables...');
+          await this.createVoiceTables();
+          return await this.checkDatabaseConnection();
+        }
+        
         this.isConnected = false;
         return false;
       }
+
+      this.isConnected = true;
+      console.log('✅ Voice database connection verified');
+      return true;
     } catch (error) {
       console.error('❌ Database connection check failed:', error);
       this.isConnected = false;
       return false;
+    }
+  }
+
+  private async createVoiceTables(): Promise<void> {
+    try {
+      console.log('Creating voice collaboration tables...');
+      
+      // Create voice_rooms table
+      const { error: roomsError } = await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS voice_rooms (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            match_id UUID,
+            name TEXT NOT NULL,
+            description TEXT,
+            max_participants INTEGER DEFAULT 25,
+            priority INTEGER DEFAULT 1,
+            permissions TEXT[] DEFAULT ARRAY[]::TEXT[],
+            is_private BOOLEAN DEFAULT false,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `
+      });
+
+      if (roomsError) {
+        console.error('Failed to create voice_rooms table:', roomsError);
+        throw roomsError;
+      }
+
+      // Create voice_room_participants table
+      const { error: participantsError } = await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS voice_room_participants (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            room_id UUID REFERENCES voice_rooms(id) ON DELETE CASCADE,
+            user_id UUID,
+            user_role TEXT NOT NULL,
+            is_muted BOOLEAN DEFAULT true,
+            is_speaking BOOLEAN DEFAULT false,
+            joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            connection_quality TEXT DEFAULT 'good',
+            UNIQUE(room_id, user_id)
+          );
+        `
+      });
+
+      if (participantsError) {
+        console.error('Failed to create voice_room_participants table:', participantsError);
+        throw participantsError;
+      }
+
+      console.log('✅ Voice collaboration tables created successfully');
+    } catch (error) {
+      console.error('❌ Failed to create voice tables:', error);
+      throw error;
     }
   }
 
@@ -76,13 +142,13 @@ export class VoiceRoomService {
       // Check database connection first
       const dbConnected = await this.checkDatabaseConnection();
       if (!dbConnected) {
-        console.warn('Database not connected, cannot initialize rooms');
+        console.warn('Database not connected, returning empty rooms');
         return [];
       }
 
       // Check if rooms already exist for this match
       const { data: existingRooms, error: fetchError } = await supabase
-        .from('voice_rooms' as any)
+        .from('voice_rooms')
         .select('*')
         .eq('match_id', matchId)
         .eq('is_active', true);
@@ -99,7 +165,7 @@ export class VoiceRoomService {
         // Get participant counts for each room
         for (const room of rooms) {
           const { count } = await supabase
-            .from('voice_room_participants' as any)
+            .from('voice_room_participants')
             .select('*', { count: 'exact', head: true })
             .eq('room_id', room.id);
           room.participant_count = count || 0;
@@ -121,8 +187,10 @@ export class VoiceRoomService {
         is_active: true
       }));
 
+      console.log('Creating rooms:', roomsToCreate);
+
       const { data: createdRooms, error: createError } = await supabase
-        .from('voice_rooms' as any)
+        .from('voice_rooms')
         .insert(roomsToCreate)
         .select('*');
 
@@ -158,7 +226,7 @@ export class VoiceRoomService {
 
       // Get room details
       const { data: roomData, error: roomError } = await supabase
-        .from('voice_rooms' as any)
+        .from('voice_rooms')
         .select('*')
         .eq('id', roomId)
         .eq('is_active', true)
@@ -177,7 +245,7 @@ export class VoiceRoomService {
 
       // Check room capacity
       const { count: participantCount } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .select('*', { count: 'exact', head: true })
         .eq('room_id', roomId);
 
@@ -187,7 +255,7 @@ export class VoiceRoomService {
 
       // Add participant (upsert to handle reconnections)
       const { error: joinError } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .upsert({
           room_id: roomId,
           user_id: userId,
@@ -225,7 +293,7 @@ export class VoiceRoomService {
       console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
       const { error } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .delete()
         .eq('room_id', roomId)
         .eq('user_id', userId);
@@ -252,7 +320,7 @@ export class VoiceRoomService {
       }
 
       const { error } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .update({
           ...updates,
           last_activity: new Date().toISOString()
@@ -284,7 +352,7 @@ export class VoiceRoomService {
       if (cached) return cached;
 
       const { data, error } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .select(`
           *,
           profiles!voice_room_participants_user_id_fkey (
@@ -339,7 +407,7 @@ export class VoiceRoomService {
 
       // Remove participants inactive for more than 5 minutes
       const { error } = await supabase
-        .from('voice_room_participants' as any)
+        .from('voice_room_participants')
         .delete()
         .lt('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
@@ -361,7 +429,7 @@ export class VoiceRoomService {
       description: dbRoom.description || '',
       max_participants: dbRoom.max_participants || 25,
       priority: dbRoom.priority || 1,
-      permissions: dbRoom.permissions || [],
+      permissions: Array.isArray(dbRoom.permissions) ? dbRoom.permissions : [],
       is_private: dbRoom.is_private || false,
       is_active: dbRoom.is_active || false,
       created_at: dbRoom.created_at,
