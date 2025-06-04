@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -54,11 +53,24 @@ export class VoiceRoomService {
         .eq('match_id', matchId)
         .eq('is_active', true);
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error fetching existing rooms:', fetchError);
+        throw fetchError;
+      }
 
       if (existingRooms && existingRooms.length > 0) {
         console.log(`✅ Found ${existingRooms.length} existing rooms`);
         const rooms = existingRooms.map(this.mapDatabaseToRoom);
+        
+        // Get participant counts for each room
+        for (const room of rooms) {
+          const { count } = await supabase
+            .from('voice_room_participants' as any)
+            .select('*', { count: 'exact', head: true })
+            .eq('room_id', room.id);
+          room.participant_count = count || 0;
+        }
+        
         rooms.forEach(room => this.roomCache.set(room.id, room));
         return rooms;
       }
@@ -80,12 +92,19 @@ export class VoiceRoomService {
         .insert(roomsToCreate)
         .select('*');
 
-      if (createError) throw createError;
+      if (createError) {
+        console.error('Error creating rooms:', createError);
+        throw createError;
+      }
 
       console.log(`✅ Created ${createdRooms?.length || 0} voice rooms`);
 
       const rooms = (createdRooms || []).map(this.mapDatabaseToRoom);
-      rooms.forEach(room => this.roomCache.set(room.id, room));
+      // Initialize participant count to 0 for new rooms
+      rooms.forEach(room => {
+        room.participant_count = 0;
+        this.roomCache.set(room.id, room);
+      });
       
       return rooms;
     } catch (error: any) {

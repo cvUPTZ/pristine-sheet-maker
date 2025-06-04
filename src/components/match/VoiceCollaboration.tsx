@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +35,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         
         if (data && !error) {
           setUserRole(data.role || 'tracker');
+          console.log('User role loaded:', data.role);
         }
       } catch (error) {
         console.error('Failed to fetch user role:', error);
@@ -136,6 +136,29 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     }
   };
 
+  // Show loading state if no rooms are available yet
+  if (availableRooms.length === 0 && !isConnecting && !isVoiceEnabled) {
+    return (
+      <div className={`space-y-3 sm:space-y-4 ${className}`}>
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+            <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
+              <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />
+              Voice Collaboration Center
+              {getNetworkIcon()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}>
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading voice rooms...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
       <Card className="border-blue-200 bg-blue-50/50">
@@ -145,13 +168,13 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             Voice Collaboration Center
             {isVoiceEnabled && (
               <Badge variant="secondary" className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}>
-                Production • {isMobile ? currentRoom?.name.split(' ')[0] : currentRoom?.name}
+                Live • {isMobile ? currentRoom?.name.split(' ')[0] : currentRoom?.name}
               </Badge>
             )}
             {getNetworkIcon()}
           </CardTitle>
           
-          {/* Production Status Indicators */}
+          {/* Status Indicators */}
           <div className="flex items-center gap-2 mt-2">
             {isRecovering && (
               <Badge variant="destructive" className="animate-pulse">
@@ -167,7 +190,12 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             {isVoiceEnabled && (
               <Badge variant="secondary">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
-                Live
+                Connected
+              </Badge>
+            )}
+            {availableRooms.length > 0 && !isVoiceEnabled && (
+              <Badge variant="outline">
+                {availableRooms.length} rooms available
               </Badge>
             )}
           </div>
@@ -246,10 +274,10 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           )}
 
           {/* Available Rooms */}
-          {!isVoiceEnabled && (
+          {!isVoiceEnabled && availableRooms.length > 0 && (
             <div className="space-y-2">
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>
-                Production Voice Rooms
+                Available Voice Rooms
                 <Badge variant="outline" className="text-xs">
                   Role: {userRole}
                 </Badge>
@@ -354,10 +382,10 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Production Connection Details */}
+          {/* Connection Details */}
           {showConnectionDetails && isVoiceEnabled && connectionMetrics && !isMobile && (
             <div className="text-xs p-2 bg-gray-50 rounded border">
-              <div className="font-medium mb-1">Production Metrics</div>
+              <div className="font-medium mb-1">Connection Metrics</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>Total Peers: {connectionMetrics.totalPeers}</div>
                 <div>Connected: {connectionMetrics.connectedPeers}</div>
@@ -379,13 +407,13 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Production Instructions */}
-          {!isVoiceEnabled && !isConnecting && (
+          {/* System Status */}
+          {!isVoiceEnabled && !isConnecting && availableRooms.length > 0 && (
             <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 ${isMobile ? 'p-1.5' : 'p-2'} bg-blue-50 rounded border border-blue-200`}>
-              🎤 <strong>Production Voice System</strong>
-              <br/>✅ Enterprise-grade audio quality and reliability
-              <br/>✅ Automatic connection recovery and health monitoring
-              <br/>✅ Role-based room access and permissions
+              🎤 <strong>Voice System Ready</strong>
+              <br/>✅ Database connected • {availableRooms.length} rooms available
+              <br/>✅ Real-time collaboration enabled
+              <br/>✅ Role-based access configured for: {userRole}
               {retryAttempts > 0 && (
                 <>
                   <br/>⚠️ <strong>Connection recovery in progress...</strong>
