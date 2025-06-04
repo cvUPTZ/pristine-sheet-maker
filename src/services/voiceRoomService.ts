@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -34,6 +35,7 @@ export class VoiceRoomService {
   private static instance: VoiceRoomService;
   private roomCache = new Map<string, VoiceRoom>();
   private participantCache = new Map<string, VoiceParticipant[]>();
+  private isConnected = false;
 
   static getInstance(): VoiceRoomService {
     if (!VoiceRoomService.instance) {
@@ -42,9 +44,41 @@ export class VoiceRoomService {
     return VoiceRoomService.instance;
   }
 
+  private async checkDatabaseConnection(): Promise<boolean> {
+    if (this.isConnected) return true;
+
+    try {
+      const { data, error } = await supabase
+        .from('voice_rooms' as any)
+        .select('id')
+        .limit(1);
+
+      if (!error) {
+        this.isConnected = true;
+        console.log('✅ Voice database connection verified');
+        return true;
+      } else {
+        console.warn('⚠️ Voice tables not available:', error.message);
+        this.isConnected = false;
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Database connection check failed:', error);
+      this.isConnected = false;
+      return false;
+    }
+  }
+
   async initializeRoomsForMatch(matchId: string): Promise<VoiceRoom[]> {
     try {
       console.log(`🏗️ Initializing voice rooms for match: ${matchId}`);
+
+      // Check database connection first
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        console.warn('Database not connected, cannot initialize rooms');
+        return [];
+      }
 
       // Check if rooms already exist for this match
       const { data: existingRooms, error: fetchError } = await supabase
@@ -115,6 +149,11 @@ export class VoiceRoomService {
 
   async joinRoom(roomId: string, userId: string, userRole: string): Promise<{ success: boolean; room?: VoiceRoom; error?: string }> {
     try {
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        return { success: false, error: 'Database not connected' };
+      }
+
       console.log(`🚪 User ${userId} joining room ${roomId}`);
 
       // Get room details
@@ -177,6 +216,12 @@ export class VoiceRoomService {
 
   async leaveRoom(roomId: string, userId: string): Promise<boolean> {
     try {
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        console.error('Database not connected');
+        return false;
+      }
+
       console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
       const { error } = await supabase
@@ -200,9 +245,18 @@ export class VoiceRoomService {
 
   async updateParticipantStatus(roomId: string, userId: string, updates: Partial<Pick<VoiceParticipant, 'is_muted' | 'is_speaking' | 'connection_quality'>>): Promise<boolean> {
     try {
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        console.error('Database not connected');
+        return false;
+      }
+
       const { error } = await supabase
         .from('voice_room_participants' as any)
-        .update(updates)
+        .update({
+          ...updates,
+          last_activity: new Date().toISOString()
+        })
         .eq('room_id', roomId)
         .eq('user_id', userId);
 
@@ -219,6 +273,12 @@ export class VoiceRoomService {
 
   async getRoomParticipants(roomId: string): Promise<VoiceParticipant[]> {
     try {
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        console.warn('Database not connected, returning empty participants');
+        return [];
+      }
+
       // Check cache first
       const cached = this.participantCache.get(roomId);
       if (cached) return cached;
@@ -229,12 +289,16 @@ export class VoiceRoomService {
           *,
           profiles!voice_room_participants_user_id_fkey (
             full_name,
-            email
+            email,
+            role
           )
         `)
         .eq('room_id', roomId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching participants:', error);
+        return [];
+      }
 
       const participants = (data || []).map((p: any) => ({
         id: p.id,
@@ -244,10 +308,10 @@ export class VoiceRoomService {
         is_muted: p.is_muted,
         is_speaking: p.is_speaking,
         joined_at: p.joined_at,
-        last_activity: p.last_activity,
-        connection_quality: p.connection_quality,
-        user_name: p.profiles?.full_name || 'Unknown',
-        user_email: p.profiles?.email || 'Unknown'
+        last_activity: p.last_activity || p.joined_at,
+        connection_quality: p.connection_quality || 'good',
+        user_name: p.profiles?.full_name || 'Unknown User',
+        user_email: p.profiles?.email || 'unknown@example.com'
       }));
 
       // Cache the result
@@ -267,6 +331,12 @@ export class VoiceRoomService {
 
   async cleanupInactiveParticipants(): Promise<void> {
     try {
+      const dbConnected = await this.checkDatabaseConnection();
+      if (!dbConnected) {
+        console.warn('Database not connected, skipping cleanup');
+        return;
+      }
+
       // Remove participants inactive for more than 5 minutes
       const { error } = await supabase
         .from('voice_room_participants' as any)
@@ -288,15 +358,26 @@ export class VoiceRoomService {
       id: dbRoom.id,
       match_id: dbRoom.match_id,
       name: dbRoom.name,
-      description: dbRoom.description,
-      max_participants: dbRoom.max_participants,
-      priority: dbRoom.priority,
+      description: dbRoom.description || '',
+      max_participants: dbRoom.max_participants || 25,
+      priority: dbRoom.priority || 1,
       permissions: dbRoom.permissions || [],
-      is_private: dbRoom.is_private,
-      is_active: dbRoom.is_active,
+      is_private: dbRoom.is_private || false,
+      is_active: dbRoom.is_active || false,
       created_at: dbRoom.created_at,
       updated_at: dbRoom.updated_at
     };
+  }
+
+  // Check if service is connected to database
+  isDatabaseConnected(): boolean {
+    return this.isConnected;
+  }
+
+  // Force reconnection check
+  async reconnectDatabase(): Promise<boolean> {
+    this.isConnected = false;
+    return await this.checkDatabaseConnection();
   }
 
   // Clear caches - useful for testing and cleanup
