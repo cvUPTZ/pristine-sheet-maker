@@ -1,13 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, ExternalLink, Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ExternalLink, Upload, Brain, CheckCircle, XCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface VideoSegment {
@@ -15,41 +16,201 @@ interface VideoSegment {
   startTime: number;
   endTime: number;
   duration: number;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: string;
   file?: File;
 }
 
-interface ColabJob {
+interface AnalysisJob {
   id: string;
   segmentId: string;
-  status: 'uploading' | 'processing' | 'completed' | 'error';
+  status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
   progress: number;
   results?: any;
+  error?: string;
   colabUrl?: string;
+}
+
+interface AnalysisResults {
+  events: any[];
+  statistics: any;
+  heatmap: string;
+  playerTracking: string;
 }
 
 interface ColabIntegrationProps {
   segments: VideoSegment[];
-  onAnalysisComplete: (results: any[]) => void;
+  onAnalysisComplete: (results: AnalysisResults[]) => void;
 }
 
-const ColabIntegration: React.FC<ColabIntegrationProps> = ({ 
-  segments, 
-  onAnalysisComplete 
-}) => {
+const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysisComplete }) => {
+  const [jobs, setJobs] = useState<AnalysisJob[]>([]);
+  const [processing, setProcessing] = useState(false);
   const [colabNotebookUrl, setColabNotebookUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [jobs, setJobs] = useState<ColabJob[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [overallProgress, setOverallProgress] = useState(0);
+  const [batchSize, setBatchSize] = useState(3);
+  const [processingMode, setProcessingMode] = useState<'sequential' | 'parallel'>('parallel');
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalProgress, setTotalProgress] = useState(0);
+
+  useEffect(() => {
+    // Initialize jobs from segments
+    const initialJobs = segments.map(segment => ({
+      id: `job-${segment.id}`,
+      segmentId: segment.id,
+      status: 'queued' as const,
+      progress: 0
+    }));
+    setJobs(initialJobs);
+  }, [segments]);
 
   const validateColabUrl = (url: string): boolean => {
-    return url.includes('colab.research.google.com') && url.includes('github');
+    return url.includes('colab.research.google.com') && url.includes('/notebooks/');
   };
 
-  const startColabProcessing = async () => {
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const uploadSegmentToColab = async (segment: VideoSegment, jobId: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const uploadDuration = Math.max(2000, segment.duration * 50); // Minimum 2 seconds
+      
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        
+        setJobs(prev => prev.map(job => 
+          job.id === jobId 
+            ? { ...job, progress: Math.min(progress, 95) }
+            : job
+        ));
+        
+        if (progress >= 95) {
+          clearInterval(interval);
+          
+          // Simulate successful upload
+          setTimeout(() => {
+            setJobs(prev => prev.map(job => 
+              job.id === jobId 
+                ? { 
+                    ...job, 
+                    status: 'processing',
+                    progress: 100,
+                    colabUrl: `${colabNotebookUrl}#cell=${Math.floor(Math.random() * 10)}`
+                  }
+                : job
+            ));
+            
+            resolve({
+              uploadId: `upload-${Date.now()}`,
+              colabPath: `/content/segments/${segment.file?.name}`,
+              estimatedProcessingTime: segment.duration * 2
+            });
+          }, 500);
+        }
+      }, uploadDuration / 20);
+    });
+  };
+
+  const processSegmentInColab = async (segment: VideoSegment, jobId: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const processingDuration = Math.max(3000, segment.duration * 100);
+      
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        
+        setJobs(prev => prev.map(job => 
+          job.id === jobId 
+            ? { ...job, progress: Math.min(progress, 95) }
+            : job
+        ));
+        
+        if (progress >= 95) {
+          clearInterval(interval);
+          
+          setTimeout(() => {
+            const mockResults = {
+              events: [
+                { type: 'pass', timestamp: segment.startTime + Math.random() * segment.duration, confidence: 0.85 + Math.random() * 0.15 },
+                { type: 'shot', timestamp: segment.startTime + Math.random() * segment.duration, confidence: 0.75 + Math.random() * 0.25 },
+                { type: 'tackle', timestamp: segment.startTime + Math.random() * segment.duration, confidence: 0.65 + Math.random() * 0.35 }
+              ],
+              statistics: {
+                ballPossession: {
+                  home: 45 + Math.random() * 20,
+                  away: 35 + Math.random() * 20
+                },
+                passes: {
+                  successful: Math.floor(Math.random() * 50 + 20),
+                  total: Math.floor(Math.random() * 70 + 40)
+                },
+                shots: Math.floor(Math.random() * 5 + 1)
+              },
+              heatmap: `data:image/png;base64,mockHeatmapData${Date.now()}`,
+              playerTracking: `data:json;base64,mockTrackingData${Date.now()}`
+            };
+            
+            setJobs(prev => prev.map(job => 
+              job.id === jobId 
+                ? { 
+                    ...job, 
+                    status: 'completed',
+                    progress: 100,
+                    results: mockResults
+                  }
+                : job
+            ));
+            
+            resolve(mockResults);
+          }, 1000);
+        }
+      }, processingDuration / 20);
+    });
+  };
+
+  const processBatch = async (batch: AnalysisJob[]) => {
+    const batchPromises = batch.map(async (job) => {
+      const segment = segments.find(s => s.id === job.segmentId);
+      if (!segment) return;
+
+      try {
+        // Update job status to uploading
+        setJobs(prev => prev.map(j => 
+          j.id === job.id ? { ...j, status: 'uploading' } : j
+        ));
+
+        // Upload segment to Colab
+        await uploadSegmentToColab(segment, job.id);
+        
+        // Process in Colab
+        const results = await processSegmentInColab(segment, job.id);
+        
+        return results;
+      } catch (error) {
+        console.error(`Error processing job ${job.id}:`, error);
+        setJobs(prev => prev.map(j => 
+          j.id === job.id 
+            ? { ...j, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' }
+            : j
+        ));
+        throw error;
+      }
+    });
+
+    return Promise.allSettled(batchPromises);
+  };
+
+  const startProcessing = async () => {
     if (!colabNotebookUrl) {
-      toast.error('Please provide your Colab notebook URL');
+      toast.error('Please provide a valid Google Colab notebook URL');
       return;
     }
 
@@ -58,255 +219,328 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({
       return;
     }
 
-    if (segments.filter(s => s.status === 'completed').length === 0) {
-      toast.error('No processed video segments available');
+    if (jobs.length === 0) {
+      toast.error('No video segments to process');
       return;
     }
 
     setProcessing(true);
-    setOverallProgress(0);
-
-    const completedSegments = segments.filter(s => s.status === 'completed');
-    const newJobs: ColabJob[] = completedSegments.map(segment => ({
-      id: `job-${segment.id}`,
-      segmentId: segment.id,
-      status: 'uploading',
-      progress: 0,
-      colabUrl: colabNotebookUrl
-    }));
-
-    setJobs(newJobs);
+    setCurrentBatch(0);
+    setTotalProgress(0);
 
     try {
-      for (let i = 0; i < newJobs.length; i++) {
-        const job = newJobs[i];
-        const segment = completedSegments[i];
-
-        // Simulate upload process
-        job.status = 'uploading';
-        setJobs([...newJobs]);
-
-        for (let uploadProgress = 0; uploadProgress <= 100; uploadProgress += 10) {
-          job.progress = uploadProgress;
-          setJobs([...newJobs]);
-          await new Promise(resolve => setTimeout(resolve, 200));
+      const allResults: AnalysisResults[] = [];
+      
+      if (processingMode === 'sequential') {
+        // Process one at a time
+        for (let i = 0; i < jobs.length; i++) {
+          setCurrentBatch(i + 1);
+          await processBatch([jobs[i]]);
+          setTotalProgress(((i + 1) / jobs.length) * 100);
+        }
+      } else {
+        // Process in batches
+        const batches = [];
+        for (let i = 0; i < jobs.length; i += batchSize) {
+          batches.push(jobs.slice(i, i + batchSize));
         }
 
-        // Simulate processing in Colab
-        job.status = 'processing';
-        job.progress = 0;
-        setJobs([...newJobs]);
-
-        for (let processProgress = 0; processProgress <= 100; processProgress += 5) {
-          job.progress = processProgress;
-          setJobs([...newJobs]);
-          await new Promise(resolve => setTimeout(resolve, 300));
+        for (let i = 0; i < batches.length; i++) {
+          setCurrentBatch(i + 1);
+          await processBatch(batches[i]);
+          setTotalProgress(((i + 1) / batches.length) * 100);
         }
-
-        // Mock analysis results
-        job.status = 'completed';
-        job.results = {
-          events: [
-            { type: 'goal', timestamp: segment.startTime + 120, confidence: 0.95 },
-            { type: 'pass', timestamp: segment.startTime + 45, confidence: 0.88 }
-          ],
-          statistics: {
-            ballPossession: { home: 55, away: 45 },
-            passes: { successful: 45, total: 52 }
-          },
-          heatmap: `heatmap_data_segment_${i + 1}`,
-          playerTracking: `tracking_data_segment_${i + 1}`
-        };
-        setJobs([...newJobs]);
-
-        const progress = ((i + 1) / newJobs.length) * 100;
-        setOverallProgress(progress);
       }
 
-      // Combine all results
-      const allResults = newJobs.map(job => job.results).filter(Boolean);
-      onAnalysisComplete(allResults);
-      toast.success('All video segments processed successfully in Colab');
-
+      // Collect all results
+      const completedJobs = jobs.filter(job => job.status === 'completed' && job.results);
+      const results = completedJobs.map(job => job.results);
+      
+      onAnalysisComplete(results);
+      toast.success(`Successfully processed ${completedJobs.length} video segments!`);
+      
     } catch (error) {
-      console.error('Error processing in Colab:', error);
-      toast.error('Failed to process videos in Colab');
+      console.error('Error during batch processing:', error);
+      toast.error('Some segments failed to process. Check individual segment status.');
     } finally {
       setProcessing(false);
     }
   };
 
-  const retryFailedJob = async (jobId: string) => {
-    const jobIndex = jobs.findIndex(j => j.id === jobId);
-    if (jobIndex === -1) return;
+  const retryFailedJobs = async () => {
+    const failedJobs = jobs.filter(job => job.status === 'failed');
+    if (failedJobs.length === 0) {
+      toast.info('No failed jobs to retry');
+      return;
+    }
 
-    const updatedJobs = [...jobs];
-    updatedJobs[jobIndex].status = 'uploading';
-    updatedJobs[jobIndex].progress = 0;
-    setJobs(updatedJobs);
+    // Reset failed jobs to queued
+    setJobs(prev => prev.map(job => 
+      job.status === 'failed' 
+        ? { ...job, status: 'queued', progress: 0, error: undefined }
+        : job
+    ));
 
-    // Simulate retry process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    updatedJobs[jobIndex].status = 'completed';
-    updatedJobs[jobIndex].progress = 100;
-    setJobs(updatedJobs);
-    
-    toast.success('Job retried successfully');
+    toast.info(`Retrying ${failedJobs.length} failed jobs...`);
   };
 
-  const openColabNotebook = (url: string) => {
-    window.open(url, '_blank');
-  };
-
-  const getStatusColor = (status: ColabJob['status']) => {
+  const getStatusIcon = (status: AnalysisJob['status']) => {
     switch (status) {
+      case 'queued': return <Clock className="h-4 w-4 text-gray-500" />;
+      case 'uploading': return <Upload className="h-4 w-4 text-blue-500" />;
+      case 'processing': return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'completed': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed': return <XCircle className="h-4 w-4 text-red-500" />;
+      default: return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: AnalysisJob['status']) => {
+    switch (status) {
+      case 'queued': return 'bg-gray-100 text-gray-800';
       case 'uploading': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
       case 'completed': return 'bg-green-100 text-green-800';
-      case 'error': return 'bg-red-100 text-red-800';
+      case 'failed': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const completedSegments = segments.filter(s => s.status === 'completed');
-  const completedJobs = jobs.filter(j => j.status === 'completed');
+  const completedJobs = jobs.filter(job => job.status === 'completed').length;
+  const failedJobs = jobs.filter(job => job.status === 'failed').length;
+  const totalJobs = jobs.length;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ExternalLink className="h-5 w-5 text-orange-600" />
+          <Brain className="h-5 w-5 text-blue-600" />
           Google Colab Integration
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
-            Make sure your Google Colab notebook is set up to receive video files and has your soccer analytics pipeline ready.
-          </AlertDescription>
-        </Alert>
+        <Tabs defaultValue="setup" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="setup">Setup</TabsTrigger>
+            <TabsTrigger value="processing">Processing</TabsTrigger>
+            <TabsTrigger value="results">Results</TabsTrigger>
+          </TabsList>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="colab-url">Colab Notebook URL</Label>
-            <Input
-              id="colab-url"
-              type="url"
-              placeholder="https://colab.research.google.com/github/..."
-              value={colabNotebookUrl}
-              onChange={(e) => setColabNotebookUrl(e.target.value)}
-            />
-            <p className="text-xs text-gray-600">
-              Link to your Google Colab notebook with the soccer analytics pipeline
-            </p>
-          </div>
+          <TabsContent value="setup" className="space-y-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="colab-url">Google Colab Notebook URL</Label>
+                <Input
+                  id="colab-url"
+                  type="url"
+                  placeholder="https://colab.research.google.com/drive/your-notebook-id"
+                  value={colabNotebookUrl}
+                  onChange={(e) => setColabNotebookUrl(e.target.value)}
+                  disabled={processing}
+                />
+                <p className="text-xs text-gray-600">
+                  Make sure your Colab notebook is set to accept file uploads and has the soccer analysis model loaded
+                </p>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="api-key">Colab API Key (Optional)</Label>
-            <Input
-              id="api-key"
-              type="password"
-              placeholder="Your Google API key for authentication"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Processing Mode</Label>
+                  <select 
+                    value={processingMode} 
+                    onChange={(e) => setProcessingMode(e.target.value as 'sequential' | 'parallel')}
+                    className="w-full p-2 border rounded"
+                    disabled={processing}
+                  >
+                    <option value="parallel">Parallel (Faster)</option>
+                    <option value="sequential">Sequential (Safer)</option>
+                  </select>
+                </div>
+                
+                {processingMode === 'parallel' && (
+                  <div className="space-y-2">
+                    <Label>Batch Size</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={batchSize}
+                      onChange={(e) => setBatchSize(parseInt(e.target.value))}
+                      disabled={processing}
+                    />
+                  </div>
+                )}
+              </div>
 
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div>
-            <p className="text-sm font-medium">Ready for Processing</p>
-            <p className="text-xs text-gray-600">
-              {completedSegments.length} video segments prepared
-            </p>
-          </div>
-          <Button 
-            onClick={startColabProcessing}
-            disabled={processing || completedSegments.length === 0 || !colabNotebookUrl}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            {processing ? 'Processing...' : 'Start Colab Processing'}
-          </Button>
-        </div>
-
-        {processing && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Overall Progress</span>
-              <span>{Math.round(overallProgress)}%</span>
-            </div>
-            <Progress value={overallProgress} className="w-full" />
-          </div>
-        )}
-
-        {jobs.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium">Processing Jobs</h4>
-              <div className="text-xs text-gray-600">
-                {completedJobs.length} / {jobs.length} completed
+              <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                <p className="text-sm text-blue-800 font-medium">Ready to process:</p>
+                <p className="text-sm text-blue-700">
+                  {totalJobs} video segments • Estimated processing time: {Math.ceil(totalJobs * 2 / (processingMode === 'parallel' ? batchSize : 1))} minutes
+                </p>
               </div>
             </div>
-            
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {jobs.map((job, index) => (
-                <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="text-sm font-mono">{index + 1}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Segment {job.segmentId}</span>
-                        <Badge className={getStatusColor(job.status)}>
-                          {job.status}
-                        </Badge>
-                      </div>
-                      {(job.status === 'uploading' || job.status === 'processing') && (
-                        <div className="mt-1">
-                          <Progress value={job.progress} className="w-full h-1" />
+          </TabsContent>
+
+          <TabsContent value="processing" className="space-y-4">
+            <div className="flex gap-2 mb-4">
+              <Button 
+                onClick={startProcessing}
+                disabled={processing || !colabNotebookUrl || totalJobs === 0}
+                className="flex-1"
+              >
+                {processing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4 mr-2" />
+                )}
+                {processing ? 'Processing...' : `Process ${totalJobs} Segments`}
+              </Button>
+              
+              {failedJobs > 0 && !processing && (
+                <Button onClick={retryFailedJobs} variant="outline">
+                  Retry Failed ({failedJobs})
+                </Button>
+              )}
+            </div>
+
+            {processing && (
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {processingMode === 'parallel' 
+                      ? `Processing batch ${currentBatch} of ${Math.ceil(totalJobs / batchSize)}`
+                      : `Processing segment ${currentBatch} of ${totalJobs}`
+                    }
+                  </span>
+                  <span>{Math.round(totalProgress)}%</span>
+                </div>
+                <Progress value={totalProgress} className="w-full" />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <h4 className="font-medium">Processing Status</h4>
+                <div className="flex gap-2 text-xs">
+                  <span className="text-green-600">✓ {completedJobs}</span>
+                  <span className="text-red-600">✗ {failedJobs}</span>
+                  <span className="text-gray-600">Total: {totalJobs}</span>
+                </div>
+              </div>
+              
+              <div className="max-h-64 overflow-y-auto space-y-2 border rounded p-2">
+                {jobs.map((job, index) => {
+                  const segment = segments.find(s => s.id === job.segmentId);
+                  return (
+                    <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(job.status)}
+                        <div>
+                          <div className="text-sm font-medium">
+                            Segment {index + 1}
+                            {segment && ` (${formatTime(segment.startTime)} - ${formatTime(segment.endTime)})`}
+                          </div>
+                          {job.status === 'processing' && (
+                            <div className="text-xs text-gray-600">
+                              Progress: {Math.round(job.progress)}%
+                            </div>
+                          )}
+                          {job.error && (
+                            <div className="text-xs text-red-600">
+                              Error: {job.error}
+                            </div>
+                          )}
+                          {job.colabUrl && job.status !== 'failed' && (
+                            <a 
+                              href={job.colabUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                            >
+                              View in Colab <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
                         </div>
-                      )}
+                      </div>
+                      <Badge className={getStatusColor(job.status)}>
+                        {job.status}
+                      </Badge>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="results" className="space-y-4">
+            {completedJobs > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-2xl font-bold text-green-600">{completedJobs}</div>
+                    <div className="text-sm text-green-800">Segments Completed</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {job.status === 'error' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => retryFailedJob(job.id)}
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {job.status === 'completed' && (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    )}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {jobs.filter(j => j.results?.events).reduce((sum, j) => sum + j.results.events.length, 0)}
+                    </div>
+                    <div className="text-sm text-blue-800">Events Detected</div>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {Math.round(jobs.filter(j => j.results?.statistics?.ballPossession).reduce((sum, j) => sum + j.results.statistics.ballPossession.home, 0) / completedJobs)}%
+                    </div>
+                    <div className="text-sm text-purple-800">Avg. Home Possession</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {colabNotebookUrl && (
-          <Button
-            variant="outline"
-            onClick={() => openColabNotebook(colabNotebookUrl)}
-            className="w-full"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open Colab Notebook
-          </Button>
-        )}
+                <div className="space-y-2">
+                  <h4 className="font-medium">Segment Analysis Results</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {jobs.filter(job => job.status === 'completed').map((job, index) => {
+                      const segment = segments.find(s => s.id === job.segmentId);
+                      return (
+                        <div key={job.id} className="p-3 border rounded-lg bg-gray-50">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-medium text-sm">
+                              Segment {index + 1}
+                              {segment && ` (${formatTime(segment.startTime)} - ${formatTime(segment.endTime)})`}
+                            </span>
+                            <Badge variant="secondary">
+                              {job.results?.events?.length || 0} events
+                            </Badge>
+                          </div>
+                          {job.results?.statistics && (
+                            <div className="text-xs text-gray-600 grid grid-cols-2 gap-2">
+                              <span>Possession: {Math.round(job.results.statistics.ballPossession?.home || 0)}% - {Math.round(job.results.statistics.ballPossession?.away || 0)}%</span>
+                              <span>Passes: {job.results.statistics.passes?.successful || 0}/{job.results.statistics.passes?.total || 0}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Brain className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p>No analysis results yet</p>
+                <p className="text-sm">Process video segments to see results here</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
-        <div className="p-3 bg-blue-50 rounded border border-blue-200">
-          <div className="text-xs text-blue-800">
-            <p className="font-medium mb-1">Setup Instructions:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Ensure your Colab notebook has the necessary dependencies installed</li>
-              <li>Set up file upload endpoints to receive video segments</li>
-              <li>Configure your analytics pipeline to process uploaded videos</li>
-              <li>Return results in the expected JSON format</li>
+        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+          <div className="text-xs text-amber-800">
+            <p className="font-medium">Google Colab Requirements:</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>Ensure your Colab runtime has sufficient GPU allocation</li>
+              <li>Your notebook should accept file uploads via API</li>
+              <li>Install required soccer analysis libraries in your environment</li>
+              <li>Set appropriate timeout limits for long video processing</li>
             </ul>
           </div>
         </div>

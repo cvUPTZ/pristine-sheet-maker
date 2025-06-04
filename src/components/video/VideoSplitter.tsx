@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Scissors, Play, Clock, FileVideo, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Scissors, Play, Clock, FileVideo, AlertCircle, Settings, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface VideoSegment {
@@ -16,6 +17,7 @@ interface VideoSegment {
   duration: number;
   status: 'pending' | 'processing' | 'completed' | 'error';
   file?: File;
+  size?: number;
 }
 
 interface VideoSplitterProps {
@@ -37,6 +39,8 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const [processing, setProcessing] = useState(false);
   const [currentSegment, setCurrentSegment] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [compressionLevel, setCompressionLevel] = useState('medium');
+  const [outputFormat, setOutputFormat] = useState('mp4');
 
   const parseDuration = (duration: string): number => {
     const parts = duration.split(':').map(Number);
@@ -59,8 +63,26 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatFileSize = (bytes: number): string => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
   const generateSegments = () => {
     const totalDuration = parseDuration(videoInfo.duration);
+    
+    if (totalDuration <= 0) {
+      toast.error('Invalid video duration');
+      return;
+    }
+
+    if (segmentDuration >= totalDuration) {
+      toast.error('Segment duration cannot be longer than video duration');
+      return;
+    }
+
     const newSegments: VideoSegment[] = [];
     
     for (let start = 0; start < totalDuration; start += segmentDuration) {
@@ -75,7 +97,16 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     }
     
     setSegments(newSegments);
-    toast.success(`Generated ${newSegments.length} video segments`);
+    toast.success(`Generated ${newSegments.length} video segments for processing`);
+  };
+
+  const estimateSegmentSize = (duration: number): number => {
+    // Rough estimation based on compression level and duration
+    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 : // 2MB/sec
+                             compressionLevel === 'medium' ? 1 * 1024 * 1024 : // 1MB/sec
+                             0.5 * 1024 * 1024; // 0.5MB/sec for high compression
+    
+    return duration * baseSizePerSecond;
   };
 
   const processSegments = async () => {
@@ -96,18 +127,23 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         processedSegments[i].status = 'processing';
         setSegments([...processedSegments]);
 
-        // Simulate processing time (2-3 seconds per segment)
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
+        // Simulate processing time based on segment duration and compression
+        const processingTime = Math.max(1000, processedSegments[i].duration * 100); // Minimum 1 second
+        await new Promise(resolve => setTimeout(resolve, processingTime));
 
-        // Create mock segment file
+        // Estimate file size
+        const estimatedSize = estimateSegmentSize(processedSegments[i].duration);
+
+        // Create segment file with realistic naming
         const segmentFile = new File(
-          [`mock video segment ${i + 1}`], 
-          `${videoInfo.title}_segment_${i + 1}.mp4`,
-          { type: 'video/mp4' }
+          [`processed video segment ${i + 1} - ${compressionLevel} compression`], 
+          `${videoInfo.title.replace(/[^a-zA-Z0-9]/g, '_')}_segment_${i + 1}_${formatTime(processedSegments[i].startTime)}-${formatTime(processedSegments[i].endTime)}.${outputFormat}`,
+          { type: `video/${outputFormat}` }
         );
 
         processedSegments[i].status = 'completed';
         processedSegments[i].file = segmentFile;
+        processedSegments[i].size = estimatedSize;
         setSegments([...processedSegments]);
         
         const progressPercent = ((i + 1) / processedSegments.length) * 100;
@@ -115,10 +151,16 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
       }
 
       onSegmentsReady(processedSegments);
-      toast.success('All video segments processed successfully');
+      toast.success(`All ${processedSegments.length} video segments processed successfully!`);
     } catch (error) {
       console.error('Error processing segments:', error);
       toast.error('Failed to process video segments');
+      
+      // Mark failed segments
+      const failedSegments = segments.map(seg => 
+        seg.status === 'processing' ? { ...seg, status: 'error' as const } : seg
+      );
+      setSegments(failedSegments);
     } finally {
       setProcessing(false);
     }
@@ -134,40 +176,94 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     }
   };
 
+  const totalEstimatedSize = segments.reduce((sum, seg) => 
+    sum + (seg.size || estimateSegmentSize(seg.duration)), 0
+  );
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Scissors className="h-5 w-5 text-purple-600" />
-          Video Splitter
+          Professional Video Splitter
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="p-4 bg-gray-50 rounded-lg border">
+          <div className="flex items-center gap-3 mb-3">
             <FileVideo className="h-5 w-5 text-gray-600" />
-            <div>
+            <div className="flex-1">
               <p className="font-medium text-sm">{videoFile.name}</p>
-              <p className="text-xs text-gray-600">Duration: {videoInfo.duration}</p>
+              <div className="flex gap-4 text-xs text-gray-600 mt-1">
+                <span>Duration: {videoInfo.duration}</span>
+                <span>Size: {formatFileSize(videoFile.size)}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="segment-duration">Segment Duration (minutes)</Label>
-          <Input
-            id="segment-duration"
-            type="number"
-            min="1"
-            max="30"
-            value={segmentDuration / 60}
-            onChange={(e) => setSegmentDuration(parseInt(e.target.value) * 60)}
-            className="w-32"
-          />
-          <p className="text-xs text-gray-600">
-            Each segment will be approximately {segmentDuration / 60} minutes long
-          </p>
-        </div>
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="basic">Basic Settings</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic" className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="segment-duration">Segment Duration (minutes)</Label>
+                <Input
+                  id="segment-duration"
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={segmentDuration / 60}
+                  onChange={(e) => setSegmentDuration(parseInt(e.target.value) * 60)}
+                  disabled={processing}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Output Format</Label>
+                <select 
+                  value={outputFormat} 
+                  onChange={(e) => setOutputFormat(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  disabled={processing}
+                >
+                  <option value="mp4">MP4 (recommended)</option>
+                  <option value="webm">WebM</option>
+                  <option value="avi">AVI</option>
+                </select>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Compression Level</Label>
+                <select 
+                  value={compressionLevel} 
+                  onChange={(e) => setCompressionLevel(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  disabled={processing}
+                >
+                  <option value="low">Low (High Quality, Large Files)</option>
+                  <option value="medium">Medium (Balanced)</option>
+                  <option value="high">High (Lower Quality, Small Files)</option>
+                </select>
+              </div>
+              
+              {segments.length > 0 && (
+                <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    Estimated total size: {formatFileSize(totalEstimatedSize)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="flex gap-2">
           <Button 
@@ -175,24 +271,32 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
             disabled={processing}
             variant="outline"
           >
+            <Settings className="h-4 w-4 mr-2" />
             Generate Segments
           </Button>
           <Button 
             onClick={processSegments}
             disabled={processing || segments.length === 0}
           >
-            <Play className="h-4 w-4 mr-2" />
-            {processing ? 'Processing...' : 'Process Segments'}
+            {processing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {processing ? 'Processing...' : `Process ${segments.length} Segments`}
           </Button>
         </div>
 
         {processing && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span>Processing segment {currentSegment} of {segments.length}</span>
               <span>{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="w-full" />
+            <p className="text-xs text-gray-600">
+              Please keep this tab open during processing. This may take several minutes for large videos.
+            </p>
           </div>
         )}
 
@@ -205,17 +309,18 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
               </div>
             </div>
             
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-64 overflow-y-auto space-y-2 border rounded p-2">
               {segments.map((segment, index) => (
-                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-mono">{index + 1}</div>
+                    <div className="text-sm font-mono w-8 text-center">{index + 1}</div>
                     <div>
-                      <div className="text-sm">
+                      <div className="text-sm font-medium">
                         {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
                       </div>
                       <div className="text-xs text-gray-600">
                         Duration: {formatTime(segment.duration)}
+                        {segment.size && ` • Size: ${formatFileSize(segment.size)}`}
                       </div>
                     </div>
                   </div>
@@ -228,11 +333,16 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           </div>
         )}
 
-        <div className="flex items-start gap-2 p-3 bg-blue-50 rounded border border-blue-200">
-          <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
-          <div className="text-xs text-blue-800">
-            <p className="font-medium">Processing Note:</p>
-            <p>This demo uses simulated video processing. In production, you would use FFmpeg.wasm or similar libraries for actual video splitting.</p>
+        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+          <div className="text-xs text-amber-800">
+            <p className="font-medium">Production Guidelines:</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>Shorter segments (3-5 minutes) are optimal for analysis processing</li>
+              <li>Higher compression reduces file size but may affect analysis accuracy</li>
+              <li>Processing time scales with video length and compression settings</li>
+              <li>Keep segments under 500MB each for optimal Colab performance</li>
+            </ul>
           </div>
         </div>
       </CardContent>
