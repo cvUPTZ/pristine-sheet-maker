@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,7 +96,7 @@ const EventAssignments: React.FC = () => {
           tracker_user_id,
           assigned_event_types,
           created_at,
-          profiles:tracker_user_id (
+          profiles!tracker_user_id (
             full_name,
             email
           )
@@ -118,8 +117,8 @@ const EventAssignments: React.FC = () => {
         assigned_event_types: assignment.assigned_event_types,
         created_at: assignment.created_at,
         tracker: assignment.profiles ? {
-          full_name: assignment.profiles.full_name || '',
-          email: assignment.profiles.email || ''
+          full_name: assignment.profiles.full_name || 'Unknown',
+          email: assignment.profiles.email || 'No email'
         } : undefined
       }));
 
