@@ -1,315 +1,280 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Calendar, Target, TrendingUp, Filter, RefreshCw, AlertCircle } from 'lucide-react';
+import { Users, Calendar, Target, Star, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 
-interface EventAssignment {
+interface TrackerAssignment {
   id: string;
   tracker_user_id: string;
-  assigned_event_types?: string[] | null;
+  assigned_event_types: string[] | null;
   created_at: string;
-  tracker?: {
-    full_name: string;
-    email: string;
-  };
+  tracker_name?: string;
+  tracker_email?: string;
 }
 
-interface Match {
-  id: string;
-  name: string;
-  home_team_name: string;
-  away_team_name: string;
-  status: string;
-  match_date: string | null;
+interface EventAssignmentsProps {
+  matchId: string;
 }
 
-const EventAssignments: React.FC = () => {
-  const [assignments, setAssignments] = useState<EventAssignment[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<string>('');
-  const [selectedEventType, setSelectedEventType] = useState<string>('all');
+const EventAssignments: React.FC<EventAssignmentsProps> = ({ matchId }) => {
+  const [assignments, setAssignments] = useState<TrackerAssignment[]>([]);
+  const [availableTrackers, setAvailableTrackers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    totalAssignments: 0,
-    eventTypesCovered: 0,
-  });
-  const isMobile = useIsMobile();
+  const [selectedTracker, setSelectedTracker] = useState('');
+  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
 
   const eventTypes = [
-    'goal', 'assist', 'pass', 'tackle', 'foul', 'yellow_card', 'red_card',
-    'substitution', 'corner_kick', 'free_kick', 'penalty', 'offside'
+    'goal', 'assist', 'yellow_card', 'red_card', 'substitution', 
+    'corner', 'free_kick', 'penalty', 'offside', 'foul'
   ];
 
   useEffect(() => {
-    fetchMatches();
-  }, []);
-
-  useEffect(() => {
-    if (selectedMatch) {
+    if (matchId) {
       fetchAssignments();
+      fetchAvailableTrackers();
     }
-  }, [selectedMatch, selectedEventType]);
-
-  const fetchMatches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('matches')
-        .select('id, name, home_team_name, away_team_name, status, match_date')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      const transformedMatches: Match[] = (data || []).map(match => ({
-        id: match.id,
-        name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
-        home_team_name: match.home_team_name,
-        away_team_name: match.away_team_name,
-        status: match.status,
-        match_date: match.match_date
-      }));
-      
-      setMatches(transformedMatches);
-      if (transformedMatches.length > 0) {
-        setSelectedMatch(transformedMatches[0].id);
-      }
-    } catch (error) {
-      console.error('Error fetching matches:', error);
-      toast.error('Failed to load matches');
-    }
-  };
+  }, [matchId]);
 
   const fetchAssignments = async () => {
-    if (!selectedMatch) return;
-    
-    setLoading(true);
     try {
-      let query = supabase
+      setLoading(true);
+      const { data, error } = await supabase
         .from('match_tracker_assignments')
         .select(`
           id,
           tracker_user_id,
           assigned_event_types,
-          created_at,
-          profiles!tracker_user_id (
-            full_name,
-            email
-          )
+          created_at
         `)
-        .eq('match_id', selectedMatch);
+        .eq('match_id', matchId);
 
-      if (selectedEventType !== 'all') {
-        query = query.contains('assigned_event_types', [selectedEventType]);
+      if (error) {
+        console.error('Error fetching assignments:', error);
+        toast.error('Failed to load assignments');
+        return;
       }
 
-      const { data, error } = await query.order('created_at', { ascending: true });
-
-      if (error) throw error;
+      // Get tracker details separately
+      const trackerIds = data?.map(assignment => assignment.tracker_user_id) || [];
       
-      const formattedData: EventAssignment[] = (data || []).map(assignment => ({
-        id: assignment.id,
-        tracker_user_id: assignment.tracker_user_id,
-        assigned_event_types: assignment.assigned_event_types,
-        created_at: assignment.created_at,
-        tracker: assignment.profiles ? {
-          full_name: assignment.profiles.full_name || 'Unknown',
-          email: assignment.profiles.email || 'No email'
-        } : undefined
-      }));
+      if (trackerIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', trackerIds);
 
-      setAssignments(formattedData);
-      calculateStats(formattedData);
+        if (profilesError) {
+          console.error('Error fetching tracker profiles:', profilesError);
+        }
+
+        const assignmentsWithTrackers = data?.map(assignment => ({
+          ...assignment,
+          tracker_name: profiles?.find(p => p.id === assignment.tracker_user_id)?.full_name || 'Unknown',
+          tracker_email: profiles?.find(p => p.id === assignment.tracker_user_id)?.email || 'Unknown'
+        })) || [];
+
+        setAssignments(assignmentsWithTrackers);
+      } else {
+        setAssignments(data || []);
+      }
     } catch (error) {
-      console.error('Error fetching assignments:', error);
-      toast.error('Failed to load event assignments');
+      console.error('Error in fetchAssignments:', error);
+      toast.error('Failed to load assignments');
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateStats = (data: EventAssignment[]) => {
-    const totalAssignments = data.length;
-    
-    const allEventTypes = new Set<string>();
-    data.forEach(assignment => {
-      if (assignment.assigned_event_types) {
-        assignment.assigned_event_types.forEach(type => allEventTypes.add(type));
-      }
-    });
-    const eventTypesCovered = allEventTypes.size;
+  const fetchAvailableTrackers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('role', 'tracker');
 
-    setStats({
-      totalAssignments,
-      eventTypesCovered,
-    });
+      if (error) {
+        console.error('Error fetching trackers:', error);
+        return;
+      }
+
+      setAvailableTrackers(data || []);
+    } catch (error) {
+      console.error('Error in fetchAvailableTrackers:', error);
+    }
+  };
+
+  const handleAssignTracker = async () => {
+    if (!selectedTracker || selectedEventTypes.length === 0) {
+      toast.error('Please select a tracker and at least one event type');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('match_tracker_assignments')
+        .insert({
+          match_id: matchId,
+          tracker_user_id: selectedTracker,
+          assigned_event_types: selectedEventTypes
+        });
+
+      if (error) {
+        console.error('Error assigning tracker:', error);
+        toast.error('Failed to assign tracker');
+        return;
+      }
+
+      toast.success('Tracker assigned successfully');
+      setSelectedTracker('');
+      setSelectedEventTypes([]);
+      fetchAssignments();
+    } catch (error) {
+      console.error('Error in handleAssignTracker:', error);
+      toast.error('Failed to assign tracker');
+    }
+  };
+
+  const handleRemoveAssignment = async (assignmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('match_tracker_assignments')
+        .delete()
+        .eq('id', assignmentId);
+
+      if (error) {
+        console.error('Error removing assignment:', error);
+        toast.error('Failed to remove assignment');
+        return;
+      }
+
+      toast.success('Assignment removed successfully');
+      fetchAssignments();
+    } catch (error) {
+      console.error('Error in handleRemoveAssignment:', error);
+      toast.error('Failed to remove assignment');
+    }
+  };
+
+  const toggleEventType = (eventType: string) => {
+    setSelectedEventTypes(prev => 
+      prev.includes(eventType) 
+        ? prev.filter(type => type !== eventType)
+        : [...prev, eventType]
+    );
   };
 
   return (
-    <div className={`space-y-3 sm:space-y-4 lg:space-y-6`}>
-      <Card>
-        <CardHeader className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'}`}>
-          <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-lg sm:text-xl'}`}>
-            <Target className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-blue-600`} />
-            Event Assignments Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'} pt-0`}>
-          <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
-            <div>
-              <label className={`block ${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2`}>
-                Select Match
-              </label>
-              <Select value={selectedMatch} onValueChange={setSelectedMatch}>
-                <SelectTrigger className={isMobile ? 'h-8 text-xs' : ''}>
-                  <SelectValue placeholder="Choose a match" />
-                </SelectTrigger>
-                <SelectContent>
-                  {matches.map((match) => (
-                    <SelectItem key={match.id} value={match.id}>
-                      <span className={isMobile ? 'text-xs' : 'text-sm'}>
-                        {match.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="h-5 w-5" />
+          Event Type Assignments
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="assignments" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="assignments">Current Assignments</TabsTrigger>
+            <TabsTrigger value="new">New Assignment</TabsTrigger>
+          </TabsList>
 
-            <div>
-              <label className={`block ${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2`}>
-                Filter by Event Type
-              </label>
-              <Select value={selectedEventType} onValueChange={setSelectedEventType}>
-                <SelectTrigger className={isMobile ? 'h-8 text-xs' : ''}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Events</SelectItem>
-                  {eventTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      <span className="capitalize">
-                        {type.replace('_', ' ')}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className={`flex ${isMobile ? 'justify-center' : 'justify-end'} items-end`}>
-              <Button 
-                onClick={fetchAssignments} 
-                disabled={loading || !selectedMatch}
-                size={isMobile ? "sm" : "default"}
-                className={isMobile ? 'h-8 px-3 text-xs' : ''}
-              >
-                <RefreshCw className={`${loading ? 'animate-spin' : ''} ${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                {isMobile ? 'Refresh' : 'Refresh Data'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {selectedMatch && (
-        <div className={`grid gap-3 sm:gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2'}`}>
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
-                    Total Assignments
-                  </p>
-                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-blue-600`}>
-                    {stats.totalAssignments}
-                  </p>
-                </div>
-                <Users className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-blue-500`} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-600`}>
-                    {isMobile ? 'Event Types' : 'Event Types Covered'}
-                  </p>
-                  <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-purple-600`}>
-                    {stats.eventTypesCovered}
-                  </p>
-                </div>
-                <Calendar className={`${isMobile ? 'h-4 w-4' : 'h-8 w-8'} text-purple-500`} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {selectedMatch && (
-        <Card>
-          <CardHeader className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'}`}>
-            <CardTitle className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'}`}>
-              Event Assignment Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className={`${isMobile ? 'p-3' : 'p-4 sm:p-6'} pt-0`}>
+          <TabsContent value="assignments" className="space-y-4">
             {loading ? (
-              <div className="text-center py-8">
-                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
-                <p className={`${isMobile ? 'text-sm' : 'text-base'} text-gray-600`}>
-                  Loading assignments...
-                </p>
-              </div>
+              <div className="text-center py-4">Loading assignments...</div>
             ) : assignments.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <AlertCircle className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} mx-auto mb-4`} />
-                <p className={`${isMobile ? 'text-sm' : 'text-lg'} font-medium`}>
-                  No event assignments found
-                </p>
-                <p className={`${isMobile ? 'text-xs' : 'text-sm'} mt-2`}>
-                  {selectedEventType !== 'all' 
-                    ? `No assignments for ${selectedEventType.replace('_', ' ')} events`
-                    : 'No event assignments configured for this match'
-                  }
-                </p>
+              <div className="text-center py-4 text-gray-500">
+                No tracker assignments found
               </div>
             ) : (
-              <div className={`space-y-2 sm:space-y-3 ${isMobile ? 'max-h-96' : 'max-h-[500px]'} overflow-y-auto`}>
+              <div className="space-y-3">
                 {assignments.map((assignment) => (
-                  <div
-                    key={assignment.id}
-                    className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} border rounded-lg hover:bg-gray-50 transition-colors`}
-                  >
-                    <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-4'}`}>
-                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="flex-1 min-w-0">
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate`}>
-                            {assignment.tracker?.full_name || assignment.tracker?.email || 'Unknown Tracker'}
-                          </div>
-                          <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500`}>
-                            {assignment.assigned_event_types ? 
-                              assignment.assigned_event_types.join(', ').replace(/_/g, ' ') : 
-                              'No specific events assigned'
-                            }
-                          </div>
-                        </div>
+                  <div key={assignment.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium">{assignment.tracker_name}</h4>
+                        <p className="text-sm text-gray-600">{assignment.tracker_email}</p>
                       </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleRemoveAssignment(assignment.id)}
+                      >
+                        Remove
+                      </Button>
                     </div>
+                    <div className="flex flex-wrap gap-1">
+                      {assignment.assigned_event_types?.map((eventType) => (
+                        <Badge key={eventType} variant="secondary">
+                          {eventType.replace('_', ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Assigned: {new Date(assignment.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </TabsContent>
+
+          <TabsContent value="new" className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="tracker-select">Select Tracker</Label>
+                <Select value={selectedTracker} onValueChange={setSelectedTracker}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a tracker" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTrackers.map((tracker) => (
+                      <SelectItem key={tracker.id} value={tracker.id}>
+                        {tracker.full_name} ({tracker.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Event Types</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {eventTypes.map((eventType) => (
+                    <div
+                      key={eventType}
+                      className={`p-2 border rounded cursor-pointer transition-colors ${
+                        selectedEventTypes.includes(eventType)
+                          ? 'bg-blue-100 border-blue-300'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => toggleEventType(eventType)}
+                    >
+                      <span className="text-sm">{eventType.replace('_', ' ')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleAssignTracker}
+                disabled={!selectedTracker || selectedEventTypes.length === 0}
+                className="w-full"
+              >
+                Assign Tracker
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 

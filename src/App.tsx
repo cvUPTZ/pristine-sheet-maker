@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +19,7 @@ import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
 import LandingPage from "./pages/LandingPage";
 import MatchTimerPage from "./pages/MatchTimerPage";
+import VideoAnalysisWorkflow from "./components/video/VideoAnalysisWorkflow";
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -102,6 +104,7 @@ const AppContent = () => {
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
         <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route path="/match/:matchId/timer" element={<RequireAuth requiredRoles={['admin']}><MatchTimerPage /></RequireAuth>} />
+        <Route path="/video-analysis" element={<RequireAuth requiredRoles={['admin', 'manager']}><VideoAnalysisWorkflow /></RequireAuth>} />
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin', 'manager']}><Matches /></RequireAuth>} />
