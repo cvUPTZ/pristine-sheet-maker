@@ -46,3 +46,23 @@ export const VOICE_CONFIG = {
     poor: { rtt: 500, packetLoss: 0.20 }
   }
 };
+
+export const PRODUCTION_VOICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ],
+  reconnectionAttempts: 5,
+  connectionTimeout: 30000,
+  heartbeatInterval: 15000,
+  qualityCheckInterval: 3000,
+  audioConstraints: {
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      sampleRate: 48000,
+      channelCount: 1
+    }
+  }
+};
