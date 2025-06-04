@@ -184,7 +184,10 @@ const VideoAnalysisWorkflow: React.FC = () => {
           {downloadedVideoFile && mainVideoInfo ? (
             <VideoSplitter
               videoFile={downloadedVideoFile}
-              videoInfo={mainVideoInfo}
+              videoInfo={{
+                title: mainVideoInfo.title,
+                duration: mainVideoInfo.duration.toString() // Convert number back to string for VideoSplitter
+              }}
               onSegmentsReady={handleSegmentsReady}
             />
           ) : (
