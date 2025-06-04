@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Download, FileText, BarChart3, Video as VideoIconLucide } from 'lucide-react';
 import YouTubeDownloader from './YouTubeDownloader';
-import VideoSplitter from './VideoSplitter';
+import { VideoSplitter } from './VideoSplitter';
 import ColabIntegration from './ColabIntegration';
 import { toast } from 'sonner';
 import { VideoInfo, VideoSegment, AnalysisResults } from '@/types';
