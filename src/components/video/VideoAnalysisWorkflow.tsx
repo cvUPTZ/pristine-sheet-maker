@@ -12,6 +12,12 @@ import { toast } from 'sonner';
 import { VideoInfo, VideoSegment, AnalysisResults } from '@/types';
 import { formatTime, formatFileSize } from '@/utils/formatters';
 
+// Define a local interface that matches what YouTubeDownloader expects
+interface LocalVideoInfo {
+  title: string;
+  duration: string; // YouTubeDownloader expects string
+}
+
 const VideoAnalysisWorkflow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [downloadedVideoFile, setDownloadedVideoFile] = useState<File | null>(null);
@@ -26,13 +32,22 @@ const VideoAnalysisWorkflow: React.FC = () => {
     { id: 'results', title: 'View Results', icon: Download }
   ];
 
-  const handleVideoDownloaded = (videoFile: File, videoInfo: VideoInfo) => {
+  const handleVideoDownloaded = (videoFile: File, videoInfo: LocalVideoInfo) => {
+    // Convert the local VideoInfo to our standardized VideoInfo
+    const standardVideoInfo: VideoInfo = {
+      videoId: 'downloaded_video', // Generate or extract proper ID
+      title: videoInfo.title,
+      duration: parseInt(videoInfo.duration) || 0, // Convert string to number
+      thumbnail: '',
+      formats: []
+    };
+    
     setDownloadedVideoFile(videoFile);
-    setMainVideoInfo(videoInfo);
+    setMainVideoInfo(standardVideoInfo);
     setVideoSegments([]);
     setAllAnalysisResults([]);
     setCurrentStep(1);
-    toast.success(`Video "${videoInfo.title}" ready! Proceed to split.`);
+    toast.success(`Video "${standardVideoInfo.title}" ready! Proceed to split.`);
   };
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
