@@ -1,3 +1,4 @@
+
 export type EventType =
   | 'pass'
   | 'shot'
@@ -238,4 +239,75 @@ export interface AssignedPlayerForMatch {
   name: string;
   teamId: 'home' | 'away';
   teamName: string;
+}
+
+// Video Analysis Types
+export interface VideoFormat {
+  quality: string;
+  format: string;
+  size?: string; // Made optional as backend might not always provide it precisely
+  url?: string; // URL for direct download if backend provides it
+}
+
+export interface VideoInfo {
+  videoId: string;
+  title: string;
+  duration: number; // Duration in SECONDS
+  thumbnail: string;
+  formats: VideoFormat[];
+}
+
+export interface VideoSegment {
+  id: string;
+  startTime: number; // in seconds
+  endTime: number;   // in seconds
+  duration: number;  // in seconds
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  file?: File; // This would likely be a URL or identifier if segments are backend-managed
+  fileName?: string; // If file is not on client
+  size?: number;     // Estimated or actual size in bytes
+  segmentUrl?: string; // URL to the processed segment on the backend/CDN
+}
+
+export interface AnalysisEvent {
+  type: string;
+  timestamp: number;
+  confidence: number;
+  [key: string]: any; // For other event-specific data
+}
+
+export interface BallPossessionStats {
+  home: number;
+  away: number;
+}
+
+export interface VideoStatistics {
+  ballPossession?: BallPossessionStats;
+  passes?: PassStats;
+  shots?: number;
+  [key: string]: any; // For other stats
+}
+
+export interface AnalysisResults {
+  segmentId: string; // To link back to the original segment
+  events: AnalysisEvent[];
+  statistics: VideoStatistics;
+  heatmapUrl?: string; // URL to the heatmap image
+  playerTrackingDataUrl?: string; // URL to player tracking data
+}
+
+export interface ApiKeyInfo {
+  hasYouTubeApiKey: boolean;
+  hasGoogleColabApiKey: boolean; // Or whatever AI service key
+}
+
+// For ColabIntegration component's job tracking
+export interface AnalysisJob {
+  id: string; // Corresponds to VideoSegment.id
+  segmentId: string;
+  status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  results?: AnalysisResults; // Store results here
+  error?: string;
+  colabLogUrl?: string; // Link to a specific Colab output/log if applicable
 }

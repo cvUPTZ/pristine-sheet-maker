@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileText, BarChart3, Video as VideoIconLucide } from 'lucide-react'; // Renamed Video to avoid conflict
+import { Download, FileText, BarChart3, Video as VideoIconLucide } from 'lucide-react';
 import YouTubeDownloader from './YouTubeDownloader';
 import VideoSplitter from './VideoSplitter';
 import ColabIntegration from './ColabIntegration';
@@ -12,13 +13,12 @@ import { toast } from 'sonner';
 import { VideoInfo, VideoSegment, AnalysisResults } from '@/types';
 import { formatTime, formatFileSize } from '@/utils/formatters';
 
-
 const VideoAnalysisWorkflow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [downloadedVideoFile, setDownloadedVideoFile] = useState<File | null>(null);
   const [mainVideoInfo, setMainVideoInfo] = useState<VideoInfo | null>(null);
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
-  const [allAnalysisResults, setAllAnalysisResults] = useState<AnalysisResults[]>([]); // Array of results per segment
+  const [allAnalysisResults, setAllAnalysisResults] = useState<AnalysisResults[]>([]);
 
   const steps = [
     { id: 'download', title: 'Download Video', icon: VideoIconLucide },
@@ -29,16 +29,16 @@ const VideoAnalysisWorkflow: React.FC = () => {
 
   const handleVideoDownloaded = (videoFile: File, info: VideoInfo) => {
     setDownloadedVideoFile(videoFile);
-    setMainVideoInfo(info); // This info contains duration in seconds
-    setVideoSegments([]); // Reset segments if a new video is downloaded
-    setAllAnalysisResults([]); // Reset analysis results
+    setMainVideoInfo(info);
+    setVideoSegments([]);
+    setAllAnalysisResults([]);
     setCurrentStep(1);
     toast.success(`Video "${info.title}" ready! Proceed to split.`);
   };
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
     setVideoSegments(segments);
-    setAllAnalysisResults([]); // Reset analysis results if segments change
+    setAllAnalysisResults([]);
     setCurrentStep(2);
     toast.success(`${segments.length} video segments ready for analysis.`);
   };
@@ -115,10 +115,8 @@ const VideoAnalysisWorkflow: React.FC = () => {
 
   const activeTabId = steps[currentStep]?.id || 'download';
   
-  // Calculate overall summary stats for display
   const totalEventsDetected = allAnalysisResults.reduce((sum, result) => sum + result.events.length, 0);
   const segmentsSuccessfullyAnalyzed = allAnalysisResults.length;
-
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
@@ -155,7 +153,7 @@ const VideoAnalysisWorkflow: React.FC = () => {
               key={step.id}
               value={step.id}
               disabled={index > currentStep}
-              onClick={() => setCurrentStep(index)} // Allow navigating to completed/active steps
+              onClick={() => setCurrentStep(index)}
               className="flex items-center gap-2 text-xs sm:text-sm"
             >
               <step.icon className="h-4 w-4" />
@@ -256,7 +254,6 @@ const VideoAnalysisWorkflow: React.FC = () => {
                               }
                             </div>
                           )}
-                           {/* Optionally show links to heatmap/tracking data if available */}
                            {(result.heatmapUrl || result.playerTrackingDataUrl) && (
                             <div className="mt-2 text-xs space-x-2">
                                 {result.heatmapUrl && <a href={result.heatmapUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View Heatmap</a>}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,10 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { VideoSegment, AnalysisResults, AnalysisJob, ApiKeyInfo } from '@/types';
 import { formatTime } from '@/utils/formatters';
-import { processSegmentWithColabAPI, checkApiKeyStatusAPI } from '@/services/apiService'; // Placeholder
+import { processSegmentWithColabAPI, checkApiKeyStatusAPI } from '@/services/apiService';
 
 interface ColabIntegrationProps {
-  segments: VideoSegment[]; // Segments ready for processing (likely metadata from backend)
+  segments: VideoSegment[];
   onAnalysisComplete: (allResults: AnalysisResults[]) => void;
 }
 
@@ -22,16 +23,15 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<AnalysisJob[]>([]);
   const [isProcessingOverall, setIsProcessingOverall] = useState(false);
-  const [colabNotebookUrl, setColabNotebookUrl] = useState(''); // User might specify, or backend has default
+  const [colabNotebookUrl, setColabNotebookUrl] = useState('');
   const [overallProgress, setOverallProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('setup');
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyInfo | null>(null);
 
-
   useEffect(() => {
     const fetchKeyStatus = async () => {
         try {
-            const status = await checkApiKeyStatusAPI(); // Checks if *backend* has keys
+            const status = await checkApiKeyStatusAPI();
             setApiKeyStatus(status);
         } catch (error) {
             console.error("Failed to fetch API key status:", error);
@@ -51,12 +51,12 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
       progress: 0,
     }));
     setJobs(initialJobs);
-    setOverallProgress(0); // Reset progress if segments change
+    setOverallProgress(0);
     setIsProcessingOverall(false);
   }, [segments]);
 
   const handleStartProcessing = async () => {
-    if (!apiKeyStatus?.hasGoogleColabApiKey) { // Or general AI key
+    if (!apiKeyStatus?.hasGoogleColabApiKey) {
         toast.error('AI Processing is not available. Please check App Settings or contact support.');
         return;
     }
@@ -64,11 +64,6 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
       toast.error('No segments to process.');
       return;
     }
-    // Basic validation for URL if user input is enabled for it
-    // if (colabNotebookUrl && !colabNotebookUrl.includes('colab.research.google.com')) {
-    //   toast.error('Please provide a valid Google Colab notebook URL (if applicable).');
-    //   return;
-    // }
 
     setIsProcessingOverall(true);
     setOverallProgress(0);
@@ -84,27 +79,27 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
       if (!segment || job.status === 'completed') continue;
 
       updatedJobs[i] = { ...job, status: 'processing', progress: 0 };
-      setJobs([...updatedJobs]); // Update UI for current job
+      setJobs([...updatedJobs]);
 
       try {
         // Simulate progress for individual job
-        const jobProgressInterval = setInterval(() => {
-            updatedJobs[i] = { ...updatedJobs[i], progress: Math.min(updatedJobs[i].progress + 10, 95) };
+        let currentProgress = 0;
+        const progressInterval = setInterval(() => {
+            currentProgress = Math.min(currentProgress + 10, 95);
+            updatedJobs[i] = { ...updatedJobs[i], progress: currentProgress };
             setJobs([...updatedJobs]);
-        }, (segment.duration * 150) / 10); // Adjust simulation
-
+        }, (segment.duration * 150) / 10);
 
         const result = await processSegmentWithColabAPI(segment, colabNotebookUrl);
         
-        clearInterval(jobProgressInterval);
+        clearInterval(progressInterval);
         updatedJobs[i] = { ...job, status: 'completed', progress: 100, results: result };
         allResults.push(result);
       } catch (error: any) {
-        clearInterval(jobProgressInterval);
         updatedJobs[i] = { ...job, status: 'failed', progress: 0, error: error.message || 'Processing failed' };
         toast.error(`Failed to process segment ${i + 1}: ${error.message}`);
       }
-      setJobs([...updatedJobs]); // Final update for this job
+      setJobs([...updatedJobs]);
       setOverallProgress(((i + 1) / updatedJobs.length) * 100);
     }
 
@@ -115,15 +110,14 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
       setActiveTab('results');
     } else {
       toast.warning('Some segments failed to process. Check status.');
-       setActiveTab('results'); // Still go to results to see partials
+       setActiveTab('results');
     }
   };
   
   const getStatusIcon = (status: AnalysisJob['status']) => {
-    // ... (same as your original)
     switch (status) {
       case 'queued': return <Clock className="h-4 w-4 text-gray-500" />;
-      case 'uploading': return <Upload className="h-4 w-4 text-blue-500" />; // Might not be used if backend handles files
+      case 'uploading': return <Upload className="h-4 w-4 text-blue-500" />;
       case 'processing': return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       case 'completed': return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'failed': return <XCircle className="h-4 w-4 text-red-500" />;
@@ -132,7 +126,6 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
   };
 
   const getStatusColor = (status: AnalysisJob['status']) => {
-    // ... (same as your original)
     switch (status) {
       case 'queued': return 'bg-gray-100 text-gray-800';
       case 'uploading': return 'bg-blue-100 text-blue-800';
@@ -182,18 +175,6 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
             <p className="text-sm text-gray-700">
               Ready to process <span className="font-semibold">{segments.length}</span> video segment(s).
             </p>
-            {/* If user needs to provide Colab URL, uncomment this:
-            <div className="space-y-2">
-              <Label htmlFor="colab-url">Custom Colab Notebook URL (Optional)</Label>
-              <Input
-                id="colab-url" type="url"
-                placeholder="Backend will use default if empty"
-                value={colabNotebookUrl}
-                onChange={(e) => setColabNotebookUrl(e.target.value)}
-                disabled={isProcessingOverall}
-              />
-            </div>
-            */}
             <Button 
                 onClick={handleStartProcessing} 
                 disabled={isProcessingOverall || segments.length === 0 || !apiKeyStatus?.hasGoogleColabApiKey}
@@ -268,7 +249,7 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
                     </div>
                     <h4 className="font-medium pt-2">Detailed Segment Results</h4>
                     <div className="max-h-72 overflow-y-auto space-y-2 border rounded p-2">
-                    {jobs.filter(job => job.status === 'completed' && job.results).map((job, index) => {
+                    {jobs.filter(job => job.status === 'completed' && job.results).map((job) => {
                         const segment = segments.find(s => s.id === job.segmentId);
                         return(
                         <div key={job.id} className="p-3 border rounded-lg bg-gray-50">
