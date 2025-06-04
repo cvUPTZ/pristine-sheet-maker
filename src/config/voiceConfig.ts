@@ -1,83 +1,48 @@
 
-export interface VoiceConfig {
-  iceServers: RTCIceServer[];
-  connectionTimeout: number;
-  reconnectionAttempts: number;
-  audioConstraints: MediaStreamConstraints['audio'];
-  qualityThresholds: {
-    excellent: { rtt: number; packetLoss: number };
-    good: { rtt: number; packetLoss: number };
-    fair: { rtt: number; packetLoss: number };
-  };
-  rooms: {
-    maxParticipants: number;
-    audioCodec: string;
-    echoCancellation: boolean;
-    noiseSuppression: boolean;
-  };
-}
-
-export const PRODUCTION_VOICE_CONFIG: VoiceConfig = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
-  ],
-  connectionTimeout: 30000,
-  reconnectionAttempts: 5,
-  audioConstraints: {
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
-    sampleRate: 48000,
-    channelCount: 1
-  },
-  qualityThresholds: {
-    excellent: { rtt: 50, packetLoss: 1 },
-    good: { rtt: 150, packetLoss: 3 },
-    fair: { rtt: 300, packetLoss: 8 }
-  },
-  rooms: {
-    maxParticipants: 50,
-    audioCodec: 'opus',
-    echoCancellation: true,
-    noiseSuppression: true
-  }
-};
-
 export const VOICE_ROOM_TEMPLATES = {
   main: {
-    name: 'Main Communication',
-    description: 'Primary coordination channel for all match activities',
-    maxParticipants: 25,
+    name: 'Main Commentary',
+    description: 'Primary voice room for live match commentary',
+    maxParticipants: 50,
     priority: 1,
-    permissions: ['tracker', 'admin', 'coordinator'],
+    permissions: ['all'],
     isPrivate: false
   },
   coordinators: {
-    name: 'Match Coordinators',
-    description: 'Private channel for match coordination staff',
-    maxParticipants: 8,
+    name: 'Coordinators Room',
+    description: 'Private room for match coordinators and administrators',
+    maxParticipants: 10,
     priority: 2,
     permissions: ['admin', 'coordinator'],
     isPrivate: true
   },
   technical: {
     name: 'Technical Support',
-    description: 'Technical assistance and troubleshooting',
-    maxParticipants: 12,
+    description: 'Technical support and troubleshooting room',
+    maxParticipants: 15,
     priority: 3,
-    permissions: ['tracker', 'admin', 'technical'],
+    permissions: ['admin', 'coordinator', 'tracker'],
     isPrivate: false
   },
   emergency: {
     name: 'Emergency Channel',
-    description: 'Emergency communications only',
-    maxParticipants: 50,
+    description: 'Emergency communications channel',
+    maxParticipants: 25,
     priority: 0,
-    permissions: ['tracker', 'admin', 'coordinator', 'emergency'],
+    permissions: ['all'],
     isPrivate: false
+  }
+};
+
+export const VOICE_CONFIG = {
+  defaultRoom: 'main',
+  maxRetries: 3,
+  connectionTimeout: 30000,
+  heartbeatInterval: 15000,
+  qualityThresholds: {
+    excellent: { rtt: 50, packetLoss: 0.01 },
+    good: { rtt: 150, packetLoss: 0.05 },
+    fair: { rtt: 300, packetLoss: 0.10 },
+    poor: { rtt: 500, packetLoss: 0.20 }
   }
 };
