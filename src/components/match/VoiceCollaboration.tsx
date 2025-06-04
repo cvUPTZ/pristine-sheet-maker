@@ -7,6 +7,7 @@ import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, Wifi
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { VoiceRoomService } from '@/services/voiceRoomService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceCollaborationProps {
   matchId: string;
