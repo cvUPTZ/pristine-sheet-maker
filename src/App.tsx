@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +20,7 @@ import TrackerInterface from "./pages/TrackerInterface";
 import LandingPage from "./pages/LandingPage";
 import MatchTimerPage from "./pages/MatchTimerPage";
 import VideoAnalysis from "./pages/VideoAnalysis";
+import Settings from "./pages/Settings";
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -99,6 +101,7 @@ const AppContent = () => {
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
         <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />

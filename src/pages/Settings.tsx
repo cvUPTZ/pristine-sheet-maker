@@ -9,8 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Key, Eye, EyeOff, Save, AlertTriangle, CheckCircle, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 const Settings: React.FC = () => {
+  const { user } = useAuth();
   const [apiKeys, setApiKeys] = useState({
     youtube: '',
     googleColab: '',
@@ -29,24 +31,41 @@ const Settings: React.FC = () => {
   });
 
   useEffect(() => {
-    loadApiKeys();
-  }, []);
+    if (user) {
+      loadApiKeys();
+    }
+  }, [user]);
 
-  const loadApiKeys = () => {
-    // Load from localStorage for client-side storage
-    const storedKeys = {
-      youtube: localStorage.getItem('youtube_api_key') || '',
-      googleColab: localStorage.getItem('google_colab_api_key') || '',
-      roboflow: localStorage.getItem('roboflow_api_key') || ''
-    };
-    setApiKeys(storedKeys);
-    
-    // Check which keys are saved
-    setSaved({
-      youtube: !!storedKeys.youtube,
-      googleColab: !!storedKeys.googleColab,
-      roboflow: !!storedKeys.roboflow
-    });
+  const loadApiKeys = async () => {
+    if (!user) return;
+
+    try {
+      // Load API keys from Supabase user metadata
+      const { data: userData, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('Error loading user data:', error);
+        return;
+      }
+
+      const userMetadata = userData.user?.user_metadata || {};
+      
+      setApiKeys({
+        youtube: userMetadata.youtube_api_key || '',
+        googleColab: userMetadata.google_colab_api_key || '',
+        roboflow: userMetadata.roboflow_api_key || ''
+      });
+      
+      // Check which keys are saved
+      setSaved({
+        youtube: !!userMetadata.youtube_api_key,
+        googleColab: !!userMetadata.google_colab_api_key,
+        roboflow: !!userMetadata.roboflow_api_key
+      });
+    } catch (error) {
+      console.error('Error loading API keys:', error);
+      toast.error('Failed to load API keys');
+    }
   };
 
   const saveApiKey = async (keyType: keyof typeof apiKeys) => {
@@ -57,27 +76,29 @@ const Settings: React.FC = () => {
       return;
     }
 
+    if (!user) {
+      toast.error('User not authenticated');
+      return;
+    }
+
     setLoading(true);
     
     try {
-      // Store in localStorage for immediate use
-      const storageKey = `${keyType === 'youtube' ? 'youtube' : keyType === 'googleColab' ? 'google_colab' : 'roboflow'}_api_key`;
-      localStorage.setItem(storageKey, keyValue);
+      // Store in Supabase user metadata
+      const metadataKey = `${keyType === 'youtube' ? 'youtube' : keyType === 'googleColab' ? 'google_colab' : 'roboflow'}_api_key`;
       
-      // Also store in Supabase user metadata for backup (optional)
       const { error } = await supabase.auth.updateUser({
         data: {
-          [`${keyType}_api_key_set`]: true // Just flag that it's set, don't store the actual key
+          [metadataKey]: keyValue
         }
       });
 
       if (error) {
-        console.warn('Could not update user metadata:', error);
-        // Still continue as localStorage save succeeded
+        throw error;
       }
 
       setSaved(prev => ({ ...prev, [keyType]: true }));
-      toast.success(`${keyType.charAt(0).toUpperCase() + keyType.slice(1)} API key saved successfully`);
+      toast.success(`${keyType.charAt(0).toUpperCase() + keyType.slice(1)} API key saved securely`);
     } catch (error) {
       console.error('Error saving API key:', error);
       toast.error('Failed to save API key');
@@ -86,12 +107,36 @@ const Settings: React.FC = () => {
     }
   };
 
-  const clearApiKey = (keyType: keyof typeof apiKeys) => {
-    setApiKeys(prev => ({ ...prev, [keyType]: '' }));
-    const storageKey = `${keyType === 'youtube' ? 'youtube' : keyType === 'googleColab' ? 'google_colab' : 'roboflow'}_api_key`;
-    localStorage.removeItem(storageKey);
-    setSaved(prev => ({ ...prev, [keyType]: false }));
-    toast.success(`${keyType.charAt(0).toUpperCase() + keyType.slice(1)} API key removed`);
+  const clearApiKey = async (keyType: keyof typeof apiKeys) => {
+    if (!user) {
+      toast.error('User not authenticated');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const metadataKey = `${keyType === 'youtube' ? 'youtube' : keyType === 'googleColab' ? 'google_colab' : 'roboflow'}_api_key`;
+      
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          [metadataKey]: null
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setApiKeys(prev => ({ ...prev, [keyType]: '' }));
+      setSaved(prev => ({ ...prev, [keyType]: false }));
+      toast.success(`${keyType.charAt(0).toUpperCase() + keyType.slice(1)} API key removed`);
+    } catch (error) {
+      console.error('Error clearing API key:', error);
+      toast.error('Failed to clear API key');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleShowKey = (keyType: keyof typeof showKeys) => {
@@ -128,6 +173,21 @@ const Settings: React.FC = () => {
     }
   ];
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Please log in to manage your API keys.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -137,15 +197,15 @@ const Settings: React.FC = () => {
             API Key Management
           </h1>
           <p className="mt-2 text-gray-600">
-            Securely store your API keys for enhanced video analysis features
+            Securely store your API keys in Supabase for enhanced video analysis features
           </p>
         </div>
 
         <Alert className="mb-6">
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            <strong>Security Notice:</strong> Your API keys are stored locally in your browser and never sent to our servers. 
-            Keep your keys secure and never share them publicly.
+            <strong>Security Notice:</strong> Your API keys are encrypted and stored securely in Supabase. 
+            They are never exposed in your browser or sent to our servers unencrypted.
           </AlertDescription>
         </Alert>
 
@@ -160,7 +220,7 @@ const Settings: React.FC = () => {
                     {saved[config.key] && (
                       <Badge variant="secondary" className="bg-green-100 text-green-800">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        Saved
+                        Saved in Supabase
                       </Badge>
                     )}
                   </div>
@@ -216,6 +276,7 @@ const Settings: React.FC = () => {
                         onClick={() => clearApiKey(config.key)}
                         variant="outline"
                         className="px-4"
+                        disabled={loading}
                       >
                         Clear
                       </Button>
@@ -223,7 +284,7 @@ const Settings: React.FC = () => {
                   </div>
                   {saved[config.key] && apiKeys[config.key] && (
                     <p className="text-xs text-gray-500">
-                      Stored: {maskKey(apiKeys[config.key])}
+                      Stored in Supabase: {maskKey(apiKeys[config.key])}
                     </p>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export class ApiKeyService {
   private static instance: ApiKeyService;
@@ -11,43 +12,100 @@ export class ApiKeyService {
     return ApiKeyService.instance;
   }
 
-  getYouTubeApiKey(): string | null {
-    const key = localStorage.getItem('youtube_api_key');
-    if (!key) {
-      toast.error('YouTube API key not found. Please configure it in Settings.');
+  async getYouTubeApiKey(): Promise<string | null> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      
+      if (error || !userData.user) {
+        toast.error('User not authenticated. Please log in.');
+        return null;
+      }
+
+      const key = userData.user.user_metadata?.youtube_api_key;
+      if (!key) {
+        toast.error('YouTube API key not found. Please configure it in Settings.');
+        return null;
+      }
+      return key;
+    } catch (error) {
+      console.error('Error getting YouTube API key:', error);
+      toast.error('Failed to retrieve YouTube API key');
       return null;
     }
-    return key;
   }
 
-  getGoogleColabApiKey(): string | null {
-    const key = localStorage.getItem('google_colab_api_key');
-    if (!key) {
-      toast.error('Google Colab API key not found. Please configure it in Settings.');
+  async getGoogleColabApiKey(): Promise<string | null> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      
+      if (error || !userData.user) {
+        toast.error('User not authenticated. Please log in.');
+        return null;
+      }
+
+      const key = userData.user.user_metadata?.google_colab_api_key;
+      if (!key) {
+        toast.error('Google Colab API key not found. Please configure it in Settings.');
+        return null;
+      }
+      return key;
+    } catch (error) {
+      console.error('Error getting Google Colab API key:', error);
+      toast.error('Failed to retrieve Google Colab API key');
       return null;
     }
-    return key;
   }
 
-  getRoboflowApiKey(): string | null {
-    const key = localStorage.getItem('roboflow_api_key');
-    if (!key) {
-      toast.error('Roboflow API key not found. Please configure it in Settings.');
+  async getRoboflowApiKey(): Promise<string | null> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      
+      if (error || !userData.user) {
+        toast.error('User not authenticated. Please log in.');
+        return null;
+      }
+
+      const key = userData.user.user_metadata?.roboflow_api_key;
+      if (!key) {
+        toast.error('Roboflow API key not found. Please configure it in Settings.');
+        return null;
+      }
+      return key;
+    } catch (error) {
+      console.error('Error getting Roboflow API key:', error);
+      toast.error('Failed to retrieve Roboflow API key');
       return null;
     }
-    return key;
   }
 
-  hasYouTubeApiKey(): boolean {
-    return !!localStorage.getItem('youtube_api_key');
+  async hasYouTubeApiKey(): Promise<boolean> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      return !error && !!userData.user?.user_metadata?.youtube_api_key;
+    } catch (error) {
+      console.error('Error checking YouTube API key:', error);
+      return false;
+    }
   }
 
-  hasGoogleColabApiKey(): boolean {
-    return !!localStorage.getItem('google_colab_api_key');
+  async hasGoogleColabApiKey(): Promise<boolean> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      return !error && !!userData.user?.user_metadata?.google_colab_api_key;
+    } catch (error) {
+      console.error('Error checking Google Colab API key:', error);
+      return false;
+    }
   }
 
-  hasRoboflowApiKey(): boolean {
-    return !!localStorage.getItem('roboflow_api_key');
+  async hasRoboflowApiKey(): Promise<boolean> {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser();
+      return !error && !!userData.user?.user_metadata?.roboflow_api_key;
+    } catch (error) {
+      console.error('Error checking Roboflow API key:', error);
+      return false;
+    }
   }
 
   validateApiKey(keyType: 'youtube' | 'googleColab' | 'roboflow', key: string): boolean {
@@ -64,32 +122,32 @@ export class ApiKeyService {
   }
 
   // Method to check if all required keys are available for a feature
-  hasRequiredKeysForFeature(feature: 'youtube-download' | 'colab-processing' | 'roboflow-detection'): boolean {
+  async hasRequiredKeysForFeature(feature: 'youtube-download' | 'colab-processing' | 'roboflow-detection'): Promise<boolean> {
     switch (feature) {
       case 'youtube-download':
-        return this.hasYouTubeApiKey();
+        return await this.hasYouTubeApiKey();
       case 'colab-processing':
-        return this.hasGoogleColabApiKey();
+        return await this.hasGoogleColabApiKey();
       case 'roboflow-detection':
-        return this.hasRoboflowApiKey();
+        return await this.hasRoboflowApiKey();
       default:
         return false;
     }
   }
 
   // Method to get missing keys for a feature
-  getMissingKeysForFeature(feature: 'youtube-download' | 'colab-processing' | 'roboflow-detection'): string[] {
+  async getMissingKeysForFeature(feature: 'youtube-download' | 'colab-processing' | 'roboflow-detection'): Promise<string[]> {
     const missing: string[] = [];
     
     switch (feature) {
       case 'youtube-download':
-        if (!this.hasYouTubeApiKey()) missing.push('YouTube API');
+        if (!(await this.hasYouTubeApiKey())) missing.push('YouTube API');
         break;
       case 'colab-processing':
-        if (!this.hasGoogleColabApiKey()) missing.push('Google Colab API');
+        if (!(await this.hasGoogleColabApiKey())) missing.push('Google Colab API');
         break;
       case 'roboflow-detection':
-        if (!this.hasRoboflowApiKey()) missing.push('Roboflow API');
+        if (!(await this.hasRoboflowApiKey())) missing.push('Roboflow API');
         break;
     }
     

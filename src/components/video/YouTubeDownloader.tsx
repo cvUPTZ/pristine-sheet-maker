@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,16 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
   const [extractingInfo, setExtractingInfo] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadedVideo, setDownloadedVideo] = useState<File | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    checkApiKey();
+  }, []);
+
+  const checkApiKey = async () => {
+    const hasKey = await apiKeyService.hasYouTubeApiKey();
+    setHasApiKey(hasKey);
+  };
 
   const validateYouTubeUrl = (url: string): boolean => {
     const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -57,7 +67,7 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     }
 
     // Check if YouTube API key is available
-    const apiKey = apiKeyService.getYouTubeApiKey();
+    const apiKey = await apiKeyService.getYouTubeApiKey();
     if (!apiKey) {
       toast.error('YouTube API key required. Please configure it in Settings.');
       return;
@@ -208,7 +218,7 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
       </CardHeader>
       <CardContent className="space-y-4">
         {/* API Key Status Alert */}
-        {!apiKeyService.hasYouTubeApiKey() && (
+        {!hasApiKey && (
           <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded border border-yellow-200">
             <Key className="h-4 w-4 text-yellow-600 mt-0.5" />
             <div className="text-xs text-yellow-800">
