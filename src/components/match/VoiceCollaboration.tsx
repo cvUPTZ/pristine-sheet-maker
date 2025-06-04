@@ -273,9 +273,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             )}
             {getNetworkIcon()}
             {databaseConnected ? (
-              <Database className="h-3 w-3 text-green-500" title="Database Connected" />
+              <Database className="h-3 w-3 text-green-500" />
             ) : (
-              <Database className="h-3 w-3 text-orange-500" title="Offline Mode" />
+              <Database className="h-3 w-3 text-orange-500" />
             )}
           </CardTitle>
           
