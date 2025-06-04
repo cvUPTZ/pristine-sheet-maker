@@ -60,6 +60,46 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     return match ? match[1] : null;
   };
 
+  // Helper function to parse ISO 8601 duration to seconds
+  const parseISO8601Duration = (duration: string): number => {
+    if (!duration) return 0;
+    
+    // Handle ISO 8601 format like "PT1H30M45S" or "PT5M30S"
+    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (match) {
+      const hours = parseInt(match[1]) || 0;
+      const minutes = parseInt(match[2]) || 0;
+      const seconds = parseInt(match[3]) || 0;
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    
+    // Handle simple time format like "1:30:45" or "5:30"
+    const parts = duration.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      return parts[0];
+    }
+    
+    return 0;
+  };
+
+  // Helper function to format seconds to HH:MM:SS or MM:SS
+  const formatDuration = (totalSeconds: number): string => {
+    if (totalSeconds === 0) return '00:00';
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   const extractVideoInfo = async () => {
     if (!validateYouTubeUrl(youtubeUrl)) {
       toast.error('Please enter a valid YouTube URL');
@@ -97,9 +137,13 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
       }
 
       if (data?.videoInfo) {
+        // Parse the duration properly
+        const durationInSeconds = parseISO8601Duration(data.videoInfo.duration);
+        const formattedDuration = formatDuration(durationInSeconds);
+        
         const videoInfo: VideoInfo = {
           title: data.videoInfo.title || 'Unknown Title',
-          duration: data.videoInfo.duration || '00:00:00',
+          duration: formattedDuration,
           thumbnail: data.videoInfo.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
           videoId,
           formats: data.videoInfo.formats || [
@@ -117,10 +161,11 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     } catch (error) {
       console.error('Error extracting video info:', error);
       
-      // Fallback to mock data for development
+      // Fallback to mock data for development - with realistic duration
+      const mockDurationSeconds = 1800 + Math.floor(Math.random() * 3600); // 30-90 minutes
       const videoInfo: VideoInfo = {
         title: 'Soccer Match Analysis Video',
-        duration: '01:30:45',
+        duration: formatDuration(mockDurationSeconds),
         thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
         videoId,
         formats: [
@@ -164,8 +209,12 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
       clearInterval(progressInterval);
       setDownloadProgress(100);
       
-      // Create a more realistic mock video file
-      const videoBlob = new Blob(['mock video content for soccer analysis'], { type: 'video/mp4' });
+      // Create a more realistic mock video file with substantial size
+      const mockVideoSize = selectedQuality === '1080p' ? 50 * 1024 * 1024 : // 50MB for demo
+                           selectedQuality === '720p' ? 30 * 1024 * 1024 :   // 30MB for demo
+                           20 * 1024 * 1024; // 20MB for demo
+      
+      const videoBlob = new Blob([new ArrayBuffer(mockVideoSize)], { type: 'video/mp4' });
       const mockVideoFile = new File([videoBlob], `${videoInfo.title.replace(/[^a-zA-Z0-9]/g, '_')}_${selectedQuality}.mp4`, {
         type: 'video/mp4'
       });
