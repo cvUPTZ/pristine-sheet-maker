@@ -532,7 +532,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   );
 };
 
-// File upload component for demo (unchanged, assuming it's working)
+// File upload component for demo
 const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) => {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -570,7 +570,7 @@ const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) 
       } else {
         showToast('Please select a valid video file', 'error');
       }
-      e.target.value = ''; // Allow selecting the same file again
+      e.target.value = '';
     }
   };
 
@@ -582,18 +582,18 @@ const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) 
             dragActive ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-gray-800' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
           }`}
           onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-          onSubmit={(e) => e.preventDefault()} // Prevent form submission
+          onSubmit={(e) => e.preventDefault()}
         >
           <input
             ref={inputRef}
             type="file"
-            id="file-upload-input" // Add id for label association
+            id="file-upload-input"
             multiple={false}
             accept="video/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
-          <label htmlFor="file-upload-input" className="cursor-pointer"> {/* Make the whole area clickable */}
+          <label htmlFor="file-upload-input" className="cursor-pointer">
             <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
               Drop your video file here, or click to browse
@@ -608,7 +608,10 @@ const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) 
   );
 };
 
-// Demo usage - now as default export
+// Export the main VideoSplitter component for use in other files
+export { VideoSplitter };
+
+// Demo usage - default export for standalone usage
 export default function VideoSplitterDemo() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
