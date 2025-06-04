@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -6,7 +5,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 // CORS headers for browser requests
 const getAllowedOrigin = (origin: string | null) => {
   const allowedOrigins = [
-    'preview--pristine-sheet-maker.lovable.app'
+    'preview--pristine-sheet-maker.lovable.app', // Fixed: Added missing comma
     'http://localhost:5173',
     'https://localhost:5173',
     /https:\/\/.*\.lovable\.app$/,
@@ -22,6 +21,11 @@ const getAllowedOrigin = (origin: string | null) => {
     if (allowed instanceof RegExp && allowed.test(origin)) {
       return origin;
     }
+  }
+  
+  // For development: Allow any lovable.app subdomain
+  if (origin && /https:\/\/.*\.lovable\.app$/.test(origin)) {
+    return origin;
   }
   
   return 'http://localhost:5173';
