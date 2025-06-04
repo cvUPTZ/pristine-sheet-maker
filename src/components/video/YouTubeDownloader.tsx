@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Youtube, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Download, Youtube, AlertCircle, CheckCircle, Loader2, Settings, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { apiKeyService } from '@/services/apiKeyService';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoInfo {
   title: string;
@@ -30,6 +31,7 @@ interface YouTubeDownloaderProps {
 }
 
 const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded }) => {
+  const navigate = useNavigate();
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [selectedQuality, setSelectedQuality] = useState('720p');
@@ -54,6 +56,13 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
       return;
     }
 
+    // Check if YouTube API key is available
+    const apiKey = apiKeyService.getYouTubeApiKey();
+    if (!apiKey) {
+      toast.error('YouTube API key required. Please configure it in Settings.');
+      return;
+    }
+
     const videoId = extractVideoId(youtubeUrl);
     if (!videoId) {
       toast.error('Could not extract video ID from URL');
@@ -63,9 +72,12 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     setExtractingInfo(true);
     
     try {
-      // Call Supabase edge function to analyze YouTube video
+      // Call Supabase edge function with API key
       const { data, error } = await supabase.functions.invoke('analyze-youtube-video', {
-        body: { videoUrl: youtubeUrl }
+        body: { 
+          videoUrl: youtubeUrl,
+          apiKey: apiKey
+        }
       });
 
       if (error) {
@@ -168,15 +180,52 @@ const YouTubeDownloader: React.FC<YouTubeDownloaderProps> = ({ onVideoDownloaded
     setSelectedQuality('720p');
   };
 
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Youtube className="h-5 w-5 text-red-600" />
-          Professional YouTube Video Downloader
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Youtube className="h-5 w-5 text-red-600" />
+            Professional YouTube Video Downloader
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            API Settings
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* API Key Status Alert */}
+        {!apiKeyService.hasYouTubeApiKey() && (
+          <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded border border-yellow-200">
+            <Key className="h-4 w-4 text-yellow-600 mt-0.5" />
+            <div className="text-xs text-yellow-800">
+              <p className="font-medium">YouTube API Key Required</p>
+              <p>Please configure your YouTube Data API v3 key in Settings to download videos.</p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => navigate('/settings')}
+                className="p-0 h-auto text-yellow-800 underline"
+              >
+                Configure API Key →
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="youtube-url">YouTube Video URL</Label>
           <div className="flex gap-2">

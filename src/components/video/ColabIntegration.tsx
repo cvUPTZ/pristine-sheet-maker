@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ExternalLink, Upload, Brain, CheckCircle, XCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { ExternalLink, Upload, Brain, CheckCircle, XCircle, Clock, AlertTriangle, Loader2, Settings, Key } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiKeyService } from '@/services/apiKeyService';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoSegment {
   id: string;
@@ -43,6 +44,7 @@ interface ColabIntegrationProps {
 }
 
 const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysisComplete }) => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<AnalysisJob[]>([]);
   const [processing, setProcessing] = useState(false);
   const [colabNotebookUrl, setColabNotebookUrl] = useState('');
@@ -219,6 +221,13 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
       return;
     }
 
+    // Check if Google Colab API key is available
+    const apiKey = apiKeyService.getGoogleColabApiKey();
+    if (!apiKey) {
+      toast.error('Google Colab API key required. Please configure it in Settings.');
+      return;
+    }
+
     if (jobs.length === 0) {
       toast.error('No video segments to process');
       return;
@@ -313,12 +322,42 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-blue-600" />
-          Google Colab Integration
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-blue-600" />
+            Google Colab Integration
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            API Settings
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* API Key Status Alert */}
+        {!apiKeyService.hasGoogleColabApiKey() && (
+          <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded border border-yellow-200">
+            <Key className="h-4 w-4 text-yellow-600 mt-0.5" />
+            <div className="text-xs text-yellow-800">
+              <p className="font-medium">Google Colab API Key Required</p>
+              <p>Please configure your Google Colab API key in Settings to process videos with AI.</p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => navigate('/settings')}
+                className="p-0 h-auto text-yellow-800 underline"
+              >
+                Configure API Key →
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Tabs defaultValue="setup" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="setup">Setup</TabsTrigger>
