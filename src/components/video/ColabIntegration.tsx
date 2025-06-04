@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -265,7 +264,7 @@ const ColabIntegration: React.FC<ColabIntegrationProps> = ({ segments, onAnalysi
                                 {job.results.statistics.ballPossession &&
                                 <p>Possession: Home {job.results.statistics.ballPossession.home.toFixed(1)}% - Away {job.results.statistics.ballPossession.away.toFixed(1)}%</p>}
                                 {job.results.statistics.passes &&
-                                <p>Passes: {job.results.statistics.passes.successful}/{job.results.statistics.passes.total}</p>}
+                                <p>Passes: {job.results.statistics.passes.successful}/{job.results.statistics.passes.attempted}</p>}
                             </div>
                             )}
                         </div>

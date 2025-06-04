@@ -1,4 +1,3 @@
-
 // src/services/apiService.ts
 import { VideoInfo, AnalysisResults, ApiKeyInfo, VideoSegment } from '@/types';
 import { parseDurationToSeconds } from '@/utils/formatters';
@@ -73,7 +72,6 @@ interface DenoFunctionResponse {
 // --- Combined Fetch Info & Analyze (Matches your Deno function) ---
 export const fetchInfoAndAnalyzeVideoAPI = async (
   youtubeUrl: string,
-  // Removed apiKey parameter - backend should use its own env var for YouTube API
 ): Promise<{ videoInfo: VideoInfo; analysisResults: AnalysisResults }> => {
   
   // The Deno function expects `apiKey` in the body for YouTube, but this is a security risk.
@@ -101,9 +99,6 @@ export const fetchInfoAndAnalyzeVideoAPI = async (
   };
 
   // Assuming 'statistics' from backend directly maps to frontend 'AnalysisResults' structure
-  // This might need more detailed mapping based on what Gemini actually returns
-  // and how you want to structure it in `AnalysisResults` type.
-  // For now, a simple mapping, assuming 'statistics' is the main payload.
   const feAnalysisResults: AnalysisResults = {
     segmentId: response.videoInfo.id, // Using videoId as segmentId since no actual segments
     events: response.statistics?.events || [], // Adapt based on Gemini output
@@ -178,7 +173,7 @@ export const processSegmentWithColabAPI = async (
     ],
     statistics: {
       ballPossession: { home: 55 + Math.random() * 20, away: 45 + Math.random() * 20 },
-      passes: { successful: Math.floor(Math.random() * 50) + 20, total: Math.floor(Math.random() * 70) + 40 },
+      passes: { successful: Math.floor(Math.random() * 50) + 20, attempted: Math.floor(Math.random() * 70) + 40 },
       shots: Math.floor(Math.random() * 5) + 1,
     },
   };

@@ -1,4 +1,3 @@
-
 export type EventType =
   | 'pass'
   | 'shot'
@@ -90,6 +89,7 @@ export interface ShotStats {
 export interface PassStats {
   successful: number;
   attempted: number;
+  total?: number;
 }
 
 export interface DuelStats {

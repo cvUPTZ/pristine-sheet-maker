@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,13 +26,13 @@ const VideoAnalysisWorkflow: React.FC = () => {
     { id: 'results', title: 'View Results', icon: Download }
   ];
 
-  const handleVideoDownloaded = (videoFile: File, info: VideoInfo) => {
+  const handleVideoDownloaded = (videoFile: File, videoInfo: VideoInfo) => {
     setDownloadedVideoFile(videoFile);
-    setMainVideoInfo(info);
+    setMainVideoInfo(videoInfo);
     setVideoSegments([]);
     setAllAnalysisResults([]);
     setCurrentStep(1);
-    toast.success(`Video "${info.title}" ready! Proceed to split.`);
+    toast.success(`Video "${videoInfo.title}" ready! Proceed to split.`);
   };
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
@@ -247,7 +246,7 @@ const VideoAnalysisWorkflow: React.FC = () => {
                                 <p>Possession: <span className="font-medium">H: {result.statistics.ballPossession.home.toFixed(1)}%</span> - <span className="font-medium">A: {result.statistics.ballPossession.away.toFixed(1)}%</span></p>
                               }
                               {result.statistics.passes &&
-                                <p>Passes: <span className="font-medium">{result.statistics.passes.successful} / {result.statistics.passes.total}</span> successful</p>
+                                <p>Passes: <span className="font-medium">{result.statistics.passes.successful} / {result.statistics.passes.attempted}</span> successful</p>
                               }
                                {result.statistics.shots !== undefined &&
                                 <p>Shots: <span className="font-medium">{result.statistics.shots}</span></p>
