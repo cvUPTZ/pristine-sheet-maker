@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,16 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoInfo, 
   onSegmentsReady 
 }) => {
-  const [segmentDuration, setSegmentDuration] = useState(300); // 5 minutes in seconds
+  // Calculate appropriate default segment duration based on video length
+  const videoDurationSeconds = parseDuration(videoInfo.duration);
+  const getDefaultSegmentDuration = (totalDuration: number): number => {
+    if (totalDuration <= 60) return Math.max(10, Math.floor(totalDuration / 3)); // Very short videos: 3 segments minimum
+    if (totalDuration <= 300) return 60; // Short videos: 1 minute segments
+    if (totalDuration <= 1800) return 180; // Medium videos: 3 minute segments
+    return 300; // Long videos: 5 minute segments
+  };
+
+  const [segmentDuration, setSegmentDuration] = useState(getDefaultSegmentDuration(videoDurationSeconds));
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [processing, setProcessing] = useState(false);
   const [currentSegment, setCurrentSegment] = useState(0);
@@ -42,7 +50,13 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const [compressionLevel, setCompressionLevel] = useState('medium');
   const [outputFormat, setOutputFormat] = useState('mp4');
 
-  const parseDuration = (duration: string): number => {
+  // Update segment duration when video changes
+  useEffect(() => {
+    const newDefaultDuration = getDefaultSegmentDuration(videoDurationSeconds);
+    setSegmentDuration(newDefaultDuration);
+  }, [videoDurationSeconds]);
+
+  function parseDuration(duration: string): number {
     const parts = duration.split(':').map(Number);
     if (parts.length === 3) {
       return parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -50,7 +64,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
       return parts[0] * 60 + parts[1];
     }
     return parts[0] || 0;
-  };
+  }
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -70,16 +84,29 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const estimateSegmentSize = (duration: number): number => {
+    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 : 
+                             compressionLevel === 'medium' ? 1 * 1024 * 1024 : 
+                             0.5 * 1024 * 1024; 
+    
+    return duration * baseSizePerSecond;
+  };
+
   const generateSegments = () => {
-    const totalDuration = parseDuration(videoInfo.duration);
+    const totalDuration = videoDurationSeconds;
     
     if (totalDuration <= 0) {
       toast.error('Invalid video duration');
       return;
     }
 
-    if (segmentDuration >= totalDuration) {
-      toast.error('Segment duration cannot be longer than video duration');
+    if (segmentDuration > totalDuration) {
+      toast.error(`Segment duration (${Math.ceil(segmentDuration/60)}m) cannot be longer than video duration (${Math.ceil(totalDuration/60)}m)`);
+      return;
+    }
+
+    if (segmentDuration < 5) {
+      toast.error('Segment duration must be at least 5 seconds');
       return;
     }
 
@@ -100,15 +127,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     toast.success(`Generated ${newSegments.length} video segments for processing`);
   };
 
-  const estimateSegmentSize = (duration: number): number => {
-    // Rough estimation based on compression level and duration
-    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 : // 2MB/sec
-                             compressionLevel === 'medium' ? 1 * 1024 * 1024 : // 1MB/sec
-                             0.5 * 1024 * 1024; // 0.5MB/sec for high compression
-    
-    return duration * baseSizePerSecond;
-  };
-
   const processSegments = async () => {
     if (segments.length === 0) {
       toast.error('Please generate segments first');
@@ -127,14 +145,11 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         processedSegments[i].status = 'processing';
         setSegments([...processedSegments]);
 
-        // Simulate processing time based on segment duration and compression
-        const processingTime = Math.max(1000, processedSegments[i].duration * 100); // Minimum 1 second
+        const processingTime = Math.max(1000, processedSegments[i].duration * 100);
         await new Promise(resolve => setTimeout(resolve, processingTime));
 
-        // Estimate file size
         const estimatedSize = estimateSegmentSize(processedSegments[i].duration);
 
-        // Create segment file with realistic naming
         const segmentFile = new File(
           [`processed video segment ${i + 1} - ${compressionLevel} compression`], 
           `${videoInfo.title.replace(/[^a-zA-Z0-9]/g, '_')}_segment_${i + 1}_${formatTime(processedSegments[i].startTime)}-${formatTime(processedSegments[i].endTime)}.${outputFormat}`,
@@ -156,7 +171,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
       console.error('Error processing segments:', error);
       toast.error('Failed to process video segments');
       
-      // Mark failed segments
       const failedSegments = segments.map(seg => 
         seg.status === 'processing' ? { ...seg, status: 'error' as const } : seg
       );
@@ -179,6 +193,10 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const totalEstimatedSize = segments.reduce((sum, seg) => 
     sum + (seg.size || estimateSegmentSize(seg.duration)), 0
   );
+
+  // Calculate max segment duration (video duration or reasonable limit)
+  const maxSegmentDuration = Math.min(videoDurationSeconds, 1800); // Max 30 minutes
+  const minSegmentDuration = Math.min(5, videoDurationSeconds); // Min 5 seconds or video length
 
   return (
     <Card>
@@ -211,16 +229,27 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           <TabsContent value="basic" className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="segment-duration">Segment Duration (minutes)</Label>
+                <Label htmlFor="segment-duration">
+                  Segment Duration (seconds)
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({minSegmentDuration}s - {maxSegmentDuration}s)
+                  </span>
+                </Label>
                 <Input
                   id="segment-duration"
                   type="number"
-                  min="1"
-                  max="30"
-                  value={segmentDuration / 60}
-                  onChange={(e) => setSegmentDuration(parseInt(e.target.value) * 60)}
+                  min={minSegmentDuration}
+                  max={maxSegmentDuration}
+                  value={segmentDuration}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || minSegmentDuration;
+                    setSegmentDuration(Math.min(Math.max(value, minSegmentDuration), maxSegmentDuration));
+                  }}
                   disabled={processing}
                 />
+                <p className="text-xs text-gray-600">
+                  Recommended: {getDefaultSegmentDuration(videoDurationSeconds)}s for this video
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Output Format</Label>
@@ -336,12 +365,12 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
           <div className="text-xs text-amber-800">
-            <p className="font-medium">Production Guidelines:</p>
+            <p className="font-medium">Segment Guidelines:</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Shorter segments (3-5 minutes) are optimal for analysis processing</li>
-              <li>Higher compression reduces file size but may affect analysis accuracy</li>
-              <li>Processing time scales with video length and compression settings</li>
-              <li>Keep segments under 500MB each for optimal Colab performance</li>
+              <li>For very short videos (&lt;1 min): Use 10-20 second segments</li>
+              <li>For short videos (1-5 min): Use 30-60 second segments</li>
+              <li>For medium videos (5-30 min): Use 2-3 minute segments</li>
+              <li>For long videos (&gt;30 min): Use 5+ minute segments</li>
             </ul>
           </div>
         </div>
