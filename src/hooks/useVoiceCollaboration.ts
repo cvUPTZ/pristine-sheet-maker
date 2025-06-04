@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,7 +34,7 @@ export const useVoiceCollaboration = ({
   onUserLeft,
   onRoomChanged
 }: VoiceCollaborationOptions) => {
-  console.log('🎤 useVoiceCollaboration: PRODUCTION INIT', { matchId, userId, userRole });
+  console.log('🎤 useVoiceCollaboration: DATABASE INIT', { matchId, userId, userRole });
   
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -58,17 +57,28 @@ export const useVoiceCollaboration = ({
   const isCleaningUpRef = useRef(false);
   const reconnectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize services
+  // Initialize services and load rooms from database
   useEffect(() => {
-    audioManagerRef.current = AudioManager.getInstance();
-    voiceRoomServiceRef.current = VoiceRoomService.getInstance();
-    
-    // Initialize rooms for the match
-    if (voiceRoomServiceRef.current && matchId) {
-      voiceRoomServiceRef.current.initializeRoomsForMatch(matchId).then(rooms => {
-        setAvailableRooms(voiceRoomServiceRef.current!.getAvailableRooms(userRole));
-      });
-    }
+    const initializeServices = async () => {
+      try {
+        audioManagerRef.current = AudioManager.getInstance();
+        voiceRoomServiceRef.current = VoiceRoomService.getInstance();
+        
+        // Initialize rooms for the match from database
+        if (voiceRoomServiceRef.current && matchId) {
+          console.log('🏗️ Loading voice rooms from database...');
+          const rooms = await voiceRoomServiceRef.current.initializeRoomsForMatch(matchId);
+          const userRooms = voiceRoomServiceRef.current.getAvailableRooms(userRole);
+          setAvailableRooms(userRooms);
+          console.log(`✅ Loaded ${userRooms.length} available rooms for ${userRole}`);
+        }
+      } catch (error: any) {
+        console.error('❌ Failed to initialize voice services:', error);
+        toast.error('Failed to load voice rooms');
+      }
+    };
+
+    initializeServices();
 
     // Monitor network status
     const handleOnline = () => setNetworkStatus('online');
@@ -105,19 +115,14 @@ export const useVoiceCollaboration = ({
       audio.srcObject = stream;
       audio.volume = 1.0;
       audio.autoplay = true;
-      
-      // Production audio settings
       audio.muted = false;
       audio.crossOrigin = 'anonymous';
-      
-      // Add to DOM for proper playback
       audio.style.display = 'none';
       document.body.appendChild(audio);
       
       // Enhanced autoplay handling for production
       const attemptPlayback = async () => {
         try {
-          // Resume audio context if needed
           if (typeof AudioContext !== 'undefined') {
             const audioContext = new AudioContext();
             if (audioContext.state === 'suspended') {
@@ -139,14 +144,12 @@ export const useVoiceCollaboration = ({
       const playbackSuccess = await attemptPlayback();
       
       if (!playbackSuccess) {
-        // Production fallback for autoplay restrictions
         const enableAudioOnInteraction = async () => {
           try {
             await audio.play();
             console.log(`🎵 Audio enabled after interaction for: ${userId}`);
             toast.success(`Audio enabled for participant ${userId.slice(-4)}`);
             
-            // Remove event listeners after success
             ['click', 'touchstart', 'keydown'].forEach(event => {
               document.removeEventListener(event, enableAudioOnInteraction);
             });
@@ -162,30 +165,34 @@ export const useVoiceCollaboration = ({
         toast.info(`Click anywhere to enable audio for participant ${userId.slice(-4)}`);
       }
       
-      // Production audio monitoring
-      audio.addEventListener('loadstart', () => console.log(`📡 Audio loading for: ${userId}`));
-      audio.addEventListener('canplay', () => console.log(`🎵 Audio ready for: ${userId}`));
-      audio.addEventListener('error', (e) => console.error(`❌ Audio error for ${userId}:`, e));
-      audio.addEventListener('stalled', () => console.warn(`⚠️ Audio stalled for: ${userId}`));
-      
       remoteAudiosRef.current.set(userId, audio);
       
-      // Update tracker status
-      setConnectedTrackers(prev => {
-        const existing = prev.find(t => t.userId === userId);
-        if (existing) {
-          return prev.map(t => t.userId === userId ? { ...t, isConnected: true } : t);
-        }
-        return [...prev, {
-          userId,
-          isMuted: false,
-          isSpeaking: false,
-          isConnected: true,
-          username: `Participant ${userId.slice(-4)}`,
-          role: 'tracker',
-          connectionQuality: 'good'
-        }];
-      });
+      // Update tracker status with database info
+      if (currentRoom && voiceRoomServiceRef.current) {
+        const participants = await voiceRoomServiceRef.current.getRoomParticipants(currentRoom.id);
+        const participant = participants.find(p => p.user_id === userId);
+        
+        setConnectedTrackers(prev => {
+          const existing = prev.find(t => t.userId === userId);
+          if (existing) {
+            return prev.map(t => t.userId === userId ? { 
+              ...t, 
+              isConnected: true,
+              username: participant?.user_name || existing.username,
+              role: participant?.user_role || existing.role
+            } : t);
+          }
+          return [...prev, {
+            userId,
+            isMuted: participant?.is_muted || false,
+            isSpeaking: participant?.is_speaking || false,
+            isConnected: true,
+            username: participant?.user_name || `Participant ${userId.slice(-4)}`,
+            role: participant?.user_role || 'tracker',
+            connectionQuality: participant?.connection_quality || 'good'
+          }];
+        });
+      }
       
       onUserJoined?.(userId);
       
@@ -193,7 +200,7 @@ export const useVoiceCollaboration = ({
       console.error(`❌ Failed to create remote audio for ${userId}:`, error);
       toast.error(`Failed to connect audio for participant ${userId.slice(-4)}`);
     }
-  }, [onUserJoined]);
+  }, [onUserJoined, currentRoom]);
 
   const removeRemoteAudio = useCallback((userId: string) => {
     console.log(`🔇 Removing remote audio for: ${userId}`);
@@ -210,14 +217,14 @@ export const useVoiceCollaboration = ({
     onUserLeft?.(userId);
   }, [onUserLeft]);
 
-  // Production-ready room joining with comprehensive error handling
+  // Production-ready room joining with database integration
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
     if (isConnecting || isVoiceEnabled || networkStatus === 'offline') {
       console.warn('❌ Cannot join room:', { isConnecting, isVoiceEnabled, networkStatus });
       return;
     }
 
-    console.log(`🚪 Joining production voice room: ${room.name}`);
+    console.log(`🚪 Joining database voice room: ${room.name}`);
     setIsConnecting(true);
     setRetryAttempts(0);
     
@@ -225,7 +232,7 @@ export const useVoiceCollaboration = ({
       try {
         console.log(`🔄 Join attempt ${attempt}/${PRODUCTION_VOICE_CONFIG.reconnectionAttempts}`);
         
-        // Check room availability through service
+        // Join room through database service
         const joinResult = await voiceRoomServiceRef.current!.joinRoom(room.id, userId, userRole);
         if (!joinResult.success) {
           throw new Error(joinResult.error || 'Failed to join room');
@@ -244,7 +251,7 @@ export const useVoiceCollaboration = ({
           }
         });
 
-        // Get user media with production constraints - fix the type issue
+        // Get user media with production constraints
         const audioConstraints = PRODUCTION_VOICE_CONFIG.audioConstraints;
         const mediaConstraints: MediaStreamConstraints = {
           audio: audioConstraints,
@@ -268,20 +275,26 @@ export const useVoiceCollaboration = ({
           onConnectionQuality: (userId, quality) => {
             setConnectionQualities(prev => new Map(prev).set(userId, quality));
             
-            // Update tracker quality
+            // Update tracker quality and database
             setConnectedTrackers(prev => prev.map(t => 
               t.userId === userId ? { ...t, connectionQuality: quality.quality } : t
             ));
+            
+            // Update in database
+            if (currentRoom && voiceRoomServiceRef.current) {
+              voiceRoomServiceRef.current.updateParticipantStatus(currentRoom.id, userId, {
+                connection_quality: quality.quality
+              });
+            }
           },
           onDataChannel: (userId, channel) => {
             console.log(`📱 Data channel established with ${userId}`);
           }
         });
 
-        // Start production monitoring
         webrtcManagerRef.current.startProductionMonitoring();
         
-        // Setup Supabase channel with production config
+        // Setup Supabase channel for signaling
         channelRef.current = supabase.channel(`voice_production_${room.id}`, {
           config: {
             presence: { key: userId },
@@ -307,17 +320,20 @@ export const useVoiceCollaboration = ({
               payload: { type: 'user_joined', senderId: userId, userRole }
             });
             
-            // Announce to room service
             channelRef.current?.send({
               type: 'broadcast',
               event: 'room_event',
               payload: { type: 'user_joined', userId, roomId: room.id, userRole }
             });
             
-            console.log(`✅ Successfully joined production room: ${room.name}`);
+            console.log(`✅ Successfully joined database room: ${room.name}`);
             toast.success(`Joined ${room.name} - You are muted by default`);
             
             onRoomChanged?.(joinResult.room!);
+            
+            // Load existing participants
+            const participants = await voiceRoomServiceRef.current!.getRoomParticipants(room.id);
+            console.log(`👥 Found ${participants.length} existing participants`);
           } else if (status === 'CHANNEL_ERROR') {
             throw new Error('Channel subscription failed');
           }
@@ -328,7 +344,7 @@ export const useVoiceCollaboration = ({
         
         if (attempt < PRODUCTION_VOICE_CONFIG.reconnectionAttempts) {
           setRetryAttempts(attempt);
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           console.log(`🔄 Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return attemptJoin(attempt + 1);
@@ -343,10 +359,8 @@ export const useVoiceCollaboration = ({
     } catch (error: any) {
       console.error('❌ All join attempts failed:', error);
       
-      // Clean up on failure
       await cleanupVoiceResources();
       
-      // Production error handling
       if (error.name === 'NotAllowedError') {
         toast.error('Microphone access denied. Please enable microphone access in your browser settings.');
       } else if (error.name === 'NotFoundError') {
@@ -449,14 +463,14 @@ export const useVoiceCollaboration = ({
       await audioManagerRef.current.setMuted(newMutedState);
       setIsMuted(newMutedState);
       
-      // Update room service
+      // Update database
       if (currentRoom && voiceRoomServiceRef.current) {
         await voiceRoomServiceRef.current.updateParticipantStatus(currentRoom.id, userId, {
-          isMuted: newMutedState
+          is_muted: newMutedState
         });
       }
       
-      // Broadcast mute status via data channel
+      // Broadcast via data channel
       if (webrtcManagerRef.current) {
         connectedTrackers.forEach(tracker => {
           webrtcManagerRef.current!.sendDataChannelMessage(tracker.userId, {
@@ -483,13 +497,12 @@ export const useVoiceCollaboration = ({
     console.log('🧹 Production voice cleanup initiated');
     
     try {
-      // Clear reconnection timeout
       if (reconnectionTimeoutRef.current) {
         clearTimeout(reconnectionTimeoutRef.current);
         reconnectionTimeoutRef.current = null;
       }
 
-      // Leave room in service
+      // Leave room in database
       if (currentRoom && voiceRoomServiceRef.current) {
         await voiceRoomServiceRef.current.leaveRoom(currentRoom.id, userId);
       }
@@ -547,7 +560,7 @@ export const useVoiceCollaboration = ({
       
       onRoomChanged?.(null);
       
-      console.log('✅ Production voice cleanup completed');
+      console.log('✅ Database voice cleanup completed');
       
     } catch (error: any) {
       console.error('❌ Error during cleanup:', error);
