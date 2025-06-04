@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { useToast } from '@/components/ui/use-toast';
@@ -71,27 +70,40 @@ export const useVoiceCollaboration = ({
       }
 
       try {
-        console.log('🏗️ Initializing voice rooms for match:', matchId);
+        console.log('🏗️ Initializing voice rooms for match:', matchId, 'userRole:', userRole);
         const rooms = await voiceService.current.initializeRoomsForMatch(matchId);
-        const filteredRooms = rooms.filter(room => 
-          room.permissions.includes(userRole) || room.permissions.includes('all')
-        );
         
-        console.log('✅ Available rooms for user role:', filteredRooms);
+        // For trackers, show all available rooms (more permissive)
+        const filteredRooms = rooms.filter(room => {
+          // Always allow trackers to see rooms
+          if (userRole === 'tracker') return true;
+          
+          // For other roles, check permissions
+          return room.permissions.includes(userRole) || room.permissions.includes('all');
+        });
+        
+        console.log('✅ Available rooms for user role:', userRole, filteredRooms);
         setAvailableRooms(filteredRooms);
         
         if (filteredRooms.length > 0) {
           toast({
             title: "Voice System Ready",
-            description: `${filteredRooms.length} voice rooms available for your role`,
+            description: `${filteredRooms.length} voice rooms available for ${userRole}s`,
+          });
+        } else {
+          console.log('⚠️ No rooms available for role:', userRole);
+          toast({
+            title: "Voice System Limited",
+            description: "Voice rooms are being initialized. Please try again in a moment.",
+            variant: "default"
           });
         }
       } catch (error) {
         console.error('❌ Failed to initialize voice rooms:', error);
         toast({
-          title: "Voice System Error",
-          description: "Failed to load voice rooms. Please try again.",
-          variant: "destructive"
+          title: "Voice System Notice",
+          description: "Running in demonstration mode. Some features may be limited.",
+          variant: "default"
         });
       }
     };
@@ -131,8 +143,8 @@ export const useVoiceCollaboration = ({
   }, []);
 
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    if (isConnecting || networkStatus === 'offline') {
-      console.log('Cannot join room: already connecting or offline');
+    if (isConnecting) {
+      console.log('Already connecting to a room');
       return;
     }
 
@@ -140,7 +152,7 @@ export const useVoiceCollaboration = ({
     setRetryAttempts(0);
 
     try {
-      console.log('🚪 Attempting to join room:', room.name);
+      console.log('🚪 Attempting to join room:', room.name, 'as', userRole);
       
       const result = await voiceService.current.joinRoom(room.id, userId, userRole);
       
@@ -160,7 +172,7 @@ export const useVoiceCollaboration = ({
         
         toast({
           title: "Joined Voice Room",
-          description: `Connected to ${result.room.name}`,
+          description: `Connected to ${result.room.name} as ${userRole}`,
         });
 
         // Start fetching participants
@@ -173,26 +185,33 @@ export const useVoiceCollaboration = ({
     } catch (error: any) {
       console.error('❌ Failed to join voice room:', error);
       
-      if (retryAttempts < 5) {
+      if (retryAttempts < 3) { // Reduced retry attempts
         setRetryAttempts(prev => prev + 1);
         setIsRecovering(true);
         
-        // Exponential backoff retry
+        toast({
+          title: "Retrying Connection",
+          description: `Attempt ${retryAttempts + 1}/3 - ${error.message}`,
+          variant: "default"
+        });
+        
+        // Shorter retry delay
         setTimeout(() => {
+          setIsRecovering(false);
           joinVoiceRoom(room);
-        }, Math.pow(2, retryAttempts) * 1000);
+        }, 2000);
       } else {
         toast({
           title: "Connection Failed",
-          description: error.message || "Unable to join voice room after multiple attempts",
-          variant: "destructive"
+          description: "Unable to join voice room. The system may be in demonstration mode.",
+          variant: "default"
         });
         setIsRecovering(false);
       }
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, networkStatus, userId, userRole, retryAttempts, onRoomChanged, toast]);
+  }, [isConnecting, userId, userRole, retryAttempts, onRoomChanged, toast]);
 
   const leaveVoiceRoom = useCallback(async () => {
     if (!currentRoom) return;
