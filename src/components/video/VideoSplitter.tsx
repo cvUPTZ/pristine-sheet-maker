@@ -19,19 +19,27 @@ interface VideoSegment {
 }
 
 interface VideoSplitterProps {
-  videoFile: File;
+  videoFile: File | null; // Allow null for when no file is selected or cleared
   onSegmentsReady: (segments: VideoSegment[]) => void;
 }
 
 // Toast replacement for demo
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  const toastDiv = document.createElement('div');
-  toastDiv.className = `fixed top-4 right-4 p-3 rounded-lg text-white z-50 ${
-    type === 'success' ? 'bg-green-500' : 'bg-red-500'
-  }`;
-  toastDiv.textContent = message;
-  document.body.appendChild(toastDiv);
-  setTimeout(() => document.body.removeChild(toastDiv), 3000);
+  // Simple console log for environments without DOM, or use a proper toast library
+  console.log(`Toast (${type}): ${message}`);
+  if (typeof document !== 'undefined') {
+    const toastDiv = document.createElement('div');
+    toastDiv.className = `fixed top-4 right-4 p-3 rounded-lg text-white z-50 ${
+      type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    }`;
+    toastDiv.textContent = message;
+    document.body.appendChild(toastDiv);
+    setTimeout(() => {
+      if (document.body.contains(toastDiv)) {
+        document.body.removeChild(toastDiv);
+      }
+    }, 3000);
+  }
 };
 
 const VideoSplitter: React.FC<VideoSplitterProps> = ({ 
@@ -47,60 +55,84 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const [outputFormat, setOutputFormat] = useState('mp4');
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoTitle, setVideoTitle] = useState('');
-  const [loadingDuration, setLoadingDuration] = useState(true);
+  const [loadingDuration, setLoadingDuration] = useState(false); // Start false, true when file is present
   const [durationError, setDurationError] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Extract video information when file changes
+  // Effect for loading video metadata
   useEffect(() => {
-    if (videoFile) {
-      setLoadingDuration(true);
-      setDurationError(null);
-      setVideoTitle(videoFile.name.replace(/\.[^/.]+$/, ""));
-      loadVideoMetadata();
-    }
-  }, [videoFile]);
-
-  const loadVideoMetadata = () => {
-    if (!videoRef.current) return;
-
-    const video = videoRef.current;
-    const videoURL = URL.createObjectURL(videoFile);
-    
-    const handleLoadedMetadata = () => {
-      setVideoDuration(video.duration);
+    if (!videoFile) {
+      setVideoDuration(null);
       setLoadingDuration(false);
-      URL.revokeObjectURL(videoURL);
-      showToast(`Video loaded: ${formatTime(video.duration)} duration detected`);
+      setDurationError(null);
+      setVideoTitle('');
+      setSegments([]); // Clear segments if file is removed
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.src = '';
+      }
+      return;
+    }
+
+    // A videoFile is present, start loading metadata
+    setLoadingDuration(true);
+    setDurationError(null);
+    setVideoTitle(videoFile.name.replace(/\.[^/.]+$/, ""));
+    setSegments([]); // Clear previous segments when a new file is loaded
+
+    const videoElement = videoRef.current;
+    if (!videoElement) {
+      setLoadingDuration(false);
+      setDurationError("Video player element not ready.");
+      showToast("Video player element not ready.", "error");
+      return;
+    }
+
+    const objectURL = URL.createObjectURL(videoFile);
+
+    const handleLoadedMetadata = () => {
+      if (videoElement) { // Ensure videoElement is still valid
+        console.log('Video metadata loaded. Duration:', videoElement.duration);
+        setVideoDuration(videoElement.duration);
+        showToast(`Video loaded: ${videoFile.name} (${formatTime(videoElement.duration)})`);
+      }
+      setLoadingDuration(false);
     };
 
     const handleError = (e: Event) => {
       console.error('Error loading video metadata:', e);
-      setDurationError('Failed to load video metadata. Please ensure the file is a valid video.');
+      setDurationError('Failed to load video metadata. Ensure it is a valid video file.');
       setLoadingDuration(false);
-      URL.revokeObjectURL(videoURL);
-      showToast('Failed to load video metadata', 'error');
+      showToast('Failed to load video metadata.', 'error');
     };
 
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('error', handleError);
-    
-    video.src = videoURL;
-    video.load();
+    // Add event listeners
+    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+    videoElement.addEventListener('error', handleError);
 
-    // Cleanup function
+    // Set source and load
+    videoElement.src = objectURL;
+    videoElement.load(); // Important: tells the browser to load the new source
+
+    // Cleanup function for this effect
     return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('error', handleError);
-      if (video.src) {
-        URL.revokeObjectURL(video.src);
+      console.log('Cleaning up video effect for:', videoFile.name);
+      if (videoElement) {
+        videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoElement.removeEventListener('error', handleError);
+        videoElement.pause(); // Pause video
+        videoElement.src = '';   // Clear src to release resources
+        // videoElement.load(); // Optionally call load() after clearing src
       }
+      URL.revokeObjectURL(objectURL); // Revoke the object URL
+      console.log('Revoked URL:', objectURL);
     };
-  };
 
-  const formatTime = (seconds: number): string => {
-    if (!seconds || isNaN(seconds)) return '00:00';
+  }, [videoFile]); // Rerun effect if videoFile changes
+
+  const formatTime = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined || isNaN(seconds) || seconds < 0) return '00:00';
     
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -112,8 +144,8 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+  const formatFileSize = (bytes: number | undefined): string => {
+    if (bytes === undefined || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -125,14 +157,25 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
       showToast('Video duration not available. Please wait for the video to load.', 'error');
       return;
     }
-
+    if (segmentDuration <= 0) {
+        showToast('Segment duration must be greater than 0.', 'error');
+        return;
+    }
     if (segmentDuration >= videoDuration) {
-      showToast('Segment duration cannot be longer than video duration', 'error');
+      showToast('Segment duration should be less than video duration to split.', 'error');
+       const singleSegment: VideoSegment[] = [{
+        id: `segment-1`,
+        startTime: 0,
+        endTime: videoDuration,
+        duration: videoDuration,
+        status: 'pending'
+      }];
+      setSegments(singleSegment);
+      showToast(`Generated 1 segment (full video).`);
       return;
     }
 
     const newSegments: VideoSegment[] = [];
-    
     for (let start = 0; start < videoDuration; start += segmentDuration) {
       const end = Math.min(start + segmentDuration, videoDuration);
       newSegments.push({
@@ -149,17 +192,19 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   };
 
   const estimateSegmentSize = (duration: number): number => {
-    // Rough estimation based on compression level and duration
-    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 : // 2MB/sec
-                             compressionLevel === 'medium' ? 1 * 1024 * 1024 : // 1MB/sec
-                             0.5 * 1024 * 1024; // 0.5MB/sec for high compression
-    
+    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 :
+                             compressionLevel === 'medium' ? 1 * 1024 * 1024 :
+                             0.5 * 1024 * 1024;
     return duration * baseSizePerSecond;
   };
 
   const processSegments = async () => {
     if (segments.length === 0) {
       showToast('Please generate segments first', 'error');
+      return;
+    }
+    if (!videoFile) {
+      showToast('No video file loaded for processing.', 'error');
       return;
     }
 
@@ -173,18 +218,14 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
       for (let i = 0; i < processedSegments.length; i++) {
         setCurrentSegment(i + 1);
         processedSegments[i].status = 'processing';
-        setSegments([...processedSegments]);
+        setSegments([...processedSegments]); // Update UI with processing status
 
-        // Simulate processing time based on segment duration and compression
-        const processingTime = Math.max(1000, processedSegments[i].duration * 200); // Minimum 1 second
+        const processingTime = Math.max(1000, processedSegments[i].duration * 50); // Simulate processing
         await new Promise(resolve => setTimeout(resolve, processingTime));
 
-        // Estimate file size
         const estimatedSize = estimateSegmentSize(processedSegments[i].duration);
-
-        // Create segment file with realistic naming
         const segmentFile = new File(
-          [`processed video segment ${i + 1} - ${compressionLevel} compression`], 
+          [`processed video segment ${i + 1}`], 
           `${videoTitle.replace(/[^a-zA-Z0-9]/g, '_')}_segment_${i + 1}_${formatTime(processedSegments[i].startTime)}-${formatTime(processedSegments[i].endTime)}.${outputFormat}`,
           { type: `video/${outputFormat}` }
         );
@@ -192,7 +233,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         processedSegments[i].status = 'completed';
         processedSegments[i].file = segmentFile;
         processedSegments[i].size = estimatedSize;
-        setSegments([...processedSegments]);
+        setSegments([...processedSegments]); // Update UI with completed status
         
         const progressPercent = ((i + 1) / processedSegments.length) * 100;
         setProgress(progressPercent);
@@ -203,8 +244,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     } catch (error) {
       console.error('Error processing segments:', error);
       showToast('Failed to process video segments', 'error');
-      
-      // Mark failed segments
       const failedSegments = segments.map(seg => 
         seg.status === 'processing' ? { ...seg, status: 'error' as const } : seg
       );
@@ -228,7 +267,23 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     sum + (seg.size || estimateSegmentSize(seg.duration)), 0
   );
 
-  const maxSegmentDuration = videoDuration ? Math.max(1, Math.floor(videoDuration / 2)) : 1;
+  // Ensure maxSegmentDuration is sensible, even if videoDuration is briefly null
+  const maxSegmentDuration = videoDuration ? Math.max(1, Math.floor(videoDuration -1)) : 60;
+
+
+  if (!videoFile) {
+    // This part can be customized, e.g., show a message or integrate FileUploader here
+    return (
+        <Card className="w-full max-w-4xl mx-auto">
+            <CardHeader>
+                <CardTitle>Video Splitter</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Please select a video file to begin.</p>
+            </CardContent>
+        </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -239,7 +294,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Hidden video element for metadata extraction */}
         <video ref={videoRef} style={{ display: 'none' }} preload="metadata" />
         
         <div className="p-4 bg-gray-50 rounded-lg border">
@@ -255,25 +309,27 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
                   </span>
                 ) : durationError ? (
                   <span className="text-red-600">{durationError}</span>
-                ) : videoDuration ? (
+                ) : videoDuration !== null ? (
                   <>
-                    <span>Duration: {formatTime(videoDuration)} ({Math.floor(videoDuration/60)} min {Math.floor(videoDuration%60)} sec)</span>
+                    <span>Duration: {formatTime(videoDuration)}</span>
                     <span>Size: {formatFileSize(videoFile.size)}</span>
                   </>
-                ) : null}
+                ) : (
+                  <span>Video metadata not available.</span>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {!loadingDuration && !durationError && videoDuration && (
+        {!loadingDuration && !durationError && videoDuration !== null && (
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="basic">Basic Settings</TabsTrigger>
               <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basic" className="space-y-4">
+            <TabsContent value="basic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="segment-duration">Segment Duration (seconds)</Label>
@@ -281,21 +337,31 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
                     id="segment-duration"
                     type="number"
                     min="1"
-                    max={maxSegmentDuration}
+                    max={maxSegmentDuration > 0 ? maxSegmentDuration : undefined} // max only if positive
                     value={segmentDuration}
-                    onChange={(e) => setSegmentDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (videoDuration && val >= videoDuration) {
+                            setSegmentDuration(Math.max(1, videoDuration -1 ));
+                        } else {
+                            setSegmentDuration(Math.max(1, val || 1));
+                        }
+                    }}
                     disabled={processing}
                   />
-                  <p className="text-xs text-gray-600">
-                    Max: {maxSegmentDuration}s (Video is {Math.floor(videoDuration/60)} min {Math.floor(videoDuration%60)} sec total)
-                  </p>
+                  {videoDuration && (
+                    <p className="text-xs text-gray-600">
+                      Min: 1s. Max: {formatTime(maxSegmentDuration)} (Video: {formatTime(videoDuration)})
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Output Format</Label>
+                  <Label htmlFor="output-format">Output Format</Label>
                   <select 
+                    id="output-format"
                     value={outputFormat} 
                     onChange={(e) => setOutputFormat(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
                     disabled={processing}
                   >
                     <option value="mp4">MP4 (recommended)</option>
@@ -306,14 +372,14 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="advanced" className="space-y-4">
-              <div className="space-y-4">
+            <TabsContent value="advanced" className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label>Compression Level</Label>
+                  <Label htmlFor="compression-level">Compression Level</Label>
                   <select 
+                    id="compression-level"
                     value={compressionLevel} 
                     onChange={(e) => setCompressionLevel(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
                     disabled={processing}
                   >
                     <option value="low">Low (High Quality, Large Files)</option>
@@ -323,22 +389,21 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
                 </div>
                 
                 {segments.length > 0 && (
-                  <div className="p-3 bg-blue-50 rounded border border-blue-200">
-                    <p className="text-sm text-blue-800">
+                  <div className="p-3 bg-blue-50 rounded border border-blue-200 dark:bg-blue-900 dark:border-blue-700">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
                       Estimated total size: {formatFileSize(totalEstimatedSize)}
                     </p>
                   </div>
                 )}
-              </div>
             </TabsContent>
           </Tabs>
         )}
 
-        {!loadingDuration && !durationError && videoDuration && (
-          <div className="flex gap-2">
+        {!loadingDuration && !durationError && videoDuration !== null && (
+          <div className="flex gap-2 pt-2">
             <Button 
               onClick={generateSegments}
-              disabled={processing}
+              disabled={processing || videoDuration === null}
               variant="outline"
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -346,7 +411,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
             </Button>
             <Button 
               onClick={processSegments}
-              disabled={processing || segments.length === 0}
+              disabled={processing || segments.length === 0 || videoDuration === null}
             >
               {processing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -359,44 +424,44 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         )}
 
         {processing && (
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             <div className="flex justify-between text-sm">
               <span>Processing segment {currentSegment} of {segments.length}</span>
               <span>{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="w-full" />
-            <p className="text-xs text-gray-600">
-              Please keep this tab open during processing. This may take several minutes for large videos.
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              This is a simulation. Actual video processing would take longer.
             </p>
           </div>
         )}
 
         {segments.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <h4 className="font-medium">Video Segments ({segments.length})</h4>
-              <div className="text-xs text-gray-600">
-                Total: {formatTime(segments.reduce((sum, seg) => sum + seg.duration, 0))}
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                Total Duration: {formatTime(segments.reduce((sum, seg) => sum + seg.duration, 0))}
               </div>
             </div>
             
-            <div className="max-h-64 overflow-y-auto space-y-2 border rounded p-2">
+            <div className="max-h-64 overflow-y-auto space-y-2 border rounded p-2 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
               {segments.map((segment, index) => (
-                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700">
                   <div className="flex items-center gap-3">
                     <div className="text-sm font-mono w-8 text-center">{index + 1}</div>
                     <div>
                       <div className="text-sm font-medium">
                         {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
                       </div>
-                      <div className="text-xs text-gray-600">
-                        Duration: {formatTime(segment.duration)} ({Math.floor(segment.duration)}s)
-                        {segment.size && ` • Size: ${formatFileSize(segment.size)}`}
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        Duration: {formatTime(segment.duration)}
+                        {segment.size && ` • Est. Size: ${formatFileSize(segment.size)}`}
                       </div>
                     </div>
                   </div>
-                  <Badge className={getStatusColor(segment.status)}>
-                    {segment.status}
+                  <Badge className={`${getStatusColor(segment.status)} px-2 py-1 text-xs`}>
+                    {segment.status.charAt(0).toUpperCase() + segment.status.slice(1)}
                   </Badge>
                 </div>
               ))}
@@ -404,16 +469,15 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           </div>
         )}
 
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200">
-          <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-          <div className="text-xs text-amber-800">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200 dark:bg-yellow-900 dark:border-yellow-700">
+          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-amber-800 dark:text-yellow-200">
             <p className="font-medium">Production Guidelines:</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Real video duration is automatically detected from file metadata</li>
-              <li>For long videos: Use 30-60 second segments for optimal analysis</li>
-              <li>Higher compression reduces file size but may affect analysis accuracy</li>
-              <li>Processing time scales with video length and compression settings</li>
-              <li>Keep segments under 500MB each for optimal Colab performance</li>
+              <li>Video duration is automatically detected. Ensure valid video files.</li>
+              <li>For optimal analysis, consider 30-60 second segments.</li>
+              <li>Higher compression reduces file size but may impact quality.</li>
+              <li>Segment processing is simulated; real processing time varies.</li>
             </ul>
           </div>
         </div>
@@ -422,7 +486,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   );
 };
 
-// File upload component for demo
+// File upload component for demo (unchanged, assuming it's working)
 const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) => {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -460,37 +524,39 @@ const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) 
       } else {
         showToast('Please select a valid video file', 'error');
       }
+      e.target.value = ''; // Allow selecting the same file again
     }
   };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardContent className="pt-6">
-        <div
+        <form
           className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+            dragActive ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-gray-800' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
           }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+          onSubmit={(e) => e.preventDefault()} // Prevent form submission
         >
           <input
             ref={inputRef}
             type="file"
+            id="file-upload-input" // Add id for label association
             multiple={false}
             accept="video/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
-          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            Drop your video file here, or click to browse
-          </p>
-          <p className="text-sm text-gray-600">
-            Supports MP4, WebM, AVI, MOV, and other video formats
-          </p>
-        </div>
+          <label htmlFor="file-upload-input" className="cursor-pointer"> {/* Make the whole area clickable */}
+            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              Drop your video file here, or click to browse
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Supports MP4, WebM, AVI, MOV, and other common video formats.
+            </p>
+          </label>
+        </form>
       </CardContent>
     </Card>
   );
@@ -501,17 +567,17 @@ export default function VideoSplitterDemo() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
-    console.log('Segments ready:', segments);
-    showToast(`${segments.length} video segments are ready for download!`);
+    console.log('Segments ready for further processing/download:', segments);
+    showToast(`${segments.length} video segments are (simulated) ready!`);
   };
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
-    showToast(`Selected: ${file.name}`);
+    showToast(`Selected video: ${file.name}`);
   };
 
   return (
-    <div className="p-4 min-h-screen bg-gray-100 space-y-4">
+    <div className="p-4 min-h-screen bg-gray-100 dark:bg-gray-900 space-y-6">
       {!selectedFile ? (
         <FileUploader onFileSelect={handleFileSelect} />
       ) : (
@@ -522,7 +588,7 @@ export default function VideoSplitterDemo() {
             size="sm"
             className="mb-2"
           >
-            ← Select Different File
+            ← Change Video File
           </Button>
           <VideoSplitter 
             videoFile={selectedFile}
