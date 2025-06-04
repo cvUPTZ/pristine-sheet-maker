@@ -16,6 +16,7 @@ interface VideoSegment {
   status: 'pending' | 'processing' | 'completed' | 'error';
   file?: File;
   size?: number;
+  fileName?: string;
 }
 
 interface VideoInfo {
@@ -31,7 +32,6 @@ interface VideoSplitterProps {
 
 // Toast replacement for demo
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  // Simple console log for environments without DOM, or use a proper toast library
   console.log(`Toast (${type}): ${message}`);
   if (typeof document !== 'undefined') {
     const toastDiv = document.createElement('div');
@@ -70,17 +70,15 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   // Parse duration from videoInfo if available
   const parseDurationFromInfo = (durationStr: string): number | null => {
     try {
-      // Handle MM:SS format
       if (durationStr.includes(':')) {
         const parts = durationStr.split(':').map(Number);
         if (parts.length === 2) {
-          return parts[0] * 60 + parts[1]; // MM:SS
+          return parts[0] * 60 + parts[1];
         } else if (parts.length === 3) {
-          return parts[0] * 3600 + parts[1] * 60 + parts[2]; // HH:MM:SS
+          return parts[0] * 3600 + parts[1] * 60 + parts[2];
         }
       }
       
-      // Handle plain number (assume seconds)
       const num = parseFloat(durationStr);
       if (!isNaN(num)) {
         return num;
@@ -280,6 +278,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         processedSegments[i].status = 'completed';
         processedSegments[i].file = segmentFile;
         processedSegments[i].size = estimatedSize;
+        processedSegments[i].fileName = segmentFile.name;
         setSegments([...processedSegments]);
         
         const progressPercent = ((i + 1) / processedSegments.length) * 100;
@@ -609,7 +608,7 @@ const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) 
   );
 };
 
-// Demo usage
+// Demo usage - now as default export
 export default function VideoSplitterDemo() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
