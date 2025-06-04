@@ -1,94 +1,102 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileText, BarChart3, Video } from 'lucide-react';
+import { Download, FileText, BarChart3, Video as VideoIconLucide } from 'lucide-react'; // Renamed Video to avoid conflict
 import YouTubeDownloader from './YouTubeDownloader';
 import VideoSplitter from './VideoSplitter';
 import ColabIntegration from './ColabIntegration';
 import { toast } from 'sonner';
+import { VideoInfo, VideoSegment, AnalysisResults } from '@/types';
+import { formatTime, formatFileSize } from '@/utils/formatters';
 
-interface VideoInfo {
-  title: string;
-  duration: string;
-  thumbnail: string;
-  formats: any[];
-}
-
-interface VideoSegment {
-  id: string;
-  startTime: number;
-  endTime: number;
-  duration: number;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  file?: File;
-}
-
-interface AnalysisResults {
-  events: any[];
-  statistics: any;
-  heatmap: string;
-  playerTracking: string;
-}
 
 const VideoAnalysisWorkflow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [downloadedVideo, setDownloadedVideo] = useState<File | null>(null);
-  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [downloadedVideoFile, setDownloadedVideoFile] = useState<File | null>(null);
+  const [mainVideoInfo, setMainVideoInfo] = useState<VideoInfo | null>(null);
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
-  const [analysisResults, setAnalysisResults] = useState<AnalysisResults[]>([]);
+  const [allAnalysisResults, setAllAnalysisResults] = useState<AnalysisResults[]>([]); // Array of results per segment
 
   const steps = [
-    { id: 'download', title: 'Download Video', icon: Video },
+    { id: 'download', title: 'Download Video', icon: VideoIconLucide },
     { id: 'split', title: 'Split Video', icon: FileText },
-    { id: 'process', title: 'Process in Colab', icon: BarChart3 },
+    { id: 'process', title: 'Analyze Segments', icon: BarChart3 },
     { id: 'results', title: 'View Results', icon: Download }
   ];
 
   const handleVideoDownloaded = (videoFile: File, info: VideoInfo) => {
-    setDownloadedVideo(videoFile);
-    setVideoInfo(info);
+    setDownloadedVideoFile(videoFile);
+    setMainVideoInfo(info); // This info contains duration in seconds
+    setVideoSegments([]); // Reset segments if a new video is downloaded
+    setAllAnalysisResults([]); // Reset analysis results
     setCurrentStep(1);
-    toast.success('Video downloaded! Proceed to split the video.');
+    toast.success(`Video "${info.title}" ready! Proceed to split.`);
   };
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
     setVideoSegments(segments);
+    setAllAnalysisResults([]); // Reset analysis results if segments change
     setCurrentStep(2);
-    toast.success('Video segments ready! Proceed to Colab processing.');
+    toast.success(`${segments.length} video segments ready for analysis.`);
   };
 
   const handleAnalysisComplete = (results: AnalysisResults[]) => {
-    setAnalysisResults(results);
+    setAllAnalysisResults(results);
     setCurrentStep(3);
-    toast.success('Analysis complete! View your results.');
+    toast.success(`Analysis complete for ${results.length} segments! View your results.`);
   };
 
   const downloadCombinedResults = () => {
-    const combinedResults = {
-      videoInfo,
-      segments: videoSegments.length,
-      analysisResults,
-      summary: {
-        totalEvents: analysisResults.reduce((sum, result) => sum + result.events.length, 0),
-        averagePossession: analysisResults.reduce((sum, result) => 
-          sum + (result.statistics?.ballPossession?.home || 0), 0) / analysisResults.length
-      }
+    if (!mainVideoInfo) {
+        toast.error("No video information available to download.");
+        return;
+    }
+
+    const summaryStats = {
+        totalEvents: allAnalysisResults.reduce((sum, result) => sum + result.events.length, 0),
+        averageHomePossession: allAnalysisResults.length > 0 ?
+            allAnalysisResults.reduce((sum, result) => sum + (result.statistics?.ballPossession?.home || 0), 0) / allAnalysisResults.filter(r => r.statistics?.ballPossession).length
+            : 0,
     };
 
-    const dataStr = JSON.stringify(combinedResults, null, 2);
+    const combinedData = {
+      videoInfo: {
+        title: mainVideoInfo.title,
+        originalDuration: formatTime(mainVideoInfo.duration),
+        videoId: mainVideoInfo.videoId,
+      },
+      numberOfSegments: videoSegments.length,
+      segments: videoSegments.map(seg => ({
+        id: seg.id,
+        startTime: formatTime(seg.startTime),
+        endTime: formatTime(seg.endTime),
+        duration: formatTime(seg.duration),
+        fileName: seg.fileName,
+        size: seg.size ? formatFileSize(seg.size) : 'N/A',
+      })),
+      analysisSummary: summaryStats,
+      detailedAnalysis: allAnalysisResults.map(result => ({
+        segmentId: result.segmentId,
+        eventCount: result.events.length,
+        events: result.events.map(e => ({...e, timestamp: formatTime(e.timestamp)})),
+        statistics: result.statistics,
+        heatmapUrl: result.heatmapUrl,
+        playerTrackingDataUrl: result.playerTrackingDataUrl,
+      })),
+    };
+
+    const dataStr = JSON.stringify(combinedData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${videoInfo?.title || 'video'}_analysis_results.json`;
+    link.download = `${mainVideoInfo.title.replace(/[^a-zA-Z0-9]/g, '_') || 'video'}_analysis.json`;
     link.click();
     URL.revokeObjectURL(url);
-    
-    toast.success('Results downloaded successfully');
+    toast.success('Combined analysis results downloaded.');
   };
 
   const getStepStatus = (stepIndex: number) => {
@@ -105,142 +113,169 @@ const VideoAnalysisWorkflow: React.FC = () => {
     }
   };
 
+  const activeTabId = steps[currentStep]?.id || 'download';
+  
+  // Calculate overall summary stats for display
+  const totalEventsDetected = allAnalysisResults.reduce((sum, result) => sum + result.events.length, 0);
+  const segmentsSuccessfullyAnalyzed = allAnalysisResults.length;
+
+
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Video Analysis Workflow</CardTitle>
+          <CardTitle className="text-xl md:text-2xl">Advanced Video Analysis Workflow</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-6 space-y-4 sm:space-y-0 sm:space-x-2">
             {steps.map((step, index) => {
               const status = getStepStatus(index);
               const IconComponent = step.icon;
-              
               return (
-                <div key={step.id} className="flex items-center">
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${getStepColor(status)}`}>
+                <React.Fragment key={step.id}>
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs sm:text-sm ${getStepColor(status)}`}>
                     <IconComponent className="h-4 w-4" />
-                    <span className="text-sm font-medium">{step.title}</span>
+                    <span className="font-medium">{step.title}</span>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className="w-8 h-0.5 bg-gray-300 mx-2" />
+                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-1" />
                   )}
-                </div>
+                </React.Fragment>
               );
             })}
           </div>
-          
-          <Progress value={(currentStep / (steps.length - 1)) * 100} className="w-full" />
+          <Progress value={(currentStep / (steps.length - 1)) * 100} className="w-full h-2" />
         </CardContent>
       </Card>
 
-      <Tabs value={steps[currentStep]?.id} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          {steps.map((step, index) => {
-            const IconComponent = step.icon;
-            return (
-              <TabsTrigger 
-                key={step.id} 
-                value={step.id}
-                disabled={index > currentStep}
-                className="flex items-center gap-2"
-              >
-                <IconComponent className="h-4 w-4" />
-                {step.title}
-              </TabsTrigger>
-            );
-          })}
+      <Tabs value={activeTabId} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          {steps.map((step, index) => (
+            <TabsTrigger
+              key={step.id}
+              value={step.id}
+              disabled={index > currentStep}
+              onClick={() => setCurrentStep(index)} // Allow navigating to completed/active steps
+              className="flex items-center gap-2 text-xs sm:text-sm"
+            >
+              <step.icon className="h-4 w-4" />
+              {step.title}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="download" className="space-y-4">
+        <TabsContent value="download" className="mt-6">
           <YouTubeDownloader onVideoDownloaded={handleVideoDownloaded} />
         </TabsContent>
 
-        <TabsContent value="split" className="space-y-4">
-          {downloadedVideo && videoInfo ? (
-            <VideoSplitter 
-              videoFile={downloadedVideo}
-              videoInfo={videoInfo}
+        <TabsContent value="split" className="mt-6">
+          {downloadedVideoFile && mainVideoInfo ? (
+            <VideoSplitter
+              videoFile={downloadedVideoFile}
+              videoInfo={mainVideoInfo}
               onSegmentsReady={handleSegmentsReady}
             />
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">Please download a video first</p>
+            <Card className="text-center py-12">
+              <CardContent>
+                <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">Please download a video first to enable splitting.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="process" className="space-y-4">
+        <TabsContent value="process" className="mt-6">
           {videoSegments.length > 0 ? (
-            <ColabIntegration 
+            <ColabIntegration
               segments={videoSegments}
               onAnalysisComplete={handleAnalysisComplete}
             />
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">Please split the video into segments first</p>
+            <Card className="text-center py-12">
+              <CardContent>
+                <BarChart3 className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">Please split the video into segments to enable analysis.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="results" className="space-y-4">
-          {analysisResults.length > 0 ? (
+        <TabsContent value="results" className="mt-6">
+          {allAnalysisResults.length > 0 && mainVideoInfo ? (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Analysis Results
-                  <Button onClick={downloadCombinedResults}>
+                <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  Analysis Results for "{mainVideoInfo.title}"
+                  <Button onClick={downloadCombinedResults} size="sm">
                     <Download className="h-4 w-4 mr-2" />
-                    Download Results
+                    Download JSON
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h3 className="font-medium text-blue-900">Total Events</h3>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {analysisResults.reduce((sum, result) => sum + result.events.length, 0)}
-                    </p>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-medium text-blue-900 mb-1">Total Events</h3>
+                    <p className="text-3xl font-bold text-blue-600">{totalEventsDetected}</p>
                   </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h3 className="font-medium text-green-900">Segments Processed</h3>
-                    <p className="text-2xl font-bold text-green-600">{analysisResults.length}</p>
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h3 className="font-medium text-green-900 mb-1">Segments Analyzed</h3>
+                    <p className="text-3xl font-bold text-green-600">{segmentsSuccessfullyAnalyzed} / {videoSegments.length}</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <h3 className="font-medium text-purple-900">Video Duration</h3>
-                    <p className="text-2xl font-bold text-purple-600">{videoInfo?.duration}</p>
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <h3 className="font-medium text-purple-900 mb-1">Original Duration</h3>
+                    <p className="text-3xl font-bold text-purple-600">{formatTime(mainVideoInfo.duration)}</p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <h3 className="font-medium">Segment Results</h3>
-                  {analysisResults.map((result, index) => (
-                    <div key={index} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Segment {index + 1}</span>
-                        <Badge>
-                          {result.events.length} events detected
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <p>Ball Possession: Home {result.statistics?.ballPossession?.home || 0}% - Away {result.statistics?.ballPossession?.away || 0}%</p>
-                        <p>Successful Passes: {result.statistics?.passes?.successful || 0} / {result.statistics?.passes?.total || 0}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Segment Details</h3>
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {allAnalysisResults.map((result, index) => {
+                      const segmentMeta = videoSegments.find(s => s.id === result.segmentId);
+                      return(
+                        <div key={result.segmentId || index} className="p-4 border rounded-lg shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+                            <h4 className="font-semibold text-md">
+                              Segment {videoSegments.findIndex(s => s.id === result.segmentId) + 1}
+                              {segmentMeta && ` (${formatTime(segmentMeta.startTime)} - ${formatTime(segmentMeta.endTime)})`}
+                            </h4>
+                            <Badge variant="outline">{result.events.length} events detected</Badge>
+                          </div>
+                          {result.statistics && (
+                            <div className="text-sm text-gray-700 space-y-1">
+                              {result.statistics.ballPossession && 
+                                <p>Possession: <span className="font-medium">H: {result.statistics.ballPossession.home.toFixed(1)}%</span> - <span className="font-medium">A: {result.statistics.ballPossession.away.toFixed(1)}%</span></p>
+                              }
+                              {result.statistics.passes &&
+                                <p>Passes: <span className="font-medium">{result.statistics.passes.successful} / {result.statistics.passes.total}</span> successful</p>
+                              }
+                               {result.statistics.shots !== undefined &&
+                                <p>Shots: <span className="font-medium">{result.statistics.shots}</span></p>
+                              }
+                            </div>
+                          )}
+                           {/* Optionally show links to heatmap/tracking data if available */}
+                           {(result.heatmapUrl || result.playerTrackingDataUrl) && (
+                            <div className="mt-2 text-xs space-x-2">
+                                {result.heatmapUrl && <a href={result.heatmapUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View Heatmap</a>}
+                                {result.playerTrackingDataUrl && <a href={result.playerTrackingDataUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View Tracking Data</a>}
+                            </div>
+                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">No analysis results available yet</p>
+             <Card className="text-center py-12">
+              <CardContent>
+                <Download className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">No analysis results available yet.</p>
+                <p className="text-sm text-gray-400">Complete the previous steps to generate and view results.</p>
               </CardContent>
             </Card>
           )}
