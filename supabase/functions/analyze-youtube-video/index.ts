@@ -1,26 +1,47 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 // CORS headers for browser requests
-const getAllowedOrigin = () => Deno.env.get('FRONTEND_URL') || 'http://localhost:5173';
+const getAllowedOrigin = (origin: string | null) => {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://localhost:5173',
+    /https:\/\/.*\.lovable\.app$/,
+    /https:\/\/.*\.lovable\.dev$/
+  ];
+  
+  if (!origin) return 'http://localhost:5173';
+  
+  for (const allowed of allowedOrigins) {
+    if (typeof allowed === 'string' && origin === allowed) {
+      return origin;
+    }
+    if (allowed instanceof RegExp && allowed.test(origin)) {
+      return origin;
+    }
+  }
+  
+  return 'http://localhost:5173';
+};
 
-const getCorsHeaders = (method: string) => ({
-  'Access-Control-Allow-Origin': getAllowedOrigin(),
+const getCorsHeaders = (req: Request) => ({
+  'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.get('origin')),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Specific to this function
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Credentials': 'true'
 });
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.method);
+  const corsHeaders = getCorsHeaders(req);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { videoUrl, fileUpload = false } = await req.json();
+    const { videoUrl, apiKey, fileUpload = false } = await req.json();
     
     if (!videoUrl && !fileUpload) {
       return new Response(
@@ -50,8 +71,8 @@ serve(async (req) => {
         );
       }
 
-      // Get video metadata from YouTube
-      videoInfo = await getYouTubeVideoInfo(videoId);
+      // Get video metadata from YouTube using provided API key
+      videoInfo = await getYouTubeVideoInfo(videoId, apiKey);
       console.log("Analyzing video:", videoInfo.title);
     } else {
       videoInfo = {
@@ -103,16 +124,52 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Get basic information about the YouTube video
-async function getYouTubeVideoInfo(videoId: string) {
-  // In a production environment, you would use the YouTube Data API
-  // For this demo, we'll return basic info to avoid API key requirements
+// Get basic information about the YouTube video using API key
+async function getYouTubeVideoInfo(videoId: string, apiKey?: string) {
+  if (apiKey) {
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet,contentDetails`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const video = data.items?.[0];
+        
+        if (video) {
+          return {
+            id: videoId,
+            title: video.snippet.title,
+            description: video.snippet.description,
+            duration: video.contentDetails.duration,
+            thumbnail: video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url,
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            thumbnailUrl: video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url,
+            formats: [
+              { quality: '480p', format: 'mp4', size: 'Unknown' },
+              { quality: '720p', format: 'mp4', size: 'Unknown' },
+              { quality: '1080p', format: 'mp4', size: 'Unknown' }
+            ]
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching from YouTube API:', error);
+    }
+  }
+  
+  // Fallback to basic info
   return {
     id: videoId,
     title: `YouTube Video ${videoId}`,
     description: "Video description placeholder",
     url: `https://www.youtube.com/watch?v=${videoId}`,
     thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    formats: [
+      { quality: '480p', format: 'mp4', size: 'Unknown' },
+      { quality: '720p', format: 'mp4', size: 'Unknown' },
+      { quality: '1080p', format: 'mp4', size: 'Unknown' }
+    ]
   };
 }
 
