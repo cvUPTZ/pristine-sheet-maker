@@ -20,7 +20,7 @@ interface TrackerAssignment {
 }
 
 interface EventAssignmentsProps {
-  matchId: string;
+  matchId?: string;
 }
 
 const EventAssignments: React.FC<EventAssignmentsProps> = ({ matchId }) => {
@@ -43,6 +43,8 @@ const EventAssignments: React.FC<EventAssignmentsProps> = ({ matchId }) => {
   }, [matchId]);
 
   const fetchAssignments = async () => {
+    if (!matchId) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -111,7 +113,7 @@ const EventAssignments: React.FC<EventAssignmentsProps> = ({ matchId }) => {
   };
 
   const handleAssignTracker = async () => {
-    if (!selectedTracker || selectedEventTypes.length === 0) {
+    if (!selectedTracker || selectedEventTypes.length === 0 || !matchId) {
       toast.error('Please select a tracker and at least one event type');
       return;
     }
@@ -170,6 +172,24 @@ const EventAssignments: React.FC<EventAssignmentsProps> = ({ matchId }) => {
         : [...prev, eventType]
     );
   };
+
+  if (!matchId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Event Type Assignments
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-gray-500">
+            <p>Please select a match to manage event assignments</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

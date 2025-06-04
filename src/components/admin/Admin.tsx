@@ -474,7 +474,7 @@ const Admin: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="events" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <EventAssignments />
+          <EventAssignments matchId={selectedMatchId || undefined} />
         </TabsContent>
 
         <TabsContent value="battery" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">

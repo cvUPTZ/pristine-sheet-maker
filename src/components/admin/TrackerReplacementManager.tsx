@@ -20,9 +20,13 @@ interface TrackerAssignment {
 
 interface TrackerReplacementManagerProps {
   matchId: string;
+  onReplacementUpdate?: () => Promise<void>;
 }
 
-const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({ matchId }) => {
+const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({ 
+  matchId, 
+  onReplacementUpdate 
+}) => {
   const [assignments, setAssignments] = useState<TrackerAssignment[]>([]);
   const [availableReplacements, setAvailableReplacements] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,29 +71,14 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({ m
           console.error('Error fetching tracker profiles:', profilesError);
         }
 
-        // Get player details if any assigned
-        const playerIds = data?.map(assignment => assignment.assigned_player_id).filter(Boolean) || [];
-        let players: any[] = [];
-        
-        if (playerIds.length > 0) {
-          const { data: playersData, error: playersError } = await supabase
-            .from('players')
-            .select('id, name, jersey_number, position, team_type')
-            .in('id', playerIds);
-
-          if (playersError) {
-            console.error('Error fetching players:', playersError);
-          } else {
-            players = playersData || [];
-          }
-        }
-
+        // For now, we'll skip player details since the players table doesn't exist
+        // This would be where you'd fetch player information if the table existed
         const assignmentsWithDetails = data?.map(assignment => ({
           ...assignment,
           tracker_name: profiles?.find(p => p.id === assignment.tracker_user_id)?.full_name || 'Unknown',
           tracker_email: profiles?.find(p => p.id === assignment.tracker_user_id)?.email || 'Unknown',
           player_name: assignment.assigned_player_id 
-            ? players.find(p => p.id === assignment.assigned_player_id)?.name || 'Unknown Player'
+            ? `Player ID: ${assignment.assigned_player_id}`
             : 'No player assigned'
         })) || [];
 
@@ -145,6 +134,11 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({ m
         return updated;
       });
       fetchAssignments();
+      
+      // Call the callback if provided
+      if (onReplacementUpdate) {
+        await onReplacementUpdate();
+      }
     } catch (error) {
       console.error('Error in handleAssignReplacement:', error);
       toast.error('Failed to assign replacement tracker');
@@ -166,6 +160,11 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({ m
 
       toast.success('Assignment removed successfully');
       fetchAssignments();
+      
+      // Call the callback if provided
+      if (onReplacementUpdate) {
+        await onReplacementUpdate();
+      }
     } catch (error) {
       console.error('Error in handleRemoveReplacement:', error);
       toast.error('Failed to remove assignment');

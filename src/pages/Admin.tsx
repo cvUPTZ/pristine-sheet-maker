@@ -473,7 +473,7 @@ const Admin: React.FC = () => {
                   </p>
                 </div>
                 <div className="w-full">
-                  <EventAssignments />
+                  <EventAssignments matchId={selectedMatchId || undefined} />
                 </div>
               </div>
             </TabsContent>
