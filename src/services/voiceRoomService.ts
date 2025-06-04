@@ -49,7 +49,7 @@ export class VoiceRoomService {
 
       // Check if rooms already exist for this match
       const { data: existingRooms, error: fetchError } = await supabase
-        .from('voice_rooms')
+        .from('voice_rooms' as any)
         .select('*')
         .eq('match_id', matchId)
         .eq('is_active', true);
@@ -76,7 +76,7 @@ export class VoiceRoomService {
       }));
 
       const { data: createdRooms, error: createError } = await supabase
-        .from('voice_rooms')
+        .from('voice_rooms' as any)
         .insert(roomsToCreate)
         .select('*');
 
@@ -100,7 +100,7 @@ export class VoiceRoomService {
 
       // Get room details
       const { data: roomData, error: roomError } = await supabase
-        .from('voice_rooms')
+        .from('voice_rooms' as any)
         .select('*')
         .eq('id', roomId)
         .eq('is_active', true)
@@ -119,7 +119,7 @@ export class VoiceRoomService {
 
       // Check room capacity
       const { count: participantCount } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .select('*', { count: 'exact', head: true })
         .eq('room_id', roomId);
 
@@ -129,7 +129,7 @@ export class VoiceRoomService {
 
       // Add participant (upsert to handle reconnections)
       const { error: joinError } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .upsert({
           room_id: roomId,
           user_id: userId,
@@ -161,7 +161,7 @@ export class VoiceRoomService {
       console.log(`🚪 User ${userId} leaving room ${roomId}`);
 
       const { error } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .delete()
         .eq('room_id', roomId)
         .eq('user_id', userId);
@@ -182,7 +182,7 @@ export class VoiceRoomService {
   async updateParticipantStatus(roomId: string, userId: string, updates: Partial<Pick<VoiceParticipant, 'is_muted' | 'is_speaking' | 'connection_quality'>>): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .update(updates)
         .eq('room_id', roomId)
         .eq('user_id', userId);
@@ -205,7 +205,7 @@ export class VoiceRoomService {
       if (cached) return cached;
 
       const { data, error } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .select(`
           *,
           profiles!voice_room_participants_user_id_fkey (
@@ -250,7 +250,7 @@ export class VoiceRoomService {
     try {
       // Remove participants inactive for more than 5 minutes
       const { error } = await supabase
-        .from('voice_room_participants')
+        .from('voice_room_participants' as any)
         .delete()
         .lt('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 

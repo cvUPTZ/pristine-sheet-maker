@@ -197,7 +197,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                     {isRoomAdmin && <Crown className="h-3 w-3 text-yellow-500" />}
                   </div>
                   <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
-                    {connectedTrackers.length + 1}/{currentRoom.maxParticipants} participants
+                    {connectedTrackers.length + 1}/{currentRoom.max_participants} participants
                   </div>
                   {currentRoom.description && !isMobile && (
                     <div className="text-xs text-gray-500 mt-1">{currentRoom.description}</div>
@@ -259,18 +259,18 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                   <div
                     key={room.id}
                     className={`${isMobile ? 'p-2' : 'p-3'} rounded border ${getRoomColorClass(room.name)} ${
-                      room.currentParticipants >= room.maxParticipants ? 'opacity-50' : ''
+                      (room.participant_count || 0) >= room.max_participants ? 'opacity-50' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'} flex items-center gap-1`}>
                           {room.name}
-                          {room.isPrivate && <Shield className="h-3 w-3 text-blue-500" />}
+                          {room.is_private && <Shield className="h-3 w-3 text-blue-500" />}
                         </div>
                         <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
-                          {room.currentParticipants}/{room.maxParticipants} • 
-                          {room.isPrivate ? ' Private' : ' Open'}
+                          {room.participant_count || 0}/{room.max_participants} • 
+                          {room.is_private ? ' Private' : ' Open'}
                         </div>
                         {!isMobile && room.description && (
                           <div className="text-xs text-gray-500 mt-1 truncate">
@@ -280,7 +280,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                       </div>
                       <Button
                         onClick={() => joinVoiceRoom(room)}
-                        disabled={isConnecting || room.currentParticipants >= room.maxParticipants || isRecovering || networkStatus === 'offline'}
+                        disabled={isConnecting || (room.participant_count || 0) >= room.max_participants || isRecovering || networkStatus === 'offline'}
                         size={isMobile ? "sm" : "sm"}
                         className={`bg-green-600 hover:bg-green-700 text-white ${isMobile ? 'h-6 px-2 text-[10px]' : ''}`}
                       >
