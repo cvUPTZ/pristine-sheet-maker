@@ -152,10 +152,14 @@ export const useVoiceCollaboration = ({
     }
 
     setIsConnecting(true);
-    setRetryAttempts(0);
+    // Reset retry attempts for a fresh join sequence, unless it's a retry itself.
+    // The retry logic below will set setRetryAttempts(prev => prev + 1)
+    // For an initial attempt, it should be 0.
+    // We will log the attempt number inside the try-catch block.
 
     try {
-      console.log('🚪 Attempting to join room:', room.name, 'as', userRole);
+      const currentAttempt = retryAttempts + 1;
+      console.log(`[useVoiceCollaboration.joinVoiceRoom] Attempt #${currentAttempt} to join room: ${room.name} (ID: ${room.id}) as ${userRole}`);
       
       const result = await voiceService.current.joinRoom(room.id, userId, userRole);
       
@@ -181,40 +185,46 @@ export const useVoiceCollaboration = ({
         // Start fetching participants
         fetchRoomParticipants(result.room.id);
         
-        console.log('✅ Successfully joined room:', result.room.name);
+        console.log(`[useVoiceCollaboration.joinVoiceRoom] Successfully joined room: ${result.room.name} (ID: ${result.room.id}) after ${currentAttempt} attempt(s).`);
+        setRetryAttempts(0); // Reset retries on success
       } else {
+        console.error(`[useVoiceCollaboration.joinVoiceRoom] Attempt #${currentAttempt} failed to join room ${room.name} (ID: ${room.id}). Error: ${result.error}`);
         throw new Error(result.error || 'Failed to join room');
       }
     } catch (error: any) {
-      console.error('❌ Failed to join voice room:', error);
+      const currentAttempt = retryAttempts + 1; // error is caught, so this is the current attempt number that failed
+      console.error(`[useVoiceCollaboration.joinVoiceRoom] Error during attempt #${currentAttempt} to join room ${room.name} (ID: ${room.id}):`, error.message);
       
-      if (retryAttempts < 3) {
-        setRetryAttempts(prev => prev + 1);
+      if (currentAttempt < 3) {
+        setRetryAttempts(prev => prev + 1); // This will become currentAttempt for the next try.
         setIsRecovering(true);
         
         toast({
           title: "Retrying Connection",
-          description: `Attempt ${retryAttempts + 1}/3 - ${error.message}`,
+          description: `Attempt ${currentAttempt + 1}/3 - ${error.message}`, // Log *next* attempt number
           variant: "default"
         });
+        console.log(`[useVoiceCollaboration.joinVoiceRoom] Scheduling retry attempt #${currentAttempt + 1} for room ${room.name} (ID: ${room.id}). Error: ${error.message}`);
         
         // Shorter retry delay
         setTimeout(() => {
           setIsRecovering(false);
-          joinVoiceRoom(room);
+          joinVoiceRoom(room); // This will use the updated retryAttempts
         }, 2000);
       } else {
+        console.error(`[useVoiceCollaboration.joinVoiceRoom] All ${currentAttempt} attempts to join room ${room.name} (ID: ${room.id}) failed. Final error: ${error.message}`);
         toast({
           title: "Connection Failed",
           description: "Unable to join voice room. The system may be in demonstration mode.",
           variant: "default"
         });
         setIsRecovering(false);
+        setRetryAttempts(0); // Reset after all attempts failed
       }
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, userId, userRole, retryAttempts, onRoomChanged, toast]);
+  }, [isConnecting, userId, userRole, retryAttempts, onRoomChanged, toast, joinVoiceRoom]);
 
   const leaveVoiceRoom = useCallback(async () => {
     if (!currentRoom) return;
