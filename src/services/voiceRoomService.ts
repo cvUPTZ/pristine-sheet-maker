@@ -8,6 +8,7 @@ export interface VoiceRoom {
   match_id: string;
   max_participants: number;
   is_private: boolean;
+  is_active: boolean;
   permissions: string[];
   participant_count?: number;
   created_at?: string;
@@ -20,7 +21,14 @@ export interface VoiceRoomParticipant {
   user_id: string;
   joined_at: string;
   is_muted: boolean;
+  is_speaking: boolean;
+  is_connected: boolean;
+  connection_quality: 'excellent' | 'good' | 'fair' | 'poor';
+  audio_level: number;
   role?: string;
+  user_name?: string;
+  user_email?: string;
+  user_role?: string;
 }
 
 interface RetryOptions {
@@ -102,11 +110,11 @@ export class VoiceRoomService {
     }
 
     try {
-      // Use raw SQL query to check for existing voice rooms
+      // Try to query voice_rooms table directly
       const { data: existingRooms, error: fetchError } = await supabase
-        .rpc('custom_query', { 
-          query_text: `SELECT * FROM voice_rooms WHERE match_id = '${matchId}'` 
-        });
+        .from('voice_rooms' as any)
+        .select('*')
+        .eq('match_id', matchId);
 
       if (fetchError) {
         console.warn('Voice rooms table may not exist, creating mock data:', fetchError);
@@ -119,6 +127,7 @@ export class VoiceRoomService {
             match_id: matchId,
             max_participants: 20,
             is_private: false,
+            is_active: true,
             permissions: ['all'],
             participant_count: 0
           },
@@ -129,6 +138,7 @@ export class VoiceRoomService {
             match_id: matchId,
             max_participants: 10,
             is_private: true,
+            is_active: true,
             permissions: ['admin', 'coordinator'],
             participant_count: 0
           },
@@ -139,6 +149,7 @@ export class VoiceRoomService {
             match_id: matchId,
             max_participants: 15,
             is_private: false,
+            is_active: true,
             permissions: ['admin', 'coordinator', 'tracker'],
             participant_count: 0
           }
@@ -148,10 +159,14 @@ export class VoiceRoomService {
         return mockRooms;
       }
 
-      if (existingRooms && existingRooms.length > 0) {
+      if (existingRooms && Array.isArray(existingRooms) && existingRooms.length > 0) {
         console.log(`Found ${existingRooms.length} existing rooms for match ${matchId}`);
         this.setCacheExpiry(cacheKey);
-        return existingRooms;
+        return existingRooms.map(room => ({
+          ...room,
+          is_active: room.is_active ?? true,
+          participant_count: room.participant_count ?? 0
+        }));
       }
 
       // If no rooms exist, return empty array for now
@@ -169,6 +184,7 @@ export class VoiceRoomService {
           match_id: matchId,
           max_participants: 20,
           is_private: false,
+          is_active: true,
           permissions: ['all'],
           participant_count: 0
         }
@@ -181,11 +197,12 @@ export class VoiceRoomService {
     return this.withRetry(
       async () => {
         try {
-          // Try to use RPC call first
+          // Try to query voice_rooms table directly
           const { data: roomsData, error } = await supabase
-            .rpc('custom_query', { 
-              query_text: `SELECT * FROM voice_rooms WHERE match_id = '${matchId}' ORDER BY created_at ASC` 
-            });
+            .from('voice_rooms' as any)
+            .select('*')
+            .eq('match_id', matchId)
+            .order('created_at', { ascending: true });
 
           if (error) {
             console.warn('Could not fetch from voice_rooms table:', error);
@@ -193,12 +210,13 @@ export class VoiceRoomService {
             return this.initializeRoomsForMatch(matchId);
           }
 
-          if (!roomsData) return [];
+          if (!roomsData || !Array.isArray(roomsData)) return [];
 
           // Get participant counts for each room (simulated for now)
-          const roomsWithCounts = roomsData.map((room: VoiceRoom) => ({
+          const roomsWithCounts = roomsData.map((room: any) => ({
             ...room,
-            participant_count: 0 // Mock participant count
+            is_active: room.is_active ?? true,
+            participant_count: room.participant_count ?? 0
           }));
 
           roomsWithCounts.forEach((room: VoiceRoom) => {
@@ -230,6 +248,7 @@ export class VoiceRoomService {
           match_id: roomId.split('-')[0] || 'unknown',
           max_participants: 20,
           is_private: false,
+          is_active: true,
           permissions: ['all'],
           participant_count: 0
         };
