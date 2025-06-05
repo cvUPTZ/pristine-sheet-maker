@@ -25,8 +25,12 @@ interface Participant {
   role?: string;
 }
 
-interface VoiceRoom extends Database['public']['Tables']['voice_rooms']['Row'] {
-  participant_count?: number; // Add this field as it's used by the hook
+// Define an alias for the Row type
+type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
+
+// Extend the alias
+interface VoiceRoom extends VoiceRoomRow {
+  participant_count?: number;
 }
 
 interface SandboxTokenDetails {
