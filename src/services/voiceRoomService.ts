@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -56,8 +57,8 @@ export class VoiceRoomService {
   private roomCache = new Map<string, VoiceRoom>();
   private participantCache = new Map<string, VoiceParticipant[]>();
   private databaseAvailable: boolean | null = null;
-  private roomSubscription: any = null; // Consider more specific Supabase channel type
-  private participantSubscription: any = null; // Consider more specific Supabase channel type
+  private roomSubscription: any = null;
+  private participantSubscription: any = null;
 
   private async withRetry<T>(
     operation: () => Promise<{ data?: T; error?: any; count?: number | null }>,
@@ -74,8 +75,6 @@ export class VoiceRoomService {
         console.log(`[VoiceRoomService.withRetry] Attempt ${attempts}/${maxAttempts} for ${operationName}`);
         const result = await operation();
         if (result.error) {
-          // Don't throw result.error directly if it's a Supabase error object,
-          // throw new Error(result.error.message || 'Supabase operation failed') to ensure it's an Error instance
           throw result.error; 
         }
         console.log(`[VoiceRoomService.withRetry] ${operationName} successful on attempt ${attempts}`);
@@ -88,9 +87,6 @@ export class VoiceRoomService {
         if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.toLowerCase().includes('failed to fetch')) {
           console.warn('[VoiceRoomService.withRetry] Network error detected, switching to offline mode');
           this.databaseAvailable = false;
-          // Do not break here if we want retries for transient network issues.
-          // Only break if this specific attempt was due to network, and we want to stop retrying for network errors.
-          // Or, if after maxAttempts, this.databaseAvailable = false if the lastError was network-related.
         }
         
         if (attempts < maxAttempts) {
@@ -99,7 +95,6 @@ export class VoiceRoomService {
       }
     }
     
-    // After all attempts, if lastError suggests network issue, set databaseAvailable to false.
     if (lastError) {
         const finalErrorMessage = lastError instanceof Error ? lastError.message : (typeof lastError === 'object' && lastError !== null && 'message' in lastError ? String((lastError as any).message) : String(lastError));
         if (finalErrorMessage.includes('fetch') || finalErrorMessage.includes('network') || finalErrorMessage.includes('timeout') || finalErrorMessage.toLowerCase().includes('failed to fetch')) {
@@ -137,12 +132,15 @@ export class VoiceRoomService {
     try {
       console.log('[VoiceRoomService.testDatabaseConnection] Testing database connection...');
       
+      // Use type casting to bypass TypeScript errors for voice_rooms table
+      const testQuery = (supabase as any).from('voice_rooms').select('id').limit(1);
+      
       const { error } = await Promise.race([
-        supabase.from('voice_rooms').select('id').limit(1), // Using supabase directly if types are good
+        testQuery,
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Connection timeout')), 5000)
         )
-      ]) as { data: any; error: any }; // Added explicit type for the race result
+      ]) as { data: any; error: any };
       
       if (error) {
         console.warn('[VoiceRoomService.testDatabaseConnection] Database not available, using demo mode:', error.message);
@@ -178,7 +176,7 @@ export class VoiceRoomService {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'voice_rooms' },
-        (payload: any) => { // Consider typing payload with SupabaseRealtimePayload
+        (payload: any) => {
           console.log('[VoiceRoomService.subscribeToRoomChanges] Received real-time event for voice_rooms:', payload);
           switch (payload.eventType) {
             case 'INSERT':
@@ -188,12 +186,11 @@ export class VoiceRoomService {
               console.log(`[VoiceRoomService.subscribeToRoomChanges] INSERT: Room ${newRoom.id} added to cache.`);
               break;
             case 'UPDATE':
-              const updatedRoomPayload = payload.new as VoiceRoom; // payload.new should conform to VoiceRoom
+              const updatedRoomPayload = payload.new as VoiceRoom;
               const existingRoom = this.roomCache.get(updatedRoomPayload.id);
               
               const participantCount = updatedRoomPayload.participant_count ?? existingRoom?.participant_count ?? 0;
               
-              // Ensure existingRoom is an object before spreading, or provide a default
               const baseRoom = existingRoom ? { ...existingRoom } : {};
               
               this.roomCache.set(updatedRoomPayload.id, { 
@@ -204,7 +201,7 @@ export class VoiceRoomService {
               console.log(`[VoiceRoomService.subscribeToRoomChanges] UPDATE: Room ${updatedRoomPayload.id} updated in cache.`);
               break;
             case 'DELETE':
-              const deletedRoom = payload.old as { id: string }; // old might not be full VoiceRoom
+              const deletedRoom = payload.old as { id: string };
               if (deletedRoom && deletedRoom.id) {
                 this.roomCache.delete(deletedRoom.id);
                 this.participantCache.delete(deletedRoom.id); 
@@ -242,7 +239,7 @@ export class VoiceRoomService {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'voice_room_participants' },
-        (payload: any) => { // Consider typing payload
+        (payload: any) => {
           console.log('[VoiceRoomService.subscribeToParticipantChanges] Received real-time event for voice_room_participants:', payload);
           let roomId: string | undefined;
           switch (payload.eventType) {
@@ -251,9 +248,8 @@ export class VoiceRoomService {
               if (roomId) {
                 const room = this.roomCache.get(roomId);
                 if (room) {
-                  // Ensure participant_count is a number before incrementing
                   room.participant_count = (typeof room.participant_count === 'number' ? room.participant_count : 0) + 1;
-                  this.roomCache.set(roomId, { ...room }); // Spread to ensure change detection if needed by frameworks
+                  this.roomCache.set(roomId, { ...room });
                   console.log(`[VoiceRoomService.subscribeToParticipantChanges] INSERT: Incremented participant_count for room ${roomId}. New count: ${room.participant_count}`);
                 }
                 this.participantCache.delete(roomId); 
@@ -266,7 +262,7 @@ export class VoiceRoomService {
                 const room = this.roomCache.get(roomId);
                 if (room && typeof room.participant_count === 'number' && room.participant_count > 0) {
                   room.participant_count -= 1;
-                  this.roomCache.set(roomId, { ...room }); // Spread to ensure change detection
+                  this.roomCache.set(roomId, { ...room });
                   console.log(`[VoiceRoomService.subscribeToParticipantChanges] DELETE: Decremented participant_count for room ${roomId}. New count: ${room.participant_count}`);
                 }
                 this.participantCache.delete(roomId);
@@ -350,17 +346,19 @@ export class VoiceRoomService {
         is_active: true
       };
 
-      const result = await this.withRetry<{data: Omit<VoiceRoom, 'participant_count'>}>( // Type T more specifically for withRetry data
-        () => supabase // Removed (supabase as any)
-          .from('voice_rooms')
-          .insert(insertData)
-          .select() // Selects all columns by default for the inserted row
-          .single(),
+      const result = await this.withRetry<VoiceRoom>(
+        async () => {
+          const response = await (supabase as any)
+            .from('voice_rooms')
+            .insert(insertData)
+            .select()
+            .single();
+          return response;
+        },
         'createRoom'
       );
       
-      // Check for error or if data is not a valid object
-      if (result.error || !result.data || typeof result.data !== 'object') {
+      if (result.error || !result.data) {
         console.error('❌ Database error creating room or no data returned, falling back to demo mode:', result.error || 'No data returned');
         const mockRoom: VoiceRoom = {
           id: `demo-db-fail-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -380,13 +378,9 @@ export class VoiceRoomService {
         return { success: true, room: mockRoom };
       }
 
-      // Now result.data is confirmed to be an object (and typed via withRetry if Supabase types are good)
-      // Cast explicitly for clarity if Supabase doesn't auto-infer VoiceRoom structure fully.
-      const newRoomData = result.data as Omit<VoiceRoom, 'participant_count'>;
-
       const newRoom: VoiceRoom = {
-        ...newRoomData, // Spread is safe here
-        participant_count: 0 // Explicitly set participant_count as it's not in insertData
+        ...result.data,
+        participant_count: 0
       };
 
       this.roomCache.set(newRoom.id, newRoom);
@@ -413,43 +407,46 @@ export class VoiceRoomService {
         return cachedRooms;
       }
 
-      const result = await this.withRetry<VoiceRoom[]>( // Expecting an array of VoiceRoom
-        () => supabase // Removed (supabase as any)
-          .from('voice_rooms')
-          .select('*')
-          .eq('match_id', matchId)
-          .eq('is_active', true)
-          .order('priority', { ascending: true }),
+      const result = await this.withRetry<VoiceRoom[]>(
+        async () => {
+          const response = await (supabase as any)
+            .from('voice_rooms')
+            .select('*')
+            .eq('match_id', matchId)
+            .eq('is_active', true)
+            .order('priority', { ascending: true });
+          return response;
+        },
         'getRooms'
       );
 
-      if (result.error || !result.data) { // Check for error or no data
+      if (result.error || !result.data) {
         console.error('❌ Database error retrieving rooms or no data, using cached data:', result.error || 'No data returned');
         const cachedRooms = Array.from(this.roomCache.values())
           .filter(room => room.match_id === matchId && room.is_active);
         return cachedRooms;
       }
       
-      // Ensure roomsData is an array of VoiceRoom objects
-      // result.data is now expected to be VoiceRoom[] due to withRetry<VoiceRoom[]> type hint
       const roomsData: VoiceRoom[] = Array.isArray(result.data) 
-        ? result.data.filter((r): r is VoiceRoom => r && typeof r === 'object') // Type guard
+        ? result.data.filter((r): r is VoiceRoom => r && typeof r === 'object')
         : [];
 
       const roomsWithCounts = await Promise.all(
-        roomsData.map(async (room: VoiceRoom) => { // <<< FIXED: room is now VoiceRoom
+        roomsData.map(async (room: VoiceRoom) => {
           const countResult = await this.withRetry(
-            () => supabase // Removed (supabase as any)
-              .from('voice_room_participants')
-              .select('*', { count: 'exact', head: true })
-              .eq('room_id', room.id),
-            `getParticipantCountForRoom_${room.id}` // More specific operation name
+            async () => {
+              const response = await (supabase as any)
+                .from('voice_room_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('room_id', room.id);
+              return response;
+            },
+            `getParticipantCountForRoom_${room.id}`
           );
 
-          // Spread is now safe as 'room' is VoiceRoom
           const roomWithCount: VoiceRoom = {
             ...room, 
-            participant_count: countResult.count ?? room.participant_count ?? 0 // Fallback to existing participant_count if count fails
+            participant_count: countResult.count ?? room.participant_count ?? 0
           };
 
           this.roomCache.set(room.id, roomWithCount);
@@ -471,7 +468,7 @@ export class VoiceRoomService {
     try {
       console.log('🔧 Updating room:', roomId, updates);
 
-      const { data, error } = await supabase // Removed (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('voice_rooms')
         .update(updates)
         .eq('id', roomId)
@@ -488,28 +485,21 @@ export class VoiceRoomService {
         return { success: false, error: 'No valid data returned from update' };
       }
       
-      // Data is confirmed to be an object. Cast for strong typing.
-      const updatedDbData = data as Omit<VoiceRoom, 'participant_count'>; // Assuming DB doesn't return participant_count on update
-
       const existingCachedRoom = this.roomCache.get(roomId);
 
       const updatedRoom: VoiceRoom = {
-        // Spreading db data ensures all updated fields are included
-        ...updatedDbData,
-        id: updatedDbData.id || roomId, // Ensure ID is present
-        // Preserve participant_count from cache, as room updates might not include it from DB
+        id: data.id || roomId,
+        match_id: data.match_id || existingCachedRoom?.match_id || '',
+        name: data.name || existingCachedRoom?.name || 'Unknown Room',
+        description: data.description !== undefined ? data.description : (existingCachedRoom?.description !== undefined ? existingCachedRoom.description : null),
+        max_participants: data.max_participants || existingCachedRoom?.max_participants || 25,
+        priority: data.priority || existingCachedRoom?.priority || 1,
+        permissions: data.permissions || existingCachedRoom?.permissions || ['all'],
+        is_private: typeof data.is_private === 'boolean' ? data.is_private : (typeof existingCachedRoom?.is_private === 'boolean' ? existingCachedRoom.is_private : false),
+        is_active: typeof data.is_active === 'boolean' ? data.is_active : (typeof existingCachedRoom?.is_active === 'boolean' ? existingCachedRoom.is_active : true),
         participant_count: existingCachedRoom?.participant_count ?? 0,
-        // Ensure all required fields from VoiceRoom are present, falling back if necessary
-        match_id: updatedDbData.match_id || existingCachedRoom?.match_id || '',
-        name: updatedDbData.name || existingCachedRoom?.name || 'Unknown Room',
-        description: updatedDbData.description !== undefined ? updatedDbData.description : (existingCachedRoom?.description !== undefined ? existingCachedRoom.description : null),
-        max_participants: updatedDbData.max_participants || existingCachedRoom?.max_participants || 25,
-        priority: updatedDbData.priority || existingCachedRoom?.priority || 1,
-        permissions: updatedDbData.permissions || existingCachedRoom?.permissions || ['all'],
-        is_private: typeof updatedDbData.is_private === 'boolean' ? updatedDbData.is_private : (typeof existingCachedRoom?.is_private === 'boolean' ? existingCachedRoom.is_private : false),
-        is_active: typeof updatedDbData.is_active === 'boolean' ? updatedDbData.is_active : (typeof existingCachedRoom?.is_active === 'boolean' ? existingCachedRoom.is_active : true),
-        created_at: updatedDbData.created_at || existingCachedRoom?.created_at,
-        updated_at: updatedDbData.updated_at || new Date().toISOString(),
+        created_at: data.created_at || existingCachedRoom?.created_at,
+        updated_at: data.updated_at || new Date().toISOString(),
       };
 
       this.roomCache.set(roomId, updatedRoom);
@@ -528,20 +518,16 @@ export class VoiceRoomService {
     try {
       console.log('🗑️ Deleting room:', roomId);
 
-      // First remove all participants
-      // Consider using withRetry for these DB operations too
-      const { error: participantError } = await supabase // Removed (supabase as any)
+      const { error: participantError } = await (supabase as any)
         .from('voice_room_participants')
         .delete()
         .eq('room_id', roomId);
 
       if (participantError) {
         console.error('❌ Database error deleting room participants:', participantError);
-        // Decide if we should proceed to delete the room or return error
-        // For now, we log and proceed.
       }
 
-      const { error } = await supabase // Removed (supabase as any)
+      const { error } = await (supabase as any)
         .from('voice_rooms')
         .delete()
         .eq('id', roomId);
@@ -568,10 +554,9 @@ export class VoiceRoomService {
     try {
       console.log(`🏗️ Initializing voice rooms for match: ${matchId}`);
 
-      // Check existing rooms first, only fetch if DB is available
       const isDatabaseAvailable = await this.testDatabaseConnection();
       if (isDatabaseAvailable) {
-        const existingRooms = await this.getRooms(matchId); // getRooms already handles DB availability
+        const existingRooms = await this.getRooms(matchId);
         if (existingRooms.length > 0) {
           console.log('✅ Using existing rooms for match from database');
           return existingRooms;
@@ -585,11 +570,9 @@ export class VoiceRoomService {
         }
       }
 
-
       const modeText = isDatabaseAvailable ? 'Database' : 'Demo';
       const templateRooms: VoiceRoom[] = [];
       
-      // Simplified defaultTemplates for this example
       const defaultTemplates = {
         main: {
           name: `Main Voice Room`,
@@ -616,7 +599,7 @@ export class VoiceRoomService {
           description: `${template.description} - ${modeText} Mode`,
           max_participants: template.maxParticipants || 25,
           priority: template.priority || 1,
-          permissions: ['all'], // Defaulting permissions
+          permissions: ['all'],
           is_private: template.isPrivate || false
         });
 
@@ -632,8 +615,7 @@ export class VoiceRoomService {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('❌ Failed to initialize voice rooms:', errorMessage);
       
-      // Fallback: create a single demo room if initialization fails badly
-      const fallbackResult = await this.createRoom({ // This will use demo mode if DB is unavailable
+      const fallbackResult = await this.createRoom({
         match_id: matchId,
         name: 'Default Voice Room (Fallback)',
         description: 'Default voice collaboration room - Fallback Mode',
@@ -661,16 +643,15 @@ export class VoiceRoomService {
           const functionResult = await Promise.race([
             functionInvocation,
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Edge function timeout')), 10000) // 10s timeout
+              setTimeout(() => reject(new Error('Edge function timeout')), 10000)
             )
           ]) as { data?: { room?: VoiceRoom, error?: string }; error?: any };
 
-
-          if (functionResult.error) { // Network error or timeout for the function call itself
+          if (functionResult.error) {
             throw functionResult.error;
           }
 
-          if (functionResult.data && functionResult.data.error) { // Error reported by the function's logic
+          if (functionResult.data && functionResult.data.error) {
             throw new Error(functionResult.data.error);
           }
 
@@ -679,14 +660,12 @@ export class VoiceRoomService {
           }
 
           const roomFromFunction = functionResult.data.room as VoiceRoom;
-          // Ensure participant_count is handled if edge function might not set it
           if (roomFromFunction.participant_count === undefined) {
              const existingCached = this.roomCache.get(roomId);
-             roomFromFunction.participant_count = existingCached?.participant_count; // Try to get from cache
-             // Or fetch if critical: await this.getRoomParticipants(roomId)).length;
+             roomFromFunction.participant_count = existingCached?.participant_count;
           }
 
-          this.roomCache.set(roomId, roomFromFunction); // Update cache with data from function
+          this.roomCache.set(roomId, roomFromFunction);
           
           console.log(`[VoiceRoomService.joinRoom] User ${userId} joined room ${roomFromFunction.name} successfully via Edge Function. Room ID: ${roomId}`);
           return { success: true, room: roomFromFunction };
@@ -694,18 +673,15 @@ export class VoiceRoomService {
         } catch (edgeFunctionError: unknown) {
           const errorMessage = edgeFunctionError instanceof Error ? edgeFunctionError.message : String(edgeFunctionError);
           console.warn(`[VoiceRoomService.joinRoom] Edge Function failed ('${errorMessage}'), falling back to client-side logic / demo mode.`);
-          // Fall through to client-side/demo mode logic
         }
       }
 
-      // Demo mode or fallback client-side logic
       console.log(`[VoiceRoomService.joinRoom] Client-side/Demo mode: Simulating room join. Room ID: ${roomId}, User ID: ${userId}`);
 
       let room = this.roomCache.get(roomId);
       if (!room) {
-        // Try to fetch the room if not in cache and DB might be available (e.g., edge function failed but DB is up)
         if (isDatabaseAvailable) {
-            const rooms = await this.getRooms(roomId.split('-')[0]); // Assuming matchId can be derived or room must exist
+            const rooms = await this.getRooms(roomId.split('-')[0]);
             room = rooms.find(r => r.id === roomId);
         }
         if(!room) {
@@ -719,14 +695,13 @@ export class VoiceRoomService {
         return { success: false, error: 'Room is not active' };
       }
 
-      // For demo, manage participants in participantCache
       let participants = this.participantCache.get(roomId);
       if (!participants) {
         participants = [];
         this.participantCache.set(roomId, participants);
       }
       
-      let currentParticipantCount = participants.length; // Reflects client-side cache of participants
+      let currentParticipantCount = participants.length;
 
       if (currentParticipantCount >= room.max_participants) {
         console.warn(`[VoiceRoomService.joinRoom] Demo mode: Room is full. Current: ${currentParticipantCount}, Max: ${room.max_participants}. Room ID: ${roomId}`);
@@ -747,10 +722,9 @@ export class VoiceRoomService {
           last_activity: new Date().toISOString(),
           connection_quality: 'good'
         });
-        currentParticipantCount = participants.length; // Update count
+        currentParticipantCount = participants.length;
       }
       
-      // Update the room's participant_count in the roomCache
       const updatedRoom = { ...room, participant_count: currentParticipantCount };
       this.roomCache.set(roomId, updatedRoom);
 
@@ -771,8 +745,7 @@ export class VoiceRoomService {
       const isDatabaseAvailable = await this.testDatabaseConnection();
 
       if (isDatabaseAvailable) {
-        // Consider using Edge function for leaveRoom as well for consistency and transactional updates
-        const { error } = await supabase // Removed (supabase as any)
+        const { error } = await (supabase as any)
           .from('voice_room_participants')
           .delete()
           .eq('room_id', roomId)
@@ -780,15 +753,13 @@ export class VoiceRoomService {
 
         if (error) {
           console.error('❌ Error removing participant from DB:', error);
-          // Don't necessarily return false if client-side cache can be updated
         }
       }
 
-      // Update caches regardless of DB operation outcome for responsiveness
       const room = this.roomCache.get(roomId);
       if (room && typeof room.participant_count === 'number' && room.participant_count > 0) {
         room.participant_count = Math.max(0, room.participant_count - 1);
-        this.roomCache.set(roomId, { ...room }); // Spread for change detection
+        this.roomCache.set(roomId, { ...room });
       }
 
       const participants = this.participantCache.get(roomId);
@@ -796,12 +767,12 @@ export class VoiceRoomService {
         const index = participants.findIndex(p => p.user_id === userId);
         if (index > -1) {
           participants.splice(index, 1);
-          this.participantCache.set(roomId, [...participants]); // Update participant cache
+          this.participantCache.set(roomId, [...participants]);
         }
       }
 
       console.log(`✅ User ${userId} left room ${roomId} (cache updated)`);
-      return true; // Return true if cache is updated, even if DB fails (for demo/offline resilience)
+      return true;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`❌ Failed to leave room:`, errorMessage);
@@ -815,7 +786,7 @@ export class VoiceRoomService {
       const isDatabaseAvailable = await this.testDatabaseConnection();
 
       if (isDatabaseAvailable) {
-        const { error } = await supabase // Removed (supabase as any)
+        const { error } = await (supabase as any)
           .from('voice_room_participants')
           .update(updates)
           .eq('room_id', roomId)
@@ -823,21 +794,19 @@ export class VoiceRoomService {
 
         if (error) {
           console.error('❌ Error updating participant status in DB:', error);
-          // Proceed to update cache anyway for demo/offline mode
         }
       }
 
-      // Update client-side participant cache
       const participants = this.participantCache.get(roomId);
       const participant = participants?.find(p => p.user_id === userId);
       if (participant) {
         Object.assign(participant, updates, { last_activity: new Date().toISOString() });
-        this.participantCache.set(roomId, [...(participants || [])]); // Ensure new array for reactivity
+        this.participantCache.set(roomId, [...(participants || [])]);
         console.log(`✅ Participant status updated in cache for user ${userId}`);
         return true;
       } else {
         console.warn(`[VoiceRoomService.updateParticipantStatus] Participant ${userId} not found in cache for room ${roomId}`);
-        return false; // Participant not found in cache
+        return false;
       }
 
     } catch (error: unknown) {
@@ -851,7 +820,7 @@ export class VoiceRoomService {
     try {
       const isDatabaseAvailable = await this.testDatabaseConnection();
       if (isDatabaseAvailable) {
-        const { data, error } = await supabase // Removed (supabase as any)
+        const { data, error } = await (supabase as any)
           .from('voice_room_participants')
           .select(`
             id, room_id, user_id, user_role, is_muted, is_speaking, joined_at, last_activity, connection_quality,
@@ -864,13 +833,12 @@ export class VoiceRoomService {
 
         if (error) {
           console.error('❌ Error getting room participants from DB:', error);
-          // Fall through to return cached data if available
         } else if (data) {
           const participants = (data || []).map((p: any) => ({
             ...p,
             user_name: p.profiles?.full_name,
             user_email: p.profiles?.email,
-            profiles: undefined // Remove the nested profiles object after extracting info
+            profiles: undefined
           } as VoiceParticipant));
           this.participantCache.set(roomId, participants);
           console.log(`[VoiceRoomService.getRoomParticipants] Fetched ${participants.length} participants from DB for room ${roomId}`);
@@ -878,22 +846,18 @@ export class VoiceRoomService {
         }
       }
 
-      // Fallback to cache if DB unavailable or DB fetch failed
       const cachedParticipants = this.participantCache.get(roomId) || [];
       console.log(`[VoiceRoomService.getRoomParticipants] Returning ${cachedParticipants.length} participants from cache for room ${roomId}`);
       return cachedParticipants;
 
-    } catch (error: unknown)
-{
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`❌ Failed to get room participants:`, errorMessage);
-      return this.participantCache.get(roomId) || []; // Return cached on error
+      return this.participantCache.get(roomId) || [];
     }
   }
 
   getAvailableRooms(userRole: string): VoiceRoom[] {
-    // This method primarily uses the cache, which is fine.
-    // Ensure participant_count is reasonably up-to-date if displayed.
     return Array.from(this.roomCache.values())
       .filter(room => room.is_active && (room.permissions.includes(userRole) || room.permissions.includes('all')))
       .sort((a, b) => a.priority - b.priority);
@@ -910,7 +874,7 @@ export class VoiceRoomService {
       console.log('🧹 Cleaning up inactive participants from DB');
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       
-      const { error } = await supabase // Removed (supabase as any)
+      const { error } = await (supabase as any)
         .from('voice_room_participants')
         .delete()
         .lt('last_activity', fiveMinutesAgo);
@@ -919,8 +883,6 @@ export class VoiceRoomService {
         console.error('❌ Error cleaning up participants from DB:', error);
       } else {
         console.log('✅ Cleaned up inactive participants from DB');
-        // Optionally, re-fetch participants or update counts for affected rooms if necessary,
-        // though subscriptions should handle this.
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -938,7 +900,7 @@ export class VoiceRoomService {
     console.log('[VoiceRoomService.reinitializeService] Re-initializing service...');
     this.databaseAvailable = null; 
     await this.cleanupSubscriptions();
-    this.clearCaches(); // Clear caches on full re-init
-    await this.initializeService(); // This will test DB and set up subscriptions again
+    this.clearCaches();
+    await this.initializeService();
   }
 }
