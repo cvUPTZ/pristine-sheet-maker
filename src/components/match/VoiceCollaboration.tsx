@@ -99,7 +99,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const handleRejoin = async () => {
     if (isConnecting) return; 
     if (roomToRejoin) {
-      if (isVoiceEnabled || (livekitConnectionState !== ConnectionState.Disconnected && livekitConnectionState !== ConnectionState.Disconnected)) {
+      if (isVoiceEnabled || (livekitConnectionState === ConnectionState.Connected || livekitConnectionState === ConnectionState.Connecting || livekitConnectionState === ConnectionState.Reconnecting)) {
         await leaveVoiceRoom(); 
         await new Promise(resolve => setTimeout(resolve, 250)); 
       }
@@ -305,8 +305,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           {/* Available Rooms List */}
           { availableRooms.length > 0 &&
             livekitConnectionState !== ConnectionState.Connected &&
-            livekitConnectionState !== ConnectionState.Connecting &&
-            livekitConnectionState !== ConnectionState.Reconnecting &&
+            !(livekitConnectionState === ConnectionState.Connecting) &&
+            !(livekitConnectionState === ConnectionState.Reconnecting) &&
             !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin && !isConnecting) && 
            (
             <div className="space-y-2">

@@ -158,7 +158,7 @@ export class LiveKitManager {
     publications.forEach(pub => {
         if (pub.track) {
               console.log(`[LiveKitManager] Setting track ${pub.trackSid} (${source}) enabled: ${enabled}`);
-              pub.setEnabled(enabled);
+              pub.track.setEnabled(enabled);
         } else {
               console.warn(`[LiveKitManager] Track for source ${source} (SID: ${pub.trackSid}) not yet published, cannot set enabled state directly.`);
         }
