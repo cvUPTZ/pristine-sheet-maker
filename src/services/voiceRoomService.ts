@@ -162,10 +162,18 @@ export class VoiceRoomService {
       if (existingRooms && Array.isArray(existingRooms) && existingRooms.length > 0) {
         console.log(`Found ${existingRooms.length} existing rooms for match ${matchId}`);
         this.setCacheExpiry(cacheKey);
-        return existingRooms.map(room => ({
-          ...room,
+        return existingRooms.map((room: any) => ({
+          id: room.id,
+          name: room.name,
+          description: room.description,
+          match_id: room.match_id,
+          max_participants: room.max_participants,
+          is_private: room.is_private,
           is_active: room.is_active ?? true,
-          participant_count: room.participant_count ?? 0
+          permissions: room.permissions || ['all'],
+          participant_count: room.participant_count ?? 0,
+          created_at: room.created_at,
+          updated_at: room.updated_at
         }));
       }
 
@@ -214,9 +222,17 @@ export class VoiceRoomService {
 
           // Get participant counts for each room (simulated for now)
           const roomsWithCounts = roomsData.map((room: any) => ({
-            ...room,
+            id: room.id,
+            name: room.name,
+            description: room.description,
+            match_id: room.match_id,
+            max_participants: room.max_participants,
+            is_private: room.is_private,
             is_active: room.is_active ?? true,
-            participant_count: room.participant_count ?? 0
+            permissions: room.permissions || ['all'],
+            participant_count: room.participant_count ?? 0,
+            created_at: room.created_at,
+            updated_at: room.updated_at
           }));
 
           roomsWithCounts.forEach((room: VoiceRoom) => {
