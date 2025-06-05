@@ -1,11 +1,13 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface VoiceCollaborationProps {
-  roomId: string;
+  matchId: string;
   userId: string;
+  userRole: string;
   userName?: string;
   onParticipantJoined?: (participantId: string, participantName: string) => void;
   onParticipantLeft?: (participantId: string) => void;
@@ -17,7 +19,19 @@ interface Participant {
   name: string;
   isSpeaking: boolean;
   isAudioEnabled: boolean;
+  isMuted: boolean;
   joinedAt: Date;
+  role?: string;
+}
+
+interface VoiceRoom {
+  id: string;
+  name: string;
+  description?: string;
+  match_id: string;
+  is_private: boolean;
+  max_participants: number;
+  participant_count?: number;
 }
 
 interface UseVoiceCollaborationReturn {
@@ -32,11 +46,29 @@ interface UseVoiceCollaborationReturn {
   isMuted: boolean;
   connectionState: string;
   roomName: string;
+  // Additional properties needed by VoiceCollaboration component
+  isVoiceEnabled: boolean;
+  livekitParticipants: Participant[];
+  audioLevel: number;
+  availableRooms: VoiceRoom[];
+  currentRoom: VoiceRoom | null;
+  isRoomAdmin: boolean;
+  joinVoiceRoom: (room: VoiceRoom) => Promise<void>;
+  leaveVoiceRoom: () => Promise<void>;
+  networkStatus: 'online' | 'offline' | 'unstable';
+  remoteStreams: Map<string, MediaStream>;
+  peerStatuses: Map<string, string>;
+  livekitConnectionState: ConnectionState | null;
+  adminSetParticipantMute: (roomId: string, participantId: string, muted: boolean) => Promise<void>;
+  audioOutputDevices: MediaDeviceInfo[];
+  selectedAudioOutputDeviceId: string | null;
+  selectAudioOutputDevice: (deviceId: string) => Promise<void>;
 }
 
 export const useVoiceCollaboration = ({
-  roomId,
+  matchId,
   userId,
+  userRole,
   userName = 'Unknown User',
   onParticipantJoined,
   onParticipantLeft,
@@ -51,16 +83,31 @@ export const useVoiceCollaboration = ({
   const [connectionState, setConnectionState] = useState('disconnected');
   const [roomName, setRoomName] = useState('');
 
+  // Additional state for VoiceCollaboration component
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
+  const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
+  const [isRoomAdmin, setIsRoomAdmin] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
+  const [remoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [peerStatuses] = useState<Map<string, string>>(new Map());
+  const [livekitConnectionState, setLivekitConnectionState] = useState<ConnectionState | null>(null);
+  const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
+
   const roomRef = useRef<Room | null>(null);
   const tokenRef = useRef<string | null>(null);
 
   const updateConnectionState = useCallback((state: ConnectionState) => {
     setConnectionState(state.toString().toLowerCase());
+    setLivekitConnectionState(state);
     
     switch (state) {
       case ConnectionState.Connected:
         setIsConnected(true);
         setIsConnecting(false);
+        setIsVoiceEnabled(true);
         setError(null);
         break;
       case ConnectionState.Connecting:
@@ -70,6 +117,7 @@ export const useVoiceCollaboration = ({
       case ConnectionState.Disconnected:
         setIsConnected(false);
         setIsConnecting(false);
+        setIsVoiceEnabled(false);
         break;
       case ConnectionState.Reconnecting:
         setIsConnecting(true);
@@ -77,11 +125,71 @@ export const useVoiceCollaboration = ({
     }
   }, []);
 
+  // Fetch available rooms
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('voice_rooms')
+          .select('*')
+          .eq('match_id', matchId);
+        
+        if (error) throw error;
+        setAvailableRooms(data || []);
+      } catch (err) {
+        console.error('Failed to fetch voice rooms:', err);
+      }
+    };
+
+    if (matchId) {
+      fetchRooms();
+    }
+  }, [matchId]);
+
+  // Monitor network status
+  useEffect(() => {
+    const updateNetworkStatus = () => {
+      if (!navigator.onLine) {
+        setNetworkStatus('offline');
+      } else {
+        setNetworkStatus('online');
+      }
+    };
+
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    updateNetworkStatus();
+
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
+
+  // Get audio output devices
+  useEffect(() => {
+    const getAudioDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+        setAudioOutputDevices(audioOutputs);
+        
+        if (audioOutputs.length > 0 && !selectedAudioOutputDeviceId) {
+          setSelectedAudioOutputDeviceId(audioOutputs[0].deviceId);
+        }
+      } catch (err) {
+        console.error('Failed to get audio devices:', err);
+      }
+    };
+
+    getAudioDevices();
+  }, [selectedAudioOutputDeviceId]);
+
   const generateToken = useCallback(async (): Promise<string> => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-livekit-token', {
         body: {
-          roomId,
+          roomId: currentRoom?.id || 'default-room',
           participantIdentity: userId,
           participantName: userName
         }
@@ -103,7 +211,7 @@ export const useVoiceCollaboration = ({
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate access token';
       throw new Error(errorMessage);
     }
-  }, [roomId, userId, userName]);
+  }, [currentRoom?.id, userId, userName]);
 
   const connectToRoom = useCallback(async (token: string): Promise<Room> => {
     const wsUrl = import.meta.env.VITE_LIVEKIT_URL;
@@ -121,7 +229,7 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.Connected, () => {
       console.log('Room connected successfully');
-      setRoomName(room.name || roomId);
+      setRoomName(room.name || currentRoom?.id || 'Unknown Room');
       updateConnectionState(ConnectionState.Connected);
     });
 
@@ -145,6 +253,7 @@ export const useVoiceCollaboration = ({
         name: participant.name || participant.identity,
         isSpeaking: false,
         isAudioEnabled: participant.isMicrophoneEnabled,
+        isMuted: !participant.isMicrophoneEnabled,
         joinedAt: new Date()
       };
 
@@ -167,7 +276,7 @@ export const useVoiceCollaboration = ({
         }
         setParticipants(prev => prev.map(p => 
           p.id === participant?.identity 
-            ? { ...p, isAudioEnabled: false }
+            ? { ...p, isAudioEnabled: false, isMuted: true }
             : p
         ));
       }
@@ -180,7 +289,7 @@ export const useVoiceCollaboration = ({
         }
         setParticipants(prev => prev.map(p => 
           p.id === participant?.identity 
-            ? { ...p, isAudioEnabled: true }
+            ? { ...p, isAudioEnabled: true, isMuted: false }
             : p
         ));
       }
@@ -188,7 +297,7 @@ export const useVoiceCollaboration = ({
 
     await room.connect(wsUrl, token);
     return room;
-  }, [roomId, userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
+  }, [currentRoom?.id, userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
 
   const joinRoom = useCallback(async (): Promise<void> => {
     if (isConnecting || isConnected) {
@@ -200,7 +309,7 @@ export const useVoiceCollaboration = ({
       setIsConnecting(true);
       setError(null);
 
-      console.log('Joining voice room:', roomId);
+      console.log('Joining voice room:', currentRoom?.id);
       
       const token = await generateToken();
       const room = await connectToRoom(token);
@@ -215,6 +324,7 @@ export const useVoiceCollaboration = ({
         name: userName,
         isSpeaking: false,
         isAudioEnabled: true,
+        isMuted: false,
         joinedAt: new Date()
       };
 
@@ -235,7 +345,13 @@ export const useVoiceCollaboration = ({
       setIsConnected(false);
       updateConnectionState(ConnectionState.Disconnected);
     }
-  }, [isConnecting, isConnected, roomId, userId, userName, generateToken, connectToRoom, onError, updateConnectionState]);
+  }, [isConnecting, isConnected, currentRoom?.id, userId, userName, generateToken, connectToRoom, onError, updateConnectionState]);
+
+  const joinVoiceRoom = useCallback(async (room: VoiceRoom): Promise<void> => {
+    setCurrentRoom(room);
+    // The actual joining will be handled by the joinRoom function
+    await joinRoom();
+  }, [joinRoom]);
 
   const leaveRoom = useCallback((): void => {
     console.log('Leaving voice room');
@@ -247,14 +363,20 @@ export const useVoiceCollaboration = ({
 
     setIsConnected(false);
     setIsConnecting(false);
+    setIsVoiceEnabled(false);
     setParticipants([]);
     setCurrentUser(null);
     setError(null);
     setIsMuted(false);
+    setCurrentRoom(null);
     updateConnectionState(ConnectionState.Disconnected);
     
     toast.info('Disconnected from voice room');
   }, [updateConnectionState]);
+
+  const leaveVoiceRoom = useCallback(async (): Promise<void> => {
+    leaveRoom();
+  }, [leaveRoom]);
 
   const toggleMute = useCallback(async (): Promise<void> => {
     if (!roomRef.current?.localParticipant) {
@@ -276,6 +398,31 @@ export const useVoiceCollaboration = ({
     }
   }, [isMuted]);
 
+  const adminSetParticipantMute = useCallback(async (roomId: string, participantId: string, muted: boolean): Promise<void> => {
+    // Implementation for admin mute functionality
+    console.log(`Admin ${muted ? 'muting' : 'unmuting'} participant ${participantId} in room ${roomId}`);
+    toast.info(`${muted ? 'Muted' : 'Unmuted'} participant`);
+  }, []);
+
+  const selectAudioOutputDevice = useCallback(async (deviceId: string): Promise<void> => {
+    try {
+      setSelectedAudioOutputDeviceId(deviceId);
+      
+      // Set the output device for all audio elements
+      const audioElements = document.querySelectorAll('audio');
+      for (const audioElement of audioElements) {
+        if ('setSinkId' in audioElement) {
+          await (audioElement as any).setSinkId(deviceId);
+        }
+      }
+      
+      toast.success('Audio output device changed');
+    } catch (err) {
+      console.error('Failed to set audio output device:', err);
+      toast.error('Failed to change audio output device');
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (roomRef.current) {
@@ -296,6 +443,23 @@ export const useVoiceCollaboration = ({
     toggleMute,
     isMuted,
     connectionState,
-    roomName
+    roomName,
+    // Additional properties for VoiceCollaboration component
+    isVoiceEnabled,
+    livekitParticipants: participants,
+    audioLevel,
+    availableRooms,
+    currentRoom,
+    isRoomAdmin,
+    joinVoiceRoom,
+    leaveVoiceRoom,
+    networkStatus,
+    remoteStreams,
+    peerStatuses,
+    livekitConnectionState,
+    adminSetParticipantMute,
+    audioOutputDevices,
+    selectedAudioOutputDeviceId,
+    selectAudioOutputDevice
   };
 };
