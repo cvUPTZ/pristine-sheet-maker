@@ -103,7 +103,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     retryAttempts,
     isRecovering,
     networkStatus,
-    connectionMetrics
+    connectionMetrics,
+    remoteStreams, // New
+    peerStatuses   // New
   } = useVoiceCollaboration({
     matchId,
     userId,
@@ -178,9 +180,40 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     }
   };
 
+  // Helper function for peer status indicator
+  const getPeerStatusIndicator = (status?: string) => {
+    const baseClasses = `w-2 h-2 rounded-full ${isMobile ? 'mr-0.5' : 'mr-1'}`;
+    if (status === 'connected') return <div className={`${baseClasses} bg-green-500`} title="Connected" />;
+    if (status === 'connecting') return <div className={`${baseClasses} bg-yellow-500 animate-pulse`} title="Connecting..." />;
+    if (status === 'failed') return <div className={`${baseClasses} bg-red-500`} title="Failed" />;
+    if (status === 'closed' || status === 'disconnected') return <div className={`${baseClasses} bg-gray-400`} title="Disconnected" />;
+    return <div className={`${baseClasses} bg-gray-300`} title="Unknown status" />; // Default/unknown
+  };
+
+  const [audioElements, setAudioElements] = useState<JSX.Element[]>([]);
+
+  useEffect(() => {
+    const elements = Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
+      <audio
+        key={peerId}
+        autoPlay
+        playsInline
+        ref={(audioEl) => {
+          if (audioEl && audioEl.srcObject !== stream) {
+            audioEl.srcObject = stream;
+          }
+        }}
+        style={{ display: 'none' }}
+      />
+    ));
+    setAudioElements(elements);
+  }, [remoteStreams]);
+
   if (!initialized) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
+        {/* Render audio elements even when initializing if they exist */}
+        {audioElements}
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
             <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
@@ -202,6 +235,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   if (error) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
+        {audioElements}
         <Card className="border-red-200 bg-red-50/50">
           <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
             <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
@@ -235,6 +269,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   if (availableRooms.length === 0 && !isConnecting && !isVoiceEnabled) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
+        {audioElements}
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
             <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
@@ -261,6 +296,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
+      {audioElements}
       <Card className="border-blue-200 bg-blue-50/50">
         <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
           <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
@@ -467,7 +503,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               </div>
               <div className={`space-y-1 ${isMobile ? 'max-h-24' : 'max-h-32'} overflow-y-auto`}>
                 {connectedTrackers.map((tracker) => {
-                  const quality = connectionQualities.get(tracker.userId);
+                  const quality = connectionQualities.get(tracker.userId); // This is from the old system
+                  const peerStatus = peerStatuses.get(tracker.userId);
                   return (
                     <div
                       key={tracker.userId}
@@ -476,16 +513,19 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            tracker.isConnected ? 'bg-green-500' : 'bg-gray-400'
-                          } ${tracker.isSpeaking ? 'animate-pulse' : ''}`}
-                        />
+                        {getPeerStatusIndicator(peerStatus)}
                         {getRoleIcon(tracker.role)}
                         <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} truncate flex-1`}>
                           {tracker.username || `Participant ${tracker.userId.slice(-4)}`}
                         </span>
-                        {quality && (
+                        {/* Displaying peerStatus text if relevant, can be adjusted */}
+                        {(peerStatus === 'connecting' || peerStatus === 'failed') && !isMobile && (
+                          <span className={`text-[10px] ${peerStatus === 'failed' ? 'text-red-500' : 'text-yellow-600'}`}>
+                            ({peerStatus})
+                          </span>
+                        )}
+                        {/* Old quality display, can be kept if still relevant or removed/repurposed */}
+                        {quality && showConnectionDetails && (
                           <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} ${getQualityColor(quality.quality)}`}>
                             {getQualityIcon(quality.quality)}
                           </span>
@@ -507,22 +547,39 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           )}
 
           {/* Connection Details */}
-          {showConnectionDetails && isVoiceEnabled && connectionMetrics && !isMobile && (
+          {showConnectionDetails && isVoiceEnabled && !isMobile && (
             <div className="text-xs p-2 bg-gray-50 rounded border">
-              <div className="font-medium mb-1">Connection Metrics</div>
+              <div className="font-medium mb-1">Connection Metrics & Statuses</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>Total Peers: {connectionMetrics.totalPeers}</div>
-                <div>Connected: {connectionMetrics.connectedPeers}</div>
-                <div>Reconnects: {connectionMetrics.reconnectionAttempts}</div>
+                <div>Total Peers in Room: {connectionMetrics?.totalPeers ?? connectedTrackers.length}</div>
+                <div>WebRTC Connected: {Array.from(peerStatuses.values()).filter(s => s === 'connected').length}</div>
                 <div>Network: {networkStatus}</div>
+                {isRecovering && <div>Status: Recovering...</div>}
+                {retryAttempts > 0 && <div>Retries: {retryAttempts}</div>}
               </div>
-              {connectionQualities.size > 0 && (
+              {peerStatuses.size > 0 && (
                 <div className="mt-2">
-                  <div className="font-medium mb-1">Connection Quality</div>
+                  <div className="font-medium mb-1">Peer Connection Statuses</div>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1">
+                    {Array.from(peerStatuses.entries()).map(([pId, pStatus]) => (
+                      <div key={pId} className="flex items-center">
+                        {getPeerStatusIndicator(pStatus)}
+                        <span className="text-xs">
+                           {connectedTrackers.find(t => t.userId === pId)?.username?.split(' ')[0] || pId.slice(-4)}: {pStatus}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Old connectionQualities display, can be removed if peerStatuses is sufficient */}
+              {connectionQualities.size > 0 && (
+                <div className="mt-2 pt-1 border-t">
+                  <div className="font-medium mb-1 text-gray-500">(Legacy) Quality Metrics</div>
                   <div className="flex flex-wrap gap-1">
-                    {Array.from(connectionQualities.entries()).map(([userId, quality]) => (
-                      <span key={userId} className={`${getQualityColor(quality.quality)} text-xs`}>
-                        {getQualityIcon(quality.quality)} {userId.slice(-4)} ({quality.rtt}ms)
+                    {Array.from(connectionQualities.entries()).map(([cId, cQuality]) => (
+                      <span key={cId} className={`${getQualityColor(cQuality.quality)} text-xs`}>
+                        {getQualityIcon(cQuality.quality)} {cId.slice(-4)} ({cQuality.rtt}ms)
                       </span>
                     ))}
                   </div>
