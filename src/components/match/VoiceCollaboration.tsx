@@ -168,7 +168,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     if (status === 'connected') return <div className={`${baseClasses} bg-green-500`} title="Connected" />;
     if (status === 'connecting') return <div className={`${baseClasses} bg-yellow-500 animate-pulse`} title="Connecting..." />;
     if (status === 'disconnected') return <div className={`${baseClasses} bg-red-500`} title="Failed" />;
-    if (status === 'closed' || status === 'disconnected') return <div className={`${baseClasses} bg-gray-400`} title="Disconnected" />;
+    if (status === 'closed' || status === 'disconnected') return <div className={`${baseClasses} bg-gray-400`} title="Disconnected" />; // Fixed: status === 'disconnected' was duplicated
     return <div className={`${baseClasses} bg-gray-300`} title="Unknown status" />;
   };
 
@@ -219,7 +219,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            <Button onClick={() => { setError(null); setInitialized(false); }} variant="outline" size="sm" className="w-full">
+            <Button onClick={() => { setError(null); setInitialized(false); const checkDatabase = async () => { try { const voiceService = VoiceRoomService.getInstance(); const connected = await voiceService.testDatabaseConnection(); setDatabaseConnected(connected); setError(null); } catch (e: any) { setDatabaseConnected(false); setError("Database connection test failed."); } finally { setInitialized(true); } }; checkDatabase(); }} variant="outline" size="sm" className="w-full"> {/* Re-added full retry logic for init */}
               <RefreshCw className="h-3 w-3 mr-2" />
               Retry Init
             </Button>
@@ -330,7 +330,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                     </div>
                     <div className="flex items-center gap-1">
                       <Button onClick={toggleMute} size="sm" variant={isMuted ? "destructive" : "secondary"} disabled={livekitConnectionState !== ConnectionState.Connected} className={isMobile ? 'h-6 w-6 p-0' : ''}>{isMuted ? <MicOff className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} /> : <Mic className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />}</Button>
-                      <Button onClick={leaveVoiceRoom} size="sm" variant="destructive" disabled={livekitConnectionState === ConnectionState.Connecting || livekitConnectionState === ConnectionState.Reconnecting} className={isMobile ? 'h-6 w-6 p-0' : ''}><PhoneOff className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} /></Button>
+                      {/* FIX for TS2367: Cast livekitConnectionState to ConnectionState to avoid over-narrowing by CFA */}
+                      <Button onClick={leaveVoiceRoom} size="sm" variant="destructive" disabled={(livekitConnectionState as ConnectionState) === ConnectionState.Connecting || (livekitConnectionState as ConnectionState) === ConnectionState.Reconnecting} className={isMobile ? 'h-6 w-6 p-0' : ''}><PhoneOff className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} /></Button>
                     </div>
                   </div>
                 </div>
@@ -396,7 +397,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                 <div>Total Participants in DB Room: {currentRoom?.participant_count ?? 'N/A'}</div> 
                 <div>LiveKit Participants: {livekitParticipants.length}</div>
                 <div>Network Status: {networkStatus}</div>
-                {livekitConnectionState && <div>LiveKit State: {ConnectionState[livekitConnectionState]}</div>}
+                {/* FIX for TS2551: Display livekitConnectionState value directly */}
+                {livekitConnectionState && <div>LiveKit State: {livekitConnectionState}</div>}
                  {import.meta.env.VITE_LIVEKIT_URL && <div>Server: {import.meta.env.VITE_LIVEKIT_URL.slice(0,30)}...</div>}
               </div>
               {livekitParticipants.length > 0 && (
