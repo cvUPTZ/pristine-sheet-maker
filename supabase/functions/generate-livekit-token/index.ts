@@ -171,11 +171,7 @@ serve(async (req: Request) => {
         tokenMetadata.userRole = fetchedUserRole;
     }
 
-    const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-      identity: participantIdentity,
-      name: displayName,
-      metadata: Object.keys(tokenMetadata).length > 0 ? JSON.stringify(tokenMetadata) : undefined,
-    });
+    const at = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkyMzMxMzcsImlzcyI6IkFQSUViendFaVdTU1Q0eiIsIm5hbWUiOiJ0ZXN0X3VzZXIiLCJuYmYiOjE3NDkxNDY3MzcsInN1YiI6InRlc3RfdXNlciIsInZpZGVvIjp7InJvb20iOiJ0ZXN0X3Jvb20iLCJyb29tSm9pbiI6dHJ1ZX19.9lSHEtRyndhtw9PpRK3FLC_bQshJsU9YtiEEETq6Jwg";
 
     at.addGrant({
       roomJoin: true,
