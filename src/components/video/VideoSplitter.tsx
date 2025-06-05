@@ -48,7 +48,7 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   }
 };
 
-const VideoSplitter: React.FC<VideoSplitterProps> = ({
+export const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoFile,
   videoInfo,
   onSegmentsReady
