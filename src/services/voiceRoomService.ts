@@ -1,18 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '../lib/database.types';
 
-export interface VoiceRoom {
-  id: string;
-  name: string;
-  description?: string;
-  match_id: string;
-  max_participants: number;
-  is_private: boolean;
-  is_active: boolean;
-  permissions: string[];
+export interface VoiceRoom extends Database['public']['Tables']['voice_rooms']['Row'] {
   participant_count?: number;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface VoiceRoomParticipant {
@@ -129,7 +120,10 @@ export class VoiceRoomService {
             is_private: false,
             is_active: true,
             permissions: ['all'],
-            participant_count: 0
+            participant_count: 0,
+            priority: 0,
+            created_at: new Date().toISOString(),
+            updated_at: null,
           },
           {
             id: `${matchId}-coordinators`,
@@ -140,7 +134,10 @@ export class VoiceRoomService {
             is_private: true,
             is_active: true,
             permissions: ['admin', 'coordinator'],
-            participant_count: 0
+            participant_count: 0,
+            priority: 0,
+            created_at: new Date().toISOString(),
+            updated_at: null,
           },
           {
             id: `${matchId}-technical`,
@@ -151,7 +148,10 @@ export class VoiceRoomService {
             is_private: false,
             is_active: true,
             permissions: ['admin', 'coordinator', 'tracker'],
-            participant_count: 0
+            participant_count: 0,
+            priority: 0,
+            created_at: new Date().toISOString(),
+            updated_at: null,
           }
         ];
         
@@ -171,9 +171,10 @@ export class VoiceRoomService {
           is_private: room.is_private,
           is_active: room.is_active ?? true,
           permissions: room.permissions || ['all'],
+          priority: room.priority ?? 0,
+          created_at: room.created_at || new Date().toISOString(),
+          updated_at: room.updated_at || null,
           participant_count: room.participant_count ?? 0,
-          created_at: room.created_at,
-          updated_at: room.updated_at
         }));
       }
 
@@ -194,7 +195,10 @@ export class VoiceRoomService {
           is_private: false,
           is_active: true,
           permissions: ['all'],
-          participant_count: 0
+          participant_count: 0,
+          priority: 0,
+          created_at: new Date().toISOString(),
+          updated_at: null,
         }
       ];
       return mockRooms;
@@ -230,9 +234,10 @@ export class VoiceRoomService {
             is_private: room.is_private,
             is_active: room.is_active ?? true,
             permissions: room.permissions || ['all'],
+            priority: room.priority ?? 0,
+            created_at: room.created_at || new Date().toISOString(),
+            updated_at: room.updated_at || null,
             participant_count: room.participant_count ?? 0,
-            created_at: room.created_at,
-            updated_at: room.updated_at
           }));
 
           roomsWithCounts.forEach((room: VoiceRoom) => {
@@ -261,12 +266,16 @@ export class VoiceRoomService {
         room = {
           id: roomId,
           name: 'Voice Room',
+          description: null,
           match_id: roomId.split('-')[0] || 'unknown',
           max_participants: 20,
           is_private: false,
           is_active: true,
           permissions: ['all'],
-          participant_count: 0
+          priority: 0,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+          participant_count: 0,
         };
         this.roomCache.set(roomId, room);
       }

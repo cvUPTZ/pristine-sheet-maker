@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Database } from '../lib/database.types';
 
 interface VoiceCollaborationProps {
   matchId: string;
@@ -24,14 +25,8 @@ interface Participant {
   role?: string;
 }
 
-interface VoiceRoom {
-  id: string;
-  name: string;
-  description?: string;
-  match_id: string;
-  is_private: boolean;
-  max_participants: number;
-  participant_count?: number;
+interface VoiceRoom extends Database['public']['Tables']['voice_rooms']['Row'] {
+  participant_count?: number; // Add this field as it's used by the hook
 }
 
 interface UseVoiceCollaborationReturn {
