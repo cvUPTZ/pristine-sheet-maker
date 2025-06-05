@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -447,14 +448,25 @@ export class VoiceRoomService {
         return { success: false, error: error.message };
       }
 
-      // Fix: ensure data exists and is an object before spreading
-      if (!data || typeof data !== 'object') {
+      // Fix: ensure data exists and is a valid object before creating updatedRoom
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
         return { success: false, error: 'No valid data returned from update' };
       }
 
+      // Create updatedRoom with explicit typing and safe property access
       const updatedRoom: VoiceRoom = {
-        ...data,
-        participant_count: this.roomCache.get(roomId)?.participant_count || 0
+        id: data.id,
+        match_id: data.match_id,
+        name: data.name,
+        description: data.description,
+        max_participants: data.max_participants,
+        priority: data.priority,
+        permissions: data.permissions,
+        is_private: data.is_private,
+        is_active: data.is_active,
+        participant_count: this.roomCache.get(roomId)?.participant_count || 0,
+        created_at: data.created_at,
+        updated_at: data.updated_at
       };
 
       // Update cache
