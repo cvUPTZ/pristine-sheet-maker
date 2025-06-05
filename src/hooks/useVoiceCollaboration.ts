@@ -145,21 +145,10 @@ export const useVoiceCollaboration = ({
     };
   }, []);
 
-  const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    if (isConnecting) {
-      console.log('Already connecting to a room');
-      return;
-    }
-
-    setIsConnecting(true);
-    // Reset retry attempts for a fresh join sequence, unless it's a retry itself.
-    // The retry logic below will set setRetryAttempts(prev => prev + 1)
-    // For an initial attempt, it should be 0.
-    // We will log the attempt number inside the try-catch block.
-
+  // Create a stable reference for the join room function
+  const joinRoomInternal = useCallback(async (room: VoiceRoom, attemptNumber: number = 1) => {
     try {
-      const currentAttempt = retryAttempts + 1;
-      console.log(`[useVoiceCollaboration.joinVoiceRoom] Attempt #${currentAttempt} to join room: ${room.name} (ID: ${room.id}) as ${userRole}`);
+      console.log(`[joinRoomInternal] Attempt #${attemptNumber} to join room: ${room.name} (ID: ${room.id}) as ${userRole}`);
       
       const result = await voiceService.current.joinRoom(room.id, userId, userRole);
       
@@ -185,46 +174,59 @@ export const useVoiceCollaboration = ({
         // Start fetching participants
         fetchRoomParticipants(result.room.id);
         
-        console.log(`[useVoiceCollaboration.joinVoiceRoom] Successfully joined room: ${result.room.name} (ID: ${result.room.id}) after ${currentAttempt} attempt(s).`);
+        console.log(`[joinRoomInternal] Successfully joined room: ${result.room.name} after ${attemptNumber} attempt(s).`);
         setRetryAttempts(0); // Reset retries on success
+        setIsRecovering(false);
+        return true;
       } else {
-        console.error(`[useVoiceCollaboration.joinVoiceRoom] Attempt #${currentAttempt} failed to join room ${room.name} (ID: ${room.id}). Error: ${result.error}`);
+        console.error(`[joinRoomInternal] Attempt #${attemptNumber} failed. Error: ${result.error}`);
         throw new Error(result.error || 'Failed to join room');
       }
     } catch (error: any) {
-      const currentAttempt = retryAttempts + 1; // error is caught, so this is the current attempt number that failed
-      console.error(`[useVoiceCollaboration.joinVoiceRoom] Error during attempt #${currentAttempt} to join room ${room.name} (ID: ${room.id}):`, error.message);
+      console.error(`[joinRoomInternal] Error during attempt #${attemptNumber}:`, error.message);
       
-      if (currentAttempt < 3) {
-        setRetryAttempts(prev => prev + 1); // This will become currentAttempt for the next try.
+      if (attemptNumber < 3) {
         setIsRecovering(true);
         
         toast({
           title: "Retrying Connection",
-          description: `Attempt ${currentAttempt + 1}/3 - ${error.message}`, // Log *next* attempt number
+          description: `Attempt ${attemptNumber + 1}/3 - ${error.message}`,
           variant: "default"
         });
-        console.log(`[useVoiceCollaboration.joinVoiceRoom] Scheduling retry attempt #${currentAttempt + 1} for room ${room.name} (ID: ${room.id}). Error: ${error.message}`);
         
-        // Shorter retry delay
+        // Retry after a delay
         setTimeout(() => {
-          setIsRecovering(false);
-          joinVoiceRoom(room); // This will use the updated retryAttempts
+          joinRoomInternal(room, attemptNumber + 1);
         }, 2000);
       } else {
-        console.error(`[useVoiceCollaboration.joinVoiceRoom] All ${currentAttempt} attempts to join room ${room.name} (ID: ${room.id}) failed. Final error: ${error.message}`);
+        console.error(`[joinRoomInternal] All ${attemptNumber} attempts failed. Final error: ${error.message}`);
         toast({
           title: "Connection Failed",
           description: "Unable to join voice room. The system may be in demonstration mode.",
           variant: "default"
         });
         setIsRecovering(false);
-        setRetryAttempts(0); // Reset after all attempts failed
+        setRetryAttempts(0);
+        setIsConnecting(false);
       }
-    } finally {
+      return false;
+    }
+  }, [userId, userRole, onRoomChanged, toast]);
+
+  const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
+    if (isConnecting) {
+      console.log('Already connecting to a room');
+      return;
+    }
+
+    setIsConnecting(true);
+    setRetryAttempts(0);
+    
+    const success = await joinRoomInternal(room, 1);
+    if (success) {
       setIsConnecting(false);
     }
-  }, [isConnecting, userId, userRole, retryAttempts, onRoomChanged, toast, joinVoiceRoom]);
+  }, [isConnecting, joinRoomInternal]);
 
   const leaveVoiceRoom = useCallback(async () => {
     if (!currentRoom) return;
