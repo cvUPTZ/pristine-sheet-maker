@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -229,7 +230,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     );
   }
   
-  // Check if currently connected, connecting, or reconnecting
+  // Check if currently connected, connecting, or reconnecting - fix the comparison logic
   const isCurrentlyActive = (livekitConnectionState === ConnectionState.Connected) ||
                            (livekitConnectionState === ConnectionState.Connecting) ||
                            (livekitConnectionState === ConnectionState.Reconnecting);
