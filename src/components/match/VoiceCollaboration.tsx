@@ -230,10 +230,10 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     );
   }
   
-  // Check if currently connected, connecting, or reconnecting - fix the comparison logic
-  const isCurrentlyActive = (livekitConnectionState === ConnectionState.Connected) ||
-                           (livekitConnectionState === ConnectionState.Connecting) ||
-                           (livekitConnectionState === ConnectionState.Reconnecting);
+  // Check if currently connected, connecting, or reconnecting
+  const isCurrentlyActive = livekitConnectionState === ConnectionState.Connected ||
+                           livekitConnectionState === ConnectionState.Connecting ||
+                           livekitConnectionState === ConnectionState.Reconnecting;
   
   // Check if disconnected and should show rejoin
   const shouldShowRejoin = livekitConnectionState === ConnectionState.Disconnected && roomToRejoin && !isConnecting;
