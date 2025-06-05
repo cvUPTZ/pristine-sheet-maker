@@ -279,6 +279,12 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               {import.meta.env.VITE_LIVEKIT_URL && (
                 <div className="mt-1">LiveKit Server: {import.meta.env.VITE_LIVEKIT_URL}</div>
               )}
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                <div className="font-medium text-xs mb-1">API Endpoint Diagnostics:</div>
+                <div className="text-xs">Token endpoint: /api/generate-livekit-token</div>
+                <div className="text-xs">Expected: Supabase Edge Function</div>
+                <div className="text-xs">Common issue: Endpoint returning HTML instead of JSON</div>
+              </div>
             </div>
           </div>
 
