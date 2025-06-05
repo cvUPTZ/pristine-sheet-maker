@@ -1,6 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { AccessToken } from 'https://esm.sh/livekit-server-sdk@1.2.7'; // Ensure this version is suitable or use latest
+import { AccessToken } from 'https://esm.sh/livekit-server-sdk@2.0.5'; // Updated to use a more stable version
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 // TODO: User must set these in Supabase project's Edge Function environment variables
