@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -78,9 +77,10 @@ export class VoiceRoomService {
         }
         console.log(`[VoiceRoomService.withRetry] ${operationName} successful on attempt ${attempts}`);
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         lastError = error;
-        console.warn(`[VoiceRoomService.withRetry] Attempt ${attempts}/${maxAttempts} for ${operationName} failed:`, error.message);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`[VoiceRoomService.withRetry] Attempt ${attempts}/${maxAttempts} for ${operationName} failed:`, errorMessage);
         if (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, delayMs * attempts)); // Incremental backoff
         }
@@ -132,8 +132,9 @@ export class VoiceRoomService {
       this.subscribeToRoomChanges();
       this.subscribeToParticipantChanges();
       return true;
-    } catch (error) {
-      console.error('[VoiceRoomService.testDatabaseConnection] Database connection test error, using offline mode:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[VoiceRoomService.testDatabaseConnection] Database connection test error, using offline mode:', errorMessage);
       this.databaseAvailable = false;
       await this.cleanupSubscriptions();
       return false;
@@ -343,9 +344,10 @@ export class VoiceRoomService {
       console.log('✅ Room created successfully:', newRoom.name);
       return { success: true, room: newRoom };
 
-    } catch (error: any) {
-      console.error('❌ Failed to create room:', error);
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to create room:', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -397,8 +399,9 @@ export class VoiceRoomService {
       console.log(`✅ Retrieved ${roomsWithCounts.length} rooms for match`);
       return roomsWithCounts;
 
-    } catch (error: any) {
-      console.error('❌ Failed to retrieve rooms:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to retrieve rooms:', errorMessage);
       return [];
     }
   }
@@ -430,9 +433,10 @@ export class VoiceRoomService {
       console.log('✅ Room updated successfully');
       return { success: true, room: updatedRoom };
 
-    } catch (error: any) {
-      console.error('❌ Failed to update room:', error);
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to update room:', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -464,9 +468,10 @@ export class VoiceRoomService {
       console.log('✅ Room deleted successfully');
       return { success: true };
 
-    } catch (error: any) {
-      console.error('❌ Failed to delete room:', error);
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to delete room:', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -527,8 +532,9 @@ export class VoiceRoomService {
       console.log(`✅ Initialized ${templateRooms.length} template rooms (${isDatabaseAvailable ? 'database' : 'offline'} mode)`);
       return templateRooms;
 
-    } catch (error: any) {
-      console.error('❌ Failed to initialize voice rooms:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to initialize voice rooms:', errorMessage);
       
       // Return a fallback room that always works
       const fallbackResult = await this.createRoom({
@@ -652,9 +658,10 @@ export class VoiceRoomService {
         console.log(`[VoiceRoomService.joinRoom] User ${userId} joined room ${room.name} successfully (offline mode). Room ID: ${roomId}`);
         return { success: true, room: updatedRoom };
       }
-    } catch (error: any) {
-      console.error(`[VoiceRoomService.joinRoom] Failed to join room. Room ID: ${roomId}, User ID: ${userId}`, error);
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[VoiceRoomService.joinRoom] Failed to join room. Room ID: ${roomId}, User ID: ${userId}`, errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -682,8 +689,9 @@ export class VoiceRoomService {
 
       console.log(`✅ User ${userId} left room`);
       return true;
-    } catch (error: any) {
-      console.error(`❌ Failed to leave room:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to leave room:`, errorMessage);
       return false;
     }
   }
@@ -704,8 +712,9 @@ export class VoiceRoomService {
       }
 
       return true;
-    } catch (error: any) {
-      console.error(`❌ Failed to update participant status:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to update participant status:`, errorMessage);
       return false;
     }
   }
@@ -738,8 +747,9 @@ export class VoiceRoomService {
       this.participantCache.set(roomId, participants);
       return participants;
 
-    } catch (error: any) {
-      console.error(`❌ Failed to get room participants:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to get room participants:`, errorMessage);
       return [];
     }
   }
@@ -767,8 +777,9 @@ export class VoiceRoomService {
       } else {
         console.log('✅ Cleaned up inactive participants');
       }
-    } catch (error: any) {
-      console.error('❌ Failed to cleanup inactive participants:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to cleanup inactive participants:', errorMessage);
     }
   }
 
