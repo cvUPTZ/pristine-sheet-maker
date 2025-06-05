@@ -22,9 +22,10 @@ export class LiveKitManager {
   private audioManager: AudioManager;
   private myUserId: string | null = null;
 
-  public onRemoteStreamSubscribed: (peerId: string, stream: MediaStream) => void = () => {};
-  public onRemoteStreamUnsubscribed: (peerId: string) => void = () => {};
-  public onPeerStatusChanged: (peerId: string, status: string, participant?: RemoteParticipant) => void = () => {};
+  // Event callbacks
+  public onRemoteStreamSubscribed: (peerId: string, stream: MediaStream, participant: RemoteParticipant) => void = () => {};
+  public onRemoteStreamUnsubscribed: (peerId: string, participant: RemoteParticipant) => void = () => {};
+  public onPeerStatusChanged: (peerId: string, status: string, participant?: RemoteParticipant | LocalParticipant) => void = () => {};
   public onConnectionStateChanged: (state: ConnectionState, error?: Error) => void = () => {};
   public onTrackMuteChanged: (peerId: string, source: Track.Source, isMuted: boolean) => void = () => {};
   public onIsSpeakingChanged: (peerId: string, isSpeaking: boolean) => void = () => {};
@@ -81,6 +82,26 @@ export class LiveKitManager {
       .on(RoomEvent.ParticipantDisconnected, this.handleParticipantDisconnected)
       .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
       .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
+      .on(RoomEvent.TrackMuted, (trackPub: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
+        if (trackPub.kind === Track.Kind.Audio) {
+          this.onTrackMuteChanged(participant.identity, trackPub.source, true);
+        }
+      })
+      .on(RoomEvent.TrackUnmuted, (trackPub: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
+        if (trackPub.kind === Track.Kind.Audio) {
+          this.onTrackMuteChanged(participant.identity, trackPub.source, false);
+        }
+      })
+      .on(RoomEvent.ActiveSpeakersChanged, (speakers: RemoteParticipant[]) => {
+        // Reset all speaking states first
+        this.room?.remoteParticipants.forEach(p => {
+          this.onIsSpeakingChanged(p.identity, false);
+        });
+        // Set active speakers
+        speakers.forEach(speaker => {
+          this.onIsSpeakingChanged(speaker.identity, true);
+        });
+      })
       .on(RoomEvent.MediaDevicesError, (error: Error) => {
         console.error('[LiveKitManager] Media devices error:', error);
         this.onConnectionStateChanged(ConnectionState.Disconnected, error);
@@ -158,7 +179,6 @@ export class LiveKitManager {
     publications.forEach(pub => {
         if (pub.track) {
               console.log(`[LiveKitManager] Setting track ${pub.trackSid} (${source}) enabled: ${enabled}`);
-              // Use the correct method - mute/unmute instead of setEnabled
               if (enabled) {
                 pub.unmute();
               } else {
@@ -176,11 +196,7 @@ export class LiveKitManager {
     this.onPeerStatusChanged(participant.identity, 'connected', participant);
 
     participant.audioTrackPublications.forEach(pub => {
-      if (pub.track) {
-        this.onTrackMuteChanged(participant.identity, pub.source, pub.isMuted);
-      } else {
-        this.onTrackMuteChanged(participant.identity, pub.source, pub.isMuted);
-      }
+      this.onTrackMuteChanged(participant.identity, pub.source, pub.isMuted);
     });
 
     participant
@@ -212,19 +228,19 @@ export class LiveKitManager {
     this.remoteParticipants.delete(participant.identity);
     this.onPeerStatusChanged(participant.identity, 'disconnected', participant);
     this.onIsSpeakingChanged(participant.identity, false);
-    this.onRemoteStreamUnsubscribed(participant.identity);
+    this.onRemoteStreamUnsubscribed(participant.identity, participant);
   }
 
   private handleTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     console.log(`[LiveKitManager] Track Subscribed: ${track.kind} from ${participant.identity}`, track);
     if (track.kind === Track.Kind.Audio && track.mediaStream) {
-      this.onRemoteStreamSubscribed(participant.identity, track.mediaStream);
+      this.onRemoteStreamSubscribed(participant.identity, track.mediaStream, participant);
     }
   }
 
   private handleTrackUnsubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     console.log(`[LiveKitManager] Track Unsubscribed: ${track.kind} from ${participant.identity}`);
-    this.onRemoteStreamUnsubscribed(participant.identity);
+    this.onRemoteStreamUnsubscribed(participant.identity, participant);
   }
 
   public async leaveRoom(): Promise<void> {
@@ -303,11 +319,8 @@ export class LiveKitManager {
 
   public async setAudioOutputDevice(deviceId: string): Promise<void> {
     console.log(`[LiveKitManager] Setting audio output device to: ${deviceId}`);
-    // LiveKit doesn't have setAudioOutput in the current version
-    // We'll handle this through the browser's audio API instead
     try {
       if (typeof HTMLAudioElement !== 'undefined' && 'setSinkId' in HTMLAudioElement.prototype) {
-        // Find all audio elements and set their sink
         const audioElements = document.querySelectorAll('audio');
         for (const audioElement of audioElements) {
           if ('setSinkId' in audioElement) {
