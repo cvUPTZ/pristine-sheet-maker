@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -399,9 +400,10 @@ export class VoiceRoomService {
         return cachedRooms;
       }
 
-      // Get participant counts
+      // Get participant counts - Fix: ensure data is an array
+      const roomsData = Array.isArray(result.data) ? result.data : [];
       const roomsWithCounts = await Promise.all(
-        (result.data || []).map(async (room: any) => {
+        roomsData.map(async (room: any) => {
           const countResult = await this.withRetry(
             () => (supabase as any)
               .from('voice_room_participants')
@@ -444,6 +446,11 @@ export class VoiceRoomService {
       if (error) {
         console.error('❌ Database error updating room:', error);
         return { success: false, error: error.message };
+      }
+
+      // Fix: ensure data exists before spreading
+      if (!data) {
+        return { success: false, error: 'No data returned from update' };
       }
 
       const updatedRoom: VoiceRoom = {
