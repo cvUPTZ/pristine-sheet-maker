@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -268,6 +269,21 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         </CardHeader>
         
         <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
+          {/* API Endpoint Diagnostics */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+            <h4 className="font-medium text-sm mb-2">🔧 API Diagnostics:</h4>
+            <div className="text-xs space-y-1">
+              <div>Expected: Supabase Edge Function at /api/generate-livekit-token</div>
+              <div>Status: {error ? '❌ Failing' : '🟡 Not deployed/configured'}</div>
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                <div className="font-medium text-xs mb-1">Deploy Instructions:</div>
+                <div className="text-xs">1. supabase functions deploy generate-livekit-token</div>
+                <div className="text-xs">2. Set environment variables in Supabase dashboard</div>
+                <div className="text-xs">3. Required vars: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET</div>
+              </div>
+            </div>
+          </div>
+
           {/* LiveKit Configuration Status */}
           <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
             <h4 className="font-medium text-sm mb-2">LiveKit Configuration Status:</h4>
@@ -278,14 +294,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               {import.meta.env.VITE_LIVEKIT_URL && (
                 <div className="mt-1">LiveKit Server: {import.meta.env.VITE_LIVEKIT_URL}</div>
               )}
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                <div className="font-medium text-xs mb-1">API Endpoint Diagnostics:</div>
-                <div className="text-xs">Token endpoint: /api/generate-livekit-token</div>
-                <div className="text-xs">Expected: Supabase Edge Function</div>
-                <div className="text-xs">Common issue: Endpoint returning HTML instead of JSON</div>
-              </div>
             </div>
           </div>
+
           {networkStatus !== 'online' && (
             <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
               <AlertDescription className="text-sm">
