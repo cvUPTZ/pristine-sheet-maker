@@ -2,7 +2,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '../lib/database.types';
 
-export interface VoiceRoom extends Database['public']['Tables']['voice_rooms']['Row'] {
+// Define an alias for the Row type
+type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
+
+// Extend the alias
+export interface VoiceRoom extends VoiceRoomRow {
   participant_count?: number;
 }
 
