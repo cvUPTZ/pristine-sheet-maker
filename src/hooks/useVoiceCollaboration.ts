@@ -373,7 +373,7 @@ export const useVoiceCollaboration = ({
             }
 
             console.log(`[useVoiceCollab] Fetching LiveKit token for room ${result.room.id}, user ${userId}`);
-            const tokenResponse = await fetch('/api/generate-livekit-token', {
+            const tokenResponse = await fetch('/generate-livekit-token', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
