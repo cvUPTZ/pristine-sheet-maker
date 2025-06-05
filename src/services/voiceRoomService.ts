@@ -5,10 +5,10 @@ import type { Database } from '../lib/database.types';
 // Define an alias for the Row type
 type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
 
-// Extend the alias
-export interface VoiceRoom extends VoiceRoomRow {
+// Use an exported type alias with an intersection type
+export type VoiceRoom = VoiceRoomRow & {
   participant_count?: number;
-}
+};
 
 export interface VoiceRoomParticipant {
   id: string;
