@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
     // Ensure to replace 'YOUR_SUPABASE_PROJECT_REF' with your actual Supabase project reference.
     proxy: {
       '/api': {
-        target: 'https://YOUR_SUPABASE_PROJECT_REF.supabase.co/functions/v1',
+        target: 'https://itwnghrwolvydupxmnqw.supabase.co/functions/v1',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       }
