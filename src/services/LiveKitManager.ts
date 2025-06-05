@@ -10,6 +10,7 @@ import {
   LocalParticipant,
   RemoteTrack,
   RemoteTrackPublication,
+  Participant,
 } from 'livekit-client';
 import { AudioManager } from '@/utils/audioManager';
 
@@ -82,17 +83,17 @@ export class LiveKitManager {
       .on(RoomEvent.ParticipantDisconnected, this.handleParticipantDisconnected)
       .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
       .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
-      .on(RoomEvent.TrackMuted, (trackPub: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
+      .on(RoomEvent.TrackMuted, (trackPub: TrackPublication, participant: Participant) => {
         if (trackPub.kind === Track.Kind.Audio) {
           this.onTrackMuteChanged(participant.identity, trackPub.source, true);
         }
       })
-      .on(RoomEvent.TrackUnmuted, (trackPub: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
+      .on(RoomEvent.TrackUnmuted, (trackPub: TrackPublication, participant: Participant) => {
         if (trackPub.kind === Track.Kind.Audio) {
           this.onTrackMuteChanged(participant.identity, trackPub.source, false);
         }
       })
-      .on(RoomEvent.ActiveSpeakersChanged, (speakers: RemoteParticipant[]) => {
+      .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         // Reset all speaking states first
         this.room?.remoteParticipants.forEach(p => {
           this.onIsSpeakingChanged(p.identity, false);
