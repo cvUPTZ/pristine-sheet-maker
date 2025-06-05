@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -269,7 +268,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         </CardHeader>
         
         <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
-          {/* Environment Variables Debug Info */}
+          {/* LiveKit Configuration Status */}
           <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
             <h4 className="font-medium text-sm mb-2">LiveKit Configuration Status:</h4>
             <div className="text-xs space-y-1">
@@ -282,6 +281,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           </div>
 
+          {/* Network Status */}
           {networkStatus !== 'online' && (
             <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
               <AlertDescription className="text-sm">
