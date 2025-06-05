@@ -72,7 +72,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   }, [userId]);
   
   const {
-  const {
     isVoiceEnabled,
     isMuted,
     isConnecting,
