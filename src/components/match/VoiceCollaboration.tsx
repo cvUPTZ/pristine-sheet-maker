@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, WifiOff, Activity, AlertTriangle, RefreshCw, Database, Ban, Settings } from 'lucide-react';
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService'; // Import VoiceRoom
+import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceCollaborationProps {
@@ -25,8 +25,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const [userRole, setUserRole] = useState<string>('tracker');
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [databaseConnected, setDatabaseConnected] = useState<boolean>(false);
-  // const [retryCount, setRetryCount] = useState(0); // Managed by LiveKit/hook now
-  const [error, setError] = useState<string | null>(null); // For general setup errors
+  const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [roomToRejoin, setRoomToRejoin] = useState<VoiceRoom | null>(null);
@@ -40,18 +39,13 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         setError(null);
       } catch (e: any) {
         setDatabaseConnected(false);
-        setError("Database connection test failed."); // Simplified error
+        setError("Database connection test failed.");
       } finally {
         setInitialized(true);
       }
     };
     checkDatabase();
-  }, []); // Removed retryCount
-
-  // const handleRetryConnection = () => { // Not needed for DB, LiveKit handles its own retries
-  //   setRetryCount(prev => prev + 1);
-  //   setError(null);
-  // };
+  }, []);
   
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -65,7 +59,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         setUserRole(data?.role || 'tracker');
       } catch (e) {
         console.error('Error fetching user role:', e);
-        setUserRole('tracker'); // Default
+        setUserRole('tracker');
       }
     };
     if (userId) fetchUserRole();
@@ -75,7 +69,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     isVoiceEnabled,
     isMuted,
     isConnecting,
-    livekitParticipants, // Changed from connectedTrackers
+    livekitParticipants,
     audioLevel,
     toggleMute,
     availableRooms,
@@ -83,11 +77,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     isRoomAdmin,
     joinVoiceRoom,
     leaveVoiceRoom,
-    // connectionQualities, // Legacy - Removed
     networkStatus,
-    // connectionMetrics, // Can be derived or LiveKit specific
     remoteStreams, 
-    peerStatuses, // Retained for simple connection dot, might be removed if participant.isConnected is preferred
+    peerStatuses,
     livekitConnectionState, 
     adminSetParticipantMute,
     audioOutputDevices,
@@ -97,7 +89,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     matchId,
     userId,
     userRole,
-    // onUserJoined, onUserLeft, onRoomChanged are primarily for hook-internal logging now
   });
 
   useEffect(() => {
@@ -153,7 +144,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const getNetworkIcon = () => {
     if (networkStatus === 'offline') return <WifiOff className="h-3 w-3 text-red-500" />;
     if (networkStatus === 'unstable') return <Wifi className="h-3 w-3 text-yellow-500" />;
-    return <Wifi className="h-3 w-3 text-green-500" />; // Default to online
+    return <Wifi className="h-3 w-3 text-green-500" />;
   };
 
   const getLiveKitStatusIndicator = (state: ConnectionState | null) => {
@@ -172,7 +163,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const getPeerStatusIndicator = (status?: string) => {
     const baseClasses = `w-2 h-2 rounded-full ${isMobile ? 'mr-0.5' : 'mr-1'}`;
     if (status === 'connected') return <div className={`${baseClasses} bg-green-500`} title="Connected" />;
-    if (status === 'connecting') return <div className={`${baseClasses} bg-yellow-500 animate-pulse`} title="Connecting..." />; // Should not happen with LiveKit for remote peers this way
+    if (status === 'connecting') return <div className={`${baseClasses} bg-yellow-500 animate-pulse`} title="Connecting..." />;
     if (status === 'failed') return <div className={`${baseClasses} bg-red-500`} title="Failed" />;
     if (status === 'closed' || status === 'disconnected') return <div className={`${baseClasses} bg-gray-400`} title="Disconnected" />;
     return <div className={`${baseClasses} bg-gray-300`} title="Unknown status" />;
@@ -186,27 +177,55 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     setAudioElements(elements);
   }, [remoteStreams]);
 
-  // Initial Loading State
   if (!initialized) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
         {audioElements}
-        <Card className="border-blue-200 bg-blue-50/50"><CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}><CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}><Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />Voice Collaboration Center</CardTitle></CardHeader><CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}><div className="text-center py-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div><p className="text-sm text-gray-600">Initializing system...</p></div></CardContent></Card>
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+            <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
+              <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />
+              Voice Collaboration Center
+            </CardTitle>
+          </CardHeader>
+          <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}>
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Initializing system...</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // General Error State (e.g. DB connection failed on init)
   if (error) {
     return (
       <div className={`space-y-3 sm:space-y-4 ${className}`}>
         {audioElements}
-        <Card className="border-red-200 bg-red-50/50"><CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}><CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}><Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-red-600`} />Voice Collaboration Center<WifiOff className="h-3 w-3 text-red-500" /></CardTitle></CardHeader><CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}><Alert variant="destructive" className="mb-3"><AlertTriangle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert><Button onClick={() => { setError(null); setInitialized(false); /* handleRetryConnection(); */ }} variant="outline" size="sm" className="w-full"><RefreshCw className="h-3 w-3 mr-2" />Retry Init</Button></CardContent></Card>
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+            <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
+              <Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-red-600`} />
+              Voice Collaboration Center
+              <WifiOff className="h-3 w-3 text-red-500" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0`}>
+            <Alert variant="destructive" className="mb-3">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={() => { setError(null); setInitialized(false); }} variant="outline" size="sm" className="w-full">
+              <RefreshCw className="h-3 w-3 mr-2" />
+              Retry Init
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
   
-  // Main component render
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
       {audioElements}
@@ -219,7 +238,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <Badge variant="secondary" className={`${isMobile ? 'text-[10px] px-1 py-0.5' : 'text-xs'}`}>Live • {isMobile ? currentRoom.name.split(' ')[0] : currentRoom.name}</Badge>
             )}
             {getNetworkIcon()}
-            {databaseConnected ? <Database className="h-3 w-3 text-green-500" title="DB Connected"/> : <Database className="h-3 w-3 text-orange-500" title="DB Offline Mode"/>}
+            <div title={databaseConnected ? "DB Connected" : "DB Offline Mode"}>
+              {databaseConnected ? <Database className="h-3 w-3 text-green-500" /> : <Database className="h-3 w-3 text-orange-500" />}
+            </div>
           </CardTitle>
           
           <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -227,13 +248,16 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             {availableRooms.length > 0 && !isVoiceEnabled && livekitConnectionState !== ConnectionState.Connected && livekitConnectionState !== ConnectionState.Connecting && livekitConnectionState !== ConnectionState.Reconnecting && (
               <Badge variant="outline" className="text-xs">{availableRooms.length} rooms available</Badge>
             )}
-            {/* Database status badge can be removed if not critical, or kept for info */}
           </div>
         </CardHeader>
         
         <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
           {networkStatus !== 'online' && (
-            <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}><AlertDescription className="text-sm">{networkStatus === 'offline' ? '🔴 Network offline - Voice features unavailable' : '🟡 Network unstable - Voice quality may be affected'}</AlertDescription></Alert>
+            <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
+              <AlertDescription className="text-sm">
+                {networkStatus === 'offline' ? '🔴 Network offline - Voice features unavailable' : '🟡 Network unstable - Voice quality may be affected'}
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Rejoin UI or Current Room Info */}
