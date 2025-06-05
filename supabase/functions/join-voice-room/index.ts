@@ -20,8 +20,9 @@ interface ErrorResponse {
   error: string;
 }
 
+// TODO: Replace with your specific frontend domain(s) for production security.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Adjust as needed for security
+  'Access-Control-Allow-Origin': 'https://REPLACE_WITH_YOUR_ACTUAL_DOMAIN.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
@@ -59,8 +60,8 @@ async function handleJoinRoom(supabaseClient: SupabaseClient, roomId: string, us
   if (!hasPermission) {
     // For now, we log a warning but allow, as per original VoiceRoomService logic for better UX in demo.
     // In a production scenario, this should strictly return an error.
-    console.warn(`Permission denied for user ${userId} (role: ${userRole}) in room ${roomId}, but allowing for demo purposes.`)
-    // return { status: 403, body: { error: 'Permission denied' } };
+    // console.warn(`Permission denied for user ${userId} (role: ${userRole}) in room ${roomId}, but allowing for demo purposes.`)
+    return { status: 403, body: { error: 'Permission denied' } };
   }
 
   // 3. Fetch current participant count
@@ -148,6 +149,10 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json() as JoinRoomRequest
+    // Note: userRole is client-provided. For critical permission logic within this function
+    // that isn't already covered by RLS based on auth.uid(), consider fetching the user's
+    // role from the database using auth.uid() for enhanced security.
+    // RLS policies on table access are the primary security layer.
     const { roomId, userId, userRole } = body
 
     if (!roomId || !userId || !userRole) {

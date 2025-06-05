@@ -265,4 +265,41 @@ export class AudioManager {
       video: false
     };
   }
+
+  public async getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      console.warn('enumerateDevices() not supported.');
+      return [];
+    }
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter(device => device.kind === 'audiooutput');
+    } catch (error) {
+      console.error('Error enumerating audio output devices:', error);
+      this.onError?.(error as Error);
+      return [];
+    }
+  }
+
+  public async setAudioOutputDevice(deviceId: string, audioElement?: HTMLAudioElement): Promise<void> {
+    if (!audioElement) {
+      console.warn('No audio element provided to set audio output device.');
+      // If we want to set a global output for the AudioManager's context, that's more complex
+      // and typically not how sinkId works (it's per-element).
+      return;
+    }
+    if (typeof (audioElement as any).setSinkId !== 'function') {
+      console.warn('setSinkId() not supported on this audio element or browser.');
+      this.onError?.(new Error('setSinkId is not supported on this browser/element. Output device cannot be changed.'));
+      return;
+    }
+    try {
+      await (audioElement as any).setSinkId(deviceId);
+      console.log(`Audio output device set to ${deviceId} for the provided element.`);
+    } catch (error) {
+      console.error(`Error setting audio output device ${deviceId}:`, error);
+      this.onError?.(error as Error);
+      // Potentially throw error if critical for the caller
+    }
+  }
 }
