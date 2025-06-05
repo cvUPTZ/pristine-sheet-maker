@@ -433,20 +433,26 @@ export class VoiceRoomService {
 
       const roomsWithCounts = await Promise.all(
         roomsData.map(async (room: VoiceRoom) => {
+          // Get participant count directly from database using a proper query
           const countResult = await this.withRetry(
             async () => {
-              // Ensure supabase.rpc is correctly typed if possible, or use 'as any' if necessary for now.
-              const response = await supabase.rpc('get_room_participant_count', { room_id_param: room.id });
-              // The response from rpc will have a 'data' field containing the count and an 'error' field.
-              // Ensure 'count' is handled appropriately if response.data is null or undefined.
-              return { data: null, error: response.error, count: response.data };
+              const response = await (supabase as any)
+                .from('voice_room_participants')
+                .select('id', { count: 'exact' })
+                .eq('room_id', room.id);
+              
+              return { 
+                data: response.data, 
+                error: response.error, 
+                count: response.count 
+              };
             },
-            `getParticipantCountForRoomViaRpc_${room.id}`
+            `getParticipantCountForRoom_${room.id}`
           );
 
           const roomWithCount: VoiceRoom = {
             ...room,
-            participant_count: countResult.count ?? room.participant_count ?? 0
+            participant_count: typeof countResult.count === 'number' ? countResult.count : (room.participant_count ?? 0)
           };
 
           this.roomCache.set(room.id, roomWithCount);
