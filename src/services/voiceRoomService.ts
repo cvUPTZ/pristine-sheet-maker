@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -435,7 +436,7 @@ export class VoiceRoomService {
           // Use the new RPC function to get participant count
           const countResult = await this.withRetry(
             async () => {
-              const response = await supabase.rpc('get_room_participant_count', {
+              const response = await (supabase as any).rpc('get_room_participant_count', {
                 room_id_param: room.id
               });
               return response;
@@ -445,7 +446,7 @@ export class VoiceRoomService {
 
           const roomWithCount: VoiceRoom = {
             ...room, 
-            participant_count: countResult.data ?? room.participant_count ?? 0
+            participant_count: typeof countResult.data === 'number' ? countResult.data : (room.participant_count ?? 0)
           };
 
           this.roomCache.set(room.id, roomWithCount);
