@@ -133,7 +133,7 @@ export class WebRTCManager {
     
     const newOperation = existingOperation
       .then(() => operation())
-      .catch(error => {
+      .catch((error: Error) => {
         console.error(`❌ Signaling operation failed for ${userId}:`, error);
         throw error;
       });

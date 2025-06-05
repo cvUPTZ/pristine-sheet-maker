@@ -310,7 +310,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           )}
           
           {/* Available Rooms List */}
-          { availableRooms.length > 0 &&
+          {availableRooms.length > 0 &&
             livekitConnectionState !== ConnectionState.Connected &&
             livekitConnectionState !== ConnectionState.Connecting &&
             livekitConnectionState !== ConnectionState.Reconnecting &&
