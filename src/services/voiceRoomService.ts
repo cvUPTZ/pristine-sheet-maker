@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -448,9 +447,9 @@ export class VoiceRoomService {
         return { success: false, error: error.message };
       }
 
-      // Fix: ensure data exists before spreading
-      if (!data) {
-        return { success: false, error: 'No data returned from update' };
+      // Fix: ensure data exists and is an object before spreading
+      if (!data || typeof data !== 'object') {
+        return { success: false, error: 'No valid data returned from update' };
       }
 
       const updatedRoom: VoiceRoom = {
