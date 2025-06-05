@@ -318,7 +318,10 @@ export const useVoiceCollaboration = ({
 
       setParticipants(prev => {
         if (prev.find(p => p.id === newParticipant.id)) return prev;
-        return [...prev, newParticipant];
+        const updatedParticipants = [...prev, newParticipant];
+        // ADD THIS LOG:
+        console.log(`[VoiceCollab] ParticipantConnected: ${newParticipant.name} (ID: ${newParticipant.id}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
+        return updatedParticipants;
       });
       onParticipantJoined?.(participant.identity, participant.name || participant.identity);
       toast.success(`${participant.name || participant.identity} joined the voice room`);
@@ -326,7 +329,12 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       console.log('Participant disconnected:', participant.identity);
-      setParticipants(prev => prev.filter(p => p.id !== participant.identity));
+      setParticipants(prev => {
+        const updatedParticipants = prev.filter(p => p.id !== participant.identity);
+        // ADD THIS LOG:
+        console.log(`[VoiceCollab] ParticipantDisconnected: ${participant.name} (ID: ${participant.identity}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
+        return updatedParticipants;
+      });
       onParticipantLeft?.(participant.identity);
       toast.info(`${participant.name || participant.identity} left the voice room`);
     });
@@ -375,7 +383,17 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.MediaDevicesError, (err: Error) => {
         console.error('Media devices error:', err);
-        toast.error(`Media device error: ${err.message}`);
+        let detailedMessage = `Media device error: ${err.message}.`;
+        if (err.name === 'NotAllowedError') {
+            detailedMessage += ' Please ensure microphone/camera permissions are granted for this site in your browser settings.';
+        } else if (err.name === 'NotFoundError') {
+            detailedMessage += ' No microphone/camera found. Please ensure a device is connected and enabled.';
+        } else {
+            detailedMessage += ' Check your microphone/camera connection and browser permissions.';
+        }
+        toast.error(detailedMessage);
+        // If onError prop is used for this, consider passing detailedMessage to it too.
+        // onError?.(detailedMessage);
     });
 
     await room.connect(wsUrl, token);
@@ -423,11 +441,23 @@ export const useVoiceCollaboration = ({
         if (!serverUrl) {
           throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
         }
-        if (currentRoom?.name) {
-          setRoomName(currentRoom.name);
+        if (!serverUrl) {
+          throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
+        }
+        if (!currentRoom?.id) { // Check for id for Supabase token
+          console.warn(
+            "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
+            "Token will be for 'default-room'. This may lead to permission issues " +
+            "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
+          );
+          toast.warn("Joining with default room settings. Specific room features/permissions may be limited.");
+          setRoomName("default-room"); // Keep this
+        } else if (currentRoom.name) { // Existing logic if currentRoom.id IS present
+           setRoomName(currentRoom.name);
         } else {
-           console.warn("Joining room without sandbox mode and no currentRoom selected. This might lead to issues as generateToken relies on currentRoom.id.");
-           setRoomName("default-room");
+           // If currentRoom.id is present but currentRoom.name is not, still use default or a generated name.
+           // This case should ideally not happen if currentRoom is well-formed.
+           setRoomName(`room-${currentRoom.id}`);
         }
       }
       
@@ -450,6 +480,8 @@ export const useVoiceCollaboration = ({
         joinedAt: new Date()
       };
       setCurrentUser(localUser);
+      // ADD THIS LOG:
+      console.log(`[VoiceCollab] Local user joined: ${localUser.name} (ID: ${localUser.id}). Initial remote participants: ${participants.length}`);
 
       console.log('Successfully joined voice room');
       toast.success(`Connected to voice room: ${actualRoomName}`);
