@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const handleRejoin = async () => {
     if (isConnecting) return; 
     if (roomToRejoin) {
-      if (isVoiceEnabled || (livekitConnectionState !== ConnectionState.Disconnected && livekitConnectionState !== ConnectionState.Failed)) {
+      if (isVoiceEnabled || (livekitConnectionState !== ConnectionState.Disconnected && livekitConnectionState !== ConnectionState.Disconnected)) {
         await leaveVoiceRoom(); 
         await new Promise(resolve => setTimeout(resolve, 250)); 
       }
@@ -154,7 +155,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     if (state === ConnectionState.Connecting) return <Badge variant="outline" className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-300`}><Activity className={`${iconSize} animate-spin`} />Connecting Voice...</Badge>;
     if (state === ConnectionState.Connected) return <Badge variant="outline" className={`${baseClasses} bg-green-100 text-green-800 border-green-300`}><Mic className={iconSize} />Voice Connected</Badge>;
     if (state === ConnectionState.Reconnecting) return <Badge variant="outline" className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-300`}><Activity className={`${iconSize} animate-pulse`} />Reconnecting Voice...</Badge>;
-    if (state === ConnectionState.Failed) return <Badge variant="destructive" className={`${baseClasses}`}><AlertTriangle className={iconSize} />Voice Failed</Badge>;
     if (state === ConnectionState.Disconnected && roomToRejoin) return <Badge variant="destructive" className={`${baseClasses}`}><WifiOff className={iconSize} />Voice Dropped</Badge>;
     if (state === ConnectionState.Disconnected) return <Badge variant="outline" className={`${baseClasses} bg-gray-100 text-gray-800 border-gray-300`}><MicOff className={iconSize} />Voice Disconnected</Badge>;
     return null; 
@@ -164,7 +164,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     const baseClasses = `w-2 h-2 rounded-full ${isMobile ? 'mr-0.5' : 'mr-1'}`;
     if (status === 'connected') return <div className={`${baseClasses} bg-green-500`} title="Connected" />;
     if (status === 'connecting') return <div className={`${baseClasses} bg-yellow-500 animate-pulse`} title="Connecting..." />;
-    if (status === 'failed') return <div className={`${baseClasses} bg-red-500`} title="Failed" />;
+    if (status === 'disconnected') return <div className={`${baseClasses} bg-red-500`} title="Failed" />;
     if (status === 'closed' || status === 'disconnected') return <div className={`${baseClasses} bg-gray-400`} title="Disconnected" />;
     return <div className={`${baseClasses} bg-gray-300`} title="Unknown status" />;
   };
@@ -263,7 +263,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           {/* Rejoin UI or Current Room Info */}
           {(currentRoom || roomToRejoin) && (
             <>
-              {(livekitConnectionState === ConnectionState.Failed || (livekitConnectionState === ConnectionState.Disconnected && roomToRejoin && !isConnecting)) && (
+              {(livekitConnectionState === ConnectionState.Disconnected && roomToRejoin && !isConnecting) && (
                 <Alert variant="destructive" className="my-2">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -307,7 +307,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             livekitConnectionState !== ConnectionState.Connected &&
             livekitConnectionState !== ConnectionState.Connecting &&
             livekitConnectionState !== ConnectionState.Reconnecting &&
-            !((livekitConnectionState === ConnectionState.Failed || livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin && !isConnecting) && // Hide if rejoin prompt is relevant
+            !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin && !isConnecting) && 
            (
             <div className="space-y-2">
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>Available Voice Rooms <Badge variant="outline" className="text-xs">Role: {userRole}</Badge></div>
@@ -341,7 +341,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                         {getPeerStatusIndicator(peerStatus)}
                         {getRoleIcon(participant.role)}
                         <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} truncate flex-1`}>{participant.name || `Participant ${participant.id.slice(-4)}`}</span>
-                        {/* Optional: Display specific peer connection status text if needed, though dot covers it */}
                       </div>
                       <div className="flex items-center gap-1">
                         {participant.isMuted ? <MicOff className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'} text-red-500`} /> : <Mic className={`${isMobile ? 'h-2 w-2' : 'h-3 w-3'} text-green-500`} />}
@@ -375,7 +374,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
           {/* System Status & Settings Toggle */}
           <div className="flex justify-between items-center mt-2">
-            {(!isVoiceEnabled || livekitConnectionState !== ConnectionState.Connected) && !isConnecting && availableRooms.length > 0 && /* Condition to hide if rejoin is showing */ !((livekitConnectionState === ConnectionState.Failed || livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin) && (
+            {(!isVoiceEnabled || livekitConnectionState !== ConnectionState.Connected) && !isConnecting && availableRooms.length > 0 && !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin) && (
               <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 p-1 ${databaseConnected ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'} rounded border flex-grow mr-2`}>
                 🎤 Voice System Ready ({databaseConnected ? "Online" : "Offline"})
               </div>

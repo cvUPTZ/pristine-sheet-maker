@@ -1,42 +1,22 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { useToast } from '@/components/ui/use-toast';
-import { LiveKitManager } from '@/services/LiveKitManager'; // Corrected path
+import { LiveKitManager } from '@/services/LiveKitManager';
 import { supabase } from '@/integrations/supabase/client';
 import { AudioManager } from '@/utils/audioManager';
-import { ConnectionState, Track, RemoteParticipant as LiveKitRemoteParticipant } from 'livekit-client'; // Added RemoteParticipant
+import { ConnectionState, Track, RemoteParticipant as LiveKitRemoteParticipant } from 'livekit-client';
 
-// New interface for LiveKit participant state
 interface LiveKitParticipantState {
   id: string;
   name?: string;
   role?: string;
   isMuted: boolean;
   isSpeaking: boolean;
-  isConnected: boolean; // True if connected to LiveKit room
+  isConnected: boolean;
 }
 
-// Remove or comment out old ConnectedTracker if no longer needed
-// interface ConnectedTracker {
-//   userId: string;
-//   username?: string;
-//   isMuted: boolean;
-//   isSpeaking: boolean;
-//   isConnected: boolean;
-//   role?: string;
-// }
-
-// ConnectionQuality can likely be removed as LiveKit provides its own quality indicators if needed
-// interface ConnectionQuality {
-//   quality: 'excellent' | 'good' | 'fair' | 'poor';
-//   rtt: number;
-// }
-
 interface ConnectionMetrics {
-  totalPeers: number; // This might now refer to LiveKit participants
-  // connectedPeers: number; // This can be derived from livekitParticipants.size
-  // reconnectionAttempts: number; // LiveKit handles this
+  totalPeers: number;
 }
 
 interface UseVoiceCollaborationProps {
@@ -59,7 +39,7 @@ export const useVoiceCollaboration = ({
   const { toast } = useToast();
   const voiceService = useRef(VoiceRoomService.getInstance());
   const initializedRef = useRef(false);
-  const liveKitManager = useRef(LiveKitManager.getInstance()); // Updated ref
+  const liveKitManager = useRef(LiveKitManager.getInstance());
   const audioManager = useRef(AudioManager.getInstance());
   
   // Core state
@@ -68,7 +48,6 @@ export const useVoiceCollaboration = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
   const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
-  // Replace connectedTrackers with livekitParticipants
   const [livekitParticipants, setLivekitParticipants] = useState<Map<string, LiveKitParticipantState>>(new Map());
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [peerStatuses, setPeerStatuses] = useState<Map<string, string>>(new Map()); 
@@ -85,10 +64,9 @@ export const useVoiceCollaboration = ({
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
 
-
   // Initialize LiveKitManager
   useEffect(() => {
-    if (userId) { // Ensure userId is available
+    if (userId) {
         liveKitManager.current.initialize(userId);
     }
   }, [userId]);
@@ -97,15 +75,9 @@ export const useVoiceCollaboration = ({
   useEffect(() => {
     const fetchDevices = async () => {
         try {
-            // Some browsers require mic permission before listing all devices
-            // This might have been handled by AudioManager init in joinRoom.
-            // If not, a dummy call or relying on prior permission is needed.
-            // For robustness, let's ensure a check or a gentle attempt if no stream exists.
             if (!audioManager.current.isStreamActive()) {
-                 // Try a gentle permission request if no stream is active.
-                 // This helps if user hasn't joined a room yet but wants to see device list.
                 await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-                    .then(tempStream => tempStream.getTracks().forEach(track => track.stop())) // Stop tracks immediately
+                    .then(tempStream => tempStream.getTracks().forEach(track => track.stop()))
                     .catch(permError => console.warn("Mic permission for device enumeration not granted on initial check:", permError));
             }
         } catch (permError) {
@@ -121,7 +93,7 @@ export const useVoiceCollaboration = ({
             if (savedDeviceId && outputs.find(d => d.deviceId === savedDeviceId)) {
                 setSelectedAudioOutputDeviceId(savedDeviceId);
             } else if (outputs.length > 0) {
-                setSelectedAudioOutputDeviceId(outputs[0].deviceId); // Default to first
+                setSelectedAudioOutputDeviceId(outputs[0].deviceId);
             }
         } catch (error) {
             console.error("Error fetching audio output devices:", error);
@@ -134,7 +106,7 @@ export const useVoiceCollaboration = ({
     return () => {
         navigator.mediaDevices.removeEventListener('devicechange', fetchDevices);
     };
-  }, [toast]); // toast dependency for error reporting
+  }, [toast]);
 
   // Apply Audio Output Device Selection
   useEffect(() => {
@@ -145,7 +117,7 @@ export const useVoiceCollaboration = ({
                 toast({ title: "Audio Output Error", description: `Failed to set audio output: ${error.message}`, variant: "destructive"});
             });
     }
-  }, [selectedAudioOutputDeviceId, livekitConnectionState, toast]); // Re-apply if connection state changes to connected
+  }, [selectedAudioOutputDeviceId, livekitConnectionState, toast]);
 
   const selectAudioOutputDevice = useCallback((deviceId: string) => {
     const device = audioOutputDevices.find(d => d.deviceId === deviceId);
@@ -163,7 +135,6 @@ export const useVoiceCollaboration = ({
         toast({ title: "Operation Failed", description: "Not in the target room.", variant: "destructive"});
         return;
     }
-    // Ensure the current user is an admin
     if (userRole !== 'admin' && userRole !== 'coordinator') {
         toast({ title: "Permission Denied", description: "You do not have rights to perform this action.", variant: "destructive"});
         return;
@@ -192,18 +163,17 @@ export const useVoiceCollaboration = ({
         console.error("Error calling moderate-livekit-room:", error);
         toast({ title: "Operation Failed", description: error.message, variant: "destructive"});
     }
-  }, [currentRoom, userRole, supabase, toast]); // Added supabase and toast to dependencies
+  }, [currentRoom, userRole, toast]);
 
   // Set up LiveKitManager callbacks
   useEffect(() => {
     const manager = liveKitManager.current;
-    // Store previous callbacks to restore on cleanup
     const oldOnRemoteStreamSubscribed = manager.onRemoteStreamSubscribed;
     const oldOnRemoteStreamUnsubscribed = manager.onRemoteStreamUnsubscribed;
     const oldOnPeerStatusChanged = manager.onPeerStatusChanged;
     const oldOnConnectionStateChanged = manager.onConnectionStateChanged;
     const oldOnTrackMuteChanged = manager.onTrackMuteChanged;
-    const oldOnIsSpeakingChanged = manager.onIsSpeakingChanged; // Added
+    const oldOnIsSpeakingChanged = manager.onIsSpeakingChanged;
 
     manager.onRemoteStreamSubscribed = (peerId, stream) => {
         console.log(`[useVoiceCollab] LiveKit Remote stream subscribed from ${peerId}`, stream);
@@ -219,19 +189,19 @@ export const useVoiceCollaboration = ({
     };
     manager.onPeerStatusChanged = (peerId, status, participant) => {
         console.log(`[useVoiceCollab] LiveKit Peer ${peerId} status: ${status}`, participant);
-        setPeerStatuses(prev => new Map(prev).set(peerId, status)); // Keep for general connection dot
+        setPeerStatuses(prev => new Map(prev).set(peerId, status));
 
         if (status === 'connected' && participant) {
             let userRoleFromMeta: string | undefined = undefined;
             if (participant.metadata) {
                 try {
                     const metadata = JSON.parse(participant.metadata);
-                    userRoleFromMeta = metadata.userRole; // Assuming metadata contains { userRole: 'role' }
+                    userRoleFromMeta = metadata.userRole;
                 } catch (e) { console.error("Failed to parse participant metadata:", e); }
             }
             
             let initialIsMuted = true; 
-            const audioPub = Array.from(participant.audioTrackPublications.values()).find(p => p.source === Track.Source.Microphone);
+            const audioPub = Array.from(participant.audioTrackPublications.values()).find((p: any) => p.source === Track.Source.Microphone);
             if (audioPub) {
                 initialIsMuted = audioPub.isMuted;
             }
@@ -278,22 +248,22 @@ export const useVoiceCollaboration = ({
     manager.onConnectionStateChanged = (state, error) => {
         console.log(`[useVoiceCollab] LiveKit Connection state: ${state}`, error || '');
         setLivekitConnectionState(state);
-        if (state === ConnectionState.Failed || state === ConnectionState.Disconnected) {
+        if (state === ConnectionState.Disconnected) {
             setRemoteStreams(new Map()); 
             setPeerStatuses(new Map());
-            setLivekitParticipants(new Map()); // Clear LiveKit participants
+            setLivekitParticipants(new Map());
             if (error) {
                 toast({ title: "LiveKit Connection Error", description: error.message, variant: "destructive" });
             }
-            if (state === ConnectionState.Disconnected && !error && currentRoom) { // Graceful server/self disconnect
+            if (state === ConnectionState.Disconnected && !error && currentRoom) {
                 setIsVoiceEnabled(false); 
-            } else if (currentRoom) { // Unexpected disconnect/failure while in a room
+            } else if (currentRoom) {
                  setIsVoiceEnabled(false);
             }
         }
     };
 
-    return () => { // Cleanup
+    return () => {
         manager.onRemoteStreamSubscribed = oldOnRemoteStreamSubscribed;
         manager.onRemoteStreamUnsubscribed = oldOnRemoteStreamUnsubscribed;
         manager.onPeerStatusChanged = oldOnPeerStatusChanged;
@@ -349,7 +319,6 @@ export const useVoiceCollaboration = ({
 
     initializeRooms();
 
-    // Main unmount cleanup
     return () => {
         if (liveKitManager.current && liveKitManager.current.getRoom()?.state !== ConnectionState.Disconnected) { 
              liveKitManager.current.leaveRoom();
@@ -393,10 +362,9 @@ export const useVoiceCollaboration = ({
     try {
       console.log(`[joinRoomInternal] Attempt #${attemptNumber} to join room: ${room.name} (ID: ${room.id}) as ${userRole}`);
       
-      const result = await voiceService.current.joinRoom(room.id, userId, userRole); // This is for metadata service
+      const result = await voiceService.current.joinRoom(room.id, userId, userRole);
       
       if (result.success && result.room) {
-        // --- LiveKit Integration: Fetch Token, Ensure Audio, Join ---
         let token = null;
         try {
             const session = await supabase.auth.getSession();
@@ -405,7 +373,7 @@ export const useVoiceCollaboration = ({
             }
 
             console.log(`[useVoiceCollab] Fetching LiveKit token for room ${result.room.id}, user ${userId}`);
-            const tokenResponse = await fetch('/api/generate-livekit-token', { // Relative path for Supabase Edge Function
+            const tokenResponse = await fetch('/api/generate-livekit-token', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -414,7 +382,7 @@ export const useVoiceCollaboration = ({
                 body: JSON.stringify({ 
                     roomId: result.room.id, 
                     participantIdentity: userId,
-                    participantName: userRole // Or a display name from profile
+                    participantName: userRole
                 }),
             });
             if (!tokenResponse.ok) {
@@ -435,7 +403,6 @@ export const useVoiceCollaboration = ({
              throw new Error("LiveKit token is null or undefined after fetch.");
         }
 
-        // Ensure Local Audio (AudioManager) - This logic remains important
         if (!audioManager.current.isStreamActive()) {
             try {
                 if(!audioManager.current.getAudioContext() || audioManager.current.getAudioContext()?.state === 'closed') {
@@ -476,14 +443,10 @@ export const useVoiceCollaboration = ({
         
         console.log(`[useVoiceCollab] Joining LiveKit room ${result.room.id} at ${LIVEKIT_URL}`);
         await liveKitManager.current.joinRoom(LIVEKIT_URL, token, result.room.id);
-        // --- End LiveKit Integration ---
 
-        setCurrentRoom(result.room); // Metadata room
-        setIsVoiceEnabled(true); // Indicates user is in a voice session
+        setCurrentRoom(result.room);
+        setIsVoiceEnabled(true);
         setIsRoomAdmin(userRole === 'admin' || userRole === 'coordinator');
-        
-        // Connection metrics can be updated by LiveKit's events
-        // For example, setConnectionMetrics({ totalPeers: liveKitManager.current.getRoom()?.participants.size ?? 0 });
         
         onRoomChanged?.(result.room);
         toast({
@@ -491,11 +454,10 @@ export const useVoiceCollaboration = ({
           description: `Successfully connected to ${result.room.name} via LiveKit.`,
         });
         
-        // No need to call fetchRoomParticipants here, LiveKit events will populate livekitParticipants
         console.log(`[useVoiceCollab] Successfully joined room (metadata & LiveKit): ${result.room.name}`);
         return true;
 
-      } else { // voiceService.current.joinRoom (metadata) failed
+      } else {
         console.error(`[useVoiceCollab] Failed to join metadata room. Error: ${result.error}`);
         throw new Error(result.error || 'Failed to join metadata room');
       }
@@ -509,7 +471,7 @@ export const useVoiceCollaboration = ({
       setIsConnecting(false); 
       return false;
     }
-  }, [userId, userRole, onRoomChanged, toast, /*fetchRoomParticipants,*/ setAudioLevel, supabase]); // Removed fetchRoomParticipants
+  }, [userId, userRole, onRoomChanged, toast, setAudioLevel]);
 
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
     if (isConnecting) {
@@ -517,8 +479,7 @@ export const useVoiceCollaboration = ({
       return;
     }
     setIsConnecting(true);
-    // setRetryAttempts(0); // Not needed
-    const success = await joinRoomInternal(room, 1); // attemptNumber is not used by LiveKit join logic
+    const success = await joinRoomInternal(room, 1);
     if (success) {
       setIsConnecting(false);
     }
@@ -529,14 +490,11 @@ export const useVoiceCollaboration = ({
 
     console.log('[useVoiceCollab] Leaving voice room:', currentRoom.name);
     try {
-      await liveKitManager.current.leaveRoom(); // Handles LiveKit disconnection and cleanup
+      await liveKitManager.current.leaveRoom();
       
-      // Metadata cleanup via voiceService (optional if LiveKit is source of truth for presence)
-      // For now, we assume it's still desired to mark user as left in our DB.
       const success = await voiceService.current.leaveRoom(currentRoom.id, userId);
       if (!success) {
           console.warn(`[useVoiceCollab] Failed to update metadata for leaving room ${currentRoom.id}`);
-          // Non-critical, LiveKit session is terminated.
       }
 
     } catch (error: any) {
@@ -547,16 +505,13 @@ export const useVoiceCollaboration = ({
         variant: "destructive"
       });
     } finally {
-      // Reset UI state regardless of specific errors during leave, as user initiated exit
       setCurrentRoom(null);
       setIsVoiceEnabled(false);
-      // setConnectedTrackers([]); // Replaced
-      setLivekitParticipants(new Map()); // Clear LiveKit participants
+      setLivekitParticipants(new Map());
       setIsRoomAdmin(false);
       setRemoteStreams(new Map());
       setPeerStatuses(new Map());
       setLivekitConnectionState(null);
-      // setConnectionMetrics(null); 
       
       onRoomChanged?.(null);
       toast({
@@ -574,12 +529,11 @@ export const useVoiceCollaboration = ({
     }
 
     const newMutedState = !isMuted;
-    audioManager.current.setMuted(newMutedState); // Mute local audio manager output (affects local mic monitoring)
-    liveKitManager.current.setTrackEnabled(Track.Source.Microphone, !newMutedState); // Signal mute to LiveKit
-    setIsMuted(newMutedState); // Optimistic UI update
+    audioManager.current.setMuted(newMutedState);
+    liveKitManager.current.setTrackEnabled(Track.Source.Microphone, !newMutedState);
+    setIsMuted(newMutedState);
 
     try {
-        // Update DB for metadata (e.g., for users not on LiveKit to see mute status)
         const success = await voiceService.current.updateParticipantStatus(
             currentRoom.id,
             userId,
@@ -589,35 +543,23 @@ export const useVoiceCollaboration = ({
             console.log(`[useVoiceCollab] 🎤 ${newMutedState ? 'Muted' : 'Unmuted'} microphone. Synced with DB.`);
         } else {
             console.warn("[useVoiceCollab] Failed to sync mute state with DB. LiveKit state is primary.");
-            // Not reverting UI/LiveKit state as DB is secondary for real-time mute
         }
     } catch (dbError) {
         console.error("[useVoiceCollab] Failed to sync mute state with DB:", dbError);
     }
   }, [currentRoom, userId, isMuted]);
 
-  // fetchRoomParticipants and its polling useEffect are now removed.
-  // LiveKit events are the source of truth for participant list.
-
-  // Simulate audio level (replace with real audio processing from AudioManager)
-  // This useEffect might be redundant if AudioManager's onAudioLevel callback is robustly updating setAudioLevel
   useEffect(() => {
     if (!isVoiceEnabled || isMuted || livekitConnectionState !== ConnectionState.Connected) {
       setAudioLevel(0);
       return;
     }
-    // Assuming AudioManager is already initialized and monitoring if connected
-    // If AudioManager's onAudioLevel callback is set up, this simulation is not needed.
-    // For now, keeping it as a placeholder if direct AudioManager -> setAudioLevel isn't fully wired for local mic.
     const interval = setInterval(() => {
-      // This is a fallback simulation. AudioManager should provide real levels.
-      // const level = Math.random() * 0.8 + 0.1; 
-      // setAudioLevel(level); 
+      // Placeholder for audio level simulation if needed
     }, 200);
 
     return () => clearInterval(interval);
   }, [isVoiceEnabled, isMuted, livekitConnectionState]);
-
 
   return {
     isVoiceEnabled,
@@ -625,7 +567,6 @@ export const useVoiceCollaboration = ({
     isConnecting,
     availableRooms,
     currentRoom,
-    // Replace connectedTrackers with livekitParticipants (as an array)
     livekitParticipants: Array.from(livekitParticipants.values()),
     isRoomAdmin,
     audioLevel,
@@ -635,16 +576,13 @@ export const useVoiceCollaboration = ({
     audioOutputDevices, 
     selectedAudioOutputDeviceId, 
     
-    // Actions
     joinVoiceRoom,
     leaveVoiceRoom,
     toggleMute,
     adminSetParticipantMute, 
     selectAudioOutputDevice, 
 
-    // Raw map if needed, though array is usually better for UI
-    // livekitParticipantsMap: livekitParticipants, 
-    remoteStreams, // For <audio> elements
-    peerStatuses // For general connection dots if still used alongside specific participant state
+    remoteStreams,
+    peerStatuses
   };
 };
