@@ -28,10 +28,10 @@ interface Participant {
 // Define an alias for the Row type
 type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
 
-// Extend the alias
-interface VoiceRoom extends VoiceRoomRow {
+// Use a type alias with an intersection type
+type VoiceRoom = VoiceRoomRow & {
   participant_count?: number;
-}
+};
 
 interface SandboxTokenDetails {
   serverUrl: string;
