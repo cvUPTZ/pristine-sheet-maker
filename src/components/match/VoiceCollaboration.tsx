@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,11 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const handleRejoin = async () => {
     if (isConnecting) return; 
     if (roomToRejoin) {
-      if (isVoiceEnabled || (livekitConnectionState === ConnectionState.Connected || livekitConnectionState === ConnectionState.Connecting || livekitConnectionState === ConnectionState.Reconnecting)) {
+      const isCurrentlyConnected = livekitConnectionState === ConnectionState.Connected || 
+                                  livekitConnectionState === ConnectionState.Connecting || 
+                                  livekitConnectionState === ConnectionState.Reconnecting;
+      
+      if (isVoiceEnabled || isCurrentlyConnected) {
         await leaveVoiceRoom(); 
         await new Promise(resolve => setTimeout(resolve, 250)); 
       }
@@ -244,7 +249,10 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {getLiveKitStatusIndicator(livekitConnectionState)}
-            {availableRooms.length > 0 && !isVoiceEnabled && livekitConnectionState !== ConnectionState.Connected && livekitConnectionState !== ConnectionState.Connecting && livekitConnectionState !== ConnectionState.Reconnecting && (
+            {availableRooms.length > 0 && !isVoiceEnabled && 
+             livekitConnectionState !== ConnectionState.Connected && 
+             livekitConnectionState !== ConnectionState.Connecting && 
+             livekitConnectionState !== ConnectionState.Reconnecting && (
               <Badge variant="outline" className="text-xs">{availableRooms.length} rooms available</Badge>
             )}
           </div>

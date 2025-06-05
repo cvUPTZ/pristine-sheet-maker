@@ -1,7 +1,7 @@
-
 import { ConnectionMonitor } from './connectionMonitor';
 import { VoiceConnectionRecovery } from './connectionRecovery';
 import { PRODUCTION_VOICE_CONFIG } from '@/config/voiceConfig';
+import { AudioManager } from '@/services/AudioManager';
 
 interface WebRTCManagerOptions {
   localStream: MediaStream;
@@ -36,6 +36,7 @@ export class WebRTCManager {
   private healthCheckInterval?: NodeJS.Timeout;
   private statsCollectionInterval?: NodeJS.Timeout;
   private reconnectionAttempts = new Map<string, number>();
+  private audioManager: AudioManager;
 
   constructor(options: WebRTCManagerOptions) {
     this.localStream = options.localStream;
@@ -44,6 +45,9 @@ export class WebRTCManager {
     this.onError = options.onError;
     this.onConnectionQuality = options.onConnectionQuality;
     this.onDataChannel = options.onDataChannel;
+
+    // Initialize AudioManager
+    this.audioManager = AudioManager.getInstance();
 
     // Initialize connection monitor with production settings
     this.connectionMonitor = new ConnectionMonitor({
@@ -179,8 +183,8 @@ export class WebRTCManager {
           const currentParams = sender.getParameters();
           if (currentParams.encodings && currentParams.encodings.length > 0) {
             currentParams.encodings[0].maxBitrate = 64000;
-            sender.setParameters(currentParams).catch(error => 
-              console.warn('Failed to set encoding parameters:', error)
+            sender.setParameters(currentParams).catch((error: Error) => 
+              console.warn('Failed to set encoding parameters:', error.message)
             );
           }
         }
@@ -202,7 +206,7 @@ export class WebRTCManager {
           const message = JSON.parse(event.data);
           this.handleDataChannelMessage(userId, message);
         } catch (error) {
-          console.error('Failed to parse data channel message:', error);
+          console.error('Failed to parse data channel message:', (error as Error).message);
         }
       };
 
@@ -214,36 +218,16 @@ export class WebRTCManager {
             const message = JSON.parse(event.data);
             this.handleDataChannelMessage(userId, message);
           } catch (error) {
-            console.error('Failed to parse incoming data channel message:', error);
+            console.error('Failed to parse incoming data channel message:', (error as Error).message);
           }
         };
       };
 
       // Enhanced remote stream handling
       peerConnection.ontrack = (event) => {
-        console.log('📡 Received remote track from:', userId, 'streams:', event.streams.length);
         const [remoteStream] = event.streams;
-        
-        if (remoteStream && remoteStream.getTracks().length > 0) {
-          console.log('🎵 Remote stream tracks:', remoteStream.getTracks().map(t => `${t.kind}:${t.id}`));
-          
-          // Configure audio tracks for production
-          const audioTracks = remoteStream.getAudioTracks();
-          audioTracks.forEach(track => {
-            track.enabled = true;
-            console.log(`🎤 Audio track configured for ${userId}:`, {
-              id: track.id,
-              readyState: track.readyState,
-              muted: track.muted,
-              settings: track.getSettings()
-            });
-          });
-          
-          this.onRemoteStream(userId, remoteStream);
-          peerState.lastActivity = Date.now();
-          peerState.isStable = true;
-        } else {
-          console.warn('⚠️ Remote stream has no tracks for:', userId);
+        if (remoteStream) {
+          this.handleRemoteStream(userId, remoteStream);
         }
       };
 
@@ -299,6 +283,38 @@ export class WebRTCManager {
 
       return peerConnection;
     });
+  }
+
+  private handleRemoteStream(userId: string, stream: MediaStream): void {
+    console.log('📡 Received remote track from:', userId, 'streams:', stream.getTracks().length);
+    
+    if (stream && stream.getTracks().length > 0) {
+      console.log('🎵 Remote stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.id}`));
+      
+      // Configure audio tracks for production
+      const audioTracks = stream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = true;
+        console.log(`🎤 Audio track configured for ${userId}:`, {
+          id: track.id,
+          readyState: track.readyState,
+          muted: track.muted,
+          settings: track.getSettings()
+        });
+      });
+      
+      // Use AudioManager to play remote stream
+      this.audioManager.playRemoteStream(stream);
+      this.onRemoteStream(userId, stream);
+      
+      const peerState = this.peers.get(userId);
+      if (peerState) {
+        peerState.lastActivity = Date.now();
+        peerState.isStable = true;
+      }
+    } else {
+      console.warn('⚠️ Remote stream has no tracks for:', userId);
+    }
   }
 
   private handleDataChannelMessage(userId: string, message: any): void {
@@ -507,6 +523,8 @@ export class WebRTCManager {
         this.reconnectionAttempts.delete(userId);
         // Remove from connection monitor
         this.connectionMonitor.removePeer(userId);
+        // Remove remote stream from AudioManager
+        this.audioManager.removeRemoteStream(userId);
         
         peerState.connection.close();
         this.peers.delete(userId);
