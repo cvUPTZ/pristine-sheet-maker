@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -287,8 +286,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Network Status */}
           {networkStatus !== 'online' && (
             <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
               <AlertDescription className="text-sm">
@@ -297,7 +294,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </Alert>
           )}
 
-          {/* Rejoin UI or Current Room Info */}
           {(currentRoom || roomToRejoin) && (
             <>
               {shouldShowRejoin && (
@@ -331,7 +327,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </>
           )}
 
-          {/* Audio Level Indicator */}
           {isVoiceEnabled && livekitConnectionState === ConnectionState.Connected && (
             <div className={`flex items-center justify-between ${isMobile ? 'gap-1' : 'gap-2'}`}>
               <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>Your audio:</span>
@@ -339,7 +334,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
           
-          {/* Available Rooms List */}
           {shouldShowAvailableRooms && (
             <div className="space-y-2">
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>Available Voice Rooms <Badge variant="outline" className="text-xs">Role: {userRole}</Badge></div>
@@ -360,7 +354,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Connected Participants */}
           {isVoiceEnabled && livekitConnectionState === ConnectionState.Connected && livekitParticipants.length > 0 && (
             <div className="space-y-2">
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>Connected Participants ({livekitParticipants.length}){!isMobile && (<Button variant="ghost" size="sm" onClick={() => setShowConnectionDetails(!showConnectionDetails)} className="text-xs">{showConnectionDetails ? 'Hide Details' : 'Show Details'}</Button>)}</div>
@@ -385,7 +378,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* Connection Details */}
           {showConnectionDetails && isVoiceEnabled && livekitConnectionState === ConnectionState.Connected && !isMobile && (
             <div className="text-xs p-2 bg-gray-50 rounded border">
               <div className="font-medium mb-1">Connection Metrics & Statuses</div>
@@ -404,7 +396,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             </div>
           )}
 
-          {/* System Status & Settings Toggle */}
           <div className="flex justify-between items-center mt-2">
             {!isCurrentlyActive && !isConnecting && shouldShowAvailableRooms && (
               <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 p-1 ${databaseConnected ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'} rounded border flex-grow mr-2`}>
