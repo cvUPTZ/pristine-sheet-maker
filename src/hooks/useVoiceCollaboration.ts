@@ -29,6 +29,13 @@ interface VoiceRoom extends Database['public']['Tables']['voice_rooms']['Row'] {
   participant_count?: number; // Add this field as it's used by the hook
 }
 
+interface SandboxTokenDetails {
+  serverUrl: string;
+  token: string;
+  roomName: string;
+  participantName: string;
+}
+
 interface UseVoiceCollaborationReturn {
   isConnected: boolean;
   isConnecting: boolean;
@@ -208,10 +215,63 @@ export const useVoiceCollaboration = ({
     }
   }, [currentRoom?.id, userId, userName]);
 
-  const connectToRoom = useCallback(async (token: string): Promise<Room> => {
-    const wsUrl = import.meta.env.VITE_LIVEKIT_URL;
+  const generateSandboxToken = useCallback(async (
+    roomNameToJoin?: string,
+    participantIdentity?: string
+  ): Promise<SandboxTokenDetails> => {
+    const sandboxId = import.meta.env.VITE_LIVEKIT_SANDBOX_ID as string;
+    if (!sandboxId) {
+      throw new Error('VITE_LIVEKIT_SANDBOX_ID is not defined in environment variables.');
+    }
+
+    const apiUrl = 'https://cloud-api.livekit.io/api/sandbox/connection-details';
+
+    const payload: { roomName?: string; participantName?: string } = {};
+    if (roomNameToJoin) {
+      payload.roomName = roomNameToJoin;
+    }
+    if (participantIdentity) {
+      payload.participantName = participantIdentity;
+    }
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sandbox-ID': sandboxId,
+        },
+        body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Sandbox API request failed with status ${response.status}: ${errorBody}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.serverUrl || !data.participantToken || !data.roomName || !data.participantName) {
+        throw new Error('Sandbox API response is missing required fields (serverUrl, participantToken, roomName, participantName).');
+      }
+
+      return {
+          serverUrl: data.serverUrl,
+          token: data.participantToken,
+          roomName: data.roomName,
+          participantName: data.participantName,
+      };
+
+    } catch (err) {
+      console.error('Error generating sandbox token:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate sandbox token';
+      throw new Error(errorMessage);
+    }
+  }, []);
+
+  const connectToRoom = useCallback(async (token: string, wsUrl: string): Promise<Room> => {
     if (!wsUrl) {
-      throw new Error('LiveKit URL not configured. Please set VITE_LIVEKIT_URL environment variable.');
+      throw new Error('LiveKit server URL was not provided to connectToRoom.');
     }
 
     const room = new Room({
@@ -224,7 +284,7 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.Connected, () => {
       console.log('Room connected successfully');
-      setRoomName(room.name || currentRoom?.id || 'Unknown Room');
+      setRoomName(room.name || 'Unknown Room'); // Use LiveKit's room.name
       updateConnectionState(ConnectionState.Connected);
     });
 
@@ -252,7 +312,10 @@ export const useVoiceCollaboration = ({
         joinedAt: new Date()
       };
 
-      setParticipants(prev => [...prev, newParticipant]);
+      setParticipants(prev => {
+        if (prev.find(p => p.id === newParticipant.id)) return prev;
+        return [...prev, newParticipant];
+      });
       onParticipantJoined?.(participant.identity, participant.name || participant.identity);
       toast.success(`${participant.name || participant.identity} joined the voice room`);
     });
@@ -266,33 +329,55 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.TrackMuted, (track, participant) => {
       if (track.kind === Track.Kind.Audio) {
-        if (participant?.identity === userId) {
-          setIsMuted(true);
-        }
         setParticipants(prev => prev.map(p => 
-          p.id === participant?.identity 
+          p.id === participant.identity
             ? { ...p, isAudioEnabled: false, isMuted: true }
             : p
         ));
+        if (participant.identity === userId) {
+            setIsMuted(true);
+        }
       }
     });
 
     room.on(RoomEvent.TrackUnmuted, (track, participant) => {
       if (track.kind === Track.Kind.Audio) {
-        if (participant?.identity === userId) {
-          setIsMuted(false);
-        }
         setParticipants(prev => prev.map(p => 
-          p.id === participant?.identity 
+          p.id === participant.identity
             ? { ...p, isAudioEnabled: true, isMuted: false }
             : p
         ));
+        if (participant.identity === userId) {
+            setIsMuted(false);
+        }
       }
+    });
+
+    room.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
+        if (trackPublication.kind === Track.Kind.Audio && room.localParticipant) {
+            const localParticipant = room.localParticipant as any; // Cast to any to check for _events
+            // Check if 'audioprocessing' event listener is likely supported/attached by LiveKit internals
+            if (localParticipant && typeof localParticipant.on === 'function' && localParticipant._events && localParticipant._events.audioprocessing) {
+                 localParticipant.on('audioprocessing', (level: number) => {
+                    setAudioLevel(level);
+                });
+            } else if (trackPublication.track) {
+                // This is a more standard way if the track itself emits level events
+                // For example: trackPublication.track.on(TrackEvent.AudioLevelChanged, setAudioLevel);
+                // console.warn("Audio level monitoring via 'audioprocessing' may not be set up or supported. Consider TrackEvent.AudioLevelChanged.");
+            }
+        }
+    });
+
+    room.on(RoomEvent.MediaDevicesError, (err: Error) => {
+        console.error('Media devices error:', err);
+        toast.error(`Media device error: ${err.message}`);
     });
 
     await room.connect(wsUrl, token);
     return room;
-  }, [currentRoom?.id, userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
+  }, [userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
+  // State setters like setRoomName, setParticipants, setCurrentUser, setIsMuted, setAudioLevel are stable and don't need to be deps.
 
   const joinRoom = useCallback(async (): Promise<void> => {
     if (isConnecting || isConnected) {
@@ -304,43 +389,91 @@ export const useVoiceCollaboration = ({
       setIsConnecting(true);
       setError(null);
 
-      console.log('Joining voice room:', currentRoom?.id);
+      let token: string;
+      let serverUrl: string;
+      let actualRoomName = currentRoom?.name;
+      let actualParticipantName = userName;
+
+      const useSandbox = import.meta.env.VITE_LIVEKIT_USE_SANDBOX_TOKEN === 'true';
+
+      if (useSandbox) {
+        console.log('Using LiveKit Sandbox Token Generation');
+        const sandboxDetails = await generateSandboxToken(currentRoom?.name, userName);
+        token = sandboxDetails.token;
+        serverUrl = sandboxDetails.serverUrl;
+        actualRoomName = sandboxDetails.roomName;
+        actualParticipantName = sandboxDetails.participantName;
+
+        if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
+            console.warn(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
+        }
+        if (!currentRoom) {
+             console.log(`Joining a new sandbox-generated room: ${sandboxDetails.roomName}`);
+        }
+        setRoomName(sandboxDetails.roomName);
+
+      } else {
+        console.log('Using Supabase Function for Token Generation');
+        token = await generateToken();
+        serverUrl = import.meta.env.VITE_LIVEKIT_URL as string;
+        if (!serverUrl) {
+          throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
+        }
+        if (currentRoom?.name) {
+          setRoomName(currentRoom.name);
+        } else {
+           console.warn("Joining room without sandbox mode and no currentRoom selected. This might lead to issues as generateToken relies on currentRoom.id.");
+           setRoomName("default-room");
+        }
+      }
       
-      const token = await generateToken();
-      const room = await connectToRoom(token);
+      console.log(`Attempting to join room: '${actualRoomName || 'N/A'}' at server: '${serverUrl}'`);
+      // connectToRoom will be updated in the next step to accept serverUrl
+      const room = await connectToRoom(token, serverUrl);
       
       roomRef.current = room;
 
       await room.localParticipant.enableCameraAndMicrophone();
       await room.localParticipant.setMicrophoneEnabled(true);
+      setIsMuted(false);
 
       const localUser: Participant = {
         id: userId,
-        name: userName,
+        name: actualParticipantName,
         isSpeaking: false,
         isAudioEnabled: true,
         isMuted: false,
         joinedAt: new Date()
       };
-
       setCurrentUser(localUser);
-      setIsMuted(false);
 
       console.log('Successfully joined voice room');
-      toast.success('Connected to voice room');
+      toast.success(`Connected to voice room: ${actualRoomName}`);
 
     } catch (err) {
       console.error('Failed to join room:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to join voice room';
       setError(errorMessage);
       onError?.(errorMessage);
-      toast.error(`Failed to join voice room: ${errorMessage}`);
+      toast.error(`Failed to join voice room: ${errorMessage.substring(0, 100)}`);
       
       setIsConnecting(false);
       setIsConnected(false);
       updateConnectionState(ConnectionState.Disconnected);
     }
-  }, [isConnecting, isConnected, currentRoom?.id, userId, userName, generateToken, connectToRoom, onError, updateConnectionState]);
+  }, [
+    isConnecting,
+    isConnected,
+    currentRoom,
+    userId,
+    userName,
+    generateToken,
+    generateSandboxToken,
+    connectToRoom,
+    onError,
+    updateConnectionState,
+    // State setters like setCurrentUser, setIsMuted, setRoomName, setError, setIsConnecting are stable
+  ]);
 
   const joinVoiceRoom = useCallback(async (room: VoiceRoom): Promise<void> => {
     setCurrentRoom(room);
