@@ -67,25 +67,33 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Parse duration from videoInfo if available
+  // FIXED: Parse duration from videoInfo if available
   const parseDurationFromInfo = (durationStr: string): number | null => {
     try {
-      if (!durationStr) return null;
+      if (!durationStr || durationStr.trim() === '') return null;
 
-      if (durationStr.includes(':')) {
-        const parts = durationStr.split(':').map(Number);
-        if (parts.some(isNaN)) return null; // Check for NaN after map
+      // Clean the string and handle edge cases
+      const cleanDuration = durationStr.trim();
 
-        if (parts.length === 2) { // MM:SS
-          return parts[0] * 60 + parts[1];
-        } else if (parts.length === 3) { // HH:MM:SS
-          return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (cleanDuration.includes(':')) {
+        const parts = cleanDuration.split(':').map(part => {
+          const num = parseInt(part, 10);
+          return isNaN(num) ? 0 : num; // Convert NaN to 0 for safety
+        });
+
+        if (parts.length === 2) { // MM:SS format
+          const [minutes, seconds] = parts;
+          return minutes * 60 + seconds;
+        } else if (parts.length === 3) { // HH:MM:SS format
+          const [hours, minutes, seconds] = parts;
+          return hours * 3600 + minutes * 60 + seconds;
         }
       }
 
-      const num = parseFloat(durationStr);
-      if (!isNaN(num) && num >= 0) { // Treat as seconds if just a number
-        return num;
+      // Try to parse as a number (seconds)
+      const num = parseFloat(cleanDuration);
+      if (!isNaN(num) && num >= 0) {
+        return Math.floor(num); // Return whole seconds
       }
 
       return null;
@@ -114,7 +122,8 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     setLoadingDuration(true);
     setDurationError(null);
     setSegments([]); // Reset segments when video source changes
- let resolvedTitle = '';
+
+    let resolvedTitle = '';
     let resolvedDuration: number | null = null;
 
     // Priority 1: Use videoInfo if provided and valid
@@ -156,84 +165,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         setVideoTitle(videoFile.name.replace(/\.[^/.]+$/, ""));
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-    // let resolvedTitle = '';
-    // let resolvedDuration: number | null = null;
-
-    // // Priority 1: Use videoInfo if provided and valid
-    // if (videoInfo) {
-    //   resolvedTitle = videoInfo.title || '';
-    //   const durationFromInfo = parseDurationFromInfo(videoInfo.duration);
-    //   if (durationFromInfo !== null) {
-    //     resolvedDuration = durationFromInfo;
-    //     console.log('Video duration from info:', resolvedDuration, 'seconds');
-    //   } else {
-    //     // videoInfo.duration was invalid, will fallback to videoFile if available
-    //     console.warn('Invalid duration format in videoInfo.duration:', videoInfo.duration);
-    //   }
-    // }
-
-    // setVideoTitle(resolvedTitle || (videoFile?.name.replace(/\.[^/.]+$/, "") || ''));
-
-    // if (resolvedDuration !== null) {
-    //   setVideoDuration(resolvedDuration);
-    //   showToast(`Video loaded: ${videoTitle || 'Video'} (${formatTime(resolvedDuration)})`);
-    //   setLoadingDuration(false);
-    //   return; // Duration resolved from videoInfo, no need to load from file
-    // }
-
-    // // Priority 2: Fall back to videoFile metadata loading if no valid duration from videoInfo
-    // if (!videoFile) {
-    //   setLoadingDuration(false);
-    //   if (!videoInfo) { // Only error if no videoInfo was even attempted
-    //      setDurationError("No video file or valid video info provided.");
-    //   } else if (!resolvedDuration) {
-    //      setDurationError("Duration from video info was invalid, and no video file to fallback.");
-    //   }
-    //   if (!videoTitle) setVideoTitle('Unknown Video'); // Set a default title if none resolved
-    //   return;
-    // }
-
-    // // If title wasn't set by videoInfo, use file name
-    // if (!resolvedTitle) {
-    //     setVideoTitle(videoFile.name.replace(/\.[^/.]+$/, ""));
-    // }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
     const videoElement = videoRef.current;
     if (!videoElement) {
       setLoadingDuration(false);
@@ -247,7 +178,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
     const handleLoadedMetadata = () => {
       if (videoElement) {
         console.log('Video metadata loaded from file. Duration:', videoElement.duration);
-        setVideoDuration(videoElement.duration);
+        setVideoDuration(Math.floor(videoElement.duration)); // Ensure whole seconds
         showToast(`Video loaded: ${videoFile.name} (${formatTime(videoElement.duration)})`);
         setDurationError(null); // Clear previous error if any
       }
@@ -282,9 +213,10 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const formatTime = (seconds: number | null | undefined): string => {
     if (seconds === null || seconds === undefined || isNaN(seconds) || seconds < 0) return '00:00';
 
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
+    const totalSeconds = Math.floor(seconds); // Ensure we work with whole seconds
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
 
     if (hours > 0) {
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -360,7 +292,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
         return;
     }
 
-
     setProcessing(true);
     setProgress(0);
     setCurrentSegment(0);
@@ -425,7 +356,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
 
   const maxSegmentDuration = videoDuration ? Math.max(1, Math.floor(videoDuration -1 )) : 60;
 
-
   if (!videoFile && !videoInfo) {
     return (
         <Card className="w-full max-w-4xl mx-auto">
@@ -441,7 +371,6 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
 
   const displayName = videoTitle || 'Unknown Video';
   const displaySize = videoFile?.size;
-
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -595,7 +524,7 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           </div>
         )}
 
-        {segments.length > 0 && !processing && videoDuration !== null && ( // Added !processing and videoDuration check
+        {segments.length > 0 && !processing && videoDuration !== null && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <h4 className="font-medium">Video Segments ({segments.length})</h4>
@@ -645,138 +574,69 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   );
 };
 
-// File upload component for demo
-const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) => {
-  const [dragActive, setDragActive] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('video/')) {
-        onFileSelect(file);
-      } else {
-        showToast('Please select a valid video file', 'error');
-      }
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type.startsWith('video/')) {
-        onFileSelect(file);
-      } else {
-        showToast('Please select a valid video file', 'error');
-      }
-      e.target.value = ''; // Reset for same file selection
-    }
-  };
-
-  return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardContent className="pt-6">
-        <form
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-gray-800' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
-          }`}
-          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            id="file-upload-input"
-            multiple={false}
-            accept="video/*"
-            onChange={handleChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-          <label htmlFor="file-upload-input" className="cursor-pointer">
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Drop your video file here, or click to browse
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Supports MP4, WebM, AVI, MOV, and other common video formats.
-            </p>
-          </label>
-        </form>
-      </CardContent>
-    </Card>
-  );
-};
-
-export { VideoSplitter }; // Export for use in other files
-
-// Demo usage
+// Demo component to test the fix
 export default function VideoSplitterDemo() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // Example of how videoInfo might be structured if obtained from an API
-  const [apiVideoInfo, setApiVideoInfo] = useState<VideoInfo | undefined>(undefined);
+  const [testScenario, setTestScenario] = useState<'correct' | 'broken' | 'file-only'>('correct');
 
   const handleSegmentsReady = (segments: VideoSegment[]) => {
     console.log('Segments ready for further processing/download:', segments);
-    showToast(`${segments.length} video segments are (simulated) ready!`);
+    showToast(`${segments.length} video segments are ready!`);
   };
 
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file);
-    // Simulate fetching API info for the selected file, or this could come from a previous step
-    // For demo, we'll just use the file name and not set a duration, so VideoSplitter detects it.
-    // If you had youtube metadata (e.g. "09:12"), you'd set it here:
-    // setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "09:12" });
-    // Forcing the "00:09" issue via videoInfo:
-    // setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "00:09" });
-    setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "" }); // This will cause fallback
-    showToast(`Selected video: ${file.name}`);
+  // Simulate different scenarios to test the fix
+  const getVideoInfo = () => {
+    switch (testScenario) {
+      case 'correct':
+        return { title: "Sample Video", duration: "09:12" }; // This should show 09:12 correctly
+      case 'broken':
+        return { title: "Sample Video", duration: "" }; // This would cause fallback to file
+      case 'file-only':
+        return undefined; // No video info, use file only
+      default:
+        return undefined;
+    }
   };
 
   return (
     <div className="p-4 min-h-screen bg-gray-100 dark:bg-gray-900 space-y-6">
-      {!selectedFile ? (
-        <FileUploader onFileSelect={handleFileSelect} />
-      ) : (
-        <div className="space-y-4">
-          <Button
-            onClick={() => {
-              setSelectedFile(null);
-              setApiVideoInfo(undefined); // Clear video info as well
-            }}
-            variant="outline"
-            size="sm"
-            className="mb-2"
-          >
-            ← Change Video File
-          </Button>
-          <VideoSplitter
-            videoFile={selectedFile}
-            // videoInfo={apiVideoInfo} // Pass this if you have it from an API/previous step
-            // If apiVideoInfo.duration is "09:12", VideoSplitter will show that.
-            // If apiVideoInfo.duration is "00:09", VideoSplitter will show that.
-            // If apiVideoInfo is undefined OR apiVideoInfo.duration is invalid/empty, VideoSplitter uses videoFile.
-            onSegmentsReady={handleSegmentsReady}
-          />
-          {/* To explicitly test the scenario from screenshots, you'd need a parent orchestrator
-              that first shows YouTube metadata (09:12), then (simulates) a download of a 9s file,
-              and then passes EITHER just that 9s file to VideoSplitter OR that 9s file along with
-              a videoInfo object where videoInfo.duration is "00:09" or invalid.
-          */}
-        </div>
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle>VideoSplitter Fix Test</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label>Test Scenario:</Label>
+              <select 
+                value={testScenario} 
+                onChange={(e) => setTestScenario(e.target.value as any)}
+                className="w-full p-2 border rounded mt-2"
+              >
+                <option value="correct">✅ Correct: videoInfo.duration = "09:12"</option>
+                <option value="broken">❌ Broken: videoInfo.duration = "" (empty)</option>
+                <option value="file-only">📄 File Only: No videoInfo provided</option>
+              </select>
+            </div>
+            
+            <div>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedFile && (
+        <VideoSplitter
+          videoFile={selectedFile}
+          videoInfo={getVideoInfo()}
+          onSegmentsReady={handleSegmentsReady}
+        />
       )}
     </div>
   );
