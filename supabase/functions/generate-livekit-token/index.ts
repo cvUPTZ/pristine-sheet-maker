@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { AccessToken } from 'https://esm.sh/livekit-server-sdk@1.2.7'; // Ensure this version is suitable or use latest
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
@@ -7,9 +8,9 @@ const LIVEKIT_URL = Deno.env.get('LIVEKIT_URL'); // e.g., 'https://your-livekit-
 const LIVEKIT_API_KEY = Deno.env.get('LIVEKIT_API_KEY');
 const LIVEKIT_API_SECRET = Deno.env.get('LIVEKIT_API_SECRET');
 
-// TODO: Replace with your specific frontend domain(s) for production security.
+// Updated CORS headers to include your current domain
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://REPLACE_WITH_YOUR_ACTUAL_DOMAIN.com',
+  'Access-Control-Allow-Origin': '*', // For development - change to your specific domain in production
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };

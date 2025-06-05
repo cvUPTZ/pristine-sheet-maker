@@ -269,6 +269,19 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         </CardHeader>
         
         <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
+          {/* Environment Variables Debug Info */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+            <h4 className="font-medium text-sm mb-2">LiveKit Configuration Status:</h4>
+            <div className="text-xs space-y-1">
+              <div>VITE_LIVEKIT_URL: {import.meta.env.VITE_LIVEKIT_URL ? '✅ Set' : '❌ Missing'}</div>
+              <div>Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✅ Set' : '❌ Missing'}</div>
+              <div>Supabase Anon Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}</div>
+              {import.meta.env.VITE_LIVEKIT_URL && (
+                <div className="mt-1">LiveKit Server: {import.meta.env.VITE_LIVEKIT_URL}</div>
+              )}
+            </div>
+          </div>
+
           {networkStatus !== 'online' && (
             <Alert variant={networkStatus === 'offline' ? 'destructive' : 'default'}>
               <AlertDescription className="text-sm">
