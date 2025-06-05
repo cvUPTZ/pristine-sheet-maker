@@ -385,12 +385,35 @@ export const useVoiceCollaboration = ({
                     participantName: userRole
                 }),
             });
+            // ... (inside the try block for fetching token)
             if (!tokenResponse.ok) {
-                const errorData = await tokenResponse.json();
+                const errorText = await tokenResponse.text(); // Read as text first
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText); // Try to parse as JSON
+                } catch (parseError) {
+                    // If parsing fails, it's not JSON. Use the raw text.
+                    console.error("[useVoiceCollab] Token response was not valid JSON:", errorText);
+                    // Throw a more specific error if it's not JSON but status was not ok
+                    throw new Error(`Failed to fetch LiveKit token: Server returned non-JSON response (status ${tokenResponse.status})`);
+                }
+                // If it was JSON and not ok, use the error property or a default message
                 throw new Error(errorData.error || `Failed to fetch LiveKit token: ${tokenResponse.statusText} (${tokenResponse.status})`);
             }
-            const { token: fetchedToken } = await tokenResponse.json();
+
+            // If tokenResponse.ok was true, still need to safely parse
+            const responseText = await tokenResponse.text();
+            let tokenData;
+            try {
+                tokenData = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error("[useVoiceCollab] Token response was ok but not valid JSON:", responseText);
+                throw new Error("Received an invalid JSON response from the token server.");
+            }
+
+            const { token: fetchedToken } = tokenData;
             token = fetchedToken;
+            // ... (rest of the try block)
         } catch (error: any) {
             console.error("[useVoiceCollab] Error fetching LiveKit token:", error);
             toast({ title: "Voice Connection Error", description: `Could not get voice server token: ${error.message}`, variant: "destructive" });

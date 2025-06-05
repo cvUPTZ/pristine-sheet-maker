@@ -20,6 +20,19 @@ export default defineConfig(({ mode }) => ({
     // where the preview URL might change or be proxied), you might use:
     // allowedHosts: 'all',
     // However, be mindful of security implications if not in a controlled environment.
+    // IMPORTANT FOR PRODUCTION:
+    // The proxy configuration below is only for the Vite development server.
+    // For production, you must configure your hosting platform to rewrite or proxy
+    // any requests to '/api/...' to your Supabase functions endpoint,
+    // e.g., 'https://YOUR_SUPABASE_PROJECT_REF.supabase.co/functions/v1/...'.
+    // Ensure to replace 'YOUR_SUPABASE_PROJECT_REF' with your actual Supabase project reference.
+    proxy: {
+      '/api': {
+        target: 'https://YOUR_SUPABASE_PROJECT_REF.supabase.co/functions/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
+    }
   },
   plugins: [
     react(),
