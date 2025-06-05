@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming these are ShadCN UI components
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,45 +8,52 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scissors, Play, Clock, FileVideo, AlertCircle, Settings, Loader2, Upload } from 'lucide-react';
 
+// Toast replacement for demo purposes
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  console.log(`Toast (${type}): ${message}`);
+  // Basic toast implementation for browsers
+  if (typeof document !== 'undefined') {
+    const toastId = `toast-${Date.now()}`;
+    const toastDiv = document.createElement('div');
+    toastDiv.id = toastId;
+    toastDiv.style.position = 'fixed';
+    toastDiv.style.top = '20px';
+    toastDiv.style.right = '20px';
+    toastDiv.style.padding = '10px 20px';
+    toastDiv.style.borderRadius = '5px';
+    toastDiv.style.color = 'white';
+    toastDiv.style.zIndex = '10000';
+    toastDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+    toastDiv.textContent = message;
+    document.body.appendChild(toastDiv);
+    setTimeout(() => {
+      const el = document.getElementById(toastId);
+      if (el) document.body.removeChild(el);
+    }, 3000);
+  }
+};
+
 interface VideoSegment {
   id: string;
   startTime: number;
   endTime: number;
   duration: number;
   status: 'pending' | 'processing' | 'completed' | 'error';
-  file?: File;
+  file?: File; // This would be a real segment file in a non-simulated scenario
   size?: number;
   fileName?: string;
 }
 
 interface VideoInfo {
   title: string;
-  duration: string; // Duration as a string, e.g., "09:12" or "552"
+  duration: string; // Expected format: "MM:SS" or "HH:MM:SS" or number of seconds as string
 }
 
 interface VideoSplitterProps {
-  videoFile?: File | null;
-  videoInfo?: VideoInfo; // Optional: To provide metadata directly
+  videoFile: File | null; // Changed to non-optional, as it's core for real data
+  videoInfo?: VideoInfo | null; // Optional: To provide metadata, overrides file metadata if valid
   onSegmentsReady: (segments: VideoSegment[]) => void;
 }
-
-// Toast replacement for demo
-const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  console.log(`Toast (${type}): ${message}`);
-  if (typeof document !== 'undefined') {
-    const toastDiv = document.createElement('div');
-    toastDiv.className = `fixed top-4 right-4 p-3 rounded-lg text-white z-50 ${
-      type === 'success' ? 'bg-green-500' : 'bg-red-500'
-    }`;
-    toastDiv.textContent = message;
-    document.body.appendChild(toastDiv);
-    setTimeout(() => {
-      if (document.body.contains(toastDiv)) {
-        document.body.removeChild(toastDiv);
-      }
-    }, 3000);
-  }
-};
 
 const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoFile,
@@ -56,316 +63,261 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   const [segmentDuration, setSegmentDuration] = useState(30);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [processing, setProcessing] = useState(false);
-  const [currentSegment, setCurrentSegment] = useState(0);
-  const [progress, setProgress] = useState(0);
+  const [currentSegmentIdx, setCurrentSegmentIdx] = useState(0);
+  const [overallProgress, setOverallProgress] = useState(0);
   const [compressionLevel, setCompressionLevel] = useState('medium');
   const [outputFormat, setOutputFormat] = useState('mp4');
-  const [videoDuration, setVideoDuration] = useState<number | null>(null); // Duration in seconds
-  const [videoTitle, setVideoTitle] = useState('');
-  const [loadingDuration, setLoadingDuration] = useState(false);
-  const [durationError, setDurationError] = useState<string | null>(null);
+
+  const [actualVideoDuration, setActualVideoDuration] = useState<number | null>(null); // Duration in seconds
+  const [displayVideoTitle, setDisplayVideoTitle] = useState('');
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Parse duration from videoInfo if available
-  const parseDurationFromInfo = (durationStr: string): number | null => {
+  const parseDurationString = (durationStr: string | undefined): number | null => {
+    if (!durationStr) return null;
     try {
-      if (!durationStr) return null;
-
       if (durationStr.includes(':')) {
         const parts = durationStr.split(':').map(Number);
-        if (parts.some(isNaN)) return null; // Check for NaN after map
-
-        if (parts.length === 2) { // MM:SS
-          return parts[0] * 60 + parts[1];
-        } else if (parts.length === 3) { // HH:MM:SS
-          return parts[0] * 3600 + parts[1] * 60 + parts[2];
-        }
+        if (parts.some(isNaN)) return null;
+        if (parts.length === 2) return parts[0] * 60 + parts[1]; // MM:SS
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]; // HH:MM:SS
       }
-
       const num = parseFloat(durationStr);
-      if (!isNaN(num) && num >= 0) { // Treat as seconds if just a number
-        return num;
-      }
-
-      return null;
+      return !isNaN(num) && num >= 0 ? num : null;
     } catch (error) {
-      console.error('Error parsing duration:', error);
+      console.error('Error parsing duration string:', durationStr, error);
       return null;
     }
   };
 
-  // Effect for loading video metadata
   useEffect(() => {
-    // Reset state if no video source
-    if (!videoFile && !videoInfo) {
-      setVideoDuration(null);
-      setLoadingDuration(false);
-      setDurationError(null);
-      setVideoTitle('');
+    if (!videoFile) {
+      setActualVideoDuration(null);
+      setDisplayVideoTitle('');
+      setIsLoadingMetadata(false);
+      setMetadataError('No video file provided.');
       setSegments([]);
       if (videoRef.current) {
-        videoRef.current.pause();
         videoRef.current.src = '';
       }
       return;
     }
 
-    setLoadingDuration(true);
-    setDurationError(null);
-    setSegments([]); // Reset segments when video source changes
+    setIsLoadingMetadata(true);
+    setMetadataError(null);
+    setActualVideoDuration(null); // Reset while loading new file
+    setSegments([]); // Clear old segments
 
-    let resolvedTitle = '';
-    let resolvedDuration: number | null = null;
+    let titleSource = videoFile.name.replace(/\.[^/.]+$/, "");
+    let durationSource: number | null = null;
+    let usedInfoProp = false;
 
-    // Priority 1: Use videoInfo if provided and valid
+    // Attempt to use videoInfo prop first
     if (videoInfo) {
-      resolvedTitle = videoInfo.title || '';
-      const durationFromInfo = parseDurationFromInfo(videoInfo.duration);
-      if (durationFromInfo !== null) {
-        resolvedDuration = durationFromInfo;
-        console.log('Video duration from info:', resolvedDuration, 'seconds');
+      if (videoInfo.title) {
+        titleSource = videoInfo.title;
+      }
+      const parsedInfoDuration = parseDurationString(videoInfo.duration);
+      if (parsedInfoDuration !== null) {
+        durationSource = parsedInfoDuration;
+        usedInfoProp = true;
+        console.log(`Using duration from videoInfo prop: ${durationSource}s`);
       } else {
-        // videoInfo.duration was invalid, will fallback to videoFile if available
-        console.warn('Invalid duration format in videoInfo.duration:', videoInfo.duration);
+        console.warn("videoInfo.duration is invalid, will attempt to load from file metadata.");
       }
     }
+    setDisplayVideoTitle(titleSource);
 
-    setVideoTitle(resolvedTitle || (videoFile?.name.replace(/\.[^/.]+$/, "") || ''));
-
-    if (resolvedDuration !== null) {
-      setVideoDuration(resolvedDuration);
-      showToast(`Video loaded: ${videoTitle || 'Video'} (${formatTime(resolvedDuration)})`);
-      setLoadingDuration(false);
-      return; // Duration resolved from videoInfo, no need to load from file
+    if (durationSource !== null) {
+      setActualVideoDuration(durationSource);
+      setIsLoadingMetadata(false);
+      showToast(`Video metadata ready (from prop): ${titleSource} (${formatTime(durationSource)})`);
+      return; // Duration resolved from videoInfo, skip file loading for duration
     }
 
-    // Priority 2: Fall back to videoFile metadata loading if no valid duration from videoInfo
-    if (!videoFile) {
-      setLoadingDuration(false);
-      if (!videoInfo) { // Only error if no videoInfo was even attempted
-         setDurationError("No video file or valid video info provided.");
-      } else if (!resolvedDuration) {
-         setDurationError("Duration from video info was invalid, and no video file to fallback.");
-      }
-      if (!videoTitle) setVideoTitle('Unknown Video'); // Set a default title if none resolved
-      return;
-    }
-
-    // If title wasn't set by videoInfo, use file name
-    if (!resolvedTitle) {
-        setVideoTitle(videoFile.name.replace(/\.[^/.]+$/, ""));
-    }
-
-
+    // Fallback to loading metadata from the videoFile
     const videoElement = videoRef.current;
     if (!videoElement) {
-      setLoadingDuration(false);
-      setDurationError("Video player element not ready.");
-      showToast("Video player element not ready.", "error");
+      setIsLoadingMetadata(false);
+      setMetadataError("Video player element not ready for metadata loading.");
       return;
     }
 
+    console.log("Attempting to load metadata from video file:", videoFile.name);
     const objectURL = URL.createObjectURL(videoFile);
 
     const handleLoadedMetadata = () => {
-      if (videoElement) {
-        console.log('Video metadata loaded from file. Duration:', videoElement.duration);
-        setVideoDuration(videoElement.duration);
-        showToast(`Video loaded: ${videoFile.name} (${formatTime(videoElement.duration)})`);
-        setDurationError(null); // Clear previous error if any
+      if (videoElement.duration === Infinity || isNaN(videoElement.duration)) {
+          console.error('Video duration is Infinity or NaN. File might be corrupt or format not fully supported by browser.');
+          setMetadataError('Could not determine video duration. File might be corrupt or format not fully supported.');
+          setActualVideoDuration(null);
+      } else {
+          setActualVideoDuration(videoElement.duration);
+          console.log(`Metadata loaded from file: Duration ${videoElement.duration}s`);
+          showToast(`Video metadata loaded (from file): ${displayVideoTitle || videoFile.name} (${formatTime(videoElement.duration)})`);
       }
-      setLoadingDuration(false);
+      setIsLoadingMetadata(false);
+      URL.revokeObjectURL(objectURL); // Revoke immediately after use
     };
 
     const handleError = (e: Event) => {
       console.error('Error loading video metadata from file:', e);
-      setDurationError('Failed to load video metadata from file. Ensure it is a valid video file.');
-      setLoadingDuration(false);
-      showToast('Failed to load video metadata from file.', 'error');
+      setMetadataError('Failed to load video metadata. Ensure it is a valid and supported video file.');
+      setIsLoadingMetadata(false);
+      URL.revokeObjectURL(objectURL); // Revoke on error too
     };
 
-    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
-    videoElement.addEventListener('error', handleError);
     videoElement.src = objectURL;
-    videoElement.load();
+    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+    videoElement.addEventListener('error', handleError, { once: true });
+    videoElement.load(); // Start loading the video
 
     return () => {
-      console.log('Cleaning up video effect');
-      if (videoElement) {
-        videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        videoElement.removeEventListener('error', handleError);
-        videoElement.pause();
-        videoElement.src = '';
+      // Cleanup: remove event listeners and revoke Object URL if not already done
+      // The {once: true} option handles listener removal for these specific events.
+      // If the component unmounts before events fire, revokeObjectURL might be missed here,
+      // so it's good to have it in the event handlers too.
+      if (videoElement.src.startsWith('blob:')) {
+        URL.revokeObjectURL(videoElement.src);
       }
-      URL.revokeObjectURL(objectURL);
+      videoElement.src = ''; // Clear src
     };
-
-  }, [videoFile, videoInfo]); // Rerun when videoFile or videoInfo changes
+  }, [videoFile, videoInfo]); // videoInfo is included in dependencies
 
   const formatTime = (seconds: number | null | undefined): string => {
     if (seconds === null || seconds === undefined || isNaN(seconds) || seconds < 0) return '00:00';
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return h > 0
+      ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+      : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   const formatFileSize = (bytes: number | undefined): string => {
-    if (bytes === undefined || bytes === null || isNaN(bytes) || bytes === 0) return '0 Bytes';
+    if (bytes === undefined || bytes === null || isNaN(bytes) || bytes <= 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const generateSegments = () => {
-    if (videoDuration === null || videoDuration === undefined) { // Check for null or undefined
-      showToast('Video duration not available. Please wait for the video to load.', 'error');
+  const handleGenerateSegments = () => {
+    if (actualVideoDuration === null || actualVideoDuration <= 0) {
+      showToast('Video duration not available or invalid.', 'error');
       return;
     }
     if (segmentDuration <= 0) {
-        showToast('Segment duration must be greater than 0.', 'error');
-        return;
-    }
-    if (segmentDuration >= videoDuration) {
-      showToast('Segment duration should be less than video duration to split. Full video will be one segment.', 'error');
-       const singleSegment: VideoSegment[] = [{
-        id: `segment-1`,
-        startTime: 0,
-        endTime: videoDuration,
-        duration: videoDuration,
-        status: 'pending'
-      }];
-      setSegments(singleSegment);
-      showToast(`Generated 1 segment (full video).`);
+      showToast('Segment duration must be greater than 0.', 'error');
       return;
     }
 
     const newSegments: VideoSegment[] = [];
-    for (let start = 0; start < videoDuration; start += segmentDuration) {
-      const end = Math.min(start + segmentDuration, videoDuration);
+    if (segmentDuration >= actualVideoDuration) {
+      // Create one segment for the whole video
       newSegments.push({
-        id: `segment-${newSegments.length + 1}`,
-        startTime: start,
-        endTime: end,
-        duration: end - start,
-        status: 'pending'
+        id: `segment-1`,
+        startTime: 0,
+        endTime: actualVideoDuration,
+        duration: actualVideoDuration,
+        status: 'pending',
       });
+      showToast(`Generated 1 segment (full video). Segment duration was >= video duration.`);
+    } else {
+      for (let start = 0; start < actualVideoDuration; start += segmentDuration) {
+        const end = Math.min(start + segmentDuration, actualVideoDuration);
+        newSegments.push({
+          id: `segment-${newSegments.length + 1}`,
+          startTime: start,
+          endTime: end,
+          duration: end - start,
+          status: 'pending',
+        });
+      }
+      showToast(`Generated ${newSegments.length} segments.`);
     }
-
     setSegments(newSegments);
-    showToast(`Generated ${newSegments.length} video segments for processing`);
   };
 
-  const estimateSegmentSize = (duration: number): number => {
-    const baseSizePerSecond = compressionLevel === 'low' ? 2 * 1024 * 1024 :
-                             compressionLevel === 'medium' ? 1 * 1024 * 1024 :
-                             0.5 * 1024 * 1024;
-    return duration * baseSizePerSecond;
+  const processSingleSegment = async (segment: VideoSegment, index: number): Promise<VideoSegment> => {
+    // SIMULATION of real processing (e.g., using ffmpeg.wasm or a backend)
+    // In a real scenario, you'd slice videoFile from segment.startTime to segment.endTime
+    console.log(`Simulating processing for segment ${index + 1}: ${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}`);
+    
+    // Simulate processing time based on duration
+    const simulatedProcessingTime = segment.duration * 100 + 500; // e.g., 100ms per second + 0.5s overhead
+    await new Promise(resolve => setTimeout(resolve, simulatedProcessingTime));
+
+    // Simulate output file
+    // In a real app, this would be the actual sliced video segment File object
+    const mockSegmentBlob = new Blob([`Mock content for segment ${index + 1}`], { type: `video/${outputFormat}` });
+    const estimatedSize = (videoFile?.size || 0) * (segment.duration / (actualVideoDuration || 1)); // Rough estimate
+
+    return {
+      ...segment,
+      status: 'completed',
+      // file: new File([mockSegmentBlob], `segment_${index + 1}.${outputFormat}`, { type: `video/${outputFormat}` }), // Placeholder for real file
+      fileName: `${displayVideoTitle.replace(/[^a-zA-Z0-9]/g, '_')}_seg${index+1}_${formatTime(segment.startTime)}.${outputFormat}`,
+      size: estimatedSize > 0 ? estimatedSize : undefined,
+    };
   };
 
-  const processSegments = async () => {
-    if (segments.length === 0) {
-      showToast('Please generate segments first', 'error');
-      return;
-    }
-    if (!videoFile && !videoInfo) { // Should check if videoDuration is available too
-      showToast('No video file loaded or video info available for processing.', 'error');
-      return;
-    }
-    if (videoDuration === null) {
-        showToast('Video duration not determined. Cannot process segments.', 'error');
-        return;
-    }
 
+  const handleProcessSegments = async () => {
+    if (!segments.length) {
+      showToast('No segments generated.', 'error');
+      return;
+    }
+    if (!videoFile || actualVideoDuration === null) {
+      showToast('Video file or duration not available for processing.', 'error');
+      return;
+    }
 
     setProcessing(true);
-    setProgress(0);
-    setCurrentSegment(0);
+    setOverallProgress(0);
+    const processedSegments: VideoSegment[] = [];
 
-    try {
-      const processedSegments = [...segments];
+    for (let i = 0; i < segments.length; i++) {
+      setCurrentSegmentIdx(i);
+      const currentSegmentsCopy = [...segments];
+      currentSegmentsCopy[i] = { ...currentSegmentsCopy[i], status: 'processing' };
+      setSegments(currentSegmentsCopy);
 
-      for (let i = 0; i < processedSegments.length; i++) {
-        setCurrentSegment(i + 1);
-        processedSegments[i].status = 'processing';
-        setSegments([...processedSegments]);
+      try {
+        const result = await processSingleSegment(segments[i], i);
+        processedSegments.push(result);
+        const finalSegmentsCopy = [...currentSegmentsCopy]; // Get the latest state
+        finalSegmentsCopy[i] = result;
+        setSegments(finalSegmentsCopy);
 
-        const processingTime = Math.max(1000, processedSegments[i].duration * 50); // Simulation
-        await new Promise(resolve => setTimeout(resolve, processingTime));
-
-        const estimatedSize = estimateSegmentSize(processedSegments[i].duration);
-        // Use a more specific title if available, otherwise a generic one
-        const baseFileName = (videoTitle || (videoFile?.name.replace(/\.[^/.]+$/, "")) || "video").replace(/[^a-zA-Z0-9]/g, '_');
-        const segmentFile = new File(
-          [`processed video segment ${i + 1}`],
-          `${baseFileName}_segment_${i + 1}_${formatTime(processedSegments[i].startTime)}-${formatTime(processedSegments[i].endTime)}.${outputFormat}`,
-          { type: `video/${outputFormat}` }
-        );
-
-        processedSegments[i].status = 'completed';
-        processedSegments[i].file = segmentFile;
-        processedSegments[i].size = estimatedSize;
-        processedSegments[i].fileName = segmentFile.name;
-        setSegments([...processedSegments]);
-
-        const progressPercent = ((i + 1) / processedSegments.length) * 100;
-        setProgress(progressPercent);
+      } catch (error) {
+        console.error(`Error processing segment ${i + 1}:`, error);
+        const errorSegmentsCopy = [...segments];
+        errorSegmentsCopy[i] = { ...errorSegmentsCopy[i], status: 'error' };
+        setSegments(errorSegmentsCopy);
+        // Optionally, stop processing or allow user to retry
       }
-
-      onSegmentsReady(processedSegments);
-      showToast(`All ${processedSegments.length} video segments processed successfully!`);
-    } catch (error) {
-      console.error('Error processing segments:', error);
-      showToast('Failed to process video segments', 'error');
-      const failedSegments = segments.map(seg =>
-        seg.status === 'processing' ? { ...seg, status: 'error' as const } : seg
-      );
-      setSegments(failedSegments);
-    } finally {
-      setProcessing(false);
+      setOverallProgress(((i + 1) / segments.length) * 100);
     }
+
+    onSegmentsReady(processedSegments.filter(s => s.status === 'completed'));
+    showToast(`Processing complete for ${processedSegments.filter(s => s.status === 'completed').length} segments!`);
+    setProcessing(false);
+    setCurrentSegmentIdx(0);
   };
 
-  const getStatusColor = (status: VideoSegment['status']) => {
-    switch (status) {
-      case 'pending': return 'bg-gray-100 text-gray-800';
-      case 'processing': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const maxSegmentDurationInput = actualVideoDuration ? Math.max(1, Math.floor(actualVideoDuration - 0.1)) : 3600; // Default to 1hr if no duration
 
-  const totalEstimatedSize = segments.reduce((sum, seg) =>
-    sum + (seg.size || estimateSegmentSize(seg.duration)), 0
-  );
-
-  const maxSegmentDuration = videoDuration ? Math.max(1, Math.floor(videoDuration -1 )) : 60;
-
-
-  if (!videoFile && !videoInfo) {
+  if (!videoFile && !isLoadingMetadata) { // Show message if no file and not loading
     return (
         <Card className="w-full max-w-4xl mx-auto">
-            <CardHeader>
-                <CardTitle>Video Splitter</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>Please select a video file or ensure video info is provided to begin.</p>
-            </CardContent>
+            <CardHeader><CardTitle>Video Splitter</CardTitle></CardHeader>
+            <CardContent><p>Please select a video file using the uploader above to begin.</p></CardContent>
         </Card>
     );
   }
-
-  const displayName = videoTitle || 'Unknown Video';
-  const displaySize = videoFile?.size;
-
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -375,176 +327,131 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           Professional Video Splitter
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Hidden video element for metadata loading and potential processing */}
-        <video ref={videoRef} style={{ display: 'none' }} preload="metadata" crossOrigin="anonymous" />
+      <CardContent className="space-y-6">
+        {/* Hidden video element for metadata loading */}
+        <video ref={videoRef} style={{ display: 'none' }} preload="metadata" />
 
         <div className="p-4 bg-gray-50 rounded-lg border">
-          <div className="flex items-center gap-3 mb-3">
-            <FileVideo className="h-5 w-5 text-gray-600" />
+          <div className="flex items-center gap-3">
+            <FileVideo className="h-6 w-6 text-gray-600" />
             <div className="flex-1">
-              <p className="font-medium text-sm">{displayName}</p>
-              <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                {loadingDuration ? (
-                  <span className="flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading video metadata...
-                  </span>
-                ) : durationError ? (
-                  <span className="text-red-600">{durationError}</span>
-                ) : videoDuration !== null ? (
+              <p className="font-medium text-lg">{displayVideoTitle || (videoFile ? videoFile.name : "Loading...")}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600 mt-1">
+                {isLoadingMetadata ? (
+                  <span className="flex items-center gap-1"><Loader2 className="h-4 w-4 animate-spin" /> Loading metadata...</span>
+                ) : metadataError ? (
+                  <span className="text-red-600">{metadataError}</span>
+                ) : actualVideoDuration !== null ? (
                   <>
-                    <span>Duration: {formatTime(videoDuration)}</span>
-                    {displaySize !== undefined && <span>Size: {formatFileSize(displaySize)}</span>}
+                    <span>Duration: {formatTime(actualVideoDuration)}</span>
+                    {videoFile?.size && <span>Size: {formatFileSize(videoFile.size)}</span>}
                   </>
                 ) : (
-                  <span>Video metadata not available.</span>
+                  <span>Metadata not available.</span>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {!loadingDuration && !durationError && videoDuration !== null && (
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">Basic Settings</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="basic" className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="segment-duration">Segment Duration (seconds)</Label>
-                  <Input
-                    id="segment-duration"
-                    type="number"
-                    min="1"
-                    max={maxSegmentDuration > 0 ? maxSegmentDuration : undefined}
-                    value={segmentDuration}
-                    onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (videoDuration && val >= videoDuration) {
-                            setSegmentDuration(Math.max(1, videoDuration -1));
-                        } else {
-                            setSegmentDuration(Math.max(1, val || 1));
-                        }
-                    }}
-                    disabled={processing}
-                  />
-                  {videoDuration !== null && (
-                    <p className="text-xs text-gray-600">
-                      Min: 1s. Max: {formatTime(maxSegmentDuration > 0 ? maxSegmentDuration : videoDuration)} (Video: {formatTime(videoDuration)})
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="output-format">Output Format</Label>
-                  <select
-                    id="output-format"
-                    value={outputFormat}
-                    onChange={(e) => setOutputFormat(e.target.value)}
-                    className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
-                    disabled={processing}
-                  >
-                    <option value="mp4">MP4 (recommended)</option>
-                    <option value="webm">WebM</option>
-                    <option value="avi">AVI</option>
-                  </select>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="advanced" className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="compression-level">Compression Level</Label>
-                  <select
-                    id="compression-level"
-                    value={compressionLevel}
-                    onChange={(e) => setCompressionLevel(e.target.value)}
-                    className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
-                    disabled={processing}
-                  >
-                    <option value="low">Low (High Quality, Large Files)</option>
-                    <option value="medium">Medium (Balanced)</option>
-                    <option value="high">High (Lower Quality, Small Files)</option>
-                  </select>
-                </div>
-
-                {segments.length > 0 && (
-                  <div className="p-3 bg-blue-50 rounded border border-blue-200 dark:bg-blue-900 dark:border-blue-700">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      Estimated total size: {formatFileSize(totalEstimatedSize)}
+        {!isLoadingMetadata && !metadataError && actualVideoDuration !== null && (
+          <>
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="basic">Basic Settings</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced Options (Simulated)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="basic" className="space-y-4 pt-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="segment-duration">Segment Duration (seconds)</Label>
+                    <Input
+                      id="segment-duration" type="number" min="1"
+                      max={maxSegmentDurationInput}
+                      value={segmentDuration}
+                      onChange={(e) => setSegmentDuration(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      disabled={processing}
+                    />
+                     <p className="text-xs text-gray-500 mt-1">
+                        Max: {formatTime(maxSegmentDurationInput)}. Video: {formatTime(actualVideoDuration)}.
                     </p>
                   </div>
-                )}
-            </TabsContent>
-          </Tabs>
-        )}
+                  <div>
+                    <Label htmlFor="output-format">Output Format (Simulated)</Label>
+                     <select /* Using native select for simplicity here */
+                        id="output-format" value={outputFormat}
+                        onChange={(e) => setOutputFormat(e.target.value)}
+                        disabled={processing}
+                        className="w-full p-2 border rounded bg-background"
+                    >
+                        <option value="mp4">MP4</option><option value="webm">WebM</option>
+                    </select>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="advanced" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="compression-level">Compression Level (Simulated)</Label>
+                  <select
+                    id="compression-level" value={compressionLevel}
+                    onChange={(e) => setCompressionLevel(e.target.value)}
+                    disabled={processing}
+                    className="w-full p-2 border rounded bg-background"
+                  >
+                    <option value="low">Low (Best Quality)</option>
+                    <option value="medium">Medium (Balanced)</option>
+                    <option value="high">High (Smallest Size)</option>
+                  </select>
+                </div>
+              </TabsContent>
+            </Tabs>
 
-        {!loadingDuration && !durationError && videoDuration !== null && (
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={generateSegments}
-              disabled={processing || videoDuration === null}
-              variant="outline"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Generate Segments
-            </Button>
-            <Button
-              onClick={processSegments}
-              disabled={processing || segments.length === 0 || videoDuration === null}
-            >
-              {processing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              {processing ? 'Processing...' : `Process ${segments.length > 0 ? segments.length : ''} Segments`}
-            </Button>
-          </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button onClick={handleGenerateSegments} disabled={processing || actualVideoDuration === null} variant="outline">
+                <Settings className="h-4 w-4 mr-2" /> Generate Segments
+              </Button>
+              <Button onClick={handleProcessSegments} disabled={processing || !segments.length || actualVideoDuration === null}>
+                {processing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                {processing ? `Processing ${currentSegmentIdx + 1}/${segments.length}...` : `Process ${segments.length || ''} Segments`}
+              </Button>
+            </div>
+          </>
         )}
 
         {processing && (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-2 pt-2">
             <div className="flex justify-between text-sm">
-              <span>Processing segment {currentSegment} of {segments.length}</span>
-              <span>{Math.round(progress)}%</span>
+              <span>Processing Segment: {currentSegmentIdx + 1} of {segments.length}</span>
+              <span>{Math.round(overallProgress)}%</span>
             </div>
-            <Progress value={progress} className="w-full" />
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              This is a simulation. Actual video processing would take longer.
-            </p>
+            <Progress value={overallProgress} className="w-full" />
           </div>
         )}
 
-        {segments.length > 0 && !processing && videoDuration !== null && ( // Added !processing and videoDuration check
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium">Video Segments ({segments.length})</h4>
-              <div className="text-xs text-gray-600 dark:text-gray-400">
-                Total Duration: {formatTime(segments.reduce((sum, seg) => sum + seg.duration, 0))}
-              </div>
-            </div>
-
-            <div className="max-h-64 overflow-y-auto space-y-2 border rounded p-2 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+        {segments.length > 0 && (
+          <div className="space-y-3 pt-4">
+            <h4 className="font-medium text-lg">Video Segments ({segments.length})</h4>
+            <div className="max-h-96 overflow-y-auto space-y-2 border rounded p-2 bg-muted/30">
               {segments.map((segment, index) => (
-                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700">
+                <div key={segment.id} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-mono w-8 text-center">{index + 1}</div>
+                    <div className="text-sm font-mono w-8 text-center text-muted-foreground">{index + 1}</div>
                     <div>
-                      <div className="text-sm font-medium">
+                      <p className="text-sm font-semibold">
                         {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                      </p>
+                      <p className="text-xs text-muted-foreground">
                         Duration: {formatTime(segment.duration)}
                         {segment.size && ` • Est. Size: ${formatFileSize(segment.size)}`}
-                      </div>
+                      </p>
                     </div>
                   </div>
-                  <Badge className={`${getStatusColor(segment.status)} px-2 py-1 text-xs`}>
-                    {segment.status.charAt(0).toUpperCase() + segment.status.slice(1)}
+                  <Badge variant={
+                    segment.status === 'completed' ? 'default' :
+                    segment.status === 'processing' ? 'secondary' :
+                    segment.status === 'error' ? 'destructive' : 'outline'
+                  } className="capitalize">
+                    {segment.status}
                   </Badge>
                 </div>
               ))}
@@ -552,15 +459,14 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
           </div>
         )}
 
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded border border-amber-200 dark:bg-yellow-900 dark:border-yellow-700">
-          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
-          <div className="text-xs text-amber-800 dark:text-yellow-200">
-            <p className="font-medium">Production Guidelines:</p>
-            <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Video duration is automatically detected. Ensure valid video files.</li>
-              <li>For optimal analysis, consider 30-60 second segments.</li>
-              <li>Higher compression reduces file size but may impact quality.</li>
-              <li>Segment processing is simulated; real processing time varies.</li>
+        <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/30 rounded border border-amber-200 dark:border-amber-700/50">
+          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-amber-800 dark:text-amber-200">
+            <p className="font-semibold">Production Notes:</p>
+            <ul className="list-disc list-inside mt-1 space-y-0.5">
+              <li>Actual segment processing (splitting) is simulated. Real processing would use tools like FFmpeg and take more time.</li>
+              <li>Ensure video files are from trusted sources.</li>
+              <li>Browser capabilities for video format support may vary.</li>
             </ul>
           </div>
         </div>
@@ -569,138 +475,92 @@ const VideoSplitter: React.FC<VideoSplitterProps> = ({
   );
 };
 
-// File upload component for demo
-const FileUploader = ({ onFileSelect }: { onFileSelect: (file: File) => void }) => {
-  const [dragActive, setDragActive] = useState(false);
+// --- Demo Usage with File Uploader ---
+const FileUploader: React.FC<{ onFileSelect: (file: File) => void, currentFile: File | null }> = ({ onFileSelect, currentFile }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleFileChange = (selectedFile: File | null) => {
+    if (selectedFile && selectedFile.type.startsWith('video/')) {
+      onFileSelect(selectedFile);
+    } else if (selectedFile) {
+      showToast('Invalid file type. Please select a video.', 'error');
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    e.preventDefault(); e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('video/')) {
-        onFileSelect(file);
-      } else {
-        showToast('Please select a valid video file', 'error');
-      }
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type.startsWith('video/')) {
-        onFileSelect(file);
-      } else {
-        showToast('Please select a valid video file', 'error');
-      }
-      e.target.value = ''; // Reset for same file selection
+      handleFileChange(e.dataTransfer.files[0]);
     }
   };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardContent className="pt-6">
+      <CardHeader><CardTitle>Upload Video File</CardTitle></CardHeader>
+      <CardContent>
         <form
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-gray-800' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
-          }`}
-          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
           onSubmit={(e) => e.preventDefault()}
+          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+          className={`relative border-2 border-dashed rounded-lg p-10 text-center transition-colors ${
+            dragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+          }`}
         >
           <input
-            ref={inputRef}
-            type="file"
-            id="file-upload-input"
-            multiple={false}
-            accept="video/*"
-            onChange={handleChange}
+            ref={inputRef} type="file" accept="video/*"
+            onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            id="video-file-input"
           />
-          <label htmlFor="file-upload-input" className="cursor-pointer">
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Drop your video file here, or click to browse
+          <label htmlFor="video-file-input" className="cursor-pointer flex flex-col items-center justify-center">
+            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+            <p className="text-lg font-medium mb-1">
+              {currentFile ? "Change video" : "Drop your video here, or click to browse"}
             </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Supports MP4, WebM, AVI, MOV, and other common video formats.
-            </p>
+            <p className="text-sm text-muted-foreground">MP4, WebM, MOV, etc.</p>
           </label>
         </form>
+        {currentFile && (
+          <div className="mt-4 p-3 bg-muted/50 rounded text-sm">
+            Selected: <strong>{currentFile.name}</strong> ({formatFileSize(currentFile.size)})
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 };
 
-export { VideoSplitter }; // Export for use in other files
 
-// Demo usage
-export default function VideoSplitterDemo() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // Example of how videoInfo might be structured if obtained from an API
-  const [apiVideoInfo, setApiVideoInfo] = useState<VideoInfo | undefined>(undefined);
+export default function VideoSplitterPageWithRealFile() {
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  // Example: If you had metadata from a previous step (like your YouTubeDownloader)
+  // You could store it and pass it to VideoSplitter as the `videoInfo` prop.
+  // const [downloadedVideoInfo, setDownloadedVideoInfo] = useState<VideoInfo | null>(null);
 
-  const handleSegmentsReady = (segments: VideoSegment[]) => {
-    console.log('Segments ready for further processing/download:', segments);
-    showToast(`${segments.length} video segments are (simulated) ready!`);
-  };
-
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file);
-    // Simulate fetching API info for the selected file, or this could come from a previous step
-    // For demo, we'll just use the file name and not set a duration, so VideoSplitter detects it.
-    // If you had youtube metadata (e.g. "09:12"), you'd set it here:
-    // setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "09:12" });
-    // Forcing the "00:09" issue via videoInfo:
-    // setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "00:09" });
-    setApiVideoInfo({ title: file.name.replace(/\.[^/.]+$/, ""), duration: "" }); // This will cause fallback
-    showToast(`Selected video: ${file.name}`);
+  const handleSegmentsProcessed = (segments: VideoSegment[]) => {
+    console.log('All segments processed (simulated):', segments);
+    // Here you would typically do something with the segments,
+    // like offer them for download or pass them to an analysis step.
   };
 
   return (
-    <div className="p-4 min-h-screen bg-gray-100 dark:bg-gray-900 space-y-6">
-      {!selectedFile ? (
-        <FileUploader onFileSelect={handleFileSelect} />
-      ) : (
-        <div className="space-y-4">
-          <Button
-            onClick={() => {
-              setSelectedFile(null);
-              setApiVideoInfo(undefined); // Clear video info as well
-            }}
-            variant="outline"
-            size="sm"
-            className="mb-2"
-          >
-            ← Change Video File
-          </Button>
-          <VideoSplitter
-            videoFile={selectedFile}
-            // videoInfo={apiVideoInfo} // Pass this if you have it from an API/previous step
-            // If apiVideoInfo.duration is "09:12", VideoSplitter will show that.
-            // If apiVideoInfo.duration is "00:09", VideoSplitter will show that.
-            // If apiVideoInfo is undefined OR apiVideoInfo.duration is invalid/empty, VideoSplitter uses videoFile.
-            onSegmentsReady={handleSegmentsReady}
-          />
-          {/* To explicitly test the scenario from screenshots, you'd need a parent orchestrator
-              that first shows YouTube metadata (09:12), then (simulates) a download of a 9s file,
-              and then passes EITHER just that 9s file to VideoSplitter OR that 9s file along with
-              a videoInfo object where videoInfo.duration is "00:09" or invalid.
-          */}
-        </div>
+    <div className="p-4 md:p-8 min-h-screen bg-background text-foreground space-y-6">
+      <h1 className="text-3xl font-bold text-center">Advanced Video Splitter</h1>
+      <FileUploader onFileSelect={setSelectedVideoFile} currentFile={selectedVideoFile} />
+
+      {selectedVideoFile && (
+        <VideoSplitter
+          videoFile={selectedVideoFile}
+          // videoInfo={downloadedVideoInfo} // Pass this if you have it and want to use its title/duration
+          onSegmentsReady={handleSegmentsProcessed}
+        />
       )}
     </div>
   );
