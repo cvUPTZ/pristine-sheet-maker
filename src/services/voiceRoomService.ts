@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VOICE_ROOM_TEMPLATES } from '@/config/voiceConfig';
 
@@ -59,6 +58,7 @@ export class VoiceRoomService {
   private databaseAvailable: boolean | null = null;
   private roomSubscription: any = null;
   private participantSubscription: any = null;
+  private rpcFunctionAvailable: boolean | null = null;
 
   private async withRetry<T>(
     operation: () => Promise<{ data?: T; error?: any; count?: number | null }>,
@@ -431,22 +431,36 @@ export class VoiceRoomService {
         ? result.data.filter((r): r is VoiceRoom => r && typeof r === 'object')
         : [];
 
+      // Check if RPC function is available first
+      const rpcAvailable = await this.checkRpcFunctionAvailable();
+
       const roomsWithCounts = await Promise.all(
         roomsData.map(async (room: VoiceRoom) => {
-          // Use the new RPC function to get participant count
-          const countResult = await this.withRetry(
-            async () => {
-              const response = await (supabase as any).rpc('get_room_participant_count', {
-                room_id_param: room.id
-              });
-              return response;
-            },
-            `getParticipantCountForRoom_${room.id}`
-          );
+          let participantCount = room.participant_count ?? 0;
+
+          if (rpcAvailable) {
+            // Use the RPC function if available
+            const countResult = await this.withRetry(
+              async () => {
+                const response = await (supabase as any).rpc('get_room_participant_count', {
+                  room_id_param: room.id
+                });
+                return response;
+              },
+              `getParticipantCountForRoom_${room.id}`
+            );
+
+            if (!countResult.error && typeof countResult.data === 'number') {
+              participantCount = countResult.data;
+            }
+          } else {
+            // Use fallback method
+            participantCount = await this.getParticipantCountFallback(room.id);
+          }
 
           const roomWithCount: VoiceRoom = {
             ...room, 
-            participant_count: typeof countResult.data === 'number' ? countResult.data : (room.participant_count ?? 0)
+            participant_count: participantCount
           };
 
           this.roomCache.set(room.id, roomWithCount);
@@ -461,6 +475,54 @@ export class VoiceRoomService {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('❌ Failed to retrieve rooms:', errorMessage);
       return [];
+    }
+  }
+
+  private async checkRpcFunctionAvailable(): Promise<boolean> {
+    if (this.rpcFunctionAvailable !== null) {
+      return this.rpcFunctionAvailable;
+    }
+
+    try {
+      console.log('[VoiceRoomService.checkRpcFunctionAvailable] Testing RPC function availability...');
+      const testResult = await (supabase as any).rpc('get_room_participant_count', {
+        room_id_param: '00000000-0000-0000-0000-000000000000' // Test with dummy UUID
+      });
+      
+      // If we get here without error, the function exists (even if it returns 0 for dummy ID)
+      this.rpcFunctionAvailable = true;
+      console.log('✅ [VoiceRoomService.checkRpcFunctionAvailable] RPC function is available');
+      return true;
+    } catch (error: any) {
+      if (error?.code === 'PGRST202' || error?.message?.includes('Could not find the function')) {
+        console.warn('⚠️ [VoiceRoomService.checkRpcFunctionAvailable] RPC function not found, using fallback method');
+        this.rpcFunctionAvailable = false;
+        return false;
+      }
+      // For other errors, assume the function exists but there was a different issue
+      console.warn('[VoiceRoomService.checkRpcFunctionAvailable] Assuming RPC function exists due to other error:', error);
+      this.rpcFunctionAvailable = true;
+      return true;
+    }
+  }
+
+  private async getParticipantCountFallback(roomId: string): Promise<number> {
+    try {
+      console.log(`[VoiceRoomService.getParticipantCountFallback] Using fallback count for room ${roomId}`);
+      const { data, error, count } = await (supabase as any)
+        .from('voice_room_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.warn(`[VoiceRoomService.getParticipantCountFallback] Error counting participants:`, error);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.warn(`[VoiceRoomService.getParticipantCountFallback] Fallback count failed:`, error);
+      return 0;
     }
   }
 
