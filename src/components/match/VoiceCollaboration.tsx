@@ -270,16 +270,16 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         
         <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
           {/* API Endpoint Diagnostics */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
-            <h4 className="font-medium text-sm mb-2">🔧 API Diagnostics:</h4>
-            <div className="text-xs space-y-1">
-              <div>Expected: Supabase Edge Function at /api/generate-livekit-token</div>
-              <div>Status: {error ? '❌ Failing' : '🟡 Not deployed/configured'}</div>
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                <div className="font-medium text-xs mb-1">Deploy Instructions:</div>
-                <div className="text-xs">1. supabase functions deploy generate-livekit-token</div>
-                <div className="text-xs">2. Set environment variables in Supabase dashboard</div>
-                <div className="text-xs">3. Required vars: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET</div>
+          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+            <h4 className="font-medium text-sm mb-2 text-red-800">🚨 API Issue Detected</h4>
+            <div className="text-xs space-y-1 text-red-700">
+              <div>Problem: /api/generate-livekit-token returns HTML instead of JSON</div>
+              <div>Root Cause: Supabase Edge Function not deployed or misconfigured</div>
+              <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded">
+                <div className="font-medium text-xs mb-1">Required Fix:</div>
+                <div className="text-xs">1. Deploy: supabase functions deploy generate-livekit-token</div>
+                <div className="text-xs">2. Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET in Supabase</div>
+                <div className="text-xs">3. Ensure function is accessible at the correct endpoint</div>
               </div>
             </div>
           </div>
