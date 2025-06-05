@@ -230,6 +230,19 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     );
   }
   
+  // Check if currently connected, connecting, or reconnecting
+  const isCurrentlyActive = livekitConnectionState === ConnectionState.Connected || 
+                           livekitConnectionState === ConnectionState.Connecting || 
+                           livekitConnectionState === ConnectionState.Reconnecting;
+  
+  // Check if disconnected and should show rejoin
+  const shouldShowRejoin = livekitConnectionState === ConnectionState.Disconnected && roomToRejoin && !isConnecting;
+  
+  // Check if should show available rooms
+  const shouldShowAvailableRooms = availableRooms.length > 0 && 
+                                  !isCurrentlyActive && 
+                                  !shouldShowRejoin;
+
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
       {audioElements}
@@ -249,10 +262,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {getLiveKitStatusIndicator(livekitConnectionState)}
-            {availableRooms.length > 0 && !isVoiceEnabled && 
-             livekitConnectionState !== ConnectionState.Connected && 
-             livekitConnectionState !== ConnectionState.Connecting && 
-             livekitConnectionState !== ConnectionState.Reconnecting && (
+            {shouldShowAvailableRooms && (
               <Badge variant="outline" className="text-xs">{availableRooms.length} rooms available</Badge>
             )}
           </div>
@@ -270,7 +280,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           {/* Rejoin UI or Current Room Info */}
           {(currentRoom || roomToRejoin) && (
             <>
-              {(livekitConnectionState === ConnectionState.Disconnected && roomToRejoin && !isConnecting) && (
+              {shouldShowRejoin && (
                 <Alert variant="destructive" className="my-2">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -310,12 +320,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           )}
           
           {/* Available Rooms List */}
-          {availableRooms.length > 0 &&
-            livekitConnectionState !== ConnectionState.Connected &&
-            livekitConnectionState !== ConnectionState.Connecting &&
-            livekitConnectionState !== ConnectionState.Reconnecting &&
-            !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin && !isConnecting) && 
-           (
+          {shouldShowAvailableRooms && (
             <div className="space-y-2">
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>Available Voice Rooms <Badge variant="outline" className="text-xs">Role: {userRole}</Badge></div>
               <div className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
@@ -327,7 +332,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                         <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600`}>{room.participant_count || 0}/{room.max_participants} • {room.is_private ? ' Private' : ' Open'}</div>
                         {!isMobile && room.description && (<div className="text-xs text-gray-500 mt-1 truncate">{room.description}</div>)}
                       </div>
-                      <Button onClick={() => joinVoiceRoom(room)} disabled={isConnecting || (room.participant_count || 0) >= room.max_participants || networkStatus === 'offline' || livekitConnectionState === ConnectionState.Connecting || livekitConnectionState === ConnectionState.Reconnecting} size={isMobile ? "sm" : "sm"} className={`bg-green-600 hover:bg-green-700 text-white ${isMobile ? 'h-6 px-2 text-[10px]' : ''}`}><Phone className={`${isMobile ? 'h-2 w-2 mr-0.5' : 'h-3 w-3 mr-1'}`} />{isConnecting ? 'Joining...' : 'Join'}</Button>
+                      <Button onClick={() => joinVoiceRoom(room)} disabled={isConnecting || (room.participant_count || 0) >= room.max_participants || networkStatus === 'offline' || isCurrentlyActive} size={isMobile ? "sm" : "sm"} className={`bg-green-600 hover:bg-green-700 text-white ${isMobile ? 'h-6 px-2 text-[10px]' : ''}`}><Phone className={`${isMobile ? 'h-2 w-2 mr-0.5' : 'h-3 w-3 mr-1'}`} />{isConnecting ? 'Joining...' : 'Join'}</Button>
                     </div>
                   </div>
                 ))}
@@ -381,12 +386,12 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
           {/* System Status & Settings Toggle */}
           <div className="flex justify-between items-center mt-2">
-            {(!isVoiceEnabled || livekitConnectionState !== ConnectionState.Connected) && !isConnecting && availableRooms.length > 0 && !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin) && (
+            {!isCurrentlyActive && !isConnecting && shouldShowAvailableRooms && (
               <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 p-1 ${databaseConnected ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'} rounded border flex-grow mr-2`}>
                 🎤 Voice System Ready ({databaseConnected ? "Online" : "Offline"})
               </div>
             )}
-            { (isVoiceEnabled || livekitConnectionState === ConnectionState.Connected) && (
+            {isCurrentlyActive && (
                  <Button variant="ghost" size={isMobile ? "icon" : "sm"} onClick={() => setShowSettings(prev => !prev)} className="ml-auto">
                     <Settings className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'}`} />
                     {!isMobile && <span className="ml-1 text-xs">Settings</span>}
@@ -394,7 +399,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             )}
           </div>
           
-          {showSettings && (isVoiceEnabled || livekitConnectionState === ConnectionState.Connected) && (
+          {showSettings && isCurrentlyActive && (
             <div className={`mt-2 p-3 border rounded ${isMobile ? 'text-xs' : ''} bg-slate-50`}>
                 <label htmlFor="audioOutputSelect" className="block text-sm font-medium text-gray-800 mb-1">Audio Output (Speaker)</label>
                 {audioOutputDevices.length > 0 ? (

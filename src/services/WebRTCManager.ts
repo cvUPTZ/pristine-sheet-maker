@@ -1,4 +1,3 @@
-
 import { AudioManager } from '@/services/AudioManager';
 import { toast } from '@/components/ui/use-toast';
 
@@ -57,7 +56,7 @@ export class WebRTCManager {
     this.callbacks = callbacks;
 
     try {
-      await this.audioManager.initialize();
+      // AudioManager doesn't have initialize method, just get user media directly
       this.localStream = await this.audioManager.getUserMedia();
       console.log('✅ WebRTC initialized successfully');
       this.isInitialized = true;
