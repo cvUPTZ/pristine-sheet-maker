@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -305,8 +304,8 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           {/* Available Rooms List */}
           { availableRooms.length > 0 &&
             livekitConnectionState !== ConnectionState.Connected &&
-            !(livekitConnectionState === ConnectionState.Connecting) &&
-            !(livekitConnectionState === ConnectionState.Reconnecting) &&
+            livekitConnectionState !== ConnectionState.Connecting &&
+            livekitConnectionState !== ConnectionState.Reconnecting &&
             !((livekitConnectionState === ConnectionState.Disconnected) && roomToRejoin && !isConnecting) && 
            (
             <div className="space-y-2">
