@@ -87,9 +87,9 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     // connectionQualities, // Legacy - Removed
     networkStatus,
     // connectionMetrics, // Can be derived or LiveKit specific
-    remoteStreams,
+    remoteStreams, 
     peerStatuses, // Retained for simple connection dot, might be removed if participant.isConnected is preferred
-    livekitConnectionState,
+    livekitConnectionState, 
     adminSetParticipantMute,
     audioOutputDevices,
     selectedAudioOutputDeviceId,
@@ -106,11 +106,11 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   }, [currentRoom]);
 
   const handleRejoin = async () => {
-    if (isConnecting) return;
+    if (isConnecting) return; 
     if (roomToRejoin) {
       if (isVoiceEnabled || (livekitConnectionState !== ConnectionState.Disconnected && livekitConnectionState !== ConnectionState.Failed)) {
-        await leaveVoiceRoom();
-        await new Promise(resolve => setTimeout(resolve, 250));
+        await leaveVoiceRoom(); 
+        await new Promise(resolve => setTimeout(resolve, 250)); 
       }
       joinVoiceRoom(roomToRejoin);
     }
@@ -167,7 +167,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
     if (state === ConnectionState.Failed) return <Badge variant="destructive" className={`${baseClasses}`}><AlertTriangle className={iconSize} />Voice Failed</Badge>;
     if (state === ConnectionState.Disconnected && roomToRejoin) return <Badge variant="destructive" className={`${baseClasses}`}><WifiOff className={iconSize} />Voice Dropped</Badge>;
     if (state === ConnectionState.Disconnected) return <Badge variant="outline" className={`${baseClasses} bg-gray-100 text-gray-800 border-gray-300`}><MicOff className={iconSize} />Voice Disconnected</Badge>;
-    return null;
+    return null; 
   };
 
   const getPeerStatusIndicator = (status?: string) => {
@@ -206,7 +206,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
       </div>
     );
   }
-
+  
   // Main component render
   return (
     <div className={`space-y-3 sm:space-y-4 ${className}`}>
@@ -278,7 +278,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <AudioLevelIndicator level={audioLevel} />
             </div>
           )}
-
+          
           {/* Available Rooms List */}
           { availableRooms.length > 0 &&
             livekitConnectionState !== ConnectionState.Connected &&
@@ -311,7 +311,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
               <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700 flex items-center justify-between`}>Connected Participants ({livekitParticipants.length}){!isMobile && (<Button variant="ghost" size="sm" onClick={() => setShowConnectionDetails(!showConnectionDetails)} className="text-xs">{showConnectionDetails ? 'Hide Details' : 'Show Details'}</Button>)}</div>
               <div className={`space-y-1 ${isMobile ? 'max-h-24' : 'max-h-32'} overflow-y-auto`}>
                 {livekitParticipants.map((participant) => {
-                  const peerStatus = peerStatuses.get(participant.id);
+                  const peerStatus = peerStatuses.get(participant.id); 
                   return (
                     <div key={participant.id} className={`flex items-center justify-between ${isMobile ? 'p-1.5' : 'p-2'} rounded bg-white border transition-colors ${participant.isSpeaking ? 'border-green-300 bg-green-50' : ''}`}>
                       <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
@@ -336,7 +336,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
             <div className="text-xs p-2 bg-gray-50 rounded border">
               <div className="font-medium mb-1">Connection Metrics & Statuses</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>Total Participants in DB Room: {currentRoom?.participant_count ?? 'N/A'}</div>
+                <div>Total Participants in DB Room: {currentRoom?.participant_count ?? 'N/A'}</div> 
                 <div>LiveKit Participants: {livekitParticipants.length}</div>
                 <div>Network Status: {networkStatus}</div>
                 {livekitConnectionState && <div>LiveKit State: {ConnectionState[livekitConnectionState]}</div>}
@@ -364,7 +364,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
                 </Button>
             )}
           </div>
-
+          
           {showSettings && (isVoiceEnabled || livekitConnectionState === ConnectionState.Connected) && (
             <div className={`mt-2 p-3 border rounded ${isMobile ? 'text-xs' : ''} bg-slate-50`}>
                 <label htmlFor="audioOutputSelect" className="block text-sm font-medium text-gray-800 mb-1">Audio Output (Speaker)</label>
