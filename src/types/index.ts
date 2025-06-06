@@ -169,24 +169,17 @@ export interface TimeSegmentStatistics {
 export interface MatchEvent {
   id: string;
   match_id: string;
-  timestamp: number;
+  timestamp: number; // Keep as number for consistency
   event_type: string;
-  event_data?: Record<string, any> | null;
-  created_at?: string;
-  tracker_id?: string | null;
-  team_id?: string | null;
+  type: EventType;
+  event_data: Record<string, any>;
+  created_at: string;
+  tracker_id: string;
+  team_id: string | null;
   player_id?: number | null;
   team?: 'home' | 'away';
   coordinates: { x: number; y: number };
-  created_by?: string;
-  type: EventType;
-  status?: string;
-  user_id?: string;
-  clientId?: string;
-  optimisticCreationTime?: number;
-  player?: Player;
-  description?: string;
-  relatedPlayerId?: string | number;
+  created_by: string;
 }
 
 export interface Match {

@@ -114,7 +114,7 @@ const useMatchData = (matchId: string | undefined) => {
             type: event.event_type as EventType,
             event_data: {},
             created_at: event.created_at,
-            tracker_id: '',
+            tracker_id: event.created_by || '',
             team_id: event.team,
             player_id: event.player_id || undefined,
             team: (event.team === 'home' || event.team === 'away') ? event.team : undefined,

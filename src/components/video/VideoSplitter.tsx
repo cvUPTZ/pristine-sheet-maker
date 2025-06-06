@@ -25,16 +25,40 @@ interface VideoSplitterProps {
   onSegmentsReady: (segments: VideoSegment[]) => void;
 }
 
-// Helper function to parse duration
+// Enhanced helper function to parse duration with better format detection
 const parseDuration = (durationStr: string | undefined): number | null => {
   if (!durationStr || durationStr.trim() === '') return null;
-  if (String(durationStr).includes(':')) {
-    const parts = String(durationStr).split(':').map(Number);
-    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
+  
+  const trimmed = String(durationStr).trim();
+  console.log('Parsing duration:', trimmed);
+  
+  // If it contains colons, it's in time format (MM:SS or HH:MM:SS)
+  if (trimmed.includes(':')) {
+    const parts = trimmed.split(':').map(Number);
+    if (parts.length === 3 && parts.every(p => !isNaN(p))) {
+      // HH:MM:SS format
+      const totalSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      console.log('Parsed as HH:MM:SS:', totalSeconds, 'seconds');
+      return totalSeconds;
+    }
+    if (parts.length === 2 && parts.every(p => !isNaN(p))) {
+      // MM:SS format
+      const totalSeconds = parts[0] * 60 + parts[1];
+      console.log('Parsed as MM:SS:', totalSeconds, 'seconds');
+      return totalSeconds;
+    }
   }
-  const num = parseFloat(durationStr);
-  return !isNaN(num) && num > 0 ? Math.floor(num) : null;
+  
+  // Try to parse as a plain number (seconds)
+  const num = parseFloat(trimmed);
+  if (!isNaN(num) && num > 0) {
+    const seconds = Math.floor(num);
+    console.log('Parsed as number:', seconds, 'seconds');
+    return seconds;
+  }
+  
+  console.warn('Could not parse duration:', trimmed);
+  return null;
 };
 
 export const VideoSplitter: React.FC<VideoSplitterProps> = ({
@@ -80,30 +104,39 @@ export const VideoSplitter: React.FC<VideoSplitterProps> = ({
   // Effect to handle video file loading and duration parsing
   useEffect(() => {
     if (videoFile) {
+      console.log('Processing video file:', videoFile.name);
       // Use video element to get accurate duration from the file itself
       const videoElement = document.createElement('video');
       videoElement.preload = 'metadata';
       videoElement.onloadedmetadata = () => {
-        setVideoDuration(Math.floor(videoElement.duration));
+        const fileDuration = Math.floor(videoElement.duration);
+        console.log('Duration from video file:', fileDuration, 'seconds');
+        setVideoDuration(fileDuration);
         URL.revokeObjectURL(videoElement.src);
       };
       videoElement.onerror = () => {
+        console.warn('Could not read video file directly, trying provided info...');
         // If file fails, try to use provided info as fallback
         const parsedDur = parseDuration(videoInfo?.duration);
         if (parsedDur) {
+            console.log('Using duration from videoInfo:', parsedDur, 'seconds');
             setVideoDuration(parsedDur);
             toast.warning("Could not read video file directly, using provided duration.");
         } else {
+            console.error('Could not determine video duration');
             toast.error("Could not determine video duration from file or info.");
         }
       };
       videoElement.src = URL.createObjectURL(videoFile);
     } else if (videoInfo?.duration) {
+      console.log('No file, using videoInfo duration:', videoInfo.duration);
       // If no file, rely on videoInfo
       const parsedDur = parseDuration(videoInfo.duration);
       if (parsedDur) {
+        console.log('Parsed duration from videoInfo:', parsedDur, 'seconds');
         setVideoDuration(parsedDur);
       } else {
+        console.error('Invalid duration format in videoInfo:', videoInfo.duration);
         toast.error("Invalid duration format provided in video info.");
       }
     } else {
@@ -124,6 +157,8 @@ export const VideoSplitter: React.FC<VideoSplitterProps> = ({
       return;
     }
 
+    console.log('Generating segments for video duration:', videoDuration, 'with segment length:', segmentDuration);
+
     const newSegments: VideoSegment[] = [];
     for (let start = 0; start < videoDuration; start += segmentDuration) {
       const end = Math.min(start + segmentDuration, videoDuration);
@@ -140,6 +175,7 @@ export const VideoSplitter: React.FC<VideoSplitterProps> = ({
       });
     }
     setSegments(newSegments);
+    console.log('Generated', newSegments.length, 'segments');
     toast.success(`Generated ${newSegments.length} segments. Ready to process.`);
   };
 

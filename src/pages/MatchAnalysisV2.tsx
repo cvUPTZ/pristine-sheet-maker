@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -136,12 +137,12 @@ const MatchAnalysisV2: React.FC = () => {
 
       data.forEach(assignment => {
         if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => p.id === assignment.player_id);
+          const player = fullMatchRoster?.home?.find(p => Number(p.id) === assignment.player_id);
           if (player && !homePlayers.some(p => p.id === player.id)) {
             homePlayers.push(player);
           }
         } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => p.id === assignment.player_id);
+          const player = fullMatchRoster?.away?.find(p => Number(p.id) === assignment.player_id);
           if (player && !awayPlayers.some(p => p.id === player.id)) {
             awayPlayers.push(player);
           }
