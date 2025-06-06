@@ -1,5 +1,4 @@
 
-
 export type Json =
   | string
   | number
@@ -245,6 +244,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles: {
+        Row: {
+          id: string;
+          email: string | null;
+          full_name: string | null;
+          role: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          full_name?: string | null;
+          role?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string | null;
+          full_name?: string | null;
+          role?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      match_tracker_assignments: {
+        Row: {
+          id: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id: number | null;
+          player_team_id: string;
+          assigned_event_types: string[] | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id?: number | null;
+          player_team_id: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          tracker_user_id?: string;
+          player_id?: number | null;
+          player_team_id?: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -340,4 +399,3 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
-
