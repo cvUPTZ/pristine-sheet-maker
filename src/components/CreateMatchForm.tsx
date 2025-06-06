@@ -143,7 +143,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   });
 
   useEffect(() => {
-    fetchTrackers();
+    // Note: Tracker functionality is disabled due to schema limitations
+    // fetchTrackers();
     if (matchId) {
       fetchMatchData(matchId);
     }
@@ -190,14 +191,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     try {
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
-        .select(`
-          *,
-          match_tracker_assignments (
-            tracker_user_id,
-            assigned_event_types,
-            player_id
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -219,38 +213,26 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      // Ensure players are actual arrays before setting state
+      // Parse player data if available
       const homePlayers = Array.isArray(matchData.home_team_players)
-        ? matchData.home_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        ? matchData.home_team_players.map((p: any) => ({ 
+            id: p.id || Date.now() + Math.random(), 
+            name: p.player_name || p.name || '', 
+            number: p.jersey_number || p.number || 0, 
+            position: p.position || '' 
+          }))
         : [];
       const awayPlayers = Array.isArray(matchData.away_team_players)
-        ? matchData.away_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        ? matchData.away_team_players.map((p: any) => ({ 
+            id: p.id || Date.now() + Math.random(), 
+            name: p.player_name || p.name || '', 
+            number: p.jersey_number || p.number || 0, 
+            position: p.position || '' 
+          }))
         : [];
 
       setHomeTeamPlayers(homePlayers);
       setAwayTeamPlayers(awayPlayers);
-
-      // Process tracker assignments
-      const assignments: TrackerAssignment[] = [];
-      if (matchData.match_tracker_assignments) {
-        const assignmentsMap = new Map<string, TrackerAssignment>();
-        matchData.match_tracker_assignments.forEach((assign: any) => {
-          if (!assignmentsMap.has(assign.tracker_user_id)) {
-            assignmentsMap.set(assign.tracker_user_id, {
-              tracker_user_id: assign.tracker_user_id,
-              assigned_event_types: [],
-              player_ids: []
-            });
-          }
-          const currentAssignment = assignmentsMap.get(assign.tracker_user_id)!;
-          currentAssignment.assigned_event_types = Array.from(new Set([...currentAssignment.assigned_event_types, ...assign.assigned_event_types]));
-          if (assign.player_id) {
-            currentAssignment.player_ids.push(assign.player_id);
-          }
-        });
-        assignments.push(...Array.from(assignmentsMap.values()));
-      }
-      setTrackerAssignments(assignments);
 
     } catch (error: any) {
       console.error('Error fetching match data:', error);
@@ -264,26 +246,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     }
   };
 
+  // Note: Disabled due to schema limitations - profiles table not available
   const fetchTrackers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, role')
-        .eq('role', 'tracker')
-        .order('full_name');
-
-      if (error) throw error;
-      
-      const validTrackers = (data || [])
-        .filter(tracker => tracker.id && tracker.email && tracker.full_name)
-        .map(tracker => ({
-          id: tracker.id!,
-          email: tracker.email!,
-          full_name: tracker.full_name!,
-          role: tracker.role as 'admin' | 'user' | 'tracker' | 'teacher'
-        }));
-      
-      setTrackers(validTrackers);
+      // This functionality is currently disabled as the profiles table
+      // is not available in the current database schema
+      console.warn('Tracker fetching disabled - profiles table not available');
+      setTrackers([]);
     } catch (error: any) {
       console.error('Error fetching trackers:', error);
       toast({
@@ -362,60 +331,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       if (matchError) throw matchError;
       if (!match) throw new Error(isEditMode ? "Failed to update match." : "Failed to create match.");
 
-      // Handle tracker assignments (delete existing and re-insert for simplicity in edit mode)
-      if (isEditMode && matchId) {
-        const { error: deleteError } = await supabase
-          .from('match_tracker_assignments')
-          .delete()
-          .eq('match_id', matchId);
-        if (deleteError) {
-          console.warn('Error deleting old tracker assignments:', deleteError);
-          // Potentially proceed, or throw error if critical
-        }
-      }
-
-      if (trackerAssignments.length > 0) {
-        const assignments = trackerAssignments.flatMap(assignment => 
-          assignment.player_ids.map(playerId => {
-            // Determine if player is home or away based on their ID presence in respective arrays
-            const isHomePlayer = homeTeamPlayers.some(p => p.id === playerId);
-            const isAwayPlayer = awayTeamPlayers.some(p => p.id === playerId);
-            let playerTeamId = 'unknown';
-            if (isHomePlayer) playerTeamId = 'home';
-            else if (isAwayPlayer) playerTeamId = 'away';
-
-            return {
-              match_id: match.id,
-              tracker_user_id: assignment.tracker_user_id,
-              player_id: playerId,
-              player_team_id: playerTeamId,
-              assigned_event_types: assignment.assigned_event_types
-            };
-          })
-        ).filter(a => a.tracker_user_id && a.player_id); // Ensure tracker_user_id is present
-
-        if (assignments.length > 0) {
-          const { error: assignmentError } = await supabase
-            .from('match_tracker_assignments')
-            .insert(assignments);
-          if (assignmentError) throw assignmentError;
-        }
-
-        // Send notifications (consider if this should only be for new assignments or changes)
-        const { error: notificationError } = await supabase
-          .rpc('notify_assigned_trackers', {
-            p_match_id: match.id,
-            p_tracker_assignments: trackerAssignments.map(assignment => ({
-              tracker_user_id: assignment.tracker_user_id,
-              assigned_event_types: assignment.assigned_event_types,
-              player_ids: assignment.player_ids
-            }))
-          });
-
-        if (notificationError) {
-          console.error('Error sending notifications:', notificationError);
-        }
-      }
+      // Note: Tracker assignment functionality disabled due to schema limitations
+      // The match_tracker_assignments table is not available in the current schema
 
       toast({
         title: "Success",
@@ -526,10 +443,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="teams">Teams & Players</TabsTrigger>
-            <TabsTrigger value="trackers">Tracker Assignments</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-4">
@@ -748,205 +664,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
             </div>
           </TabsContent>
         
-          <TabsContent value="trackers" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Event Types by Category
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {trackerAssignments.map((assignment, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Assignment {index + 1}</h4>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeTrackerAssignment(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div>
-                      <Label>Tracker</Label>
-                      <Select
-                        value={assignment.tracker_user_id}
-                        onValueChange={(value) => updateTrackerAssignment(index, 'tracker_user_id', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select tracker" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {trackers.map((tracker) => (
-                            <SelectItem key={tracker.id} value={tracker.id}>
-                              {tracker.full_name} ({tracker.email})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      {EVENT_TYPE_CATEGORIES.map((category) => {
-                        const categoryState = getCategoryState(category, index);
-                        const isOpen = openCategories.includes(`${category.key}-${index}`);
-                        
-                        return (
-                          <div key={category.key} className="border rounded-lg overflow-hidden">
-                            <Collapsible
-                              open={isOpen}
-                              onOpenChange={() => toggleCategory(`${category.key}-${index}`)}
-                            >
-                              <CollapsibleTrigger className="w-full">
-                                <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-2">
-                                      <Checkbox
-                                        checked={categoryState === 'all'}
-                                        ref={(el) => {
-                                          if (el && categoryState === 'some') {
-                                            (el as any).indeterminate = true;
-                                          }
-                                        }}
-                                        onCheckedChange={(checked) => handleCategoryToggle(category, !!checked, index)}
-                                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                                      />
-                                      <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: category.color }}
-                                      />
-                                    </div>
-                                    <div className="text-left">
-                                      <h4 className="font-medium">{category.label}</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {category.events.length} event types
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">
-                                      {category.events.filter(e => assignment.assigned_event_types.includes(e.key)).length}/{category.events.length}
-                                    </Badge>
-                                    {isOpen ? (
-                                      <ChevronDown className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4" />
-                                    )}
-                                  </div>
-                                </div>
-                              </CollapsibleTrigger>
-                              
-                              <CollapsibleContent>
-                                <div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">
-                                  {category.events.map((eventType) => (
-                                    <div key={eventType.key} className="flex items-center space-x-2">
-                                      <Checkbox
-                                        id={`event-${index}-${eventType.key}`}
-                                        checked={assignment.assigned_event_types.includes(eventType.key)}
-                                        onCheckedChange={(checked) => handleEventTypeChange(eventType.key, !!checked, index)}
-                                      />
-                                      <Label
-                                        htmlFor={`event-${index}-${eventType.key}`}
-                                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                      >
-                                        {eventType.label}
-                                      </Label>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    
-                    <div>
-                      <Label>Assigned Players</Label>
-                      <div className="mb-3">
-                        <Label className="text-sm text-muted-foreground">Filter by Team</Label>
-                        <Select
-                          value={selectedTeamForAssignment[index] || 'both'}
-                          onValueChange={(value: 'home' | 'away' | 'both') => handleTeamFilterChange(index, value)}
-                        >
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="both">Both Teams</SelectItem>
-                            <SelectItem value="home">Home Team Only</SelectItem>
-                            <SelectItem value="away">Away Team Only</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        {(!selectedTeamForAssignment[index] || selectedTeamForAssignment[index] === 'both' || selectedTeamForAssignment[index] === 'home') && (
-                          <div>
-                            <Label className="text-sm text-muted-foreground">Home Team</Label>
-                            <div className="space-y-1">
-                              {getFilteredPlayers(index, 'home').map((player) => (
-                                <div key={`home-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`home-player-${index}-${player.id}`}
-                                    checked={assignment.player_ids.includes(player.id)}
-                                    onCheckedChange={(checked) => {
-                                      const newPlayerIds = checked
-                                        ? [...assignment.player_ids, player.id]
-                                        : assignment.player_ids.filter(id => id !== player.id);
-                                      updateTrackerAssignment(index, 'player_ids', newPlayerIds);
-                                    }}
-                                  />
-                                  <Label htmlFor={`home-player-${index}-${player.id}`} className="text-sm">
-                                    #{player.number} {player.name || 'Unnamed Player'}
-                                  </Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {(!selectedTeamForAssignment[index] || selectedTeamForAssignment[index] === 'both' || selectedTeamForAssignment[index] === 'away') && (
-                          <div>
-                            <Label className="text-sm text-muted-foreground">Away Team</Label>
-                            <div className="space-y-1">
-                              {getFilteredPlayers(index, 'away').map((player) => (
-                                <div key={`away-${player.id}-assignment-${index}`} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`away-player-${index}-${player.id}`}
-                                    checked={assignment.player_ids.includes(player.id)}
-                                    onCheckedChange={(checked) => {
-                                      const newPlayerIds = checked
-                                        ? [...assignment.player_ids, player.id]
-                                        : assignment.player_ids.filter(id => id !== player.id);
-                                      updateTrackerAssignment(index, 'player_ids', newPlayerIds);
-                                    }}
-                                  />
-                                  <Label htmlFor={`away-player-${index}-${player.id}`} className="text-sm">
-                                    #{player.number} {player.name || 'Unnamed Player'}
-                                  </Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                <Button type="button" onClick={addTrackerAssignment} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Tracker Assignment
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <div className="flex justify-end space-x-2 mt-6">
             <Button type="submit" disabled={loading}>
               {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
