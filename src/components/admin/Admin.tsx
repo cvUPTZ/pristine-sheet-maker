@@ -94,9 +94,9 @@ const Admin: React.FC = () => {
     
     setLoadingPlanning(true);
     try {
-      // Fetch tracker assignments
+      // Fetch tracker assignments using the correct table name
       const { data: assignments } = await supabase
-        .from('match_tracker_assignments_view')
+        .from('match_tracker_assignments')
         .select('*')
         .eq('match_id', selectedMatchId);
 

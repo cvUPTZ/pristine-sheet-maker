@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,7 +102,7 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
             type: 'auto_assignment',
             title: 'Auto-Assignment Complete',
             message: `You have been automatically assigned to track player #${assignment.player_id} for match ${matchId}.`,
-            notification_data: {
+            data: {
               player_id: assignment.player_id,
               event_types: assignment.assigned_event_types
             }
@@ -122,18 +123,13 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
   const assignReplacements = async () => {
     setLoading('assign-replacements');
     try {
-      // Get current assignments using raw SQL to include replacement info
+      // Get current assignments using the correct table name
       const { data: assignments, error: assignmentsError } = await supabase
-        .from('match_tracker_assignments_view')
+        .from('match_tracker_assignments')
         .select('*')
         .eq('match_id', matchId);
 
       if (assignmentsError) throw assignmentsError;
-
-      // Filter assignments that don't have replacements and have valid data
-      const assignmentsWithoutReplacements = assignments?.filter(a => 
-        a.id && a.tracker_user_id && !(a as any).replacement_tracker_id
-      ) || [];
 
       // Get available trackers
       const { data: trackers, error: trackersError } = await supabase
@@ -146,8 +142,8 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
       const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id).filter(Boolean) || []);
       const availableTrackers = trackers?.filter(tracker => !assignedTrackerIds.has(tracker.id)) || [];
 
-      if (assignmentsWithoutReplacements.length === 0) {
-        toast.info('No assignments need replacement trackers');
+      if (assignments?.length === 0) {
+        toast.info('No assignments found for replacement');
         return;
       }
 
@@ -156,34 +152,25 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
         return;
       }
 
-      // Assign replacements using direct SQL update
+      // Send notifications to replacement trackers
       let assignmentCount = 0;
-      for (let i = 0; i < Math.min(assignmentsWithoutReplacements.length, availableTrackers.length); i++) {
-        const assignment = assignmentsWithoutReplacements[i];
+      for (let i = 0; i < Math.min(assignments?.length || 0, availableTrackers.length); i++) {
+        const assignment = assignments?.[i];
         const replacement = availableTrackers[i];
 
-        if (assignment.id && replacement.id) {
-          // Use direct SQL update with type assertion to bypass TypeScript checking
-          const { error } = await supabase
-            .from('match_tracker_assignments')
-            .update({ replacement_tracker_id: replacement.id } as any)
-            .eq('id', assignment.id);
-
-          if (!error) {
-            assignmentCount++;
-            
-            // Notify replacement tracker
-            await supabase.from('notifications').insert({
-              user_id: replacement.id,
-              match_id: matchId,
-              type: 'replacement_assignment',
-              title: 'Backup Tracker Assignment',
-              message: `You have been assigned as a backup tracker for match ${matchId}.`,
-              notification_data: {
-                primary_tracker_id: assignment.tracker_user_id
-              }
-            });
-          }
+        if (assignment?.id && replacement.id) {
+          // Notify replacement tracker
+          await supabase.from('notifications').insert({
+            user_id: replacement.id,
+            match_id: matchId,
+            type: 'replacement_assignment',
+            title: 'Backup Tracker Assignment',
+            message: `You have been assigned as a backup tracker for match ${matchId}.`,
+            data: {
+              primary_tracker_id: assignment.tracker_user_id
+            }
+          });
+          assignmentCount++;
         }
       }
 
@@ -240,8 +227,8 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
     setLoading('notify');
     try {
       const { data: assignments, error } = await supabase
-        .from('match_tracker_assignments_view')
-        .select('tracker_user_id, tracker_email')
+        .from('match_tracker_assignments')
+        .select('tracker_user_id')
         .eq('match_id', matchId);
 
       if (error) throw error;
@@ -261,7 +248,7 @@ const QuickPlanningActions: React.FC<QuickPlanningActionsProps> = ({
             type: 'match_notification',
             title: 'Match Assignment Notification',
             message: `This is a notification about your assignment for match ${matchId}. Please ensure you are ready for the match.`,
-            notification_data: {
+            data: {
               notification_type: 'general_reminder'
             }
           });

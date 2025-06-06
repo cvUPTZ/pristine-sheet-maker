@@ -1,4 +1,5 @@
 
+
 export type Json =
   | string
   | number
@@ -306,7 +307,54 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      match_tracker_assignments_view: {
+        Row: {
+          id: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id: number | null;
+          player_team_id: string;
+          assigned_event_types: string[] | null;
+          created_at: string;
+          updated_at: string | null;
+          tracker_email: string | null;
+          tracker_name: string | null;
+          match_name: string | null;
+          home_team_name: string;
+          away_team_name: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id?: number | null;
+          player_team_id: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+          tracker_email?: string | null;
+          tracker_name?: string | null;
+          match_name?: string | null;
+          home_team_name?: string;
+          away_team_name?: string;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          tracker_user_id?: string;
+          player_id?: number | null;
+          player_team_id?: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+          tracker_email?: string | null;
+          tracker_name?: string | null;
+          match_name?: string | null;
+          home_team_name?: string;
+          away_team_name?: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       [_ in never]: never;
