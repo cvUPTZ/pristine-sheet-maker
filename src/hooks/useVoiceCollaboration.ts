@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -200,11 +201,12 @@ export const useVoiceCollaboration = ({
     audioLevelIntervalRef.current = setInterval(() => {
       if (roomRef.current?.localParticipant) {
         const localParticipant = roomRef.current.localParticipant;
-        const audioTrack = localParticipant.audioTracks.values().next().value?.track;
+        // Fix: Use audioTrackPublications instead of audioTracks
+        const audioTrackPub = Array.from(localParticipant.audioTrackPublications.values())[0];
         
-        if (audioTrack && audioTrack.mediaStreamTrack) {
+        if (audioTrackPub && audioTrackPub.track) {
           // Simulate audio level based on track enabled state and random variation
-          const baseLevel = audioTrack.mediaStreamTrack.enabled && !isMuted ? 0.3 : 0;
+          const baseLevel = audioTrackPub.track.mediaStreamTrack?.enabled && !isMuted ? 0.3 : 0;
           const randomVariation = Math.random() * 0.4;
           const simulatedLevel = Math.min(baseLevel + randomVariation, 1.0);
           setAudioLevel(simulatedLevel);
@@ -447,7 +449,8 @@ export const useVoiceCollaboration = ({
         actualParticipantName = sandboxDetails.participantName;
 
         if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
-            console.warn(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
+            // Fix: Use toast.warning instead of toast.warn
+            console.warning(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
         }
         if (!currentRoom) {
              console.log(`Joining a new sandbox-generated room: ${sandboxDetails.roomName}`);
@@ -462,12 +465,12 @@ export const useVoiceCollaboration = ({
           throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
         }
         if (!currentRoom?.id) {
-          console.warn(
+          console.warning(
             "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
             "Token will be for 'default-room'. This may lead to permission issues " +
             "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
           );
-          toast.warn("Joining with default room settings. Specific room features/permissions may be limited.");
+          toast.warning("Joining with default room settings. Specific room features/permissions may be limited.");
           setRoomName("default-room");
         } else if (currentRoom.name) {
            setRoomName(currentRoom.name);
@@ -557,7 +560,7 @@ export const useVoiceCollaboration = ({
 
   const toggleMute = useCallback(async (): Promise<void> => {
     if (!roomRef.current?.localParticipant) {
-      console.warn('No local participant available for mute toggle');
+      console.warning('No local participant available for mute toggle');
       return;
     }
 

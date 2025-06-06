@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Use the improved security definer function to get role
         const { data, error } = await supabase.rpc('get_user_role_from_auth', {
           user_id_param: user.id
-        });
+        } as any);
 
         if (error) {
           console.error('Error fetching user role:', error);
