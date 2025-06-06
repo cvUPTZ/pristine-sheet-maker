@@ -25,6 +25,18 @@ interface VideoSplitterProps {
   onSegmentsReady: (segments: VideoSegment[]) => void;
 }
 
+// Helper function to parse duration
+const parseDuration = (durationStr: string | undefined): number | null => {
+  if (!durationStr || durationStr.trim() === '') return null;
+  if (String(durationStr).includes(':')) {
+    const parts = String(durationStr).split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+  }
+  const num = parseFloat(durationStr);
+  return !isNaN(num) && num > 0 ? Math.floor(num) : null;
+};
+
 export const VideoSplitter: React.FC<VideoSplitterProps> = ({
   videoFile,
   videoInfo,
@@ -67,17 +79,6 @@ export const VideoSplitter: React.FC<VideoSplitterProps> = ({
 
   // Effect to handle video file loading and duration parsing
   useEffect(() => {
-    const parseAndSetDuration = (durationStr: string | undefined): number | null => {
-        if (!durationStr || durationStr.trim() === '') return null;
-        if (String(durationStr).includes(':')) {
-            const parts = String(durationStr).split(':').map(Number);
-            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-            if (parts.length === 2) return parts[0] * 60 + parts[1];
-        }
-        const num = parseFloat(durationStr);
-        return !isNaN(num) && num > 0 ? Math.floor(num) : null;
-    };
-
     if (videoFile) {
       // Use video element to get accurate duration from the file itself
       const videoElement = document.createElement('video');
@@ -135,7 +136,7 @@ export const VideoSplitter: React.FC<VideoSplitterProps> = ({
         endTime: end,
         duration: end - start,
         status: 'pending',
-        fileName: `${cleanTitle}_${formatTime(start, false)}-${formatTime(end, false)}.mp4`
+        fileName: `${cleanTitle}_${formatTime(start)}-${formatTime(end)}.mp4`
       });
     }
     setSegments(newSegments);

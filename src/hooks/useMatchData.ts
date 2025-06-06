@@ -109,7 +109,7 @@ const useMatchData = (matchId: string | undefined) => {
           .map(event => ({
             id: event.id,
             match_id: event.match_id,
-            timestamp: event.timestamp || 0,
+            timestamp: typeof event.timestamp === 'string' ? parseFloat(event.timestamp) : event.timestamp,
             event_type: event.event_type,
             type: event.event_type as EventType,
             event_data: {},
