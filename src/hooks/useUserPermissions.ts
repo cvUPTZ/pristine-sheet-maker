@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -149,7 +148,7 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
         // Use the new function to get user role from auth metadata
         const { data, error: roleError } = await supabase.rpc('get_user_role_from_auth', {
           user_id_param: targetUserId
-        } as any);
+        });
 
         if (roleError) {
           console.error('Error fetching user role for permissions:', roleError);

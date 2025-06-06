@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -449,8 +448,8 @@ export const useVoiceCollaboration = ({
         actualParticipantName = sandboxDetails.participantName;
 
         if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
-            // Fix: Use toast.warning instead of toast.warn
-            console.warning(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
+            // Fix: Use console.warn instead of console.warning
+            console.warn(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
         }
         if (!currentRoom) {
              console.log(`Joining a new sandbox-generated room: ${sandboxDetails.roomName}`);
@@ -465,7 +464,7 @@ export const useVoiceCollaboration = ({
           throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
         }
         if (!currentRoom?.id) {
-          console.warning(
+          console.warn(
             "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
             "Token will be for 'default-room'. This may lead to permission issues " +
             "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
@@ -560,7 +559,7 @@ export const useVoiceCollaboration = ({
 
   const toggleMute = useCallback(async (): Promise<void> => {
     if (!roomRef.current?.localParticipant) {
-      console.warning('No local participant available for mute toggle');
+      console.warn('No local participant available for mute toggle');
       return;
     }
 
