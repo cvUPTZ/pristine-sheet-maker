@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 interface TrackerAssignment {
   id: string;
   tracker_user_id: string;
-  player_id: number | null;
+  assigned_player_id: number | null;
   assigned_event_types: string[] | null;
   tracker_name?: string;
   tracker_email?: string;
@@ -47,7 +47,7 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
         .select(`
           id,
           tracker_user_id,
-          player_id,
+          assigned_player_id,
           assigned_event_types
         `)
         .eq('match_id', matchId);
@@ -74,28 +74,17 @@ const TrackerReplacementManager: React.FC<TrackerReplacementManagerProps> = ({
         // For now, we'll skip player details since the players table doesn't exist
         // This would be where you'd fetch player information if the table existed
         const assignmentsWithDetails = data?.map(assignment => ({
-          id: assignment.id,
-          tracker_user_id: assignment.tracker_user_id,
-          player_id: assignment.player_id,
-          assigned_event_types: assignment.assigned_event_types,
+          ...assignment,
           tracker_name: profiles?.find(p => p.id === assignment.tracker_user_id)?.full_name || 'Unknown',
           tracker_email: profiles?.find(p => p.id === assignment.tracker_user_id)?.email || 'Unknown',
-          player_name: assignment.player_id 
-            ? `Player ID: ${assignment.player_id}`
+          player_name: assignment.assigned_player_id 
+            ? `Player ID: ${assignment.assigned_player_id}`
             : 'No player assigned'
         })) || [];
 
         setAssignments(assignmentsWithDetails);
       } else {
-        setAssignments(data?.map(assignment => ({
-          id: assignment.id,
-          tracker_user_id: assignment.tracker_user_id,
-          player_id: assignment.player_id,
-          assigned_event_types: assignment.assigned_event_types,
-          tracker_name: 'Unknown',
-          tracker_email: 'Unknown',
-          player_name: assignment.player_id ? `Player ID: ${assignment.player_id}` : 'No player assigned'
-        })) || []);
+        setAssignments(data || []);
       }
     } catch (error) {
       console.error('Error in fetchAssignments:', error);

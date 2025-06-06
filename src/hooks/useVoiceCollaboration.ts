@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,7 +104,6 @@ export const useVoiceCollaboration = ({
 
   const roomRef = useRef<Room | null>(null);
   const tokenRef = useRef<string | null>(null);
-  const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateConnectionState = useCallback((state: ConnectionState) => {
     setConnectionState(state.toString().toLowerCase());
@@ -190,39 +190,6 @@ export const useVoiceCollaboration = ({
 
     getAudioDevices();
   }, [selectedAudioOutputDeviceId]);
-
-  // Fix: Enhanced audio level monitoring
-  const startAudioLevelMonitoring = useCallback(() => {
-    if (audioLevelIntervalRef.current) {
-      clearInterval(audioLevelIntervalRef.current);
-    }
-
-    audioLevelIntervalRef.current = setInterval(() => {
-      if (roomRef.current?.localParticipant) {
-        const localParticipant = roomRef.current.localParticipant;
-        // Fix: Use audioTrackPublications instead of audioTracks
-        const audioTrackPub = Array.from(localParticipant.audioTrackPublications.values())[0];
-        
-        if (audioTrackPub && audioTrackPub.track) {
-          // Simulate audio level based on track enabled state and random variation
-          const baseLevel = audioTrackPub.track.mediaStreamTrack?.enabled && !isMuted ? 0.3 : 0;
-          const randomVariation = Math.random() * 0.4;
-          const simulatedLevel = Math.min(baseLevel + randomVariation, 1.0);
-          setAudioLevel(simulatedLevel);
-        } else {
-          setAudioLevel(0);
-        }
-      }
-    }, 100); // Update every 100ms for smooth visual feedback
-  }, [isMuted]);
-
-  const stopAudioLevelMonitoring = useCallback(() => {
-    if (audioLevelIntervalRef.current) {
-      clearInterval(audioLevelIntervalRef.current);
-      audioLevelIntervalRef.current = null;
-    }
-    setAudioLevel(0);
-  }, []);
 
   const generateToken = useCallback(async (): Promise<string> => {
     try {
@@ -321,9 +288,8 @@ export const useVoiceCollaboration = ({
 
     room.on(RoomEvent.Connected, () => {
       console.log('Room connected successfully');
-      setRoomName(room.name || 'Unknown Room');
+      setRoomName(room.name || 'Unknown Room'); // Use LiveKit's room.name
       updateConnectionState(ConnectionState.Connected);
-      startAudioLevelMonitoring(); // Start monitoring when connected
     });
 
     room.on(RoomEvent.Disconnected, (reason) => {
@@ -331,7 +297,6 @@ export const useVoiceCollaboration = ({
       updateConnectionState(ConnectionState.Disconnected);
       setParticipants([]);
       setCurrentUser(null);
-      stopAudioLevelMonitoring(); // Stop monitoring when disconnected
     });
 
     room.on(RoomEvent.ConnectionStateChanged, (state) => {
@@ -354,6 +319,7 @@ export const useVoiceCollaboration = ({
       setParticipants(prev => {
         if (prev.find(p => p.id === newParticipant.id)) return prev;
         const updatedParticipants = [...prev, newParticipant];
+        // ADD THIS LOG:
         console.log(`[VoiceCollab] ParticipantConnected: ${newParticipant.name} (ID: ${newParticipant.id}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
         return updatedParticipants;
       });
@@ -365,6 +331,7 @@ export const useVoiceCollaboration = ({
       console.log('Participant disconnected:', participant.identity);
       setParticipants(prev => {
         const updatedParticipants = prev.filter(p => p.id !== participant.identity);
+        // ADD THIS LOG:
         console.log(`[VoiceCollab] ParticipantDisconnected: ${participant.name} (ID: ${participant.identity}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
         return updatedParticipants;
       });
@@ -399,9 +366,18 @@ export const useVoiceCollaboration = ({
     });
 
     room.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
-        if (trackPublication.kind === Track.Kind.Audio) {
-            console.log('Local audio track published, audio level monitoring should be active');
-            // Audio level monitoring is handled by our interval
+        if (trackPublication.kind === Track.Kind.Audio && room.localParticipant) {
+            const localParticipant = room.localParticipant as any; // Cast to any to check for _events
+            // Check if 'audioprocessing' event listener is likely supported/attached by LiveKit internals
+            if (localParticipant && typeof localParticipant.on === 'function' && localParticipant._events && localParticipant._events.audioprocessing) {
+                 localParticipant.on('audioprocessing', (level: number) => {
+                    setAudioLevel(level);
+                });
+            } else if (trackPublication.track) {
+                // This is a more standard way if the track itself emits level events
+                // For example: trackPublication.track.on(TrackEvent.AudioLevelChanged, setAudioLevel);
+                // console.warn("Audio level monitoring via 'audioprocessing' may not be set up or supported. Consider TrackEvent.AudioLevelChanged.");
+            }
         }
     });
 
@@ -416,11 +392,14 @@ export const useVoiceCollaboration = ({
             detailedMessage += ' Check your microphone/camera connection and browser permissions.';
         }
         toast.error(detailedMessage);
+        // If onError prop is used for this, consider passing detailedMessage to it too.
+        // onError?.(detailedMessage);
     });
 
     await room.connect(wsUrl, token);
     return room;
-  }, [userId, onParticipantJoined, onParticipantLeft, updateConnectionState, startAudioLevelMonitoring, stopAudioLevelMonitoring]);
+  }, [userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
+  // State setters like setRoomName, setParticipants, setCurrentUser, setIsMuted, setAudioLevel are stable and don't need to be deps.
 
   const joinRoom = useCallback(async (): Promise<void> => {
     if (isConnecting || isConnected) {
@@ -448,7 +427,6 @@ export const useVoiceCollaboration = ({
         actualParticipantName = sandboxDetails.participantName;
 
         if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
-            // Fix: Use console.warn instead of console.warning
             console.warn(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
         }
         if (!currentRoom) {
@@ -463,22 +441,28 @@ export const useVoiceCollaboration = ({
         if (!serverUrl) {
           throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
         }
-        if (!currentRoom?.id) {
+        if (!serverUrl) {
+          throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
+        }
+        if (!currentRoom?.id) { // Check for id for Supabase token
           console.warn(
             "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
             "Token will be for 'default-room'. This may lead to permission issues " +
             "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
           );
-          toast.warning("Joining with default room settings. Specific room features/permissions may be limited.");
-          setRoomName("default-room");
-        } else if (currentRoom.name) {
+          toast.warn("Joining with default room settings. Specific room features/permissions may be limited.");
+          setRoomName("default-room"); // Keep this
+        } else if (currentRoom.name) { // Existing logic if currentRoom.id IS present
            setRoomName(currentRoom.name);
         } else {
+           // If currentRoom.id is present but currentRoom.name is not, still use default or a generated name.
+           // This case should ideally not happen if currentRoom is well-formed.
            setRoomName(`room-${currentRoom.id}`);
         }
       }
       
       console.log(`Attempting to join room: '${actualRoomName || 'N/A'}' at server: '${serverUrl}'`);
+      // connectToRoom will be updated in the next step to accept serverUrl
       const room = await connectToRoom(token, serverUrl);
       
       roomRef.current = room;
@@ -496,6 +480,7 @@ export const useVoiceCollaboration = ({
         joinedAt: new Date()
       };
       setCurrentUser(localUser);
+      // ADD THIS LOG:
       console.log(`[VoiceCollab] Local user joined: ${localUser.name} (ID: ${localUser.id}). Initial remote participants: ${participants.length}`);
 
       console.log('Successfully joined voice room');
@@ -523,11 +508,12 @@ export const useVoiceCollaboration = ({
     connectToRoom,
     onError,
     updateConnectionState,
-    participants.length
+    // State setters like setCurrentUser, setIsMuted, setRoomName, setError, setIsConnecting are stable
   ]);
 
   const joinVoiceRoom = useCallback(async (room: VoiceRoom): Promise<void> => {
     setCurrentRoom(room);
+    // The actual joining will be handled by the joinRoom function
     await joinRoom();
   }, [joinRoom]);
 
@@ -539,7 +525,6 @@ export const useVoiceCollaboration = ({
       roomRef.current = null;
     }
 
-    stopAudioLevelMonitoring();
     setIsConnected(false);
     setIsConnecting(false);
     setIsVoiceEnabled(false);
@@ -551,7 +536,7 @@ export const useVoiceCollaboration = ({
     updateConnectionState(ConnectionState.Disconnected);
     
     toast.info('Disconnected from voice room');
-  }, [updateConnectionState, stopAudioLevelMonitoring]);
+  }, [updateConnectionState]);
 
   const leaveVoiceRoom = useCallback(async (): Promise<void> => {
     leaveRoom();
@@ -578,6 +563,7 @@ export const useVoiceCollaboration = ({
   }, [isMuted]);
 
   const adminSetParticipantMute = useCallback(async (roomId: string, participantId: string, muted: boolean): Promise<void> => {
+    // Implementation for admin mute functionality
     console.log(`Admin ${muted ? 'muting' : 'unmuting'} participant ${participantId} in room ${roomId}`);
     toast.info(`${muted ? 'Muted' : 'Unmuted'} participant`);
   }, []);
@@ -586,6 +572,7 @@ export const useVoiceCollaboration = ({
     try {
       setSelectedAudioOutputDeviceId(deviceId);
       
+      // Set the output device for all audio elements
       const audioElements = document.querySelectorAll('audio');
       for (const audioElement of audioElements) {
         if ('setSinkId' in audioElement) {
@@ -606,9 +593,8 @@ export const useVoiceCollaboration = ({
         console.log('Cleaning up room connection');
         roomRef.current.disconnect();
       }
-      stopAudioLevelMonitoring();
     };
-  }, [stopAudioLevelMonitoring]);
+  }, []);
 
   return {
     isConnected,

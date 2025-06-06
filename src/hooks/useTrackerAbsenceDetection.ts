@@ -97,12 +97,12 @@ export const useTrackerAbsenceDetection = ({
 
       const { data: assignments, error: assignmentsError } = await supabase
         .from('match_tracker_assignments')
-        .select('tracker_user_id')
+        .select('tracker_id')
         .eq('match_id', matchId);
 
       if (assignmentsError) throw assignmentsError;
 
-      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_user_id) || []);
+      const assignedTrackerIds = new Set(assignments?.map(a => a.tracker_id) || []);
       
       const availableTrackers = trackerUsers?.filter(tracker => 
         tracker.id !== absentTrackerId && 

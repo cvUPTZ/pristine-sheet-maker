@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -137,12 +136,12 @@ const MatchAnalysisV2: React.FC = () => {
 
       data.forEach(assignment => {
         if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => Number(p.id) === assignment.player_id);
+          const player = fullMatchRoster?.home?.find(p => String(p.id) === String(assignment.player_id));
           if (player && !homePlayers.some(p => p.id === player.id)) {
             homePlayers.push(player);
           }
         } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => Number(p.id) === assignment.player_id);
+          const player = fullMatchRoster?.away?.find(p => String(p.id) === String(assignment.player_id));
           if (player && !awayPlayers.some(p => p.id === player.id)) {
             awayPlayers.push(player);
           }
@@ -219,7 +218,7 @@ const MatchAnalysisV2: React.FC = () => {
       }
 
       // Ensure player_id is properly converted to integer or null
-      const playerId = player ? Number(player.id) : null;
+      const playerId = player ? parseInt(String(player.id), 10) : null;
       
       // Validate player_id is a valid integer
       if (player && (isNaN(playerId!) || playerId === null)) {
@@ -227,13 +226,13 @@ const MatchAnalysisV2: React.FC = () => {
         throw new Error("Invalid player ID");
       }
 
-      // Use current timestamp as string for database
-      const timestampStr = new Date().toISOString();
+      // Use seconds since epoch for timestamp to fit in bigint
+      const timestampInSeconds = Math.floor(Date.now() / 1000);
 
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
-        timestamp: timestampStr,
+        timestamp: timestampInSeconds,
         player_id: playerId,
         team: teamContext,
         coordinates: details?.coordinates || null,
