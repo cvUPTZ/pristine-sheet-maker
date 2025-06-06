@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,12 +30,12 @@ interface MatchInfo {
 interface Notification {
   id: string;
   match_id: string | null;
-  title: string;
+  title: string | null;
   message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
-  notification_data?: NotificationData;
+  type: string | null;
+  is_read: boolean | null;
+  created_at: string | null;
+  data?: NotificationData;
   matches?: MatchInfo;
 }
 
@@ -97,7 +98,7 @@ const TrackerNotifications: React.FC = () => {
           type,
           is_read,
           created_at,
-          notification_data,
+          data,
           user_id
         `)
         .eq('user_id', user.id)
@@ -110,7 +111,7 @@ const TrackerNotifications: React.FC = () => {
       
       for (const notification of data || []) {
         // Check if notification should play sound
-        const notificationData = notification.notification_data as any;
+        const notificationData = notification.data as any;
         if (notificationData?.with_sound && !notification.is_read) {
           playNotificationSound();
           
@@ -140,7 +141,7 @@ const TrackerNotifications: React.FC = () => {
               type: notification.type || 'general',
               is_read: notification.is_read || false,
               created_at: notification.created_at || new Date().toISOString(),
-              notification_data: notification.notification_data as NotificationData,
+              data: notification.data as NotificationData,
               matches: matchData
             });
 
@@ -159,7 +160,7 @@ const TrackerNotifications: React.FC = () => {
             type: notification.type || 'general',
             is_read: notification.is_read || false,
             created_at: notification.created_at || new Date().toISOString(),
-            notification_data: notification.notification_data as NotificationData,
+            data: notification.data as NotificationData,
           });
         }
       }
@@ -268,7 +269,7 @@ const TrackerNotifications: React.FC = () => {
               const newNotification = payload.new as any;
               
               // Play sound for urgent notifications
-              if (newNotification?.notification_data?.with_sound) {
+              if (newNotification?.data?.with_sound) {
                 playNotificationSound();
               }
               
@@ -390,23 +391,23 @@ const TrackerNotifications: React.FC = () => {
                       {notification.message}
                     </p>
                     
-                    {notification.notification_data && (
+                    {notification.data && (
                       <div className="text-xs space-y-1 mb-2">
-                        {notification.notification_data.assigned_event_types && (
+                        {notification.data.assigned_event_types && (
                           <div className="break-words">
-                            <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
+                            <strong>Event Types:</strong> {notification.data.assigned_event_types.join(', ')}
                           </div>
                         )}
-                        {notification.notification_data.assigned_player_ids && (
+                        {notification.data.assigned_player_ids && (
                           <div>
-                            <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
+                            <strong>Players:</strong> {notification.data.assigned_player_ids.length} assigned
                           </div>
                         )}
                       </div>
                     )}
                     
                     <div className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                      {notification.created_at && formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </div>
                   </div>
                   

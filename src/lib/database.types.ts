@@ -1,4 +1,5 @@
 
+
 export type Json =
   | string
   | number
@@ -127,6 +128,42 @@ export type Database = {
           coordinates?: Json;
           created_at?: string;
           created_by?: string;
+        };
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          is_read: boolean | null;
+          match_id: string | null;
+          message: string;
+          data: Json | null;
+          title: string | null;
+          type: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          is_read?: boolean | null;
+          match_id?: string | null;
+          message: string;
+          data?: Json | null;
+          title?: string | null;
+          type?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          is_read?: boolean | null;
+          match_id?: string | null;
+          message?: string;
+          data?: Json | null;
+          title?: string | null;
+          type?: string | null;
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -303,3 +340,4 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
+
