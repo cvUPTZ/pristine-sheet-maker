@@ -40,6 +40,17 @@ export type Database = {
           season: string | null
           matchday: number | null
           ball_tracking_data: Json
+          description: string | null
+          location: string | null
+          match_type: string | null
+          home_team_players: Json | null
+          away_team_players: Json | null
+          home_team_score: number | null
+          away_team_score: number | null
+          match_statistics: Json | null
+          created_by: string | null
+          timer_current_value: number | null
+          timer_last_started_at: string | null
         }
         Insert: {
           id?: string
@@ -70,6 +81,17 @@ export type Database = {
           season?: string | null
           matchday?: number | null
           ball_tracking_data?: Json
+          description?: string | null
+          location?: string | null
+          match_type?: string | null
+          home_team_players?: Json | null
+          away_team_players?: Json | null
+          home_team_score?: number | null
+          away_team_score?: number | null
+          match_statistics?: Json | null
+          created_by?: string | null
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
         }
         Update: {
           id?: string
@@ -100,6 +122,17 @@ export type Database = {
           season?: string | null
           matchday?: number | null
           ball_tracking_data?: Json
+          description?: string | null
+          location?: string | null
+          match_type?: string | null
+          home_team_players?: Json | null
+          away_team_players?: Json | null
+          home_team_score?: number | null
+          away_team_score?: number | null
+          match_statistics?: Json | null
+          created_by?: string | null
+          timer_current_value?: number | null
+          timer_last_started_at?: string | null
         }
         Relationships: []
       }
@@ -115,6 +148,9 @@ export type Database = {
           y_coordinate: number | null
           details: Json | null
           created_at: string
+          coordinates: Json | null
+          created_by: string
+          player_id: number | null
         }
         Insert: {
           id?: string
@@ -127,6 +163,9 @@ export type Database = {
           y_coordinate?: number | null
           details?: Json | null
           created_at?: string
+          coordinates?: Json | null
+          created_by: string
+          player_id?: number | null
         }
         Update: {
           id?: string
@@ -139,6 +178,9 @@ export type Database = {
           y_coordinate?: number | null
           details?: Json | null
           created_at?: string
+          coordinates?: Json | null
+          created_by?: string
+          player_id?: number | null
         }
         Relationships: [
           {
@@ -161,6 +203,10 @@ export type Database = {
           created_at: string
           updated_at: string | null
           replacement_tracker_id: string | null
+          assigned_event_types: string[] | null
+          assigned_player_id: number | null
+          player_team_id: string | null
+          tracker_id: string | null
         }
         Insert: {
           id?: string
@@ -172,6 +218,10 @@ export type Database = {
           created_at?: string
           updated_at?: string | null
           replacement_tracker_id?: string | null
+          assigned_event_types?: string[] | null
+          assigned_player_id?: number | null
+          player_team_id?: string | null
+          tracker_id?: string | null
         }
         Update: {
           id?: string
@@ -183,6 +233,10 @@ export type Database = {
           created_at?: string
           updated_at?: string | null
           replacement_tracker_id?: string | null
+          assigned_event_types?: string[] | null
+          assigned_player_id?: number | null
+          player_team_id?: string | null
+          tracker_id?: string | null
         }
         Relationships: [
           {
@@ -204,6 +258,9 @@ export type Database = {
           read: boolean
           created_at: string
           data: Json | null
+          match_id: string | null
+          is_read: boolean | null
+          notification_data: Json | null
         }
         Insert: {
           id?: string
@@ -214,6 +271,9 @@ export type Database = {
           read?: boolean
           created_at?: string
           data?: Json | null
+          match_id?: string | null
+          is_read?: boolean | null
+          notification_data?: Json | null
         }
         Update: {
           id?: string
@@ -224,6 +284,9 @@ export type Database = {
           read?: boolean
           created_at?: string
           data?: Json | null
+          match_id?: string | null
+          is_read?: boolean | null
+          notification_data?: Json | null
         }
         Relationships: []
       }
@@ -403,6 +466,11 @@ export type Database = {
           created_at: string | null
           updated_at: string | null
           replacement_tracker_id: string | null
+          assigned_event_types: string[] | null
+          assigned_player_id: number | null
+          player_team_id: string | null
+          tracker_id: string | null
+          tracker_email: string | null
         }
         Relationships: []
       }
