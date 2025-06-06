@@ -100,7 +100,7 @@ export class VoiceRoomService {
   // Fix: Create single room instead of batch
   public async createRoom(matchId: string, roomData: Partial<VoiceRoom>): Promise<VoiceRoom> {
     try {
-      const newRoom: Omit<VoiceRoom, 'id' | 'created_at' | 'updated_at'> = {
+      const newRoom = {
         name: roomData.name || 'New Voice Room',
         description: roomData.description || 'Voice communication room',
         match_id: matchId,
@@ -109,7 +109,6 @@ export class VoiceRoomService {
         is_active: true,
         permissions: roomData.permissions || ['all'],
         priority: roomData.priority || 0,
-        participant_count: 0,
       };
 
       // Try to insert into database, fallback to mock for demo
@@ -122,22 +121,34 @@ export class VoiceRoomService {
 
         if (error) throw error;
         
-        const createdRoom: VoiceRoom = {
-          ...data,
-          participant_count: 0
-        };
+        if (data && typeof data === 'object' && 'id' in data) {
+          const createdRoom: VoiceRoom = {
+            ...data as VoiceRoomRow,
+            participant_count: 0
+          };
+          
+          this.roomCache.set(createdRoom.id, createdRoom);
+          console.log('Room created successfully:', createdRoom.id);
+          return createdRoom;
+        }
         
-        this.roomCache.set(createdRoom.id, createdRoom);
-        console.log('Room created successfully:', createdRoom.id);
-        return createdRoom;
+        throw new Error('Invalid room data returned');
       } catch (dbError) {
         console.warn('Database insert failed, creating mock room:', dbError);
         // Create mock room for demo
         const mockRoom: VoiceRoom = {
-          ...newRoom,
           id: `${matchId}-${Date.now()}`,
+          match_id: matchId,
+          name: newRoom.name,
+          description: newRoom.description,
+          max_participants: newRoom.max_participants,
+          priority: newRoom.priority,
+          permissions: newRoom.permissions,
+          is_private: newRoom.is_private,
+          is_active: newRoom.is_active,
           created_at: new Date().toISOString(),
           updated_at: null,
+          participant_count: 0,
         };
         
         this.roomCache.set(mockRoom.id, mockRoom);
@@ -219,20 +230,25 @@ export class VoiceRoomService {
 
       if (existingRooms && Array.isArray(existingRooms) && existingRooms.length > 0) {
         console.log(`Found ${existingRooms.length} existing rooms for match ${matchId}`);
-        const roomsWithCounts = existingRooms.map((room: any) => ({
-          id: room.id,
-          name: room.name,
-          description: room.description,
-          match_id: room.match_id,
-          max_participants: room.max_participants,
-          is_private: room.is_private,
-          is_active: room.is_active ?? true,
-          permissions: room.permissions || ['all'],
-          priority: room.priority ?? 0,
-          created_at: room.created_at || new Date().toISOString(),
-          updated_at: room.updated_at || null,
-          participant_count: 0, // Will be updated separately
-        }));
+        const roomsWithCounts = existingRooms.map((room: any) => {
+          if (room && typeof room === 'object' && 'id' in room) {
+            return {
+              id: room.id,
+              name: room.name,
+              description: room.description,
+              match_id: room.match_id,
+              max_participants: room.max_participants,
+              is_private: room.is_private,
+              is_active: room.is_active ?? true,
+              permissions: room.permissions || ['all'],
+              priority: room.priority ?? 0,
+              created_at: room.created_at || new Date().toISOString(),
+              updated_at: room.updated_at || null,
+              participant_count: 0, // Will be updated separately
+            } as VoiceRoom;
+          }
+          return null;
+        }).filter(Boolean) as VoiceRoom[];
 
         roomsWithCounts.forEach((room: VoiceRoom) => {
           this.roomCache.set(room.id, room);
@@ -280,29 +296,33 @@ export class VoiceRoomService {
           // Get participant counts for each room
           const roomsWithCounts = await Promise.all(
             roomsData.map(async (room: any) => {
-              const participantCount = await this.getParticipantCount(room.id);
-              return {
-                id: room.id,
-                name: room.name,
-                description: room.description,
-                match_id: room.match_id,
-                max_participants: room.max_participants,
-                is_private: room.is_private,
-                is_active: room.is_active ?? true,
-                permissions: room.permissions || ['all'],
-                priority: room.priority ?? 0,
-                created_at: room.created_at || new Date().toISOString(),
-                updated_at: room.updated_at || null,
-                participant_count: participantCount,
-              };
+              if (room && typeof room === 'object' && 'id' in room) {
+                const participantCount = await this.getParticipantCount(room.id);
+                return {
+                  id: room.id,
+                  name: room.name,
+                  description: room.description,
+                  match_id: room.match_id,
+                  max_participants: room.max_participants,
+                  is_private: room.is_private,
+                  is_active: room.is_active ?? true,
+                  permissions: room.permissions || ['all'],
+                  priority: room.priority ?? 0,
+                  created_at: room.created_at || new Date().toISOString(),
+                  updated_at: room.updated_at || null,
+                  participant_count: participantCount,
+                } as VoiceRoom;
+              }
+              return null;
             })
           );
 
-          roomsWithCounts.forEach((room: VoiceRoom) => {
+          const validRooms = roomsWithCounts.filter(Boolean) as VoiceRoom[];
+          validRooms.forEach((room: VoiceRoom) => {
             this.roomCache.set(room.id, room);
           });
 
-          return roomsWithCounts;
+          return validRooms;
         } catch (sqlError) {
           console.warn('SQL query failed, returning empty array:', sqlError);
           return [];
@@ -351,15 +371,23 @@ export class VoiceRoomService {
 
           if (error) throw error;
           
-          room = {
-            ...data,
-            participant_count: await this.getParticipantCount(roomId)
-          };
-          this.roomCache.set(roomId, room);
+          if (data && typeof data === 'object' && 'id' in data) {
+            room = {
+              ...data as VoiceRoomRow,
+              participant_count: await this.getParticipantCount(roomId)
+            };
+            this.roomCache.set(roomId, room);
+          } else {
+            return { success: false, error: 'Invalid room data' };
+          }
         } catch (dbError) {
           console.warn('Could not fetch room from database:', dbError);
           return { success: false, error: 'Room not found' };
         }
+      }
+
+      if (!room) {
+        return { success: false, error: 'Room not found' };
       }
 
       // Check room capacity
