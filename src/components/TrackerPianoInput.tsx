@@ -159,12 +159,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       data.forEach(assignment => {
         if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => String(p.id) === String(assignment.player_id));
+          const player = fullMatchRoster?.home?.find(p => p.id === assignment.player_id);
           if (player && !homePlayers.some(p => p.id === player.id)) {
             homePlayers.push(player);
           }
         } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => String(assignment.player_id) === String(assignment.player_id));
+          const player = fullMatchRoster?.away?.find(p => p.id === assignment.player_id);
           if (player && !awayPlayers.some(p => p.id === player.id)) {
             awayPlayers.push(player);
           }
@@ -274,19 +274,21 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         }
       }
 
-      const playerId = player ? parseInt(String(player.id), 10) : null;
+      const playerId = player ? player.id : null;
       
-      if (player && (isNaN(playerId!) || playerId === null)) {
+      if (player && (typeof playerId !== 'number' || playerId === null)) {
         console.error("Invalid player ID:", player.id);
         throw new Error("Invalid player ID");
       }
 
+      // Convert timestamp to string as expected by database
       const timestampInSeconds = Math.floor(Date.now() / 1000);
+      const timestampString = timestampInSeconds.toString();
 
       const eventData = {
         match_id: matchId,
         event_type: eventType.key,
-        timestamp: timestampInSeconds,
+        timestamp: timestampString,
         player_id: playerId,
         team: teamContext,
         coordinates: details?.coordinates || null,

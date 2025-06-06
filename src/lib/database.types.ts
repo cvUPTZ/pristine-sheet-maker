@@ -197,7 +197,7 @@ export type Database = {
           id: string
           match_id: string
           tracker_user_id: string
-          player_id: string | null
+          player_id: number | null
           event_type: string | null
           assignment_type: string
           created_at: string
@@ -212,7 +212,7 @@ export type Database = {
           id?: string
           match_id: string
           tracker_user_id: string
-          player_id?: string | null
+          player_id?: number | null
           event_type?: string | null
           assignment_type?: string
           created_at?: string
@@ -227,7 +227,7 @@ export type Database = {
           id?: string
           match_id?: string
           tracker_user_id?: string
-          player_id?: string | null
+          player_id?: number | null
           event_type?: string | null
           assignment_type?: string
           created_at?: string
@@ -460,7 +460,7 @@ export type Database = {
           id: string | null
           match_id: string | null
           tracker_user_id: string | null
-          player_id: string | null
+          player_id: number | null
           event_type: string | null
           assignment_type: string | null
           created_at: string | null

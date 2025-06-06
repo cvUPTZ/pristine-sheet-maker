@@ -8,9 +8,9 @@ export interface TrackerUser {
 export interface Assignment {
   id: string;
   tracker_user_id: string;
-  player_id: number;
-  player_team_id: 'home' | 'away';
-  assigned_event_types: string[];
+  player_id: number | null;
+  player_team_id: 'home' | 'away' | null;
+  assigned_event_types: string[] | null;
   tracker_name?: string;
   tracker_email?: string;
 }
