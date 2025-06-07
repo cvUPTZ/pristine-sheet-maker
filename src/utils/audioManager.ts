@@ -281,25 +281,37 @@ export class AudioManager {
     }
   }
 
-  public async setAudioOutputDevice(deviceId: string, audioElement?: HTMLAudioElement): Promise<void> {
-    if (!audioElement) {
-      console.warn('No audio element provided to set audio output device.');
-      // If we want to set a global output for the AudioManager's context, that's more complex
-      // and typically not how sinkId works (it's per-element).
+  public async setAudioOutputDevice(deviceId: string): Promise<void> {
+    const audioElements = document.querySelectorAll<HTMLAudioElement>('audio[data-voice-chat-participant="true"]');
+
+    if (audioElements.length === 0) {
+      console.warn('No audio elements with data-voice-chat-participant="true" found to set audio output device.');
       return;
     }
-    if (typeof (audioElement as any).setSinkId !== 'function') {
-      console.warn('setSinkId() not supported on this audio element or browser.');
-      this.onError?.(new Error('setSinkId is not supported on this browser/element. Output device cannot be changed.'));
-      return;
+
+    let allSucceeded = true;
+    for (const audioElement of Array.from(audioElements)) {
+      if (typeof (audioElement as any).setSinkId !== 'function') {
+        console.warn('setSinkId() not supported on an audio element or by the browser.');
+        this.onError?.(new Error('setSinkId is not supported on this browser/element. Output device cannot be changed for one or more elements.'));
+        allSucceeded = false;
+        continue; // Try next element
+      }
+      try {
+        await (audioElement as any).setSinkId(deviceId);
+        console.log(`Audio output device set to ${deviceId} for element:`, audioElement);
+      } catch (error) {
+        allSucceeded = false;
+        console.error(`Error setting audio output device ${deviceId} for element:`, audioElement, error);
+        this.onError?.(error as Error);
+        // Potentially throw error if critical for the caller, or collect errors
+      }
     }
-    try {
-      await (audioElement as any).setSinkId(deviceId);
-      console.log(`Audio output device set to ${deviceId} for the provided element.`);
-    } catch (error) {
-      console.error(`Error setting audio output device ${deviceId}:`, error);
-      this.onError?.(error as Error);
-      // Potentially throw error if critical for the caller
+
+    if (allSucceeded) {
+      console.log(`Successfully set audio output device to ${deviceId} for all relevant audio elements.`);
+    } else {
+      console.warn(`Failed to set audio output device to ${deviceId} for one or more audio elements.`);
     }
   }
 }
