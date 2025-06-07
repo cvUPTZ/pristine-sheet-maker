@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -427,7 +426,7 @@ export const useVoiceCollaboration = ({
         actualParticipantName = sandboxDetails.participantName;
 
         if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
-            console.warn(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
+            console.log(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
         }
         if (!currentRoom) {
              console.log(`Joining a new sandbox-generated room: ${sandboxDetails.roomName}`);
@@ -445,12 +444,12 @@ export const useVoiceCollaboration = ({
           throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
         }
         if (!currentRoom?.id) { // Check for id for Supabase token
-          console.warn(
+          console.log(
             "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
             "Token will be for 'default-room'. This may lead to permission issues " +
             "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
           );
-          toast.warn("Joining with default room settings. Specific room features/permissions may be limited.");
+          toast.warning("Joining with default room settings. Specific room features/permissions may be limited.");
           setRoomName("default-room"); // Keep this
         } else if (currentRoom.name) { // Existing logic if currentRoom.id IS present
            setRoomName(currentRoom.name);

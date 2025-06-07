@@ -1,5 +1,3 @@
-
-
 export type Json =
   | string
   | number
@@ -417,7 +415,12 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      get_user_role_from_auth: {
+        Args: {
+          user_id_param: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       job_status: 'pending' | 'processing' | 'completed' | 'failed';
