@@ -122,7 +122,7 @@ const AppContent = () => {
             </RequireAuth>
           } 
         />
-        <Route path="/new-voice-chat" element={<NewVoiceChatPage />} />
+        <Route path="/match/:matchId/voice-chat" element={<NewVoiceChatPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
