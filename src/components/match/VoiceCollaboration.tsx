@@ -187,7 +187,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   const [audioElements, setAudioElements] = useState<JSX.Element[]>([]);
   useEffect(() => {
     const elements = Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
-      <audio key={peerId} autoPlay playsInline ref={(audioEl) => { if (audioEl && audioEl.srcObject !== stream) audioEl.srcObject = stream; }} style={{ display: 'none' }} />
+      <audio key={peerId} autoPlay playsInline ref={(audioEl) => { if (audioEl && audioEl.srcObject !== stream) audioEl.srcObject = stream; }} style={{ display: 'none' }} data-voice-chat-participant="true" />
     ));
     setAudioElements(elements);
   }, [remoteStreams]);
