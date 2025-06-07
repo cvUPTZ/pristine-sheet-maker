@@ -50,8 +50,16 @@ export const VOICE_CONFIG = {
 export const PRODUCTION_VOICE_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ],
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+    // Placeholder for TURN server - to be filled if credentials are provided
+    // {
+    //   urls: 'turn:your-turn-server.com:3478', // e.g., 'turn:turn.example.com:3478'
+    //   username: 'your-username',
+    //   credential: 'your-password',
+    //   credentialType: 'password', // Or 'token'
+    // },
+  ] as RTCIceServer[], // Explicitly type for clarity, though structure matches
   reconnectionAttempts: 5,
   connectionTimeout: 30000,
   heartbeatInterval: 15000,
