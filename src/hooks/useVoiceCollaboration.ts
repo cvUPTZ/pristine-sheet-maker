@@ -79,7 +79,7 @@ export const useVoiceCollaboration = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentUser, setCurrentUser] = useState<Participant | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null); // Changed to Error | null
   const [isMuted, setIsMuted] = useState(false); // Local user's mute state
   const [connectionState, _setConnectionState] = useState<WebRTCConnectionStateType>('disconnected');
   const [roomName, setRoomName] = useState('');
@@ -111,10 +111,7 @@ export const useVoiceCollaboration = ({
     _setCurrentRoom(newRoom);
   }, []);
 
-  const setError = useCallback((newError: string | null) => {
-    console.log(`[Hook] Error state changing to: ${newError}`);
-    _setError(newError);
-  }, []);
+  // Removed useCallback version of setError
 
   const setAvailableRooms = useCallback((newRooms: VoiceRoom[]) => {
     console.log(`[Hook] Available rooms fetched: ${newRooms.length} rooms`);
@@ -196,8 +193,7 @@ export const useVoiceCollaboration = ({
       },
       onError: (errorType, errorDetails) => {
         console.error(`[Hook] WebRTC Error - Type: ${errorType}`, errorDetails);
-        // setError is called with the custom setter which already logs
-        setError(`WebRTC Error: ${errorType} - ${errorDetails?.message || JSON.stringify(errorDetails)}`);
+        setError(new Error(`WebRTC Error: ${errorType} - ${errorDetails?.message || JSON.stringify(errorDetails)}`));
         externalOnError?.(errorType, errorDetails);
         toast.error(`Voice collaboration error: ${errorType}`);
         if (errorType === 'authorization' || errorType === 'join_room_error') {
@@ -296,8 +292,7 @@ export const useVoiceCollaboration = ({
     console.log(`[Hook] joinVoiceRoom called for room: ${roomToJoin.name} (${roomToJoin.id})`);
     if (!webRTCManagerRef.current) {
       console.error('[Hook] WebRTC Manager not initialized. Cannot join room.');
-      // setError is called with the custom setter which already logs
-      setError('WebRTC Manager not initialized.');
+      setError(new Error('WebRTC Manager not initialized.'));
       toast.error('Voice system not ready.');
       return;
     }
@@ -324,7 +319,8 @@ export const useVoiceCollaboration = ({
       console.log(`[Hook] WebRTCManager.joinRoom call for ${roomToJoin.name} completed. Waiting for WebRTCManager events.`);
       // For now, let's set some optimistic states, actual connection confirmed by events
       // setConnectionState is called with the custom setter which already logs
-      setConnectionState('connecting'); 
+      setConnectionState('connecting');
+      setError(null); // Clear any previous errors on successful initiation
       // isConnected and isVoiceEnabled will be set based on WebRTCManager's events
       // For instance, when presence channel subscription is 'SUBSCRIBED'
       // This part needs refinement based on WebRTCManager's successful subscription indication.
@@ -346,11 +342,10 @@ export const useVoiceCollaboration = ({
 
     } catch (err) {
       console.error(`[Hook] Failed to join room ${roomToJoin.name}:`, err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error joining room';
-      // setError is called with the custom setter which already logs
-      setError(errorMessage);
+      const errorToSet = err instanceof Error ? err : new Error('Unknown error joining room');
+      setError(errorToSet);
       externalOnError?.('join_room_error', err);
-      toast.error(`Failed to join room: ${errorMessage.substring(0,100)}`);
+      toast.error(`Failed to join room: ${errorToSet.message.substring(0,100)}`);
       
       setIsConnecting(false);
       setIsConnected(false);
@@ -360,7 +355,7 @@ export const useVoiceCollaboration = ({
       setCurrentRoom(null);
       console.log(`[Hook] joinVoiceRoom failed for room: ${roomToJoin.name}`);
     }
-  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError, setConnectionState, setCurrentRoom, setError]);
+  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError, setConnectionState, setCurrentRoom]); // Removed setError from deps as it's from useState
 
 
   const leaveVoiceRoom = useCallback(async (): Promise<void> => {

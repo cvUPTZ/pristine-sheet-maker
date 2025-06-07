@@ -6,7 +6,7 @@ import { CircularProgress } from '@mui/material'; // Assuming MUI is used for pr
 
 const NewVoiceChatPage: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
-  const { user, userRole, loading: authLoading, user?.user_metadata } = useAuth(); // Destructure user_metadata
+  const { user, userRole, loading: authLoading } = useAuth(); // Corrected destructuring
 
   if (authLoading) {
     return (
