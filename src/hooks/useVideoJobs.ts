@@ -75,8 +75,8 @@ export const useVideoJobs = () => {
         result_data: newJob.result_data || undefined,
         error_message: newJob.error_message || undefined,
         progress: newJob.progress || 0,
-        user_id: newJob.user_id,
-        job_config: newJob.job_config || {}
+        user_id: newJob.user_id || user.user.id, // Handle null case by using the current user ID
+        job_config: (newJob as any).job_config || {} // Type assertion to access job_config
       };
       
       toast.success(`Job "${videoJob.video_title}" submitted successfully!`);
