@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -130,6 +129,108 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles: {
+        Row: {
+          id: string;
+          email: string | null;
+          full_name: string | null;
+          role: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          full_name?: string | null;
+          role?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string | null;
+          full_name?: string | null;
+          role?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      match_tracker_assignments: {
+        Row: {
+          id: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id: number | null;
+          player_team_id: string;
+          assigned_event_types: string[] | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          tracker_user_id: string;
+          player_id?: number | null;
+          player_team_id: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          tracker_user_id?: string;
+          player_id?: number | null;
+          player_team_id?: string;
+          assigned_event_types?: string[] | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      video_jobs: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          status: 'pending' | 'processing' | 'completed' | 'failed';
+          input_video_path: string;
+          video_title: string | null;
+          video_duration: number | null;
+          result_data: Json | null;
+          error_message: string | null;
+          progress: number;
+          user_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          input_video_path: string;
+          video_title?: string | null;
+          video_duration?: number | null;
+          result_data?: Json | null;
+          error_message?: string | null;
+          progress?: number;
+          user_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          input_video_path?: string;
+          video_title?: string | null;
+          video_duration?: number | null;
+          result_data?: Json | null;
+          error_message?: string | null;
+          progress?: number;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       voice_rooms: {
         Row: {
           id: string;
@@ -216,7 +317,7 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      job_status: 'pending' | 'processing' | 'completed' | 'failed';
     };
     CompositeTypes: {
       [_ in never]: never;

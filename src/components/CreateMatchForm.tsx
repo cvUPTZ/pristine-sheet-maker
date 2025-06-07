@@ -188,16 +188,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const fetchMatchData = async (id: string) => {
     setLoading(true);
     try {
+      // First, fetch the match data
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
-        .select(`
-          *,
-          match_tracker_assignments (
-            tracker_user_id,
-            assigned_event_types,
-            player_id
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -219,22 +213,39 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      // Ensure players are actual arrays before setting state
+      // Parse player data safely
       const homePlayers = Array.isArray(matchData.home_team_players)
-        ? matchData.home_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        ? matchData.home_team_players.map((p: any) => ({ 
+            id: p.id || Date.now() + Math.random(), 
+            name: p.player_name || p.name || '', 
+            number: p.jersey_number || p.number || 0, 
+            position: p.position || '' 
+          }))
         : [];
       const awayPlayers = Array.isArray(matchData.away_team_players)
-        ? matchData.away_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' }))
+        ? matchData.away_team_players.map((p: any) => ({ 
+            id: p.id || Date.now() + Math.random(), 
+            name: p.player_name || p.name || '', 
+            number: p.jersey_number || p.number || 0, 
+            position: p.position || '' 
+          }))
         : [];
 
       setHomeTeamPlayers(homePlayers);
       setAwayTeamPlayers(awayPlayers);
 
-      // Process tracker assignments
-      const assignments: TrackerAssignment[] = [];
-      if (matchData.match_tracker_assignments) {
+      // Then, separately fetch tracker assignments
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('match_tracker_assignments')
+        .select('*')
+        .eq('match_id', id);
+
+      if (assignmentError) {
+        console.warn('Could not fetch tracker assignments:', assignmentError);
+      } else if (assignmentData) {
+        // Process tracker assignments into the format expected by the form
         const assignmentsMap = new Map<string, TrackerAssignment>();
-        matchData.match_tracker_assignments.forEach((assign: any) => {
+        assignmentData.forEach((assign: any) => {
           if (!assignmentsMap.has(assign.tracker_user_id)) {
             assignmentsMap.set(assign.tracker_user_id, {
               tracker_user_id: assign.tracker_user_id,
@@ -243,14 +254,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
             });
           }
           const currentAssignment = assignmentsMap.get(assign.tracker_user_id)!;
-          currentAssignment.assigned_event_types = Array.from(new Set([...currentAssignment.assigned_event_types, ...assign.assigned_event_types]));
+          if (assign.assigned_event_types) {
+            currentAssignment.assigned_event_types = Array.from(new Set([
+              ...currentAssignment.assigned_event_types, 
+              ...assign.assigned_event_types
+            ]));
+          }
           if (assign.player_id) {
             currentAssignment.player_ids.push(assign.player_id);
           }
         });
-        assignments.push(...Array.from(assignmentsMap.values()));
+        setTrackerAssignments(Array.from(assignmentsMap.values()));
       }
-      setTrackerAssignments(assignments);
 
     } catch (error: any) {
       console.error('Error fetching match data:', error);
@@ -339,7 +354,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       let matchError: any;
 
       if (isEditMode && matchId) {
-        // Update existing match
         const { data, error } = await supabase
           .from('matches')
           .update(matchData)
@@ -349,7 +363,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         match = data;
         matchError = error;
       } else {
-        // Create new match
         const { data, error } = await supabase
           .from('matches')
           .insert(matchData)
@@ -362,7 +375,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       if (matchError) throw matchError;
       if (!match) throw new Error(isEditMode ? "Failed to update match." : "Failed to create match.");
 
-      // Handle tracker assignments (delete existing and re-insert for simplicity in edit mode)
+      // Handle tracker assignments
       if (isEditMode && matchId) {
         const { error: deleteError } = await supabase
           .from('match_tracker_assignments')
@@ -370,14 +383,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           .eq('match_id', matchId);
         if (deleteError) {
           console.warn('Error deleting old tracker assignments:', deleteError);
-          // Potentially proceed, or throw error if critical
         }
       }
 
       if (trackerAssignments.length > 0) {
         const assignments = trackerAssignments.flatMap(assignment => 
           assignment.player_ids.map(playerId => {
-            // Determine if player is home or away based on their ID presence in respective arrays
             const isHomePlayer = homeTeamPlayers.some(p => p.id === playerId);
             const isAwayPlayer = awayTeamPlayers.some(p => p.id === playerId);
             let playerTeamId = 'unknown';
@@ -392,28 +403,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               assigned_event_types: assignment.assigned_event_types
             };
           })
-        ).filter(a => a.tracker_user_id && a.player_id); // Ensure tracker_user_id is present
+        ).filter(a => a.tracker_user_id && a.player_id);
 
         if (assignments.length > 0) {
           const { error: assignmentError } = await supabase
             .from('match_tracker_assignments')
             .insert(assignments);
           if (assignmentError) throw assignmentError;
-        }
-
-        // Send notifications (consider if this should only be for new assignments or changes)
-        const { error: notificationError } = await supabase
-          .rpc('notify_assigned_trackers', {
-            p_match_id: match.id,
-            p_tracker_assignments: trackerAssignments.map(assignment => ({
-              tracker_user_id: assignment.tracker_user_id,
-              assigned_event_types: assignment.assigned_event_types,
-              player_ids: assignment.player_ids
-            }))
-          });
-
-        if (notificationError) {
-          console.error('Error sending notifications:', notificationError);
         }
       }
 
