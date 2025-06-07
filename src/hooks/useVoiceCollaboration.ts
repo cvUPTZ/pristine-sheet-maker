@@ -81,13 +81,13 @@ export const useVoiceCollaboration = ({
   const [currentUser, setCurrentUser] = useState<Participant | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false); // Local user's mute state
-  const [connectionState, setConnectionState] = useState<WebRTCConnectionStateType>('disconnected');
+  const [connectionState, _setConnectionState] = useState<WebRTCConnectionStateType>('disconnected');
   const [roomName, setRoomName] = useState('');
   
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); // Placeholder
-  const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
-  const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
+  const [availableRooms, _setAvailableRooms] = useState<VoiceRoom[]>([]);
+  const [currentRoom, _setCurrentRoom] = useState<VoiceRoom | null>(null);
   const [isRoomAdmin, setIsRoomAdmin] = useState(userRole === 'admin' || userRole === 'coordinator'); // Example admin logic
 
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
@@ -100,6 +100,27 @@ export const useVoiceCollaboration = ({
   const webRTCManagerRef = useRef<WebRTCManager | null>(null);
   const audioManagerRef = useRef<AudioManager | null>(null);
 
+  // Custom setters with logging
+  const setConnectionState = useCallback((newState: WebRTCConnectionStateType) => {
+    console.log(`[Hook] Connection state changing to: ${newState}`);
+    _setConnectionState(newState);
+  }, []);
+
+  const setCurrentRoom = useCallback((newRoom: VoiceRoom | null) => {
+    console.log(`[Hook] Current room changing to: ${newRoom ? newRoom.name : 'null'}`);
+    _setCurrentRoom(newRoom);
+  }, []);
+
+  const setError = useCallback((newError: string | null) => {
+    console.log(`[Hook] Error state changing to: ${newError}`);
+    _setError(newError);
+  }, []);
+
+  const setAvailableRooms = useCallback((newRooms: VoiceRoom[]) => {
+    console.log(`[Hook] Available rooms fetched: ${newRooms.length} rooms`);
+    _setAvailableRooms(newRooms);
+  }, []);
+
 
   // Initialize AudioManager
   useEffect(() => {
@@ -108,7 +129,11 @@ export const useVoiceCollaboration = ({
   
   // Initialize WebRTCManager and set up callbacks
   useEffect(() => {
-    if (!userId || !supabase || !audioManagerRef.current) return;
+    if (!userId || !supabase || !audioManagerRef.current) {
+      console.log('[Hook] WebRTCManager initialization prerequisites not met (userId, supabase, audioManager).');
+      return;
+    }
+    console.log('[Hook] Initializing WebRTCManager...');
 
     // Default STUN server, consider making this configurable
     const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -171,10 +196,12 @@ export const useVoiceCollaboration = ({
       },
       onError: (errorType, errorDetails) => {
         console.error(`[Hook] WebRTC Error - Type: ${errorType}`, errorDetails);
+        // setError is called with the custom setter which already logs
         setError(`WebRTC Error: ${errorType} - ${errorDetails?.message || JSON.stringify(errorDetails)}`);
         externalOnError?.(errorType, errorDetails);
         toast.error(`Voice collaboration error: ${errorType}`);
         if (errorType === 'authorization' || errorType === 'join_room_error') {
+            // setConnectionState is called with the custom setter which already logs
             setConnectionState('failed');
             setIsConnected(false);
             setIsConnecting(false);
@@ -187,20 +214,23 @@ export const useVoiceCollaboration = ({
       }
     });
     webRTCManagerRef.current = manager;
+    console.log('[Hook] WebRTCManager initialized.');
 
     // Cleanup when component unmounts or dependencies change
     return () => {
-      console.log('[Hook] Cleaning up WebRTCManager.');
+      console.log('[Hook] Cleaning up WebRTCManager due to unmount or dependency change.');
       manager.leaveRoom();
       webRTCManagerRef.current = null;
+      console.log('[Hook] WebRTCManager instance nulled.');
     };
-  }, [userId, userName, supabase, externalOnParticipantJoined, externalOnParticipantLeft, externalOnError]);
+  }, [userId, userName, supabase, externalOnParticipantJoined, externalOnParticipantLeft, externalOnError, setConnectionState, setError]); // Added setConnectionState and setError
 
 
   // Fetch available rooms
   useEffect(() => {
     const fetchRooms = async () => {
       if (!matchId) return;
+      console.log('[Hook] Fetching available rooms...');
       try {
         const { data, error: fetchError } = await supabase
           .from('voice_rooms')
@@ -208,7 +238,11 @@ export const useVoiceCollaboration = ({
           .eq('match_id', matchId)
           .eq('is_active', true);
         
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+          console.error('[Hook] Error fetching voice rooms:', fetchError);
+          throw fetchError;
+        }
+        // setAvailableRooms is called with the custom setter which already logs
         setAvailableRooms(data || []);
       } catch (err) {
         console.error('[useVoiceCollaboration] Failed to fetch voice rooms. Supabase error object:', JSON.stringify(err, null, 2));
@@ -221,7 +255,7 @@ export const useVoiceCollaboration = ({
       }
     };
     fetchRooms();
-  }, [matchId, supabase]);
+  }, [matchId, supabase, setAvailableRooms]); // Added setAvailableRooms
 
   // Monitor network status
   useEffect(() => {
@@ -259,21 +293,26 @@ export const useVoiceCollaboration = ({
 
 
   const joinVoiceRoom = useCallback(async (roomToJoin: VoiceRoom): Promise<void> => {
+    console.log(`[Hook] joinVoiceRoom called for room: ${roomToJoin.name} (${roomToJoin.id})`);
     if (!webRTCManagerRef.current) {
+      console.error('[Hook] WebRTC Manager not initialized. Cannot join room.');
+      // setError is called with the custom setter which already logs
       setError('WebRTC Manager not initialized.');
       toast.error('Voice system not ready.');
       return;
     }
     if (isConnecting || (isConnected && currentRoom?.id === roomToJoin.id)) {
-      console.warn(`Already connecting to or connected to room ${roomToJoin.name}`);
+      console.warn(`[Hook] Already connecting to or connected to room ${roomToJoin.name}. Ignoring join request.`);
       return;
     }
 
     console.log(`[Hook] Attempting to join room: ${roomToJoin.name} (${roomToJoin.id})`);
     setIsConnecting(true);
+    // setConnectionState and setCurrentRoom are called with the custom setters which already log
     setConnectionState('authorizing'); // Or 'connecting'
     setCurrentRoom(roomToJoin);
     setRoomName(roomToJoin.name);
+    // setError is called with the custom setter which already logs
     setError(null);
 
     try {
@@ -282,8 +321,9 @@ export const useVoiceCollaboration = ({
       // (e.g., presence join, signaling channel subscription success)
       // We can assume if joinRoom doesn't throw, it's in progress.
       // Actual "connected" state might be set when presence sync is complete or first peer joins.
-      console.log(`[Hook] joinRoom call for ${roomToJoin.name} completed. Waiting for WebRTCManager events.`);
+      console.log(`[Hook] WebRTCManager.joinRoom call for ${roomToJoin.name} completed. Waiting for WebRTCManager events.`);
       // For now, let's set some optimistic states, actual connection confirmed by events
+      // setConnectionState is called with the custom setter which already logs
       setConnectionState('connecting'); 
       // isConnected and isVoiceEnabled will be set based on WebRTCManager's events
       // For instance, when presence channel subscription is 'SUBSCRIBED'
@@ -302,10 +342,12 @@ export const useVoiceCollaboration = ({
         role: userRole,
       });
       toast.success(`Joining voice room: ${roomToJoin.name}`);
+      console.log(`[Hook] Successfully initiated join to room: ${roomToJoin.name}`);
 
     } catch (err) {
       console.error(`[Hook] Failed to join room ${roomToJoin.name}:`, err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error joining room';
+      // setError is called with the custom setter which already logs
       setError(errorMessage);
       externalOnError?.('join_room_error', err);
       toast.error(`Failed to join room: ${errorMessage.substring(0,100)}`);
@@ -313,17 +355,24 @@ export const useVoiceCollaboration = ({
       setIsConnecting(false);
       setIsConnected(false);
       setIsVoiceEnabled(false);
+      // setConnectionState and setCurrentRoom are called with the custom setters which already log
       setConnectionState('failed');
       setCurrentRoom(null);
+      console.log(`[Hook] joinVoiceRoom failed for room: ${roomToJoin.name}`);
     }
-  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError]);
+  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError, setConnectionState, setCurrentRoom, setError]);
 
 
   const leaveVoiceRoom = useCallback(async (): Promise<void> => {
-    console.log('[Hook] Leaving voice room.');
+    console.log('[Hook] leaveVoiceRoom called.');
+    // setConnectionState is called with the custom setter which already logs
     setConnectionState('disconnecting');
     if (webRTCManagerRef.current) {
+      console.log('[Hook] Calling WebRTCManager.leaveRoom().');
       await webRTCManagerRef.current.leaveRoom();
+      console.log('[Hook] WebRTCManager.leaveRoom() completed.');
+    } else {
+      console.warn('[Hook] WebRTCManager not found while trying to leave room.');
     }
     setIsConnected(false);
     setIsConnecting(false);
@@ -332,13 +381,15 @@ export const useVoiceCollaboration = ({
     setCurrentUser(null);
     // setError(null); // Keep last error for inspection? Or clear.
     setIsMuted(false); // Reset local mute state on leave
+    // setConnectionState and setCurrentRoom are called with the custom setters which already log
     setConnectionState('disconnected');
     setRoomName('');
     setCurrentRoom(null);
     setRemoteStreams(new Map());
     setPeerStatuses(new Map());
     toast.info('Disconnected from voice room');
-  }, []);
+    console.log('[Hook] leaveVoiceRoom finished.');
+  }, [setConnectionState, setCurrentRoom]);
 
   const toggleMute = useCallback(async (): Promise<void> => {
     if (!webRTCManagerRef.current || !isConnected) {
@@ -397,8 +448,13 @@ export const useVoiceCollaboration = ({
   // Main cleanup effect
   useEffect(() => {
     return () => {
-      console.log('[Hook] Unmounting, ensuring WebRTCManager is cleaned up.');
-      webRTCManagerRef.current?.leaveRoom();
+      console.log('[Hook] Unmounting useVoiceCollaboration hook. Ensuring WebRTCManager is cleaned up.');
+      if (webRTCManagerRef.current) {
+        console.log('[Hook] Calling leaveRoom on WebRTCManager during unmount.');
+        webRTCManagerRef.current.leaveRoom();
+      } else {
+        console.log('[Hook] WebRTCManager was not found during unmount, no cleanup needed from its side.');
+      }
     };
   }, []);
 
@@ -417,7 +473,7 @@ export const useVoiceCollaboration = ({
     isVoiceEnabled,
     audioLevel, // Placeholder
     availableRooms,
-    currentRoom,
+    currentRoom, // This will be the state variable from _setCurrentRoom
     isRoomAdmin,
     networkStatus,
     remoteStreams,
