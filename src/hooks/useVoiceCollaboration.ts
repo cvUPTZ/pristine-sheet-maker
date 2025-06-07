@@ -211,8 +211,13 @@ export const useVoiceCollaboration = ({
         if (fetchError) throw fetchError;
         setAvailableRooms(data || []);
       } catch (err) {
-        console.error('Failed to fetch voice rooms:', err);
-        toast.error('Failed to fetch voice rooms.');
+        console.error('[useVoiceCollaboration] Failed to fetch voice rooms. Supabase error object:', JSON.stringify(err, null, 2));
+        // Also log some key properties directly if they exist, as stringify might miss them or be too verbose for quick glance
+        if (err && typeof err === 'object') {
+          const errorDetails = err as any; // Type assertion to access potential properties
+          console.error(`[useVoiceCollaboration] Error details: message: ${errorDetails.message}, code: ${errorDetails.code}, details: ${errorDetails.details}, hint: ${errorDetails.hint}`);
+        }
+        toast.error(`Failed to fetch voice rooms: ${ (err as any)?.message || 'Unknown error' }`);
       }
     };
     fetchRooms();
@@ -236,6 +241,8 @@ export const useVoiceCollaboration = ({
   useEffect(() => {
     const getAudioDevices = async () => {
       if (!audioManagerRef.current) return;
+      console.log('[useVoiceCollaboration] audioManagerRef.current:', audioManagerRef.current);
+      console.log('[useVoiceCollaboration] typeof audioManagerRef.current.getAudioOutputDevices:', typeof audioManagerRef.current?.getAudioOutputDevices);
       try {
         const devices = await audioManagerRef.current.getAudioOutputDevices();
         setAudioOutputDevices(devices);

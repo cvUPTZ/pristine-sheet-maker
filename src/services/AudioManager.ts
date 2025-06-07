@@ -1,4 +1,3 @@
-
 // Enhanced AudioManager to resolve import in WebRTCManager
 export class AudioManager {
   private static instance: AudioManager;
@@ -29,17 +28,25 @@ export class AudioManager {
   }
 
   public async getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
+    console.log('[AudioManager] Attempting to get audio output devices.');
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      console.error('enumerateDevices() not supported.');
+      console.error('[AudioManager] navigator.mediaDevices.enumerateDevices is not supported.');
       return [];
     }
 
     try {
+      console.log('[AudioManager] Calling navigator.mediaDevices.enumerateDevices().');
       const devices = await navigator.mediaDevices.enumerateDevices();
+      console.log('[AudioManager] Raw devices enumerated:', devices);
+      if (!Array.isArray(devices)) {
+        console.error('[AudioManager] enumerateDevices did not return an array. Got:', devices);
+        return [];
+      }
       const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
+      console.log('[AudioManager] Filtered audio output devices:', audioOutputDevices);
       return audioOutputDevices;
     } catch (err) {
-      console.error('Error enumerating audio output devices:', err);
+      console.error('[AudioManager] Error during enumerateDevices call or filtering:', err);
       return [];
     }
   }
