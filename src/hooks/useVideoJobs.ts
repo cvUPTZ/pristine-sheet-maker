@@ -1,249 +1,92 @@
-
-// // import { useState, useEffect, useCallback } from 'react';
-// // import { VideoJobService, VideoJob } from '@/services/videoJobService';
-// // import { toast } from 'sonner';
-
-// // export const useVideoJobs = () => {
-// //   const [jobs, setJobs] = useState<VideoJob[]>([]);
-// //   const [loading, setLoading] = useState(false);
-// //   const [submitting, setSubmitting] = useState(false);
-// //   const [error, setError] = useState<string | null>(null);
-
-// //   // Fetch all user jobs
-// //   const fetchJobs = useCallback(async () => {
-// //     setLoading(true);
-// //     setError(null);
-    
-// //     try {
-// //       const userJobs = await VideoJobService.getUserJobs();
-// //       setJobs(userJobs);
-// //     } catch (err: any) {
-// //       setError(err.message);
-// //       toast.error('Failed to fetch jobs');
-// //     } finally {
-// //       setLoading(false);
-// //     }
-// //   }, []);
-
-// //   // Submit new job
-// //   const submitJob = useCallback(async (
-// //     file: File, 
-// //     videoInfo?: { title?: string; duration?: number }
-// //   ): Promise<VideoJob | null> => {
-// //     setSubmitting(true);
-    
-// //     try {
-// //       const job = await VideoJobService.submitVideoForProcessing(file, videoInfo);
-// //       toast.success('Video submitted for processing!');
-      
-// //       // Add to jobs list
-// //       setJobs(prev => [job, ...prev]);
-      
-// //       return job;
-// //     } catch (err: any) {
-// //       setError(err.message);
-// //       toast.error(`Failed to submit video: ${err.message}`);
-// //       return null;
-// //     } finally {
-// //       setSubmitting(false);
-// //     }
-// //   }, []);
-
-// //   // Update specific job in the list
-// //   const updateJob = useCallback((updatedJob: VideoJob) => {
-// //     setJobs(prev => prev.map(job => 
-// //       job.id === updatedJob.id ? updatedJob : job
-// //     ));
-// //   }, []);
-
-// //   // Delete job
-// //   const deleteJob = useCallback(async (jobId: string) => {
-// //     try {
-// //       await VideoJobService.deleteJob(jobId);
-// //       setJobs(prev => prev.filter(job => job.id !== jobId));
-// //       toast.success('Job deleted successfully');
-// //     } catch (err: any) {
-// //       toast.error(`Failed to delete job: ${err.message}`);
-// //     }
-// //   }, []);
-
-// //   // Get job by ID
-// //   const getJob = useCallback((jobId: string): VideoJob | undefined => {
-// //     return jobs.find(job => job.id === jobId);
-// //   }, [jobs]);
-
-// //   useEffect(() => {
-// //     fetchJobs();
-// //   }, [fetchJobs]);
-
-// //   return {
-// //     jobs,
-// //     loading,
-// //     submitting,
-// //     error,
-// //     submitJob,
-// //     updateJob,
-// //     deleteJob,
-// //     getJob,
-// //     refetch: fetchJobs
-// //   };
-// // };
-// import { useState, useEffect, useCallback } from 'react';
-// import { VideoJob, VideoJobService } from '@/services/videoJobService';
-// import { toast } from 'sonner';
-
-// export const useVideoJobs = (initialJobs?: VideoJob[]) => {
-//   const [jobs, setJobs] = useState<VideoJob[]>(initialJobs ?? []);
-//   const [loading, setLoading] = useState<boolean>(true);
-//   const [submitting, setSubmitting] = useState<boolean>(false);
-
-//   // Fetch initial jobs on mount
-//   useEffect(() => {
-//     const fetchJobs = async () => {
-//       try {
-//         setLoading(true);
-//         const fetchedJobs = await VideoJobService.getUserJobs();
-//         setJobs(fetchedJobs);
-//       } catch (error: any) {
-//         toast.error(`Failed to load jobs: ${error.message}`);
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-//     fetchJobs();
-//   }, []);
-
-//   // Update a single job in the list (e.g., after polling)
-//   const updateJob = useCallback((jobToUpdate: VideoJob) => {
-//     setJobs(prevJobs =>
-//       prevJobs.map(job => (job.id === jobToUpdate.id ? jobToUpdate : job))
-//     );
-//   }, []);
-
-//   // Delete a job
-//   const deleteJob = useCallback(async (jobId: string) => {
-//     try {
-//       await VideoJobService.deleteJob(jobId);
-//       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-//       toast.success('Job and video deleted successfully.');
-//     } catch (error: any) {
-//       toast.error(`Failed to delete job: ${error.message}`);
-//     }
-//   }, []);
-
-//   // Submit a new job
-//   const submitJob = useCallback(
-//     async (
-//       file: File,
-//       videoInfo: { title?: string; duration?: number }
-//     ): Promise<VideoJob | null> => {
-//       setSubmitting(true);
-//       try {
-//         const newJob = await VideoJobService.submitVideoForProcessing(
-//           file,
-//           videoInfo
-//         );
-//         // Add new job to the top of the list
-//         setJobs(prevJobs => [newJob, ...prevJobs]);
-//         toast.success(`Job for "${newJob.video_title}" submitted successfully!`);
-//         return newJob;
-//       } catch (error: any) {
-//         toast.error(`Submission failed: ${error.message}`);
-//         return null;
-//       } finally {
-//         setSubmitting(false);
-//       }
-//     },
-//     []
-//   );
-
-//   return {
-//     jobs,
-//     loading,
-//     submitting,
-//     updateJob,
-//     deleteJob,
-//     submitJob,
-//   };
-// };
-
-
-
+// src/hooks/useVideoJobs.ts
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { VideoJob, VideoJobService } from '@/services/videoJobService';
 import { toast } from 'sonner';
 
-export const useVideoJobs = (initialJobs?: VideoJob[]) => {
-  const [jobs, setJobs] = useState<VideoJob[]>(initialJobs ?? []);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+export const useVideoJobs = () => {
+  const [jobs, setJobs] = useState<VideoJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch initial jobs on mount
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        const fetchedJobs = await VideoJobService.getUserJobs();
-        setJobs(fetchedJobs);
-      } catch (error: any) {
-        toast.error(`Failed to load jobs: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchJobs();
-  }, []);
-
-  // Update a single job in the list (e.g., after polling)
-  const updateJob = useCallback((jobToUpdate: VideoJob) => {
-    setJobs(prevJobs =>
-      prevJobs.map(job => (job.id === jobToUpdate.id ? jobToUpdate : job))
-    );
-  }, []);
-
-  // Delete a job
-  const deleteJob = useCallback(async (jobId: string) => {
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
     try {
-      await VideoJobService.deleteJob(jobId);
-      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-      toast.success('Job and video deleted successfully.');
+      const userJobs = await VideoJobService.getUserJobs();
+      setJobs(userJobs);
     } catch (error: any) {
-      toast.error(`Failed to delete job: ${error.message}`);
+      toast.error(`Failed to load jobs: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Submit a new job
-  const submitJob = useCallback(
-    async (
-      file: File,
-      videoInfo: { title?: string; duration?: number }
-    ): Promise<VideoJob | null> => {
-      setSubmitting(true);
-      try {
-        const newJob = await VideoJobService.submitVideoForProcessing(
-          file,
-          videoInfo
-        );
-        // Add new job to the top of the list
-        setJobs(prevJobs => [newJob, ...prevJobs]);
-        toast.success(`Job for "${newJob.video_title}" submitted successfully!`);
-        return newJob;
-      } catch (error: any) {
-        toast.error(`Submission failed: ${error.message}`);
-        return null;
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    []
-  );
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
-  return {
-    jobs,
-    loading,
-    submitting,
-    updateJob,
-    deleteJob,
-    submitJob,
+  /**
+   * The single, unified function to submit ANY kind of job.
+   */
+  const submitJob = async (
+    source: { type: 'upload', file: File } | { type: 'youtube', url: string },
+    config: { title: string, duration?: number, segmentDuration?: number }
+  ): Promise<VideoJob | null> => {
+    setSubmitting(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error('You must be logged in to submit a job.');
+
+      let videoPath: string;
+      if (source.type === 'upload') {
+        toast.info("Uploading video file...");
+        videoPath = await VideoJobService.uploadVideo(source.file);
+      } else {
+        // For YouTube, the path is the URL itself. The worker will download it.
+        videoPath = source.url;
+      }
+      toast.success("Video source ready. Creating analysis job...");
+
+      const jobData = {
+        input_video_path: videoPath,
+        video_title: config.title,
+        video_duration: config.duration,
+        user_id: user.user.id,
+        job_config: {
+          source_type: source.type,
+          should_segment: (config.segmentDuration || 0) > 0 && (config.segmentDuration || 0) < (config.duration || Infinity),
+          segment_duration: config.segmentDuration
+        }
+      };
+
+      const { data: newJob, error } = await supabase.from('video_jobs').insert(jobData).select().single();
+      if (error) throw new Error(`Failed to create job: ${error.message}`);
+      
+      toast.success(`Job "${newJob.video_title}" submitted successfully!`);
+      setJobs(prevJobs => [newJob, ...prevJobs]);
+      return newJob;
+
+    } catch (error: any) {
+      toast.error(error.message);
+      return null;
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const deleteJob = async (jobId: string) => {
+    try {
+      await VideoJobService.deleteJob(jobId);
+      setJobs(prev => prev.filter(j => j.id !== jobId));
+      toast.success('Job deleted successfully.');
+    } catch (error: any) {
+      toast.error(`Failed to delete job: ${error.message}`);
+    }
+  };
+
+  const updateJob = (updatedJob: VideoJob) => {
+    setJobs(prev => prev.map(j => j.id === updatedJob.id ? updatedJob : j));
+  };
+
+  return { jobs, loading, submitting, submitJob, deleteJob, updateJob };
 };
