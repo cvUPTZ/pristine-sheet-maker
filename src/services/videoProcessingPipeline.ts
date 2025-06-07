@@ -70,7 +70,13 @@ export class VideoProcessingPipeline {
         video_title: videoInfo.title,
         video_duration: videoInfo.duration,
         user_id: user.user.id,
-        status: 'pending'
+        status: 'pending',
+        job_config: {
+          source_type: source.type,
+          enableAIAnalysis: config.enableAIAnalysis,
+          enableSegmentation: config.enableSegmentation,
+          segmentDuration: config.segmentDuration
+        }
       })
       .select()
       .single();
@@ -148,8 +154,8 @@ export class VideoProcessingPipeline {
 
     return {
       status: data.status,
-      progress: data.progress,
-      error: data.error_message
+      progress: data.progress || 0,
+      error: data.error_message || undefined
     };
   }
 

@@ -1,3 +1,4 @@
+
 // src/hooks/useVideoJobs.ts
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,9 +63,16 @@ export const useVideoJobs = () => {
       const { data: newJob, error } = await supabase.from('video_jobs').insert(jobData).select().single();
       if (error) throw new Error(`Failed to create job: ${error.message}`);
       
-      toast.success(`Job "${newJob.video_title}" submitted successfully!`);
-      setJobs(prevJobs => [newJob, ...prevJobs]);
-      return newJob;
+      // Ensure the returned job matches VideoJob interface
+      const videoJob: VideoJob = {
+        ...newJob,
+        job_config: newJob.job_config || {},
+        progress: newJob.progress || 0
+      };
+      
+      toast.success(`Job "${videoJob.video_title}" submitted successfully!`);
+      setJobs(prevJobs => [videoJob, ...prevJobs]);
+      return videoJob;
 
     } catch (error: any) {
       toast.error(error.message);

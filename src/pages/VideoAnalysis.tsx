@@ -1,6 +1,6 @@
 
 import React from 'react';
-import VideoAnalysisWorkflow from '@/components/video/VideoAnalysisWorkflow';
+import { VideoAnalysisWorkflow } from '@/components/video/VideoAnalysisWorkflow';
 
 const VideoAnalysis: React.FC = () => {
   return (
