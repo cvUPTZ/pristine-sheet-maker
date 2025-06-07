@@ -96,7 +96,10 @@ async function handleJoinRoom(supabaseClient: SupabaseClient, roomId: string, us
 
   const { error: participantError } = await supabaseClient
     .from('voice_room_participants')
-    .upsert(participantData) // Use upsert to handle re-joining
+    .upsert(participantData, {
+      onConflict: 'room_id,user_id',
+      ignoreDuplicates: false // Ensure it updates on conflict
+    })
 
   if (participantError) {
     console.error('Error upserting participant:', participantError.message)
