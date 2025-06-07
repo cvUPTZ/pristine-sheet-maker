@@ -27,4 +27,20 @@ export class AudioManager {
     // Placeholder implementation
     console.warn('[AudioManager Placeholder] removeRemoteStream called - using placeholder implementation');
   }
+
+  public async getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      console.error('enumerateDevices() not supported.');
+      return [];
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
+      return audioOutputDevices;
+    } catch (err) {
+      console.error('Error enumerating audio output devices:', err);
+      return [];
+    }
+  }
 }

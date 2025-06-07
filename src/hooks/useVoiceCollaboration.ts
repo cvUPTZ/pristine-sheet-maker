@@ -204,7 +204,7 @@ export const useVoiceCollaboration = ({
       try {
         const { data, error: fetchError } = await supabase
           .from('voice_rooms')
-          .select('*, participant_count:voice_room_participants(count)') // Assuming you might want participant count
+          .select('*')
           .eq('match_id', matchId)
           .eq('is_active', true);
         
