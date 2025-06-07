@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client'; // Supabase client
-import { WebRTCManager } from '../services/WebRTCManager'; // New WebRTCManager
-import { AudioManager } from '../services/AudioManager'; // AudioManager for device management
+// --- FIX: Use path alias for robust imports ---
+import { WebRTCManager } from '@/services/WebRTCManager';
+import { AudioManager } from '@/services/AudioManager';
 import { toast } from 'sonner';
-import type { Database } from '../lib/database.types';
+// --- FIX: Use path alias for type imports as well ---
+import type { Database } from '@/lib/database.types';
 
 // Types for props and return values
 interface VoiceCollaborationProps {
@@ -393,7 +395,7 @@ export const useVoiceCollaboration = ({
     };
   }, []);
 
-  return {
+   return {
     isConnected,
     isConnecting,
     participants,
