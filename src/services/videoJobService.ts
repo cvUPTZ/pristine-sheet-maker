@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { VideoInfo } from '@/types';
+import { VideoProcessingPipeline } from './videoProcessingPipeline';
 
 export interface VideoJob {
   id: string;
@@ -41,6 +41,48 @@ export class VideoJobService {
       }
     } catch (error) {
       console.warn('Error ensuring videos bucket exists:', error);
+    }
+  }
+
+  // Submit video for processing using the new pipeline
+  static async submitVideoForProcessing(
+    file: File, 
+    videoInfo?: { title?: string; duration?: number }
+  ): Promise<VideoJob> {
+    try {
+      // Use the new processing pipeline
+      const job = await VideoProcessingPipeline.processVideoComplete(
+        { type: 'upload', file },
+        {
+          enableYouTubeDownload: false,
+          enableAIAnalysis: true,
+          enableSegmentation: false
+        }
+      );
+      
+      return job;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Submit YouTube video for processing
+  static async submitYouTubeVideoForProcessing(
+    youtubeUrl: string
+  ): Promise<VideoJob> {
+    try {
+      const job = await VideoProcessingPipeline.processVideoComplete(
+        { type: 'youtube', url: youtubeUrl },
+        {
+          enableYouTubeDownload: true,
+          enableAIAnalysis: true,
+          enableSegmentation: false
+        }
+      );
+      
+      return job;
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -94,24 +136,6 @@ export class VideoJobService {
     }
 
     return data as VideoJob;
-  }
-
-  // Submit video file for processing (upload + create job)
-  static async submitVideoForProcessing(
-    file: File, 
-    videoInfo?: { title?: string; duration?: number }
-  ): Promise<VideoJob> {
-    try {
-      // Upload video to storage
-      const videoPath = await this.uploadVideo(file);
-      
-      // Create job record
-      const job = await this.createJob(videoPath, videoInfo);
-      
-      return job;
-    } catch (error) {
-      throw error;
-    }
   }
 
   // Get job by ID
