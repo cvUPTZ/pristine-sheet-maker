@@ -44,24 +44,40 @@ export class NewVoiceChatManager {
   private async getAuthToken(): Promise<string | null> {
     const { data: { session }, error } = await this.supabase.auth.getSession();
     if (error || !session) {
-      this.handleError(new Error(`Error fetching session or no active session: ${error?.message}`));
+      this.handleError(error || new Error('No active session'), 'Error fetching session');
       return null;
     }
     return session.access_token;
   }
 
-  private handleError(error: Error, message?: string): void {
-    const errorMessage = message ? `${message} ${error.message}` : `NewVoiceChatManager Error: ${error.message}`;
-    console.error(errorMessage, error);
+  // Modify handleError to be slightly more intelligent or pass codes/types later
+  private handleError(error: any, defaultMessage: string): void { // error can be Error or SupabaseError or LivekitError
+    let specificMessage = defaultMessage;
+
+    // Attempt to get a more specific message from Supabase function error structure
+    if (error && error.details && typeof error.details === 'string') {
+      specificMessage = error.details;
+    } else if (error && error.message && typeof error.message === 'string') {
+      // Standard error message or Supabase client error
+      specificMessage = error.message;
+    } else if (typeof error === 'string') {
+      specificMessage = error; // Sometimes errors are just strings
+    }
+
+    // You could add more checks here for specific error codes from LiveKit or Supabase
+    // For example, if LiveKit disconnects with a specific code for "room not found" or "permission denied"
+    // For now, we mostly rely on messages from Supabase functions.
+
+    console.error(`NewVoiceChatManager Error: ${specificMessage}`, error); // Log the original error too
     if (this.onError) {
-      this.onError(new Error(errorMessage)); // Pass a new error object with the combined message
+      this.onError(new Error(specificMessage)); // Always pass an Error object
     }
   }
 
   public async listAvailableRooms(matchId: string): Promise<VoiceRoomDetails[]> {
     const authToken = await this.getAuthToken();
     if (!authToken) {
-        this.handleError(new Error('Authentication token not available for listAvailableRooms.'));
+        // Error already handled by getAuthToken if it returns null
         return [];
     }
 
@@ -101,38 +117,38 @@ export class NewVoiceChatManager {
 
     const authToken = await this.getAuthToken();
     if (!authToken) {
-        this.handleError(new Error('Authentication token not available for joinRoom.'));
-        this.currentRoomId = null; // Reset since we can't proceed
+        this.handleError(new Error('Authentication token not available.'), 'Authentication failed');
+        this.currentRoomId = null;
         return false;
     }
 
     try {
-      const { data: joinData, error: joinError } = await this.supabase.functions.invoke('join-voice-room', {
+      const { data: joinData, error: joinFuncError } = await this.supabase.functions.invoke('join-voice-room', {
         body: { roomId, userId, userRole },
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
-      // Ensure joinData.error is checked if joinData itself is not null
-      if (joinError || (joinData && (joinData as any).error) || !(joinData as any)?.authorized) {
-        const message = joinError?.message || (joinData as any)?.error || 'Failed to authorize room entry.';
-        this.handleError(new Error(message), 'Join room authorization step failed:');
+      // More detailed error checking for Supabase function response
+      if (joinFuncError || (joinData && (joinData as any).error) || !(joinData as any)?.authorized) {
+        const message = (joinData as any)?.error || joinFuncError?.message || 'Failed to authorize room entry. You may not have permission or the room is inactive.';
+        this.handleError(joinFuncError || new Error(message), message); // Pass original error if exists
         this.currentRoomId = null;
         return false;
       }
       console.log('Successfully authorized and logged in voice_room_participants:', joinData);
 
-      const { data: tokenData, error: tokenError } = await this.supabase.functions.invoke('generate-livekit-token', {
+      const { data: tokenData, error: tokenFuncError } = await this.supabase.functions.invoke('generate-livekit-token', {
         body: {
           roomId,
-          participantIdentity: this.localParticipantIdentity,
-          participantName: this.localParticipantName,
+          participantIdentity: this.localParticipantIdentity!, // Added ! as it's set above
+          participantName: this.localParticipantName!, // Added ! as it's set above
         },
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
-      if (tokenError || (tokenData && (tokenData as any).error) || !(tokenData as any)?.token) {
-        const message = tokenError?.message || (tokenData as any)?.error || 'Failed to get LiveKit token.';
-        this.handleError(new Error(message), 'LiveKit token generation failed:');
+      if (tokenFuncError || (tokenData && (tokenData as any).error) || !(tokenData as any)?.token) {
+        const message = (tokenData as any)?.error || tokenFuncError?.message || 'Failed to obtain a voice session token. Please try again.';
+        this.handleError(tokenFuncError || new Error(message), message);
         this.currentRoomId = null;
         return false;
       }
@@ -153,12 +169,34 @@ export class NewVoiceChatManager {
 
       const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL;
       if (!LIVEKIT_URL) {
-        this.handleError(new Error('LiveKit URL is not configured in environment variables (VITE_LIVEKIT_URL).'));
+        this.handleError(new Error('LiveKit URL is not configured.'), 'LiveKit client configuration error.');
         this.currentRoomId = null;
         return false;
       }
 
-      await this.liveKitRoom.connect(LIVEKIT_URL, liveKitToken, { autoSubscribe: true });
+      // Connect to LiveKit room
+      try {
+        await this.liveKitRoom.connect(LIVEKIT_URL, liveKitToken, { autoSubscribe: true });
+      } catch (lkError: any) {
+        // Catch LiveKit specific connection errors
+        console.error('LiveKit Connection Error:', lkError);
+        let detailedMessage = 'Failed to connect to the voice server.';
+        if (lkError && lkError.message) {
+          // Example: LiveKit might throw errors with codes or specific messages for full rooms, etc.
+          // This would require parsing lkError.message or checking lkError.code if available
+          if (lkError.message.includes('full')) { // Very basic check
+            detailedMessage = 'The voice room is currently full. Please try again later.';
+          } else if (lkError.message.includes('permission')) { // Basic check
+              detailedMessage = 'Permission denied to connect to the voice server.';
+          } else {
+              detailedMessage = `Voice server connection failed: ${lkError.message}`;
+          }
+        }
+        this.handleError(lkError, detailedMessage);
+        this.currentRoomId = null; // Ensure state is reset
+        return false;
+      }
+
       await this.liveKitRoom.localParticipant.setMicrophoneEnabled(true);
 
       console.log(`Successfully connected to LiveKit room: ${roomId}`);
@@ -168,8 +206,8 @@ export class NewVoiceChatManager {
       this.updateParticipants();
       return true;
 
-    } catch (err) {
-      this.handleError(err as Error, `Error joining room ${roomId}:`);
+    } catch (err: any) { // Catch any other unexpected errors
+      this.handleError(err, 'An unexpected error occurred while joining the room.');
       await this.leaveRoom();
       return false;
     }
@@ -251,17 +289,17 @@ export class NewVoiceChatManager {
 
   public async moderateMuteParticipant(targetIdentity: string, mute: boolean): Promise<boolean> {
     if (!this.currentRoomId) {
-      this.handleError(new Error('Not connected to a room to moderate.'));
+      this.handleError(new Error('Not connected to a room.'), 'Moderation action failed');
       return false;
     }
     const authToken = await this.getAuthToken();
     if (!authToken) {
-        this.handleError(new Error('Authentication token not available for moderateMuteParticipant.'));
+        // Error handled by getAuthToken
         return false;
     }
 
     try {
-      const { data, error } = await this.supabase.functions.invoke('moderate-livekit-room', {
+      const { data, error: funcError } = await this.supabase.functions.invoke('moderate-livekit-room', {
         body: {
           roomId: this.currentRoomId,
           targetIdentity,
@@ -270,15 +308,15 @@ export class NewVoiceChatManager {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
-      if (error || (data && (data as any).error)) {
-        const message = error?.message || (data as any)?.error || 'Failed to moderate participant.';
-        this.handleError(new Error(message), 'Moderation action failed:');
+      if (funcError || (data && (data as any).error)) {
+        const message = (data as any)?.error || funcError?.message || 'Failed to moderate participant.';
+        this.handleError(funcError || new Error(message), message);
         return false;
       }
       console.log(`Moderation action successful for ${targetIdentity}: ${(data as any).message}`);
       return true;
-    } catch (err) {
-      this.handleError(err as Error, `Error moderating participant ${targetIdentity}:`);
+    } catch (err: any) {
+      this.handleError(err, `Error moderating participant ${targetIdentity}`);
       return false;
     }
   }

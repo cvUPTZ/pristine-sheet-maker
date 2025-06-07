@@ -1,34 +1,142 @@
-import React, { useEffect, useState } from 'react';
-import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration'; // Adjust path as needed
+import React, { useEffect, useRef } from 'react'; // Added useRef
+import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState } from 'livekit-client';
+import { toast } from '@/components/ui/sonner'; // Assuming this path is correct from project root
 
-// Basic styling (inline for simplicity, consider moving to CSS modules or a UI library)
+// Enhanced styling - consider moving to CSS Modules or a styled-components approach for a larger app
 const styles = {
-  container: { fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '600px', margin: '0 auto' },
-  header: { fontSize: '24px', marginBottom: '20px' },
-  section: { marginBottom: '20px', padding: '10px', border: '1px solid #eee', borderRadius: '5px' },
-  roomList: { listStyle: 'none', padding: '0' },
-  roomItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' },
-  participantList: { listStyle: 'none', padding: '0' },
-  participantItem: { padding: '5px 0', color: '#555' },
-  button: { padding: '8px 12px', marginRight: '10px', cursor: 'pointer', border: 'none', borderRadius: '4px', backgroundColor: '#007bff', color: 'white' },
-  error: { color: 'red', marginTop: '10px' },
-  info: { color: 'blue', marginTop: '10px' },
-  input: { padding: '8px', marginRight: '10px', borderRadius: '4px', border: '1px solid #ccc' }
+  container: {
+    fontFamily: 'Arial, sans-serif',
+    padding: '20px',
+    maxWidth: '700px', // Slightly wider for better layout
+    margin: '20px auto', // Add some top/bottom margin
+    boxShadow: '0 0 10px rgba(0,0,0,0.1)', // Add subtle shadow for better separation
+    borderRadius: '8px',
+    background: '#fff', // Add a background color
+  },
+  section: {
+    marginBottom: '25px',
+    padding: '15px',
+    border: '1px solid #e0e0e0',
+    borderRadius: '6px',
+    background: '#f9f9f9', // Light background for sections
+  },
+  sectionTitle: {
+    fontSize: '1.2em',
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: '10px',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '5px',
+  },
+  roomList: {
+    listStyle: 'none',
+    padding: '0'
+  },
+  roomItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px', // Increased padding
+    borderBottom: '1px solid #e8e8e8',
+    transition: 'background-color 0.2s ease', // Hover effect
+  },
+  roomItemHover: { // Example: style for hover (would need JS or CSS :hover)
+    backgroundColor: '#f0f0f0',
+  },
+  participantList: {
+    listStyle: 'none',
+    padding: '0'
+  },
+  participantItem: {
+    padding: '8px 5px',
+    color: '#444',
+    borderBottom: '1px dashed #eee', // Lighter separator for participants
+    display: 'flex',
+    alignItems: 'center',
+  },
+  participantName: {
+    flexGrow: 1,
+  },
+  speakingIndicator: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    backgroundColor: 'green',
+    marginLeft: '10px',
+    display: 'inline-block',
+    animation: 'pulse 1s infinite', // Simple pulse, better with CSS keyframes
+  },
+  mutedIndicator: {
+    marginLeft: '10px',
+    fontSize: '0.8em',
+    color: '#777',
+  },
+  localUserIndicator: {
+    fontSize: '0.8em',
+    color: '#007bff',
+    marginLeft: '5px',
+  },
+  button: {
+    padding: '10px 15px', // Slightly larger buttons
+    marginRight: '10px',
+    cursor: 'pointer',
+    border: 'none',
+    borderRadius: '4px',
+    backgroundColor: '#007bff',
+    color: 'white',
+    fontSize: '0.9em',
+    transition: 'background-color 0.2s ease',
+  },
+  buttonDisabled: {
+    backgroundColor: '#cccccc',
+    cursor: 'not-allowed',
+  },
+  leaveButton: { // Specific style for leave button if needed
+    backgroundColor: '#dc3545', // Red for leave/destructive actions
+  },
+  statusMessage: { // Base for info, error, loading
+    padding: '10px',
+    margin: '10px 0',
+    borderRadius: '4px',
+    textAlign: 'center',
+  },
+  error: {
+    color: '#721c24',
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
+  },
+  info: {
+    color: '#004085',
+    backgroundColor: '#cce5ff',
+    borderColor: '#b8daff',
+  },
+  loadingText: {
+    textAlign: 'center',
+    padding: '20px',
+    fontSize: '1em',
+    color: '#555',
+  }
 };
 
-// Mock user data - replace with actual user data from your auth context or props
-// Ensure you have a way to get the current user's ID, role, and a display name.
-const MOCK_USER = {
-  id: `user-${Math.random().toString(36).substring(7)}`, // Replace with actual user ID
-  role: 'tracker', // Replace with actual user role
-  name: `User ${Math.floor(Math.random() * 1000)}` // Replace with actual user name
-};
+// CSS Keyframes for speaking animation (would typically be in a CSS file)
+const keyframesStyle = `
+  @keyframes pulse {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.7; }
+  }
+`;
 
-// Mock match ID - replace with actual match ID from context or props
-const MOCK_MATCH_ID = 'match-123'; // Replace with actual match ID
 
-export const NewVoiceChat: React.FC = () => {
+interface NewVoiceChatProps {
+  matchId: string;
+  userId: string;
+  userRole: string;
+  userName: string;
+}
+
+export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, userRole, userName }) => {
   const {
     availableRooms,
     currentRoomId,
@@ -43,114 +151,135 @@ export const NewVoiceChat: React.FC = () => {
     leaveRoom,
     toggleMuteSelf,
     fetchAvailableRooms,
-    // moderateMuteParticipant, // Example for future use
+    moderateMuteParticipant, // Ensure this is destructured from the hook
   } = useNewVoiceCollaboration();
 
-  const [userIdInput, setUserIdInput] = useState<string>(MOCK_USER.id);
-  const [userRoleInput, setUserRoleInput] = useState<string>(MOCK_USER.role);
-  const [userNameInput, setUserNameInput] = useState<string>(MOCK_USER.name);
-  const [matchIdInput, setMatchIdInput] = useState<string>(MOCK_MATCH_ID);
+  // To keep track of the last shown error to prevent duplicate toasts for the same error instance
+  const lastShownErrorRef = useRef<Error | null>(null);
 
   useEffect(() => {
-    // Fetch rooms when component mounts, if a matchId is available
-    // In a real app, matchId might come from props or context
-    if (matchIdInput) {
-      fetchAvailableRooms(matchIdInput);
+    if (error && error !== lastShownErrorRef.current) {
+      toast.error(error.message || 'An unknown error occurred.', {
+        id: error.message, // Optional: use message as ID to prevent duplicates of same message
+      });
+      lastShownErrorRef.current = error;
     }
-  }, [fetchAvailableRooms, matchIdInput]);
+    // Clear ref if error is gone, so a new instance of a similar error can be shown later
+    if (!error && lastShownErrorRef.current) {
+        lastShownErrorRef.current = null;
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (matchId) {
+      fetchAvailableRooms(matchId);
+    }
+  }, [fetchAvailableRooms, matchId]);
 
   const handleJoinRoom = async (roomId: string) => {
-    if (!userIdInput || !userRoleInput) {
-      alert("User ID and Role are required to join a room.");
-      return;
-    }
-    await joinRoom(roomId, userIdInput, userRoleInput, userNameInput);
+    await joinRoom(roomId, userId, userRole, userName);
   };
 
   const renderConnectionState = () => {
-    if (error) return <p style={styles.error}>Error: {error.message}</p>;
-    if (isConnecting) return <p style={styles.info}>Connecting...</p>;
-    if (isConnected) return <p style={styles.info}>Connected to room: {currentRoomId}</p>;
+    // Error rendering is now handled by the useEffect and toast
+    if (isConnecting) return <p style={{...styles.statusMessage, ...styles.info}}>Connecting to room...</p>;
+    if (isConnected) return <p style={{...styles.statusMessage, ...styles.info}}>Connected to room: {currentRoomId}</p>;
     if (connectionState === ConnectionState.Disconnected && currentRoomId) {
-      // This case might occur if disconnected unexpectedly AFTER being in a room
-      return <p style={styles.info}>Disconnected. Was in room: {currentRoomId}</p>;
+      return <p style={{...styles.statusMessage, ...styles.info}}>Disconnected from {currentRoomId}.</p>;
     }
-    if (connectionState === ConnectionState.Disconnected) return <p style={styles.info}>Disconnected</p>;
-    return <p style={styles.info}>Connection State: {connectionState ?? 'Initializing...'}</p>;
+    if (connectionState === ConnectionState.Disconnected) return <p style={{...styles.statusMessage, ...styles.info}}>Disconnected</p>;
+    return <p style={{...styles.statusMessage, ...styles.info}}>Connection: {connectionState ?? 'Initializing...'}</p>;
   };
 
+  const canModerate = userRole === 'admin' || userRole === 'coordinator';
+
   return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>New Voice Chat</h1>
+    <>
+      <style>{keyframesStyle}</style> {/* Inject keyframes - not ideal for prod, but works for now */}
+      <div style={styles.container}>
+        {renderConnectionState()}
 
-      {/* User and Match ID Inputs - For testing; replace with actual context/props */}
-      <div style={styles.section}>
-        <h3>Configuration (Test Only)</h3>
-        <div>
-          <label>Match ID: </label>
-          <input type="text" value={matchIdInput} onChange={(e) => setMatchIdInput(e.target.value)} style={styles.input} />
-          <button onClick={() => fetchAvailableRooms(matchIdInput)} style={styles.button} disabled={isLoadingRooms || !matchIdInput}>
-            {isLoadingRooms ? 'Loading Rooms...' : 'Refresh Rooms'}
-          </button>
-        </div>
-        <div>
-          <label>User ID: </label>
-          <input type="text" value={userIdInput} onChange={(e) => setUserIdInput(e.target.value)} style={styles.input} />
-        </div>
-        <div>
-          <label>User Role: </label>
-          <input type="text" value={userRoleInput} onChange={(e) => setUserRoleInput(e.target.value)} style={styles.input} />
-        </div>
-        <div>
-          <label>User Name: </label>
-          <input type="text" value={userNameInput} onChange={(e) => setUserNameInput(e.target.value)} style={styles.input} />
-        </div>
+        {!isConnected && !isConnecting && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>Available Rooms for Match: {matchId}</h2>
+            {isLoadingRooms && <p style={styles.loadingText}>Loading rooms...</p>}
+            {!isLoadingRooms && availableRooms.length === 0 && (
+              <p>No voice rooms currently available for this match.</p>
+            )}
+            {!isLoadingRooms && availableRooms.length > 0 && (
+              <ul style={styles.roomList}>
+                {availableRooms.map(room => (
+                  <li key={room.id} style={styles.roomItem}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = styles.roomItemHover.backgroundColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <span>{room.name} <small>(ID: {room.id})</small></span>
+                    <button
+                      onClick={() => handleJoinRoom(room.id)}
+                      style={isConnecting ? {...styles.button, ...styles.buttonDisabled} : styles.button}
+                      disabled={isConnecting} // Disable join if already trying to connect
+                    >
+                      Join Room
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {isConnected && currentRoomId && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>In Room: {currentRoomId}</h2>
+            <button
+              onClick={leaveRoom}
+              style={{...styles.button, ...styles.leaveButton}}
+            >
+              Leave Room
+            </button>
+            <button
+              onClick={toggleMuteSelf}
+              style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
+              disabled={!localParticipant}
+            >
+              {localParticipant?.isMicrophoneMuted ? 'Unmute Self' : 'Mute Self'}
+            </button>
+
+            <h3 style={{...styles.sectionTitle, marginTop: '20px'}}>Participants ({participants.length})</h3>
+            <ul style={styles.participantList}>
+              {participants.map(p => (
+                <li key={p.identity} style={styles.participantItem}>
+                  <span style={styles.participantName}>{p.name || p.identity}</span>
+                  {p.isLocal && <span style={styles.localUserIndicator}>(You)</span>}
+                  {p.isMicrophoneMuted && <span style={styles.mutedIndicator}>(Muted)</span>}
+                  {p.isSpeaking && !p.isMicrophoneMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
+
+                  {/* Moderation Button */}
+                  {canModerate && !p.isLocal && (
+                    <button
+                      onClick={async () => {
+                        // Add a confirmation dialog for better UX before moderation action
+                        // For now, direct action:
+                        const success = await moderateMuteParticipant(p.identity, !p.isMicrophoneMuted);
+                        if (!success) {
+                          // Error should be handled by toast via the hook's error state.
+                          // Optionally, show a specific toast here if moderateMuteParticipant itself returns detailed error.
+                          // toast.error(`Failed to ${p.isMicrophoneMuted ? 'unmute' : 'mute'} ${p.name || p.identity}`);
+                        }
+                        // Participant list should re-render with updated mute state via LiveKit events
+                      }}
+                      style={{...styles.button, marginLeft: '10px', fontSize: '0.8em', padding: '5px 8px'}}
+                      title={p.isMicrophoneMuted ? `Unmute ${p.name || p.identity}` : `Mute ${p.name || p.identity}`}
+                    >
+                      {p.isMicrophoneMuted ? 'Unmute' : 'Mute'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
-
-      {renderConnectionState()}
-
-      {!isConnected && !isConnecting && (
-        <div style={styles.section}>
-          <h2>Available Rooms</h2>
-          {isLoadingRooms && <p>Loading rooms...</p>}
-          {!isLoadingRooms && availableRooms.length === 0 && <p>No rooms available for this match or failed to load.</p>}
-          <ul style={styles.roomList}>
-            {availableRooms.map(room => (
-              <li key={room.id} style={styles.roomItem}>
-                <span>{room.name} (ID: {room.id})</span>
-                <button onClick={() => handleJoinRoom(room.id)} style={styles.button} disabled={!userIdInput || !userRoleInput}>Join</button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {isConnected && currentRoomId && (
-        <div style={styles.section}>
-          <h2>In Room: {currentRoomId}</h2>
-          <button onClick={leaveRoom} style={styles.button}>Leave Room</button>
-          <button onClick={toggleMuteSelf} style={styles.button}>
-            {localParticipant?.isMicrophoneMuted ? 'Unmute Self' : 'Mute Self'}
-          </button>
-
-          <h3>Participants ({participants.length})</h3>
-          <ul style={styles.participantList}>
-            {participants.map(p => (
-              <li key={p.identity} style={styles.participantItem}>
-                {p.name || p.identity}
-                {p.isLocal && ' (You)'}
-                {p.isMicrophoneMuted && ' (Muted)'}
-                {p.isSpeaking && ' (Speaking)'}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
-
-// For actual usage, you would import this component and place it in your app structure.
-// e.g., in a page component:
-// import { NewVoiceChat } from '@/components/voice/NewVoiceChat';
-// const MyPage = () => <NewVoiceChat />;
