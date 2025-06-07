@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -166,6 +167,7 @@ export type Database = {
           assigned_event_types: string[] | null;
           created_at: string;
           updated_at: string | null;
+          assigned_player_id: number | null;
         };
         Insert: {
           id?: string;
@@ -176,6 +178,7 @@ export type Database = {
           assigned_event_types?: string[] | null;
           created_at?: string;
           updated_at?: string | null;
+          assigned_player_id?: number | null;
         };
         Update: {
           id?: string;
@@ -186,6 +189,7 @@ export type Database = {
           assigned_event_types?: string[] | null;
           created_at?: string;
           updated_at?: string | null;
+          assigned_player_id?: number | null;
         };
         Relationships: [];
       };
@@ -345,15 +349,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_roles: {
+        Row: {
+          id: string;
+          user_id: string;
+          role: 'admin' | 'manager' | 'tracker' | 'user';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          role: 'admin' | 'manager' | 'tracker' | 'user';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          role?: 'admin' | 'manager' | 'tracker' | 'user';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
-      [_ in never]: never;
+      match_tracker_assignments_view: {
+        Row: {
+          id: string | null;
+          match_id: string | null;
+          tracker_user_id: string | null;
+          player_id: number | null;
+          player_team_id: string | null;
+          assigned_event_types: string[] | null;
+          created_at: string | null;
+          updated_at: string | null;
+          tracker_email: string | null;
+          assigned_player_id: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       [_ in never]: never;
     };
     Enums: {
       job_status: 'pending' | 'processing' | 'completed' | 'failed';
+      user_role: 'admin' | 'manager' | 'tracker' | 'user';
     };
     CompositeTypes: {
       [_ in never]: never;
