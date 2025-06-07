@@ -1,597 +1,395 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // Supabase client
+import { WebRTCManager } from '../services/WebRTCManager'; // New WebRTCManager
+import { AudioManager } from '../services/AudioManager'; // AudioManager for device management
 import { toast } from 'sonner';
 import type { Database } from '../lib/database.types';
 
+// Types for props and return values
 interface VoiceCollaborationProps {
   matchId: string;
   userId: string;
-  userRole: string;
+  userRole: string; // To determine admin capabilities, though not fully used yet
   userName?: string;
-  onParticipantJoined?: (participantId: string, participantName: string) => void;
+  // Callbacks for external components to react to events
+  onParticipantJoined?: (participantId: string, participantName?: string) => void;
   onParticipantLeft?: (participantId: string) => void;
-  onError?: (error: string) => void;
+  onError?: (errorType: string, errorDetails: any) => void; // More detailed error
 }
 
 interface Participant {
   id: string;
   name: string;
-  isSpeaking: boolean;
-  isAudioEnabled: boolean;
-  isMuted: boolean;
+  isSpeaking: boolean; // Placeholder - harder with raw WebRTC without audio analysis
+  isMuted: boolean;    // True if the participant's audio is muted by themselves or admin
   joinedAt: Date;
-  role?: string;
+  role?: string;       // User's role, if available
+  stream?: MediaStream; // Store remote stream for this participant
 }
 
-// Define an alias for the Row type
 type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
-
-// Use a type alias with an intersection type
 type VoiceRoom = VoiceRoomRow & {
   participant_count?: number;
 };
 
-interface SandboxTokenDetails {
-  serverUrl: string;
-  token: string;
-  roomName: string;
-  participantName: string;
-}
+// Connection state strings for WebRTC
+type WebRTCConnectionStateType = 'disconnected' | 'connecting' | 'connected' | 'failed' | 'authorizing' | 'disconnecting';
+
 
 interface UseVoiceCollaborationReturn {
   isConnected: boolean;
-  isConnecting: boolean;
-  participants: Participant[];
-  currentUser: Participant | null;
-  error: string | null;
-  joinRoom: () => Promise<void>;
-  leaveRoom: () => void;
-  toggleMute: () => Promise<void>;
-  isMuted: boolean;
-  connectionState: string;
-  roomName: string;
-  // Additional properties needed by VoiceCollaboration component
-  isVoiceEnabled: boolean;
-  livekitParticipants: Participant[];
-  audioLevel: number;
-  availableRooms: VoiceRoom[];
-  currentRoom: VoiceRoom | null;
-  isRoomAdmin: boolean;
+  isConnecting: boolean; // True if in process of joining a room
+  participants: Participant[]; // List of remote participants
+  currentUser: Participant | null; // Details of the local user
+  error: string | null; // General error messages
   joinVoiceRoom: (room: VoiceRoom) => Promise<void>;
   leaveVoiceRoom: () => Promise<void>;
-  networkStatus: 'online' | 'offline' | 'unstable';
-  remoteStreams: Map<string, MediaStream>;
-  peerStatuses: Map<string, string>;
-  livekitConnectionState: ConnectionState | null;
-  adminSetParticipantMute: (roomId: string, participantId: string, muted: boolean) => Promise<void>;
-  audioOutputDevices: MediaDeviceInfo[];
-  selectedAudioOutputDeviceId: string | null;
-  selectAudioOutputDevice: (deviceId: string) => Promise<void>;
+  toggleMute: () => Promise<void>;
+  isMuted: boolean; // Local user's mute state
+  connectionState: WebRTCConnectionStateType; // Overall connection state
+  roomName: string; // Current room name
+  
+  // Additional properties for UI
+  isVoiceEnabled: boolean; // True if voice features are active (connected to a room)
+  audioLevel: number; // Local user's mic audio level (placeholder)
+  availableRooms: VoiceRoom[]; // Rooms fetched for the match
+  currentRoom: VoiceRoom | null; // The room currently joined or attempting to join
+  isRoomAdmin: boolean; // If current user has admin rights in the room (placeholder)
+  networkStatus: 'online' | 'offline' | 'unstable'; // Browser network status
+  remoteStreams: Map<string, MediaStream>; // Map of participantId to their MediaStream
+  peerStatuses: Map<string, RTCPeerConnectionState>; // Map of participantId to their RTCPeerConnectionState
+  adminSetParticipantMute: (participantId: string, muted: boolean) => Promise<void>; // Admin action
+  audioOutputDevices: MediaDeviceInfo[]; // Available audio output devices
+  selectedAudioOutputDeviceId: string | null; // Currently selected output device
+  selectAudioOutputDevice: (deviceId: string) => Promise<void>; // Action to select output device
 }
 
 export const useVoiceCollaboration = ({
   matchId,
   userId,
-  userRole,
+  userRole, // Used to set isRoomAdmin, potentially for other features
   userName = 'Unknown User',
-  onParticipantJoined,
-  onParticipantLeft,
-  onError
+  onParticipantJoined: externalOnParticipantJoined, // Renaming to avoid conflict
+  onParticipantLeft: externalOnParticipantLeft,
+  onError: externalOnError
 }: VoiceCollaborationProps): UseVoiceCollaborationReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentUser, setCurrentUser] = useState<Participant | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [connectionState, setConnectionState] = useState('disconnected');
+  const [isMuted, setIsMuted] = useState(false); // Local user's mute state
+  const [connectionState, setConnectionState] = useState<WebRTCConnectionStateType>('disconnected');
   const [roomName, setRoomName] = useState('');
-
-  // Additional state for VoiceCollaboration component
+  
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0); // Placeholder
   const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
   const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
-  const [isRoomAdmin, setIsRoomAdmin] = useState(false);
+  const [isRoomAdmin, setIsRoomAdmin] = useState(userRole === 'admin' || userRole === 'coordinator'); // Example admin logic
+
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
-  const [remoteStreams] = useState<Map<string, MediaStream>>(new Map());
-  const [peerStatuses] = useState<Map<string, string>>(new Map());
-  const [livekitConnectionState, setLivekitConnectionState] = useState<ConnectionState | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [peerStatuses, setPeerStatuses] = useState<Map<string, RTCPeerConnectionState>>(new Map());
+
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
 
-  const roomRef = useRef<Room | null>(null);
-  const tokenRef = useRef<string | null>(null);
+  const webRTCManagerRef = useRef<WebRTCManager | null>(null);
+  const audioManagerRef = useRef<AudioManager | null>(null);
 
-  const updateConnectionState = useCallback((state: ConnectionState) => {
-    setConnectionState(state.toString().toLowerCase());
-    setLivekitConnectionState(state);
-    
-    switch (state) {
-      case ConnectionState.Connected:
-        setIsConnected(true);
-        setIsConnecting(false);
-        setIsVoiceEnabled(true);
-        setError(null);
-        break;
-      case ConnectionState.Connecting:
-        setIsConnecting(true);
-        setIsConnected(false);
-        break;
-      case ConnectionState.Disconnected:
-        setIsConnected(false);
-        setIsConnecting(false);
-        setIsVoiceEnabled(false);
-        break;
-      case ConnectionState.Reconnecting:
-        setIsConnecting(true);
-        break;
-    }
+
+  // Initialize AudioManager
+  useEffect(() => {
+    audioManagerRef.current = AudioManager.getInstance();
   }, []);
+  
+  // Initialize WebRTCManager and set up callbacks
+  useEffect(() => {
+    if (!userId || !supabase || !audioManagerRef.current) return;
+
+    // Default STUN server, consider making this configurable
+    const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+    const manager = new WebRTCManager(supabase, userId, userName, iceServers, {
+      onConnectionStateChanged: (pId, state) => {
+        setPeerStatuses(prev => new Map(prev).set(pId, state));
+        if (state === 'connected' && pId === userId) { // Assuming self-connection indicates overall readiness
+            // This might need refinement; WebRTCManager doesn't have an "overall" room connection state event yet.
+            // For now, if local user's "peer connection" to self (if that's a concept) or signaling channel is up.
+        }
+      },
+      onParticipantJoined: (pId, pName) => {
+        console.log(`[Hook] Participant joined: ${pName} (${pId})`);
+        setParticipants(prev => {
+          if (prev.find(p => p.id === pId)) return prev;
+          return [...prev, { id: pId, name: pName || pId, isMuted: false, isSpeaking: false, joinedAt: new Date() }];
+        });
+        externalOnParticipantJoined?.(pId, pName);
+        toast.info(`${pName || pId} joined the voice room.`);
+      },
+      onParticipantLeft: (pId) => {
+        console.log(`[Hook] Participant left: ${pId}`);
+        setParticipants(prev => prev.filter(p => p.id !== pId));
+        setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(pId);
+          return newMap;
+        });
+        setPeerStatuses(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(pId);
+            return newMap;
+        });
+        externalOnParticipantLeft?.(pId);
+        toast.info(`A participant left the voice room.`); // Name might be lost here
+      },
+      onRemoteTrackAdded: (pId, stream) => {
+        console.log(`[Hook] Remote track added for ${pId}`);
+        setRemoteStreams(prev => new Map(prev).set(pId, stream));
+         // Update participant with stream
+        setParticipants(prev => prev.map(p => p.id === pId ? { ...p, stream } : p));
+      },
+      onRemoteTrackRemoved: (pId) => {
+        console.log(`[Hook] Remote track removed for ${pId}`);
+        setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(pId);
+          return newMap;
+        });
+         // Remove stream from participant
+        setParticipants(prev => prev.map(p => p.id === pId ? { ...p, stream: undefined } : p));
+      },
+      onParticipantMuteChanged: (pId, mutedState) => {
+        console.log(`[Hook] Participant mute changed: ${pId}, muted: ${mutedState}`);
+        setParticipants(prev => prev.map(p => (p.id === pId ? { ...p, isMuted: mutedState } : p)));
+        if (pId === userId) {
+          setIsMuted(mutedState);
+        }
+      },
+      onError: (errorType, errorDetails) => {
+        console.error(`[Hook] WebRTC Error - Type: ${errorType}`, errorDetails);
+        setError(`WebRTC Error: ${errorType} - ${errorDetails?.message || JSON.stringify(errorDetails)}`);
+        externalOnError?.(errorType, errorDetails);
+        toast.error(`Voice collaboration error: ${errorType}`);
+        if (errorType === 'authorization' || errorType === 'join_room_error') {
+            setConnectionState('failed');
+            setIsConnected(false);
+            setIsConnecting(false);
+            setIsVoiceEnabled(false);
+        }
+      },
+      onLocalStreamReady: (stream) => {
+        console.log('[Hook] Local stream ready.');
+        // You might want to do something with the local stream here, e.g., display it or attach to an audio element for local feedback (already done by AM)
+      }
+    });
+    webRTCManagerRef.current = manager;
+
+    // Cleanup when component unmounts or dependencies change
+    return () => {
+      console.log('[Hook] Cleaning up WebRTCManager.');
+      manager.leaveRoom();
+      webRTCManagerRef.current = null;
+    };
+  }, [userId, userName, supabase, externalOnParticipantJoined, externalOnParticipantLeft, externalOnError]);
+
 
   // Fetch available rooms
   useEffect(() => {
     const fetchRooms = async () => {
+      if (!matchId) return;
       try {
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('voice_rooms')
-          .select('*')
-          .eq('match_id', matchId);
+          .select('*, participant_count:voice_room_participants(count)') // Assuming you might want participant count
+          .eq('match_id', matchId)
+          .eq('is_active', true);
         
-        if (error) throw error;
+        if (fetchError) throw fetchError;
         setAvailableRooms(data || []);
       } catch (err) {
         console.error('Failed to fetch voice rooms:', err);
+        toast.error('Failed to fetch voice rooms.');
       }
     };
-
-    if (matchId) {
-      fetchRooms();
-    }
-  }, [matchId]);
+    fetchRooms();
+  }, [matchId, supabase]);
 
   // Monitor network status
   useEffect(() => {
-    const updateNetworkStatus = () => {
-      if (!navigator.onLine) {
-        setNetworkStatus('offline');
-      } else {
-        setNetworkStatus('online');
-      }
+    const updateNetworkStatusHandler = () => {
+      setNetworkStatus(navigator.onLine ? 'online' : 'offline');
     };
-
-    window.addEventListener('online', updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
-    updateNetworkStatus();
-
+    window.addEventListener('online', updateNetworkStatusHandler);
+    window.addEventListener('offline', updateNetworkStatusHandler);
+    updateNetworkStatusHandler();
     return () => {
-      window.removeEventListener('online', updateNetworkStatus);
-      window.removeEventListener('offline', updateNetworkStatus);
+      window.removeEventListener('online', updateNetworkStatusHandler);
+      window.removeEventListener('offline', updateNetworkStatusHandler);
     };
   }, []);
 
   // Get audio output devices
   useEffect(() => {
     const getAudioDevices = async () => {
+      if (!audioManagerRef.current) return;
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
-        setAudioOutputDevices(audioOutputs);
-        
-        if (audioOutputs.length > 0 && !selectedAudioOutputDeviceId) {
-          setSelectedAudioOutputDeviceId(audioOutputs[0].deviceId);
+        const devices = await audioManagerRef.current.getAudioOutputDevices();
+        setAudioOutputDevices(devices);
+        if (devices.length > 0 && !selectedAudioOutputDeviceId) {
+          setSelectedAudioOutputDeviceId(devices[0].deviceId); // Select first device by default
         }
       } catch (err) {
-        console.error('Failed to get audio devices:', err);
+        console.error('Failed to get audio output devices:', err);
+        toast.error('Failed to list audio output devices.');
       }
     };
-
     getAudioDevices();
   }, [selectedAudioOutputDeviceId]);
 
-  const generateToken = useCallback(async (): Promise<string> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-livekit-token', {
-        body: {
-          roomId: currentRoom?.id || 'default-room',
-          participantIdentity: userId,
-          participantName: userName
-        }
-      });
 
-      if (error) {
-        console.error('Error calling token generation function:', error);
-        throw new Error(`Token generation failed: ${error.message}`);
-      }
-
-      if (!data || !data.token) {
-        throw new Error('No token received from server');
-      }
-
-      tokenRef.current = data.token;
-      return data.token;
-    } catch (err) {
-      console.error('Token generation error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate access token';
-      throw new Error(errorMessage);
+  const joinVoiceRoom = useCallback(async (roomToJoin: VoiceRoom): Promise<void> => {
+    if (!webRTCManagerRef.current) {
+      setError('WebRTC Manager not initialized.');
+      toast.error('Voice system not ready.');
+      return;
     }
-  }, [currentRoom?.id, userId, userName]);
-
-  const generateSandboxToken = useCallback(async (
-    roomNameToJoin?: string,
-    participantIdentity?: string
-  ): Promise<SandboxTokenDetails> => {
-    const sandboxId = import.meta.env.VITE_LIVEKIT_SANDBOX_ID as string;
-    if (!sandboxId) {
-      throw new Error('VITE_LIVEKIT_SANDBOX_ID is not defined in environment variables.');
-    }
-
-    const apiUrl = 'https://cloud-api.livekit.io/api/sandbox/connection-details';
-
-    const payload: { roomName?: string; participantName?: string } = {};
-    if (roomNameToJoin) {
-      payload.roomName = roomNameToJoin;
-    }
-    if (participantIdentity) {
-      payload.participantName = participantIdentity;
-    }
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Sandbox-ID': sandboxId,
-        },
-        body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Sandbox API request failed with status ${response.status}: ${errorBody}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.serverUrl || !data.participantToken || !data.roomName || !data.participantName) {
-        throw new Error('Sandbox API response is missing required fields (serverUrl, participantToken, roomName, participantName).');
-      }
-
-      return {
-          serverUrl: data.serverUrl,
-          token: data.participantToken,
-          roomName: data.roomName,
-          participantName: data.participantName,
-      };
-
-    } catch (err) {
-      console.error('Error generating sandbox token:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate sandbox token';
-      throw new Error(errorMessage);
-    }
-  }, []);
-
-  const connectToRoom = useCallback(async (token: string, wsUrl: string): Promise<Room> => {
-    if (!wsUrl) {
-      throw new Error('LiveKit server URL was not provided to connectToRoom.');
-    }
-
-    const room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
-      publishDefaults: {
-        simulcast: false,
-      },
-    });
-
-    room.on(RoomEvent.Connected, () => {
-      console.log('Room connected successfully');
-      setRoomName(room.name || 'Unknown Room'); // Use LiveKit's room.name
-      updateConnectionState(ConnectionState.Connected);
-    });
-
-    room.on(RoomEvent.Disconnected, (reason) => {
-      console.log('Room disconnected:', reason);
-      updateConnectionState(ConnectionState.Disconnected);
-      setParticipants([]);
-      setCurrentUser(null);
-    });
-
-    room.on(RoomEvent.ConnectionStateChanged, (state) => {
-      console.log('Connection state changed:', state);
-      updateConnectionState(state);
-    });
-
-    room.on(RoomEvent.ParticipantConnected, (participant) => {
-      console.log('Participant connected:', participant.identity, participant.name);
-      
-      const newParticipant: Participant = {
-        id: participant.identity,
-        name: participant.name || participant.identity,
-        isSpeaking: false,
-        isAudioEnabled: participant.isMicrophoneEnabled,
-        isMuted: !participant.isMicrophoneEnabled,
-        joinedAt: new Date()
-      };
-
-      setParticipants(prev => {
-        if (prev.find(p => p.id === newParticipant.id)) return prev;
-        const updatedParticipants = [...prev, newParticipant];
-        // ADD THIS LOG:
-        console.log(`[VoiceCollab] ParticipantConnected: ${newParticipant.name} (ID: ${newParticipant.id}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
-        return updatedParticipants;
-      });
-      onParticipantJoined?.(participant.identity, participant.name || participant.identity);
-      toast.success(`${participant.name || participant.identity} joined the voice room`);
-    });
-
-    room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-      console.log('Participant disconnected:', participant.identity);
-      setParticipants(prev => {
-        const updatedParticipants = prev.filter(p => p.id !== participant.identity);
-        // ADD THIS LOG:
-        console.log(`[VoiceCollab] ParticipantDisconnected: ${participant.name} (ID: ${participant.identity}). Remote participants now: ${updatedParticipants.length}. Local user ID: ${userId}`);
-        return updatedParticipants;
-      });
-      onParticipantLeft?.(participant.identity);
-      toast.info(`${participant.name || participant.identity} left the voice room`);
-    });
-
-    room.on(RoomEvent.TrackMuted, (track, participant) => {
-      if (track.kind === Track.Kind.Audio) {
-        setParticipants(prev => prev.map(p => 
-          p.id === participant.identity
-            ? { ...p, isAudioEnabled: false, isMuted: true }
-            : p
-        ));
-        if (participant.identity === userId) {
-            setIsMuted(true);
-        }
-      }
-    });
-
-    room.on(RoomEvent.TrackUnmuted, (track, participant) => {
-      if (track.kind === Track.Kind.Audio) {
-        setParticipants(prev => prev.map(p => 
-          p.id === participant.identity
-            ? { ...p, isAudioEnabled: true, isMuted: false }
-            : p
-        ));
-        if (participant.identity === userId) {
-            setIsMuted(false);
-        }
-      }
-    });
-
-    room.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
-        if (trackPublication.kind === Track.Kind.Audio && room.localParticipant) {
-            const localParticipant = room.localParticipant as any; // Cast to any to check for _events
-            // Check if 'audioprocessing' event listener is likely supported/attached by LiveKit internals
-            if (localParticipant && typeof localParticipant.on === 'function' && localParticipant._events && localParticipant._events.audioprocessing) {
-                 localParticipant.on('audioprocessing', (level: number) => {
-                    setAudioLevel(level);
-                });
-            } else if (trackPublication.track) {
-                // This is a more standard way if the track itself emits level events
-                // For example: trackPublication.track.on(TrackEvent.AudioLevelChanged, setAudioLevel);
-                // console.warn("Audio level monitoring via 'audioprocessing' may not be set up or supported. Consider TrackEvent.AudioLevelChanged.");
-            }
-        }
-    });
-
-    room.on(RoomEvent.MediaDevicesError, (err: Error) => {
-        console.error('Media devices error:', err);
-        let detailedMessage = `Media device error: ${err.message}.`;
-        if (err.name === 'NotAllowedError') {
-            detailedMessage += ' Please ensure microphone/camera permissions are granted for this site in your browser settings.';
-        } else if (err.name === 'NotFoundError') {
-            detailedMessage += ' No microphone/camera found. Please ensure a device is connected and enabled.';
-        } else {
-            detailedMessage += ' Check your microphone/camera connection and browser permissions.';
-        }
-        toast.error(detailedMessage);
-        // If onError prop is used for this, consider passing detailedMessage to it too.
-        // onError?.(detailedMessage);
-    });
-
-    await room.connect(wsUrl, token);
-    return room;
-  }, [userId, onParticipantJoined, onParticipantLeft, updateConnectionState]);
-  // State setters like setRoomName, setParticipants, setCurrentUser, setIsMuted, setAudioLevel are stable and don't need to be deps.
-
-  const joinRoom = useCallback(async (): Promise<void> => {
-    if (isConnecting || isConnected) {
-      console.log('Already connecting or connected to room');
+    if (isConnecting || (isConnected && currentRoom?.id === roomToJoin.id)) {
+      console.warn(`Already connecting to or connected to room ${roomToJoin.name}`);
       return;
     }
 
+    console.log(`[Hook] Attempting to join room: ${roomToJoin.name} (${roomToJoin.id})`);
+    setIsConnecting(true);
+    setConnectionState('authorizing'); // Or 'connecting'
+    setCurrentRoom(roomToJoin);
+    setRoomName(roomToJoin.name);
+    setError(null);
+
     try {
-      setIsConnecting(true);
-      setError(null);
-
-      let token: string;
-      let serverUrl: string;
-      let actualRoomName = currentRoom?.name;
-      let actualParticipantName = userName;
-
-      const useSandbox = import.meta.env.VITE_LIVEKIT_USE_SANDBOX_TOKEN === 'true';
-
-      if (useSandbox) {
-        console.log('Using LiveKit Sandbox Token Generation');
-        const sandboxDetails = await generateSandboxToken(currentRoom?.name, userName);
-        token = sandboxDetails.token;
-        serverUrl = sandboxDetails.serverUrl;
-        actualRoomName = sandboxDetails.roomName;
-        actualParticipantName = sandboxDetails.participantName;
-
-        if (currentRoom && currentRoom.name !== sandboxDetails.roomName) {
-            console.log(`Sandbox returned a different room name: '${sandboxDetails.roomName}' vs requested '${currentRoom.name}'. Using sandbox name.`);
-        }
-        if (!currentRoom) {
-             console.log(`Joining a new sandbox-generated room: ${sandboxDetails.roomName}`);
-        }
-        setRoomName(sandboxDetails.roomName);
-
-      } else {
-        console.log('Using Supabase Function for Token Generation');
-        token = await generateToken();
-        serverUrl = import.meta.env.VITE_LIVEKIT_URL as string;
-        if (!serverUrl) {
-          throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
-        }
-        if (!serverUrl) {
-          throw new Error('VITE_LIVEKIT_URL is not defined for non-sandbox connection.');
-        }
-        if (!currentRoom?.id) { // Check for id for Supabase token
-          console.log(
-            "CRITICAL: Joining room without sandbox mode and NO 'currentRoom.id'. " +
-            "Token will be for 'default-room'. This may lead to permission issues " +
-            "for microphone/camera and participant visibility if 'default-room' has restricted permissions."
-          );
-          toast.warning("Joining with default room settings. Specific room features/permissions may be limited.");
-          setRoomName("default-room"); // Keep this
-        } else if (currentRoom.name) { // Existing logic if currentRoom.id IS present
-           setRoomName(currentRoom.name);
-        } else {
-           // If currentRoom.id is present but currentRoom.name is not, still use default or a generated name.
-           // This case should ideally not happen if currentRoom is well-formed.
-           setRoomName(`room-${currentRoom.id}`);
-        }
-      }
+      await webRTCManagerRef.current.joinRoom(roomToJoin.id);
+      // Success part of joinRoom is mostly handled by callbacks from WebRTCManager
+      // (e.g., presence join, signaling channel subscription success)
+      // We can assume if joinRoom doesn't throw, it's in progress.
+      // Actual "connected" state might be set when presence sync is complete or first peer joins.
+      console.log(`[Hook] joinRoom call for ${roomToJoin.name} completed. Waiting for WebRTCManager events.`);
+      // For now, let's set some optimistic states, actual connection confirmed by events
+      setConnectionState('connecting'); 
+      // isConnected and isVoiceEnabled will be set based on WebRTCManager's events
+      // For instance, when presence channel subscription is 'SUBSCRIBED'
+      // This part needs refinement based on WebRTCManager's successful subscription indication.
+      // For now, let's assume joinRoom in WebRTCManager will trigger some state to indicate it's "connected" to signaling.
+      setIsConnected(true); // Optimistic, actual connection state is more nuanced
+      setIsVoiceEnabled(true); // Optimistic
       
-      console.log(`Attempting to join room: '${actualRoomName || 'N/A'}' at server: '${serverUrl}'`);
-      // connectToRoom will be updated in the next step to accept serverUrl
-      const room = await connectToRoom(token, serverUrl);
-      
-      roomRef.current = room;
-
-      await room.localParticipant.enableCameraAndMicrophone();
-      await room.localParticipant.setMicrophoneEnabled(true);
-      setIsMuted(false);
-
-      const localUser: Participant = {
+      // Set local user details
+      setCurrentUser({
         id: userId,
-        name: actualParticipantName,
+        name: userName,
+        isMuted: webRTCManagerRef.current.getLocalMuteState() || false,
         isSpeaking: false,
-        isAudioEnabled: true,
-        isMuted: false,
-        joinedAt: new Date()
-      };
-      setCurrentUser(localUser);
-      // ADD THIS LOG:
-      console.log(`[VoiceCollab] Local user joined: ${localUser.name} (ID: ${localUser.id}). Initial remote participants: ${participants.length}`);
-
-      console.log('Successfully joined voice room');
-      toast.success(`Connected to voice room: ${actualRoomName}`);
+        joinedAt: new Date(),
+        role: userRole,
+      });
+      toast.success(`Joining voice room: ${roomToJoin.name}`);
 
     } catch (err) {
-      console.error('Failed to join room:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to join voice room';
+      console.error(`[Hook] Failed to join room ${roomToJoin.name}:`, err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error joining room';
       setError(errorMessage);
-      onError?.(errorMessage);
-      toast.error(`Failed to join voice room: ${errorMessage.substring(0, 100)}`);
+      externalOnError?.('join_room_error', err);
+      toast.error(`Failed to join room: ${errorMessage.substring(0,100)}`);
       
       setIsConnecting(false);
       setIsConnected(false);
-      updateConnectionState(ConnectionState.Disconnected);
+      setIsVoiceEnabled(false);
+      setConnectionState('failed');
+      setCurrentRoom(null);
     }
-  }, [
-    isConnecting,
-    isConnected,
-    currentRoom,
-    userId,
-    userName,
-    generateToken,
-    generateSandboxToken,
-    connectToRoom,
-    onError,
-    updateConnectionState,
-    // State setters like setCurrentUser, setIsMuted, setRoomName, setError, setIsConnecting are stable
-  ]);
+  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError]);
 
-  const joinVoiceRoom = useCallback(async (room: VoiceRoom): Promise<void> => {
-    setCurrentRoom(room);
-    // The actual joining will be handled by the joinRoom function
-    await joinRoom();
-  }, [joinRoom]);
 
-  const leaveRoom = useCallback((): void => {
-    console.log('Leaving voice room');
-    
-    if (roomRef.current) {
-      roomRef.current.disconnect();
-      roomRef.current = null;
+  const leaveVoiceRoom = useCallback(async (): Promise<void> => {
+    console.log('[Hook] Leaving voice room.');
+    setConnectionState('disconnecting');
+    if (webRTCManagerRef.current) {
+      await webRTCManagerRef.current.leaveRoom();
     }
-
     setIsConnected(false);
     setIsConnecting(false);
     setIsVoiceEnabled(false);
     setParticipants([]);
     setCurrentUser(null);
-    setError(null);
-    setIsMuted(false);
+    // setError(null); // Keep last error for inspection? Or clear.
+    setIsMuted(false); // Reset local mute state on leave
+    setConnectionState('disconnected');
+    setRoomName('');
     setCurrentRoom(null);
-    updateConnectionState(ConnectionState.Disconnected);
-    
+    setRemoteStreams(new Map());
+    setPeerStatuses(new Map());
     toast.info('Disconnected from voice room');
-  }, [updateConnectionState]);
-
-  const leaveVoiceRoom = useCallback(async (): Promise<void> => {
-    leaveRoom();
-  }, [leaveRoom]);
+  }, []);
 
   const toggleMute = useCallback(async (): Promise<void> => {
-    if (!roomRef.current?.localParticipant) {
-      console.warn('No local participant available for mute toggle');
+    if (!webRTCManagerRef.current || !isConnected) {
+      console.warn('Cannot toggle mute: Not connected or WebRTCManager not available.');
       return;
     }
-
     try {
-      const newMutedState = !isMuted;
-      await roomRef.current.localParticipant.setMicrophoneEnabled(!newMutedState);
-      setIsMuted(newMutedState);
-      
-      console.log(`Microphone ${newMutedState ? 'muted' : 'unmuted'}`);
-      toast.info(`Microphone ${newMutedState ? 'muted' : 'unmuted'}`);
+      const newMutedState = await webRTCManagerRef.current.toggleMute();
+      if (typeof newMutedState === 'boolean') {
+        setIsMuted(newMutedState); // Local state updated by callback, but direct set is fine
+        toast.info(`Microphone ${newMutedState ? 'muted' : 'unmuted'}`);
+      }
     } catch (err) {
-      console.error('Failed to toggle mute:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle mute';
-      toast.error(`Failed to toggle mute: ${errorMessage}`);
+      console.error('[Hook] Failed to toggle mute:', err);
+      toast.error('Failed to toggle mute state.');
     }
-  }, [isMuted]);
+  }, [isConnected]);
 
-  const adminSetParticipantMute = useCallback(async (roomId: string, participantId: string, muted: boolean): Promise<void> => {
-    // Implementation for admin mute functionality
-    console.log(`Admin ${muted ? 'muting' : 'unmuting'} participant ${participantId} in room ${roomId}`);
-    toast.info(`${muted ? 'Muted' : 'Unmuted'} participant`);
-  }, []);
+  const adminSetParticipantMute = useCallback(async (participantId: string, mutedState: boolean): Promise<void> => {
+    if (!webRTCManagerRef.current || !currentRoom) {
+      console.warn('Cannot set participant mute: Not in a room or WebRTCManager not available.');
+      return;
+    }
+    if (!isRoomAdmin) {
+        toast.error("You don't have permission to mute others.");
+        return;
+    }
+    console.log(`[Hook] Admin ${mutedState ? 'muting' : 'unmuting'} participant ${participantId}`);
+    
+    // This requires WebRTCManager to have a method for sending admin commands.
+    // Let's assume webRTCManagerRef.current.adminSetRemoteMute(participantId, mutedState);
+    // which would then send a specific signaling message.
+    // For now, this is a placeholder for the actual implementation within WebRTCManager.
+    // await webRTCManagerRef.current.sendAdminMuteCommand(participantId, mutedState); 
+    toast.info(`Admin command sent to ${mutedState ? 'mute' : 'unmute'} ${participantId}. (Feature WIP)`);
+    
+    // Temporary client-side update for visual feedback, real update via signaling.
+    // setParticipants(prev => 
+    //   prev.map(p => (p.id === participantId ? { ...p, isMuted: mutedState } : p))
+    // );
+
+  }, [currentRoom, isRoomAdmin]);
 
   const selectAudioOutputDevice = useCallback(async (deviceId: string): Promise<void> => {
+    if (!audioManagerRef.current) return;
     try {
+      await audioManagerRef.current.setAudioOutputDevice(deviceId);
       setSelectedAudioOutputDeviceId(deviceId);
-      
-      // Set the output device for all audio elements
-      const audioElements = document.querySelectorAll('audio');
-      for (const audioElement of audioElements) {
-        if ('setSinkId' in audioElement) {
-          await (audioElement as any).setSinkId(deviceId);
-        }
-      }
-      
-      toast.success('Audio output device changed');
+      toast.success('Audio output device changed.');
     } catch (err) {
-      console.error('Failed to set audio output device:', err);
-      toast.error('Failed to change audio output device');
+      console.error('[Hook] Failed to set audio output device:', err);
+      toast.error('Failed to change audio output device.');
     }
   }, []);
 
+  // Main cleanup effect
   useEffect(() => {
     return () => {
-      if (roomRef.current) {
-        console.log('Cleaning up room connection');
-        roomRef.current.disconnect();
-      }
+      console.log('[Hook] Unmounting, ensuring WebRTCManager is cleaned up.');
+      webRTCManagerRef.current?.leaveRoom();
     };
   }, []);
 
@@ -601,28 +399,23 @@ export const useVoiceCollaboration = ({
     participants,
     currentUser,
     error,
-    joinRoom,
-    leaveRoom,
+    joinVoiceRoom,
+    leaveVoiceRoom,
     toggleMute,
     isMuted,
     connectionState,
     roomName,
-    // Additional properties for VoiceCollaboration component
     isVoiceEnabled,
-    livekitParticipants: participants,
-    audioLevel,
+    audioLevel, // Placeholder
     availableRooms,
     currentRoom,
     isRoomAdmin,
-    joinVoiceRoom,
-    leaveVoiceRoom,
     networkStatus,
     remoteStreams,
     peerStatuses,
-    livekitConnectionState,
     adminSetParticipantMute,
     audioOutputDevices,
     selectedAudioOutputDeviceId,
-    selectAudioOutputDevice
+    selectAudioOutputDevice,
   };
 };
