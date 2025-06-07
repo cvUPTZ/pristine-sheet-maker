@@ -86,7 +86,7 @@ export class WebRTCManager {
       let authError: any;
       
       try {
-        const response = await this.supabaseClient.functions.invoke('custom-webrtc-signaling', {
+        const response = await this.supabaseClient.functions.invoke('join-voice-room', {
           body: { roomId },
         });
         authResponse = response.data;
