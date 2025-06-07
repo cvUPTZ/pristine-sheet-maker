@@ -63,11 +63,20 @@ export const useVideoJobs = () => {
       const { data: newJob, error } = await supabase.from('video_jobs').insert(jobData).select().single();
       if (error) throw new Error(`Failed to create job: ${error.message}`);
       
-      // Ensure the returned job matches VideoJob interface
+      // Ensure the returned job matches VideoJob interface by handling null/undefined conversions
       const videoJob: VideoJob = {
-        ...newJob,
-        job_config: newJob.job_config || {},
-        progress: newJob.progress || 0
+        id: newJob.id,
+        created_at: newJob.created_at,
+        updated_at: newJob.updated_at,
+        status: newJob.status,
+        input_video_path: newJob.input_video_path,
+        video_title: newJob.video_title || undefined,
+        video_duration: newJob.video_duration || undefined,
+        result_data: newJob.result_data || undefined,
+        error_message: newJob.error_message || undefined,
+        progress: newJob.progress || 0,
+        user_id: newJob.user_id,
+        job_config: newJob.job_config || {}
       };
       
       toast.success(`Job "${videoJob.video_title}" submitted successfully!`);

@@ -56,10 +56,14 @@ export const VideoJobSubmitter: React.FC<VideoJobSubmitterProps> = ({
     try {
       const duration = await getVideoDuration();
       
-      const job = await submitJob(selectedFile, {
+      // Create proper source object
+      const source = { type: 'upload' as const, file: selectedFile };
+      const config = {
         title: videoTitle || selectedFile.name,
         duration
-      });
+      };
+      
+      const job = await submitJob(source, config);
 
       if (job) {
         // Reset form
