@@ -82,9 +82,19 @@ export class WebRTCManager {
 
     try {
       // 1. Authorize user for the room
-      const { data: authResponse, error: authError } = await this.supabaseClient.functions.invoke('custom-webrtc-signaling', {
-        body: { roomId },
-      });
+      let authResponse: any;
+      let authError: any;
+      
+      try {
+        const response = await this.supabaseClient.functions.invoke('custom-webrtc-signaling', {
+          body: { roomId },
+        });
+        authResponse = response.data;
+        authError = response.error;
+      } catch (error) {
+        console.error('Failed to invoke edge function:', error);
+        authError = error;
+      }
 
       if (authError || !authResponse || !authResponse.authorized) {
         console.error('Authorization failed for room:', roomId, authError || authResponse?.error);
@@ -546,7 +556,7 @@ export class WebRTCManager {
       });
       this.onParticipantMuteChanged?.(this.localUserId, newMuteState);
     }
-    return newMuteSate;
+    return newMuteState; // Fixed typo: was newMuteSate
   }
 
   public getLocalMuteState(): boolean | undefined {
