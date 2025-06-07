@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { VideoInfo } from '@/types';
 
@@ -17,8 +16,39 @@ export interface VideoJob {
 }
 
 export class VideoJobService {
+  // Ensure videos bucket exists
+  static async ensureVideosBucketExists(): Promise<void> {
+    try {
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.warn('Could not list buckets:', listError.message);
+        return;
+      }
+
+      const videosBucket = buckets?.find(bucket => bucket.name === 'videos');
+      
+      if (!videosBucket) {
+        const { error: createError } = await supabase.storage.createBucket('videos', {
+          public: true,
+          allowedMimeTypes: ['video/*'],
+          fileSizeLimit: 1024 * 1024 * 1024 // 1GB limit
+        });
+        
+        if (createError) {
+          console.warn('Could not create videos bucket:', createError.message);
+        }
+      }
+    } catch (error) {
+      console.warn('Error ensuring videos bucket exists:', error);
+    }
+  }
+
   // Upload video to Supabase Storage
   static async uploadVideo(file: File): Promise<string> {
+    // Ensure bucket exists first
+    await this.ensureVideosBucketExists();
+
     const timestamp = Date.now();
     const fileName = `${timestamp}-${file.name}`;
     const filePath = `public/${fileName}`;

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,10 +34,12 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({
 
   // Start polling when job is pending or processing
   useEffect(() => {
+    let stopPolling: (() => void) | null = null;
+
     if (job.status === 'pending' || job.status === 'processing') {
       setIsPolling(true);
       
-      const stopPolling = VideoJobService.pollJobStatus(
+      VideoJobService.pollJobStatus(
         job.id,
         (updatedJob) => {
           onJobUpdate(updatedJob);
@@ -50,13 +51,17 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({
           }
         },
         3000 // Poll every 3 seconds
-      );
-
-      return () => {
-        stopPolling();
-        setIsPolling(false);
-      };
+      ).then((stopFn) => {
+        stopPolling = stopFn;
+      });
     }
+
+    return () => {
+      if (stopPolling) {
+        stopPolling();
+      }
+      setIsPolling(false);
+    };
   }, [job.id, job.status, onJobUpdate]);
 
   const getStatusIcon = () => {

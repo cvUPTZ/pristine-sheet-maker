@@ -1,4 +1,5 @@
 
+
 export type Json =
   | string
   | number
@@ -168,6 +169,7 @@ export type Database = {
           created_at: string;
           updated_at: string | null;
           assigned_player_id: number | null;
+          tracker_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -179,6 +181,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string | null;
           assigned_player_id?: number | null;
+          tracker_id?: string | null;
         };
         Update: {
           id?: string;
@@ -190,6 +193,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string | null;
           assigned_player_id?: number | null;
+          tracker_id?: string | null;
         };
         Relationships: [];
       };
@@ -370,6 +374,27 @@ export type Database = {
           role?: 'admin' | 'manager' | 'tracker' | 'user';
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_event_assignments: {
+        Row: {
+          id: string;
+          user_id: string;
+          event_type: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          event_type: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event_type?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
