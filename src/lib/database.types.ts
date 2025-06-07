@@ -189,6 +189,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          match_id: string | null;
+          type: string | null;
+          title: string;
+          message: string;
+          notification_data: Json | null;
+          is_read: boolean | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          match_id?: string | null;
+          type?: string | null;
+          title: string;
+          message: string;
+          notification_data?: Json | null;
+          is_read?: boolean | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          match_id?: string | null;
+          type?: string | null;
+          title?: string;
+          message?: string;
+          notification_data?: Json | null;
+          is_read?: boolean | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
       video_jobs: {
         Row: {
           id: string;
