@@ -21,6 +21,7 @@ import LandingPage from "./pages/LandingPage";
 import MatchTimerPage from "./pages/MatchTimerPage";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Settings from "./pages/Settings";
+import NewVoiceChatPage from '@/pages/NewVoiceChatPage'; // Adjust path as needed
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -121,6 +122,7 @@ const AppContent = () => {
             </RequireAuth>
           } 
         />
+        <Route path="/new-voice-chat" element={<NewVoiceChatPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
