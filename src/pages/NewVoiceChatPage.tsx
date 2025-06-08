@@ -1,39 +1,66 @@
+
 import React from 'react';
-import { useParams } from 'react-router-dom'; // Import useParams
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
-import { NewVoiceChat } from '@/components/voice/NewVoiceChat'; // Adjust path as needed
-import { CircularProgress } from '@mui/material'; // Assuming MUI is used for progress indicators, or use a simple text
+import { useParams } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { NewVoiceChat } from '@/components/voice/NewVoiceChat';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 
 const NewVoiceChatPage: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
-  const { user, userRole, loading: authLoading } = useAuth(); // Corrected destructuring
+  const { user, userRole, loading: authLoading } = useAuth();
 
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress /> {/* Or <p>Loading user information...</p> */}
+      <div className="flex justify-center items-center min-h-screen">
+        <Card>
+          <CardContent className="flex items-center space-x-2 p-6">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading user information...</span>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!user || !userRole) {
-    return <p>User not authenticated or role not available. Please log in.</p>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">
+              User not authenticated or role not available. Please log in.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (!matchId) {
-    return <p>Match ID not found in URL. Please ensure you are accessing this page via a valid match link.</p>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">
+              Match ID not found in URL. Please ensure you are accessing this page via a valid match link.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-  // Attempt to get full_name from user_metadata, then app_metadata, then default to 'Anonymous'
   const participantName = user?.user_metadata?.full_name || user?.app_metadata?.full_name || 'Anonymous';
 
   return (
-    <div>
-      <h1>Voice Chat for Match: {matchId}</h1>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Voice Chat for Match: {matchId}</h1>
       <NewVoiceChat
         matchId={matchId}
         userId={user.id}
-        userRole={userRole} // userRole from useAuth is already UserRoleType | null
+        userRole={userRole}
         userName={participantName}
       />
     </div>
