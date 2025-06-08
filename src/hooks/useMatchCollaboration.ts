@@ -121,7 +121,6 @@ export const useMatchCollaboration = ({
       type: eventType as any,
       timestamp: Date.now(),
       coordinates,
-      event_type: eventType,
       team: teamId,
     };
     sendEvent(eventData);

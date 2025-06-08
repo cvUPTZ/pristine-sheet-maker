@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
+import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
 
 export interface BallPath {
   id: string;
@@ -151,8 +152,35 @@ export const useMatchState = () => {
     eventType: EventType,
     playerId: number,
     teamId: 'home' | 'away',
-    coordinates: { x: number; y: number }
+    coordinates: { x: number; y: number },
+    details?: Partial<MatchSpecificEventData>
   ) => {
+    let event_data: MatchSpecificEventData | null = null;
+
+    switch (eventType) {
+      case 'shot':
+        event_data = { on_target: false, ...details } as ShotEventData;
+        break;
+      case 'pass':
+        event_data = { success: false, ...details } as PassEventData;
+        break;
+      case 'tackle':
+        event_data = { success: false, ...details } as TackleEventData;
+        break;
+      case 'foul':
+        event_data = { ...details } as FoulCommittedEventData;
+        break;
+      case 'yellowCard':
+      case 'redCard':
+        event_data = { card_type: eventType === 'yellowCard' ? 'yellow' : 'red', ...details } as CardEventData;
+        break;
+      case 'substitution':
+        event_data = { player_in_id: '', player_out_id: '', ...details } as SubstitutionEventData;
+        break;
+      default:
+        event_data = { ...details } as GenericEventData;
+    }
+
     const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
       match_id: 'current-match',
@@ -162,7 +190,7 @@ export const useMatchState = () => {
       timestamp: Date.now(),
       coordinates,
       status: 'confirmed',
-      event_type: eventType
+      event_data,
     };
 
     addEvent(newEvent);
@@ -172,11 +200,18 @@ export const useMatchState = () => {
     passer: Player,
     receiver: Player,
     passerTeamIdStr: 'home' | 'away',
-    receiverTeamIdStr: 'home' | 'away',
+    // receiverTeamIdStr: 'home' | 'away', // Not directly used for event creation itself
     passerCoords: { x: number; y: number },
-    receiverCoords: { x: number; y: number }
+    receiverCoords: { x: number; y: number }, // Used for end_coordinates
+    success: boolean = true // Assume success by default
   ) => {
-    const passEvent: MatchEvent = {
+    const passEventData: PassEventData = {
+      success,
+      recipient_player_id: receiver.id,
+      end_coordinates: receiverCoords,
+    };
+
+    const newEvent: MatchEvent = {
       id: `event-${Date.now()}`,
       match_id: 'current-match',
       team_id: passerTeamIdStr,
@@ -185,11 +220,11 @@ export const useMatchState = () => {
       timestamp: Date.now(),
       coordinates: passerCoords,
       status: 'confirmed',
-      relatedPlayerId: receiver.id,
-      event_type: 'pass'
+      event_data: passEventData,
+      // relatedPlayerId: receiver.id, // Moved to event_data
     };
 
-    addEvent(passEvent);
+    addEvent(newEvent);
   }, [addEvent]);
 
   const processEventsForLocalState = (events: MatchEvent[]) => {

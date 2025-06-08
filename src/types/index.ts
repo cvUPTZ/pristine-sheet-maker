@@ -1,3 +1,5 @@
+import { MatchSpecificEventData } from './eventData';
+
 export type EventType =
   | 'pass'
   | 'shot'
@@ -30,7 +32,10 @@ export type EventType =
   | 'goalKick'
   | 'aerialDuel'
   | 'groundDuel'
-  | 'sub';
+  | 'sub'
+  | 'pressure'
+  | 'dribble_attempt'
+  | 'ball_recovery';
 
 export type Formation = 
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
@@ -170,8 +175,7 @@ export interface MatchEvent {
   id: string;
   match_id: string;
   timestamp: number;
-  event_type: string;
-  event_data?: Record<string, any> | null;
+  event_data?: MatchSpecificEventData | null; // Updated line
   created_at?: string;
   tracker_id?: string | null;
   team_id?: string | null;

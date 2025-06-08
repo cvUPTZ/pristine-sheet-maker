@@ -20,7 +20,8 @@ import DetailedStatsTable from '@/components/DetailedStatsTable';
 import PassMatrixTable from '@/components/analytics/PassMatrixTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics } from '@/types/index';
+import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType } from '@/types/index';
+import { ShotEventData, PassEventData } from '@/types/eventData';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -125,12 +126,11 @@ const Statistics = () => {
             id: event.id,
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
-            event_type: event.event_type,
-            type: event.event_type as any,
-            event_data: {}, // Database doesn't have this field, so we'll use empty object
+            type: event.event_type as EventType, // event_type from DB maps to type in MatchEvent
+            event_data: event.event_data, // Assign directly from DB, should be JSON or null
             created_at: event.created_at,
-            tracker_id: null, // Database doesn't have this field
-            team_id: null, // Database doesn't have this field  
+            tracker_id: null,
+            team_id: null,
             player_id: event.player_id,
             team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
             coordinates,
@@ -196,12 +196,12 @@ const Statistics = () => {
       
       return {
         passes: {
-          successful: passes.filter(e => e.event_data?.success === true).length,
+          successful: passes.filter(e => e.event_data && (e.event_data as PassEventData).success === true).length,
           attempted: passes.length
         },
         shots: {
-          onTarget: shots.filter(e => e.event_data?.on_target === true).length,
-          offTarget: shots.filter(e => e.event_data?.on_target === false).length
+          onTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === true).length,
+          offTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === false).length
         },
         fouls: fouls.length,
         corners: corners.length
@@ -259,14 +259,14 @@ const Statistics = () => {
       switch (event.type) {
         case 'pass':
           playerStats.events.passes.attempted++;
-          if (event.event_data?.success === true) {
+          if (event.event_data && (event.event_data as PassEventData).success === true) {
             playerStats.events.passes.successful++;
           }
           break;
         case 'shot':
-          if (event.event_data?.on_target === true) {
+          if (event.event_data && (event.event_data as ShotEventData).on_target === true) {
             playerStats.events.shots.onTarget++;
-          } else {
+          } else if (event.event_data && (event.event_data as ShotEventData).on_target === false) { // ensure it's explicitly false
             playerStats.events.shots.offTarget++;
           }
           break;

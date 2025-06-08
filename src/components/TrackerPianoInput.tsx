@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { EventType } from '@/types';
+import { EventType as AppEventType } from '@/types'; // Renamed to avoid conflict with local EventType if any
+import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -283,22 +284,64 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       const timestampInSeconds = Math.floor(Date.now() / 1000);
 
-      const eventData = {
+      let specificEventData: MatchSpecificEventData;
+
+      // Create specific event_data based on eventType.key
+      // For now, using minimal data. UI will later provide more details.
+      switch (eventType.key as AppEventType) {
+        case 'shot':
+          specificEventData = { on_target: false } as ShotEventData; // Default, UI might provide actual
+          break;
+        case 'pass':
+          specificEventData = { success: true } as PassEventData; // Default
+          break;
+        case 'tackle':
+          specificEventData = { success: true } as TackleEventData; // Default
+          break;
+        case 'foul':
+          specificEventData = {} as FoulCommittedEventData;
+          break;
+        case 'yellowCard':
+        case 'redCard':
+          specificEventData = { card_type: eventType.key === 'yellowCard' ? 'yellow' : 'red' } as CardEventData;
+          break;
+        case 'substitution':
+          // Requires player_in_id and player_out_id, which are not yet in `details`
+          specificEventData = { player_in_id: '', player_out_id: '' } as SubstitutionEventData;
+          break;
+        default:
+          specificEventData = {} as GenericEventData;
+      }
+
+      // Add known details if they exist, e.g. from a more complex 'details' object in future
+      if (details) {
+        if (eventType.key === 'shot' && typeof (details as any).on_target === 'boolean') {
+          (specificEventData as ShotEventData).on_target = (details as any).on_target;
+        }
+        if (eventType.key === 'pass' && typeof (details as any).success === 'boolean') {
+          (specificEventData as PassEventData).success = (details as any).success;
+        }
+        // Potentially add more specific detail handling here as UI evolves
+      }
+
+
+      const eventDataForSupabase = {
         match_id: matchId,
-        event_type: eventType.key,
+        event_type: eventType.key, // This is the DB column name
         timestamp: timestampInSeconds,
         player_id: playerId,
         team: teamContext,
         coordinates: details?.coordinates || null,
+        event_data: specificEventData, // This is the new structured data for the JSON column
         created_by: user.id
       };
 
-      console.log('Inserting event data:', eventData);
+      console.log('Inserting event data:', eventDataForSupabase);
 
       // Use upsert for faster insertion and avoid conflicts
       const { data, error } = await supabase
         .from('match_events')
-        .upsert([eventData])
+        .upsert([eventDataForSupabase])
         .select();
 
       if (error) {

@@ -1,4 +1,5 @@
 import { MatchEvent, Player, EventType as GlobalEventType } from '@/types';
+import { ShotEventData, PassEventData } from '@/types/eventData';
 
 // Define interfaces for aggregated statistics
 export interface TeamStats {
@@ -166,7 +167,7 @@ export function aggregateMatchEvents(
       case 'shot':
         targetTeamStats.shots += 1;
         if (playerSummary) playerSummary.shots += 1;
-        if (event.event_data?.on_target === true) {
+        if (event.event_data && (event.event_data as ShotEventData).on_target === true) {
           targetTeamStats.shotsOnTarget += 1;
           if (playerSummary) playerSummary.shotsOnTarget += 1;
         }
@@ -184,7 +185,7 @@ export function aggregateMatchEvents(
       case 'pass':
         targetTeamStats.passesAttempted += 1;
         if (playerSummary) playerSummary.passesAttempted += 1;
-        if (event.event_data?.success === true) {
+        if (event.event_data && (event.event_data as PassEventData).success === true) {
           targetTeamStats.passesCompleted += 1;
           if (playerSummary) playerSummary.passesCompleted += 1;
         }

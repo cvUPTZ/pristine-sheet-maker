@@ -11,7 +11,9 @@ import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
-import { EventType } from '@/types/matchForm';
+import { EventType as LocalEventType } from '@/types/matchForm'; // Renamed to avoid conflict
+import { EventType as AppEventType } from '@/types'; // Added for global EventType
+import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
 
@@ -22,7 +24,7 @@ const MatchAnalysisV2: React.FC = () => {
   const [homeTeam, setHomeTeam] = useState({ name: 'Home Team', formation: '4-4-2' });
   const [awayTeam, setAwayTeam] = useState({ name: 'Away Team', formation: '4-3-3' });
   const [isTracking, setIsTracking] = useState(false);
-  const [assignedEventTypes, setAssignedEventTypes] = useState<EventType[] | null>(null);
+  const [assignedEventTypes, setAssignedEventTypes] = useState<LocalEventType[] | null>(null);
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const { toast } = useToast();
@@ -124,7 +126,7 @@ const MatchAnalysisV2: React.FC = () => {
 
       // Aggregate assigned event types
       const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types || [])));
-      const assignedEventTypesData: EventType[] = eventTypes
+      const assignedEventTypesData: LocalEventType[] = eventTypes
         .filter(key => key)
         .map(key => ({ key, label: key }));
       setAssignedEventTypes(assignedEventTypesData);
@@ -182,9 +184,9 @@ const MatchAnalysisV2: React.FC = () => {
     });
   };
 
-  const handleEventRecord = async (eventType: EventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('handleEventRecord called with:', { 
-      eventType, 
+  const handleEventRecord = async (eventType: LocalEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
+    console.log('handleEventRecord called with:', {
+      eventType,
       player, 
       details, 
       user: user?.id,
@@ -229,21 +231,47 @@ const MatchAnalysisV2: React.FC = () => {
       // Use seconds since epoch for timestamp to fit in bigint
       const timestampInSeconds = Math.floor(Date.now() / 1000);
 
-      const eventData = {
+      let specificEventData: MatchSpecificEventData;
+      switch (eventType.key as AppEventType) {
+        case 'shot':
+          specificEventData = { on_target: false, ...details } as ShotEventData;
+          break;
+        case 'pass':
+          specificEventData = { success: true, ...details } as PassEventData;
+          break;
+        case 'tackle':
+          specificEventData = { success: true, ...details } as TackleEventData;
+          break;
+        case 'foul':
+          specificEventData = { ...details } as FoulCommittedEventData;
+          break;
+        case 'yellowCard':
+        case 'redCard':
+          specificEventData = { card_type: eventType.key === 'yellowCard' ? 'yellow' : 'red', ...details } as CardEventData;
+          break;
+        case 'substitution':
+          specificEventData = { player_in_id: '', player_out_id: '', ...details } as SubstitutionEventData;
+          break;
+        default:
+          specificEventData = { ...details } as GenericEventData;
+      }
+
+      const eventDataForSupabase = {
         match_id: matchId,
-        event_type: eventType.key,
+        event_type: eventType.key, // DB column name
         timestamp: timestampInSeconds,
         player_id: playerId,
         team: teamContext,
         coordinates: details?.coordinates || null,
+        event_data: specificEventData, // New structured data
         created_by: user.id
       };
 
-      console.log('Inserting event data:', eventData);
+      console.log('Inserting event data:', eventDataForSupabase);
 
       const { data, error } = await supabase
         .from('match_events')
-        .insert([eventData])
+        .insert([eventDataForSupabase])
         .select();
 
       if (error) {
