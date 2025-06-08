@@ -110,7 +110,6 @@ const useMatchData = (matchId: string | undefined) => {
             id: event.id,
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
-            event_type: event.event_type,
             type: event.event_type as EventType,
             event_data: {},
             created_at: event.created_at,

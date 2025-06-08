@@ -28,7 +28,6 @@ export const useRealtimeMatch = ({ matchId, onEventReceived }: UseRealtimeMatchO
     id: dbEvent.id,
     match_id: dbEvent.match_id,
     type: dbEvent.event_type as EventType,
-    event_type: dbEvent.event_type,
     timestamp: dbEvent.timestamp || 0,
     team: dbEvent.team as 'home' | 'away',
     coordinates: dbEvent.coordinates || { x: 0, y: 0 },

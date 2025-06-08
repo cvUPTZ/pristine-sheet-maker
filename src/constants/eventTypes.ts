@@ -7,7 +7,8 @@ export const EVENT_TYPES = [
   'penalty', 'free-kick', 'goal-kick', 'throw-in', 'interception',
   'possession', 'ballLost', 'ballRecovered', 'dribble', 'cross',
   'clearance', 'block', 'save', 'ownGoal', 'freeKick', 'throwIn',
-  'goalKick', 'aerialDuel', 'groundDuel', 'sub'
+  'goalKick', 'aerialDuel', 'groundDuel', 'sub',
+  'pressure', 'dribble_attempt', 'ball_recovery' // New event types
 ] as const;
 
 export const EVENT_CATEGORIES = {
@@ -34,6 +35,10 @@ export const EVENT_CATEGORIES = {
   'Match Events': {
     description: 'General match occurrences',
     events: ['substitution', 'offside', 'aerialDuel', 'groundDuel', 'sub']
+  },
+  'Advanced Actions': {
+    description: 'Detailed gameplay actions',
+    events: ['pressure', 'dribble_attempt', 'ball_recovery']
   }
 } as const;
 
@@ -108,6 +113,16 @@ export const EVENT_TYPE_CATEGORIES = [
       { key: 'aerialDuel', label: 'Aerial Duel' },
       { key: 'groundDuel', label: 'Ground Duel' }
     ]
+  },
+  {
+    key: 'advancedActions',
+    label: 'Advanced Actions',
+    color: '#A0A0A0', // Example color
+    events: [
+      { key: 'pressure', label: 'Pressure' },
+      { key: 'dribble_attempt', label: 'Dribble Attempt' },
+      { key: 'ball_recovery', label: 'Ball Recovery' }
+    ]
   }
 ];
 
@@ -170,7 +185,10 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'goalKick': 'Goal Kick',
   'aerialDuel': 'Aerial Duel',
   'groundDuel': 'Ground Duel',
-  'sub': 'Sub'
+  'sub': 'Sub',
+  'pressure': 'Pressure Applied',
+  'dribble_attempt': 'Dribble Attempt',
+  'ball_recovery': 'Ball Recovery'
 };
 
 export const EVENT_STYLES: Record<EventType, { color: string; description: string; icon?: string }> = {
@@ -205,7 +223,10 @@ export const EVENT_STYLES: Record<EventType, { color: string; description: strin
   'goalKick': { color: '#3B82F6', description: 'Goal kick', icon: '👢' },
   'aerialDuel': { color: '#8B5CF6', description: 'Aerial duel', icon: '🦅' },
   'groundDuel': { color: '#F59E0B', description: 'Ground duel', icon: '⚔️' },
-  'sub': { color: '#6B7280', description: 'Substitution', icon: '🔄' }
+  'sub': { color: '#6B7280', description: 'Substitution', icon: '🔄' },
+  'pressure': { color: '#4ADE80', description: 'Defensive pressure action', icon: '💨' },
+  'dribble_attempt': { color: '#2DD4BF', description: 'Attempt to dribble past opponent', icon: '⚡' },
+  'ball_recovery': { color: '#A78BFA', description: 'Recovering a loose ball', icon: '🖐️' }
 };
 
 export type EventCategory = keyof typeof EVENT_CATEGORIES;
