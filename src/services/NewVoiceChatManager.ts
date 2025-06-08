@@ -47,7 +47,7 @@ export class NewVoiceChatManager {
       }
     };
 
-    this.liveKitService.onTrackSubscribed = (track, participant) => {
+    this.liveKitService.onTrackSubscribed = (track, publication, participant) => {
       if (track.kind === 'audio') {
         this.setupParticipantAudioMonitoring(participant);
       }
