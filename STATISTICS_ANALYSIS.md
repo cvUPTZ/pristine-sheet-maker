@@ -61,12 +61,13 @@ This document provides a deep dive into the statistics and analytics features cu
     - Takes raw `MatchEvent[]`, `homePlayers[]`, `awayPlayers[]` as input.
     - Aggregates events to calculate team-level and player-level statistics.
     - **Team Stats Calculated:** Shots, shots on target, goals, assists, passes (attempted/completed), fouls, cards, corners, offsides, tackles, interceptions, crosses, clearances, blocks, `totalXg`.
-    - **Player Stats Calculated:** Similar to team stats but for individual players, including `totalXg`.
+    - **Player Stats Calculated:** Similar to team stats but for individual players, including `totalXg`, `progressivePasses`, `passesToFinalThird`, and `passNetworkSent` (player-to-player pass details).
     - xG calculation is performed using `calculateXg` from `src/lib/analytics/xgCalculator.ts` for each shot event.
+    - Detailed pass statistics (progressive, final third, network) are calculated based on `PassEventData` including `recipient_player_id`, `success`, and coordinates.
 - **Page Logic:** `src/pages/Statistics.tsx`
-    - Fetches match data (including events and pre-calculated `match_statistics` if available) from Supabase.
-    - The page's local `calculateStatisticsFromEvents` and `calculatePlayerStatistics` functions have been updated to use `calculateXg` and include `totalXg` in their results, aligning with `eventAggregator.ts`.
-    - Stores fetched/calculated stats in the component's state.
+    - Fetches match data (including events) from Supabase.
+    - Now primarily uses `aggregateMatchEvents` from `src/lib/analytics/eventAggregator.ts` to process `formattedEvents` and derive both team and player statistics (including `totalXg`, `progressivePasses`, etc.). The local calculation functions for statistics previously in this file have been removed in favor of the centralized aggregator.
+    - Stores the comprehensive aggregated stats (team and player) in the component's state.
 
 ## 4. Data Display and Visualizations
 
@@ -89,15 +90,16 @@ This document provides a deep dive into the statistics and analytics features cu
             - **Detailed:** `DetailedStatsTable`.
             - **Performance:** `PlayerPerformanceChart`, `TeamPerformanceRadar`.
             - **Shot Map / xG (New Tab):** Contains the `ShotMap.tsx` component for visualizing shot locations and xG values, along with cards displaying team total xG.
+            - **Passing Network (New Tab):** Contains the `PassingNetworkMap.tsx` component for visualizing pass connections.
             - **Advanced:** `MatchHeatMap`, `AdvancedStatsTable`.
-            - **Players:** Table of individual player stats (passes, accuracy, shots, goals, assists, totalXg, fouls, cards).
-            - **Passes:** `PassMatrixTable`.
+            - **Players:** Table of individual player stats (passes, accuracy, progressive passes, passes to final third, shots, goals, assists, totalXg, fouls, cards).
+            - **Passes:** `PassMatrixTable` (displays pass combinations).
             - **Ball Flow:** `BallFlowVisualization`.
 - **`src/pages/MatchAnalysis.tsx` & `src/pages/MatchAnalysisV2.tsx`**
     - **Purpose:** Primarily for real-time match event tracking and input.
     - **Features:**
         - Team setup, player selection.
-        - Event recording interfaces (`TrackerPianoInput.tsx`, pitch interaction), with `TrackerPianoInput.tsx` now including a modal for detailed shot data entry.
+        - Event recording interfaces (`TrackerPianoInput.tsx`, pitch interaction), with `TrackerPianoInput.tsx` now including modals for detailed shot and pass data entry.
         - Real-time display of some basic stats.
         - `MatchAnalysisV2.tsx` includes role-based views, voice collaboration, and tracker assignment features.
 
@@ -112,6 +114,7 @@ This document provides a deep dive into the statistics and analytics features cu
     - `PlayerPerformanceChart.tsx`: Charts for visualizing player performance metrics.
     - `TeamPerformanceRadar.tsx`: Radar chart for team performance profile.
     - **`ShotMap.tsx` (New Component):** Visualizes shot locations on a football pitch. Shots are color-coded by outcome (goal, on-target, off-target) and their radius can be scaled by xG value. Tooltips provide detailed information for each shot. Includes team-based filtering.
+    - **`PassingNetworkMap.tsx` (New Component):** Visualizes pass connections between players on a football pitch. Links can be styled by pass count/success rate, and nodes by player involvement. Includes team and player filters.
     - *(Other components as listed in initial file exploration)*
 
 ## 5. Key Data Structures (Types/Interfaces)
@@ -128,7 +131,7 @@ This document provides a deep dive into the statistics and analytics features cu
         - `team?: 'home' | 'away'`
         - `coordinates?: { x: number; y: number }`
         - `created_by?: string` (user ID)
-    - **`Statistics`:** (as defined in `StatisticsDisplay.tsx` and `Statistics.tsx`)
+    - **`Statistics`:** (as defined in `StatisticsDisplay.tsx` and `Statistics.tsx`, now primarily derived from `AggregatedStats` in `eventAggregator.ts`)
         - `possession: { home: number; away: number }`
         - `passes: { home: TeamPassStats; away: TeamPassStats }` (where `TeamPassStats` = `{ successful: number; attempted: number }`)
         - `shots: { home: TeamShotStats; away: TeamShotStats }` (where `TeamShotStats` = `{ onTarget: number; offTarget: number; total?: number; totalXg?: number; }`)
@@ -139,12 +142,15 @@ This document provides a deep dive into the statistics and analytics features cu
         - `ballsLost: { home: number; away: number }`
         - `duels: { home: TeamDuelStats; away: TeamDuelStats }`
         - `crosses: { home: TeamCrossStats; away: TeamCrossStats }`
-    - **`PlayerStatistics`:** (as defined in `Statistics.tsx`)
+    - **`PlayerStatistics`:** (as defined in `Statistics.tsx`, now aligning with `PlayerStatSummary` from `eventAggregator.ts`)
         - `playerId: string | number`
         - `playerName: string`
         - `team: 'home' | 'away'`
-        - `events: { passes: { successful: number, attempted: number }, shots: { onTarget: number, offTarget: number }, ... }`
+        - `events: { passes: { successful: number, attempted: number }, shots: { onTarget: number, offTarget: number }, ... }` // This specific structure is used for parts of the player table.
         - `totalXg?: number;`
+        - `progressivePasses?: number;`
+        - `passesToFinalThird?: number;`
+        - `passNetworkSent?: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;`
     - **`Player`:** Basic player information (id, name, number, etc.).
     - **`Team`:** Team information (id, name, players, formation).
     - **`BallTrackingPoint`:** Structure for individual ball position data.
@@ -154,8 +160,8 @@ This document provides a deep dive into the statistics and analytics features cu
 1.  **Match Setup:** Admin/user sets up match details, including teams and players (`MatchAnalysis.tsx` or an admin interface).
 2.  **Event Recording (Real-time):**
     - Trackers use `MatchAnalysisV2.tsx` (or `MatchAnalysis.tsx`).
-    - UI interactions (e.g., `TrackerPianoInput.tsx`, pitch clicks) trigger event creation. For shots, a modal (`ShotDetailModal.tsx`) allows for detailed attribute input.
-    - `useMatchState` and `useMatchCollaboration` manage local state and synchronize events. Event creation logic now populates `event_data` with strongly-typed objects (e.g., `ShotEventData`).
+    - UI interactions (e.g., `TrackerPianoInput.tsx`, pitch clicks) trigger event creation. For shots and passes, modals (`ShotDetailModal.tsx`, `PassDetailModal.tsx`) allow for detailed attribute input.
+    - `useMatchState` and `useMatchCollaboration` manage local state and synchronize events. Event creation logic now populates `event_data` with strongly-typed objects (e.g., `ShotEventData`, `PassEventData`).
     - Events are sent to Supabase (`match_events` table) and potentially broadcast to other connected clients via Supabase real-time features.
 3.  **Ball Tracking (Real-time):**
     - If active, ball coordinates are captured and added to `ball_tracking_data` via `useMatchState` and saved with the match.
@@ -163,11 +169,10 @@ This document provides a deep dive into the statistics and analytics features cu
     - **Real-time (Basic):** `MatchAnalysis.tsx` might show some live stats derived directly from `useMatchState`.
     - **Comprehensive (Post-match or On-demand):**
         - User navigates to `src/pages/Statistics.tsx`.
-        - Page fetches match details, `match_events` (where `event_data` is now typed), and any pre-existing `match_statistics` from Supabase.
-        - If stats need calculation:
-            - `eventAggregator.ts` (or similar logic within `Statistics.tsx`) processes the `match_events` array.
-            - It iterates through events, updating counts for teams and players based on `event.type` and the strongly-typed `event.event_data` (e.g., `(event.event_data as ShotEventData).on_target`). This provides better type safety and clarity. Expected Goals (xG) values are also calculated using `calculateXg` and aggregated here.
-        - Calculated/fetched statistics are passed to various display components (`StatisticsDisplay`, `DetailedStatsTable`) and visualization components (`MatchRadarChart`, `PlayerHeatmap`, `ShotMap` etc.).
+        - Page fetches match details and `match_events` (where `event_data` is now typed).
+        - `aggregateMatchEvents` from `src/lib/analytics/eventAggregator.ts` processes the `match_events` array.
+        - This function iterates through events, updating counts for teams and players based on `event.type` and the strongly-typed `event.event_data`. Expected Goals (xG), progressive passes, passes to final third, and pass networks are calculated here.
+        - Calculated/fetched statistics are passed to various display components (`StatisticsDisplay`, `DetailedStatsTable`) and visualization components (`MatchRadarChart`, `PlayerHeatmap`, `ShotMap`, `PassingNetworkMap`, etc.).
 5.  **Data Persistence:**
     - Match details, events (including typed `event_data`), and calculated statistics (optional, can be re-calculated) are stored in Supabase tables (`matches`, `match_events`).
 
@@ -182,7 +187,7 @@ This document provides a deep dive into the statistics and analytics features cu
     *   **Gap:** While event coordinates are stored, there isn't a dedicated, interactive shot map visualization that details shot types (e.g., header, foot), outcomes (goal, saved, blocked, off-target), and associated xG values.
     *   **Opportunity:** Provide visual tools to analyze shot locations, effectiveness from different areas, and player shooting patterns. (Partially addressed by `ShotMap.tsx` integration).
 *   **Passing Network Analysis:**
-    *   **Gap:** `PassMatrixTable.tsx` provides a basic table of pass combinations. However, more advanced visualizations (e.g., network graphs showing pass flow, centrality of players in build-up) are missing.
+    *   **Gap:** `PassMatrixTable.tsx` provides a basic table of pass combinations. While `eventAggregator.ts` now calculates player-to-player pass networks (`passNetworkSent`), progressive passes, and passes to final third, visualization of this data as a network graph is still pending. (Partially addressed by `PassingNetworkMap.tsx` integration).
     *   **Opportunity:** Visualize team build-up play, identify key passing links, and understand how teams progress the ball. Metrics like player centrality in passing networks could be derived.
 *   **Play Type Analysis (e.g., Counter Attacks, Set Pieces):**
     *   **Gap:** Statistics are generally aggregated, without specific breakdowns for different phases or types of play (e.g., effectiveness of counter-attacks, success rates from set pieces).
@@ -212,7 +217,7 @@ This document provides a deep dive into the statistics and analytics features cu
 (Content as before, reflecting completed and partially implemented changes)
 
 ### 8.4. Impact on Data Collection UI
-(Content as before, reflecting implemented changes for shot data collection)
+(Content as before, reflecting implemented changes for shot and pass data collection)
 
 ### 8.5. Conclusion of Data Structure Analysis
 (Content as before, reflecting implemented changes)
@@ -235,19 +240,40 @@ This document provides a deep dive into the statistics and analytics features cu
     *   `event_data.shot_type`
     *   `event_data.on_target`, `event_data.is_goal`
 *   **Calculation/Generation:**
-    1.  **Data Collection:** `TrackerPianoInput.tsx` now uses `ShotDetailModal.tsx` to capture detailed `ShotEventData` (body part, shot type, situation, assist type, on target, is goal).
-    2.  **xG Model:** An initial rule-based xG model is implemented in `src/lib/analytics/xgCalculator.ts`. This model considers situation, shot type, body part, assist type, and basic distance from goal.
-    3.  **Processing:** `src/lib/analytics/eventAggregator.ts` (and local calculation functions in `src/pages/Statistics.tsx`) now call `calculateXg` for each shot event, using its `ShotEventData` and `coordinates`.
-    4.  **Aggregation:** The xG value is aggregated into `totalXg` at both team and player levels by `eventAggregator.ts` and the local functions in `Statistics.tsx`.
+    1.  **Data Collection:** `TrackerPianoInput.tsx` now uses `ShotDetailModal.tsx` to capture detailed `ShotEventData`.
+    2.  **xG Model:** An initial rule-based xG model is implemented in `src/lib/analytics/xgCalculator.ts`.
+    3.  **Processing:** `src/lib/analytics/eventAggregator.ts` now calls `calculateXg` for each shot event.
+    4.  **Aggregation:** The xG value is aggregated into `totalXg` at both team and player levels by `eventAggregator.ts`.
 *   **UI Integration:**
-    *   **Shot Map:** The `ShotMap.tsx` component is created and integrated into a new "Shot Map / xG" tab within `src/pages/Statistics.tsx`. It displays shots with visual encoding for outcome and xG, and includes tooltips with shot details.
-    *   **xG Stats:**
-        *   Team total xG is displayed in cards within the "Shot Map / xG" tab.
-        *   Player total xG is displayed as a new column in the player statistics table in the "Players" tab.
-        *   Team total xG is also displayed in `src/components/StatisticsDisplay.tsx` and `src/components/DetailedStatsTable.tsx`.
+    *   **Shot Map:** The `ShotMap.tsx` component is created and integrated into a new "Shot Map / xG" tab within `src/pages/Statistics.tsx`.
+    *   **xG Stats:** Displayed in the "Shot Map / xG" tab, "Players" table, `StatisticsDisplay.tsx`, and `DetailedStatsTable.tsx`.
 
 ### 9.2. Feature 2: Enhanced Passing Network Analysis & Visualization
-(Content as before)
+
+*   **Status: Implemented (Initial Version)**
+*   **Description:**
+    *   Visualizes passing networks for each team, showing players as nodes and passes between them as weighted edges.
+    *   Calculates and displays key passing metrics per player: progressive passes, passes to the final third.
+    *   Identifies key passers and common passing patterns through visualization.
+*   **Data Required (from enhanced `MatchEvent` with `PassEventData`):**
+    *   `type: 'pass'`
+    *   `player_id` (passer)
+    *   `event_data.recipient_player_id` (pass recipient)
+    *   `coordinates` (pass start)
+    *   `event_data.end_coordinates` (pass end) - *Note: Currently not captured by `TrackerPianoInput` modal, would require pitch-based input for full accuracy.*
+    *   `event_data.success` (boolean)
+    *   `event_data.pass_type` (optional, for more detailed analysis)
+*   **Calculation/Generation:**
+    1.  **Data Collection (Partially Implemented):** `TrackerPianoInput.tsx` now uses `PassDetailModal.tsx` to capture `recipient_player_id`, `success`, and `pass_type`.
+    2.  **Processing (Implemented):** `src/lib/analytics/eventAggregator.ts` now calculates:
+        *   Player-to-player pass networks (`passNetworkSent`).
+        *   Progressive passes for each player.
+        *   Passes into the final third for each player.
+    3.  **Visualization (Implemented - Initial Version):** The `PassingNetworkMap.tsx` component provides an initial visualization of the pass network.
+*   **UI Integration (Implemented - Initial Version):**
+    *   A new "Passing Network" tab has been added to `src/pages/Statistics.tsx`, integrating the `PassingNetworkMap.tsx` component.
+    *   The "Players" tab in `Statistics.tsx` now displays "Prog. Passes" and "Passes Final 1/3" columns in the player statistics table.
+    *   Team and player filters are available on the `PassingNetworkMap`.
 
 ### 9.3. Feature 3: Pressure Event Tracking and Analysis
 (Content as before)
@@ -258,7 +284,7 @@ This document provides a deep dive into the statistics and analytics features cu
 ## 11. UI Design for Enhanced Shot Data Collection (xG Feature)
 
 *   **Status: Implemented**
-*   To implement the Expected Goals (xG) and Shot Map feature, the UI for recording shot events was enhanced to capture more detailed information. The primary component for this, `src/components/TrackerPianoInput.tsx`, was modified.
+*   To implement the Expected Goals (xG) and Shot Map feature, the UI for recording shot events was enhanced to capture more detailed information. The primary component for this, `src/components/TrackerPianoInput.tsx`, was modified, and a new `src/components/modals/ShotDetailModal.tsx` was created.
 
 ### 11.1. Design Goals (Achieved)
 
@@ -297,4 +323,48 @@ This document provides a deep dive into the statistics and analytics features cu
 8.  `recordEvent` packages this into the structure expected by Supabase (including the rich `event_data` JSON field) and sends it.
 
 This implementation successfully allows for the collection of detailed shot attributes.
+
+## 12. UI Design for Detailed Pass Data Collection (Passing Network Feature)
+
+*   **Status: Implemented**
+*   To implement the Enhanced Passing Network Analysis & Visualization feature, the UI for recording 'pass' events was enhanced to capture additional details, primarily the recipient of the pass. The `src/components/TrackerPianoInput.tsx` component was modified and a new `src/components/modals/PassDetailModal.tsx` was created.
+
+### 12.1. Design Goals (Achieved)
+
+*   **Capture Pass Recipient:** Accurately identify the player who received the pass.
+*   **Maintain Workflow Efficiency:** Ensure the process of logging a pass remains quick for the tracker.
+*   **Contextual Input:** Additional input for pass details should appear only when a 'pass' event is initiated.
+
+### 12.2. Implemented UI Flow and Components for `TrackerPianoInput.tsx`
+
+1.  **State Management in `TrackerPianoInput.tsx`:**
+    *   New state variables were introduced:
+        *   `showPassDetailModal: boolean`
+        *   `currentPassInitialData: Partial<PassEventData>` (defaults to `{ success: true, pass_type: 'short' }`)
+        *   The `pendingEventTrigger` state was reused.
+2.  **Triggering Pass Detail Collection:**
+    *   The `handleEventTypeClick` function in `TrackerPianoInput.tsx` was modified:
+        *   If `eventType.key === 'pass'`, it first checks if a `selectedPlayer` (passer) is active.
+        *   It then sets `pendingEventTrigger`, initializes `currentPassInitialData`, and sets `showPassDetailModal = true`.
+3.  **Pass Detail Modal (`src/components/modals/PassDetailModal.tsx`):**
+    *   This new component was created.
+    *   **Props:** `isOpen`, `onClose`, `onSubmit`, `initialDetails`, `passer`, `teamPlayers`.
+    *   **Contents:** Displays the passer's name. Form fields include "Recipient Player" (Select dropdown of teammates, excluding passer), "Pass Successful?" (Checkbox), and "Pass Type" (Select dropdown).
+    *   **Note on `end_coordinates`**: This implementation omits `end_coordinates` input via this modal.
+    *   **Buttons:** "Record Pass" (validates recipient, calls `onSubmit`), "Cancel".
+4.  **Modifications to `recordEvent` in `TrackerPianoInput.tsx`:**
+    *   The `details.event_data` parameter now receives `PassEventData` from the `PassDetailModal`.
+    *   The `switch` statement for `case 'pass'` uses this provided `PassEventData`.
+
+### 12.3. Data Flow Summary for Passes (via Piano Input - Implemented)
+
+1.  User selects the **passer**.
+2.  User taps "Pass" button.
+3.  `handleEventTypeClick` opens "Pass Detail Modal" with passer info.
+4.  User selects **recipient** and other details in the modal.
+5.  User clicks "Record Pass".
+6.  Modal calls `handleRecordPassWithDetails` in `TrackerPianoInput.tsx` with `PassEventData`.
+7.  `handleRecordPassWithDetails` calls main `recordEvent`, which sends data (including `PassEventData` with `recipient_player_id`) to Supabase.
+
+This implementation captures the essential pass linkage (passer to recipient) and success status.
 ```

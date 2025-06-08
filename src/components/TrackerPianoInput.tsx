@@ -11,9 +11,17 @@ import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
 import { Undo } from 'lucide-react';
-import ShotDetailModal from '@/components/modals/ShotDetailModal'; // Import the modal
+import ShotDetailModal from '@/components/modals/ShotDetailModal';
+import PassDetailModal from '@/components/modals/PassDetailModal'; // Import PassDetailModal
 
 // Define interfaces for type safety
+// Ensure PlayerForPianoInput is exported or moved to a shared types file if PassDetailModal needs it directly
+export interface PlayerForPianoInput { // Exporting for potential use in PassDetailModal props if not already shared
+  id: number;
+  name: string;
+  position?: string;
+  jersey_number?: number;
+}
 interface TrackerPianoInputProps {
   matchId: string;
 }
@@ -54,6 +62,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   // State for shot detail modal
   const [showShotDetailModal, setShowShotDetailModal] = useState(false);
   const [currentShotInitialData, setCurrentShotInitialData] = useState<Partial<ShotEventData>>({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+
+  // State for pass detail modal
+  const [showPassDetailModal, setShowPassDetailModal] = useState(false);
+  const [currentPassInitialData, setCurrentPassInitialData] = useState<Partial<PassEventData>>({ success: true, pass_type: 'short' });
+
   const [pendingEventTrigger, setPendingEventTrigger] = useState<{ eventType: EnhancedEventType, player?: PlayerForPianoInput, coordinates?: { x: number, y: number } } | null>(null);
 
   const { toast } = useToast();
@@ -302,11 +315,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           if (details?.event_data && typeof (details.event_data as ShotEventData).on_target === 'boolean') {
             specificEventData = details.event_data as ShotEventData;
           } else {
+            // Fallback or default if not coming from modal - this path should ideally not be hit for shots if modal is enforced
             specificEventData = { on_target: (details as any)?.on_target || false } as ShotEventData;
           }
           break;
         case 'pass':
-          specificEventData = { success: true } as PassEventData; // Default
+          if (details?.event_data && typeof (details.event_data as PassEventData).success === 'boolean') {
+            specificEventData = details.event_data as PassEventData;
+          } else {
+            // Fallback or default if not coming from modal - this path should ideally not be hit for passes if modal is enforced
+            specificEventData = { success: (details as any)?.success || true } as PassEventData;
+          }
           break;
         case 'tackle':
           specificEventData = { success: true } as TackleEventData; // Default
@@ -409,14 +428,43 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
     if (eventType.key === 'shot') {
       setPendingEventTrigger({ eventType, player: selectedPlayer || undefined, coordinates: undefined /* TODO: Get coordinates */ });
-      setCurrentShotInitialData({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+      setCurrentShotInitialData({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none', is_goal: false });
       setShowShotDetailModal(true);
+    } else if (eventType.key === 'pass') {
+      if (!selectedPlayer) {
+        toast({ title: "Select Passer", description: "Please select the player making the pass.", variant: "destructive" });
+        return;
+      }
+      setPendingEventTrigger({ eventType, player: selectedPlayer, coordinates: undefined /* Or actual coordinates if available */ });
+      setCurrentPassInitialData({ success: true, pass_type: 'short' }); // Reset/default details
+      setShowPassDetailModal(true);
     } else {
       try {
         await recordEvent(eventType, selectedPlayer || undefined, undefined);
       } catch (error) {
-        console.error('Error recording non-shot event:', error);
+        console.error('Error recording non-shot/non-pass event:', error);
       }
+    }
+  };
+
+  const handleRecordPassWithDetails = async (passDetails: PassEventData) => {
+    if (pendingEventTrigger && pendingEventTrigger.player) {
+      try {
+        const eventDetailsForRecordEvent = {
+          coordinates: pendingEventTrigger.coordinates,
+          event_data: passDetails
+        };
+        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, eventDetailsForRecordEvent);
+      } catch (error) {
+        console.error('Error recording pass event with details:', error);
+      } finally {
+        setShowPassDetailModal(false);
+        setPendingEventTrigger(null);
+      }
+    } else {
+      toast({ title: "Error", description: "Passer information is missing.", variant: "destructive"});
+      setShowPassDetailModal(false);
+      setPendingEventTrigger(null);
     }
   };
 
@@ -718,6 +766,24 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           }}
           onSubmit={handleRecordShotWithDetails}
           initialDetails={currentShotInitialData}
+        />
+      )}
+
+      {showPassDetailModal && pendingEventTrigger && pendingEventTrigger.player && (
+        <PassDetailModal
+          isOpen={showPassDetailModal}
+          onClose={() => {
+            setShowPassDetailModal(false);
+            setPendingEventTrigger(null);
+          }}
+          onSubmit={handleRecordPassWithDetails}
+          initialDetails={currentPassInitialData}
+          passer={pendingEventTrigger.player}
+          teamPlayers={
+            selectedTeam === 'home'
+              ? (assignedPlayers?.home || [])
+              : (assignedPlayers?.away || [])
+          }
         />
       )}
 

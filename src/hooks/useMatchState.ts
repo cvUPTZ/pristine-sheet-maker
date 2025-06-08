@@ -162,7 +162,8 @@ export const useMatchState = () => {
         event_data = { on_target: false, ...details } as ShotEventData;
         break;
       case 'pass':
-        event_data = { success: false, ...details } as PassEventData;
+        // Default success to true for passes if not specified in details
+        event_data = { success: true, ...details } as PassEventData;
         break;
       case 'tackle':
         event_data = { success: false, ...details } as TackleEventData;
