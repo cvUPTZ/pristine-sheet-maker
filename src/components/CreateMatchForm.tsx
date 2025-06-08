@@ -411,6 +411,21 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
             .insert(assignments);
           if (assignmentError) throw assignmentError;
         }
+         // Send notifications (consider if this should only be for new assignments or changes)
+        const { error: notificationError } = await supabase
+          .rpc('notify_assigned_trackers', {
+            p_match_id: match.id,
+            p_tracker_assignments: trackerAssignments.map(assignment => ({
+              tracker_user_id: assignment.tracker_user_id,
+              assigned_event_types: assignment.assigned_event_types,
+              player_ids: assignment.player_ids
+            }))
+          });
+
+        if (notificationError) {
+          console.error('Error sending notifications:', notificationError);
+        }
+      
       }
 
       toast({
