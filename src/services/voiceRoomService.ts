@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VoiceRoom {
@@ -11,7 +12,7 @@ export interface VoiceRoom {
   is_active: boolean;
   match_id: string;
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
   participant_count?: number;
 }
 
@@ -66,7 +67,8 @@ export class VoiceRoomService {
 
     return data?.map(room => ({
       ...room,
-      description: room.description || undefined
+      description: room.description || null,
+      updated_at: room.updated_at || new Date().toISOString()
     })) || [];
   }
 
@@ -92,7 +94,8 @@ export class VoiceRoomService {
 
     return {
       ...data,
-      description: data.description || undefined
+      description: data.description || null,
+      updated_at: data.updated_at || new Date().toISOString()
     };
   }
 
@@ -166,7 +169,8 @@ export class VoiceRoomService {
 
     return {
       ...data,
-      description: data.description || undefined
+      description: data.description || null,
+      updated_at: data.updated_at || new Date().toISOString()
     };
   }
 

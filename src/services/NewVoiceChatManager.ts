@@ -1,6 +1,7 @@
-import { Room, RoomEvent, RemoteParticipant, Participant, ConnectionState } from 'livekit-client';
+
+import { Room, RoomEvent, RemoteParticipant, Participant, ConnectionState, LocalParticipant } from 'livekit-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/database.types'; // Assuming this path is correct
+import { Database } from '@/lib/database.types';
 
 // Environment variables (ensure these are set in your .env file)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -12,15 +13,6 @@ interface VoiceRoomDetails {
   max_participants?: number;
   // Add other relevant fields from your voice_rooms table
 }
-
-// interface ParticipantDetails { // This interface is not actively used in the current service implementation
-//   id: string;
-//   user_id: string;
-//   user_role: string;
-//   is_muted?: boolean;
-//   is_speaking?: boolean;
-//   // Add other relevant fields from your voice_room_participants table
-// }
 
 export class NewVoiceChatManager {
   private supabase: SupabaseClient<Database>;
@@ -50,41 +42,30 @@ export class NewVoiceChatManager {
     return session.access_token;
   }
 
-  // Modify handleError to be slightly more intelligent or pass codes/types later
-  private handleError(error: any, defaultMessage: string): void { // error can be Error or SupabaseError or LivekitError
+  private handleError(error: any, defaultMessage: string): void {
     let specificMessage = defaultMessage;
 
-    // Attempt to get a more specific message from Supabase function error structure
     if (error && error.details && typeof error.details === 'string') {
       specificMessage = error.details;
     } else if (error && error.message && typeof error.message === 'string') {
-      // Standard error message or Supabase client error
       specificMessage = error.message;
     } else if (typeof error === 'string') {
-      specificMessage = error; // Sometimes errors are just strings
+      specificMessage = error;
     }
 
-    // You could add more checks here for specific error codes from LiveKit or Supabase
-    // For example, if LiveKit disconnects with a specific code for "room not found" or "permission denied"
-    // For now, we mostly rely on messages from Supabase functions.
-
-    console.error(`NewVoiceChatManager Error: ${specificMessage}`, error); // Log the original error too
+    console.error(`NewVoiceChatManager Error: ${specificMessage}`, error);
     if (this.onError) {
-      this.onError(new Error(specificMessage)); // Always pass an Error object
+      this.onError(new Error(specificMessage));
     }
   }
 
   public async listAvailableRooms(matchId: string): Promise<VoiceRoomDetails[]> {
     const authToken = await this.getAuthToken();
     if (!authToken) {
-        // Error already handled by getAuthToken if it returns null
         return [];
     }
 
     try {
-      // Note: RLS policies on 'voice_rooms' should handle whether the user can see these rooms.
-      // The authToken is implicitly used by the Supabase client instance if configured globally,
-      // but for functions, explicit header passing is safer. For table access, RLS is key.
       const { data, error } = await this.supabase
         .from('voice_rooms')
         .select('*')
@@ -128,10 +109,9 @@ export class NewVoiceChatManager {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
-      // More detailed error checking for Supabase function response
       if (joinFuncError || (joinData && (joinData as any).error) || !(joinData as any)?.authorized) {
         const message = (joinData as any)?.error || joinFuncError?.message || 'Failed to authorize room entry. You may not have permission or the room is inactive.';
-        this.handleError(joinFuncError || new Error(message), message); // Pass original error if exists
+        this.handleError(joinFuncError || new Error(message), message);
         this.currentRoomId = null;
         return false;
       }
@@ -140,8 +120,8 @@ export class NewVoiceChatManager {
       const { data: tokenData, error: tokenFuncError } = await this.supabase.functions.invoke('generate-livekit-token', {
         body: {
           roomId,
-          participantIdentity: this.localParticipantIdentity!, // Added ! as it's set above
-          participantName: this.localParticipantName!, // Added ! as it's set above
+          participantIdentity: this.localParticipantIdentity!,
+          participantName: this.localParticipantName!,
         },
         headers: { Authorization: `Bearer ${authToken}` }
       });
@@ -160,12 +140,11 @@ export class NewVoiceChatManager {
       this.liveKitRoom.on(RoomEvent.ParticipantDisconnected, this.handleParticipantChange);
       this.liveKitRoom.on(RoomEvent.LocalTrackPublished, this.handleParticipantChange);
       this.liveKitRoom.on(RoomEvent.LocalTrackUnpublished, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.TrackSubscribed, this.handleParticipantChange); // For remote tracks
-      this.liveKitRoom.on(RoomEvent.TrackUnsubscribed, this.handleParticipantChange); // For remote tracks
+      this.liveKitRoom.on(RoomEvent.TrackSubscribed, this.handleParticipantChange);
+      this.liveKitRoom.on(RoomEvent.TrackUnsubscribed, this.handleParticipantChange);
       this.liveKitRoom.on(RoomEvent.TrackMuted, this.handleParticipantChange);
       this.liveKitRoom.on(RoomEvent.TrackUnmuted, this.handleParticipantChange);
       this.liveKitRoom.on(RoomEvent.ActiveSpeakersChanged, this.handleParticipantChange);
-
 
       const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL;
       if (!LIVEKIT_URL) {
@@ -174,26 +153,22 @@ export class NewVoiceChatManager {
         return false;
       }
 
-      // Connect to LiveKit room
       try {
         await this.liveKitRoom.connect(LIVEKIT_URL, liveKitToken, { autoSubscribe: true });
       } catch (lkError: any) {
-        // Catch LiveKit specific connection errors
         console.error('LiveKit Connection Error:', lkError);
         let detailedMessage = 'Failed to connect to the voice server.';
         if (lkError && lkError.message) {
-          // Example: LiveKit might throw errors with codes or specific messages for full rooms, etc.
-          // This would require parsing lkError.message or checking lkError.code if available
-          if (lkError.message.includes('full')) { // Very basic check
+          if (lkError.message.includes('full')) {
             detailedMessage = 'The voice room is currently full. Please try again later.';
-          } else if (lkError.message.includes('permission')) { // Basic check
+          } else if (lkError.message.includes('permission')) {
               detailedMessage = 'Permission denied to connect to the voice server.';
           } else {
               detailedMessage = `Voice server connection failed: ${lkError.message}`;
           }
         }
         this.handleError(lkError, detailedMessage);
-        this.currentRoomId = null; // Ensure state is reset
+        this.currentRoomId = null;
         return false;
       }
 
@@ -206,7 +181,7 @@ export class NewVoiceChatManager {
       this.updateParticipants();
       return true;
 
-    } catch (err: any) { // Catch any other unexpected errors
+    } catch (err: any) {
       this.handleError(err, 'An unexpected error occurred while joining the room.');
       await this.leaveRoom();
       return false;
@@ -219,16 +194,15 @@ export class NewVoiceChatManager {
       this.onConnectionStateChanged(state);
     }
     if (state === ConnectionState.Disconnected) {
-      // Consider whether to attempt reconnection or just clean up
       console.log('Disconnected from LiveKit. Cleaning up.');
-      this.liveKitRoom?.removeAllListeners(); // Clean up listeners on the old room object
+      this.liveKitRoom?.removeAllListeners();
       this.liveKitRoom = null;
-      this.currentRoomId = null; // Potentially reset currentRoomId if disconnect means "left the room"
+      this.currentRoomId = null;
       this.updateParticipants();
     }
   }
 
-  private handleParticipantChange = () => { // Removed unused parameters
+  private handleParticipantChange = () => {
     this.updateParticipants();
   }
 
@@ -241,7 +215,7 @@ export class NewVoiceChatManager {
         ];
         this.onParticipantsChanged(participants);
       } else {
-        this.onParticipantsChanged([]); // Send empty array if room is null
+        this.onParticipantsChanged([]);
       }
     }
   }
@@ -252,24 +226,20 @@ export class NewVoiceChatManager {
       await this.liveKitRoom.disconnect();
       this.liveKitRoom.removeAllListeners();
       this.liveKitRoom = null;
-      // currentRoomId is reset in handleConnectionStateChange or here if preferred
-      // this.currentRoomId = null;
-      console.log('Disconnected from LiveKit room.');
-      // Manually trigger state update if not handled by ConnectionState.Disconnected
-      if (this.onConnectionStateChanged && this.currentRoomId !== null) { // Avoid double-trigger if already disconnected
+      if (this.onConnectionStateChanged && this.currentRoomId !== null) {
          this.onConnectionStateChanged(ConnectionState.Disconnected);
       }
-      this.currentRoomId = null; // Ensure it's nulled after potential callback
-      this.updateParticipants(); // Ensure UI clears participants
+      this.currentRoomId = null;
+      this.updateParticipants();
     }
   }
 
   public async toggleMuteSelf(): Promise<boolean | undefined> {
-    if (this.liveKitRoom && this.liveKitRoom.localParticipant && this.liveKitRoom.localParticipant.microphoneTrack) {
-      const isMuted = this.liveKitRoom.localParticipant.isMicrophoneMuted;
-      await this.liveKitRoom.localParticipant.setMicrophoneEnabled(!isMuted);
-      // No need to call updateParticipants() here if TrackMuted/Unmuted events are handled
-      return !isMuted;
+    if (this.liveKitRoom && this.liveKitRoom.localParticipant) {
+      const localParticipant = this.liveKitRoom.localParticipant as LocalParticipant;
+      const isMuted = localParticipant.isMicrophoneEnabled === false;
+      await localParticipant.setMicrophoneEnabled(isMuted);
+      return isMuted;
     }
     console.warn('Cannot toggle mute: No local participant or microphone track.');
     return undefined;
@@ -279,7 +249,7 @@ export class NewVoiceChatManager {
     return this.liveKitRoom?.localParticipant || null;
   }
 
-  public getRemoteParticipants(): RemoteParticipant[] { // Return array for easier use
+  public getRemoteParticipants(): RemoteParticipant[] {
     return this.liveKitRoom ? Array.from(this.liveKitRoom.remoteParticipants.values()) : [];
   }
 
@@ -294,7 +264,6 @@ export class NewVoiceChatManager {
     }
     const authToken = await this.getAuthToken();
     if (!authToken) {
-        // Error handled by getAuthToken
         return false;
     }
 
@@ -323,7 +292,7 @@ export class NewVoiceChatManager {
 
   public dispose(): void {
     console.log('Disposing NewVoiceChatManager.');
-    this.leaveRoom(); // Ensure room is left and listeners cleaned up
+    this.leaveRoom();
     this.onParticipantsChanged = null;
     this.onConnectionStateChanged = null;
     this.onError = null;

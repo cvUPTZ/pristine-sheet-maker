@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
-import { Participant, ConnectionState } from 'livekit-client';
+import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
 import { toast } from '@/components/ui/sonner';
 
 // Enhanced styling
@@ -197,6 +197,15 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
 
   const canModerate = userRole === 'admin' || userRole === 'coordinator';
 
+  const isParticipantMuted = (participant: Participant): boolean => {
+    if (participant.isLocal && localParticipant) {
+      const localP = localParticipant as LocalParticipant;
+      return !localP.isMicrophoneEnabled;
+    }
+    return participant.audioTrackPublications.size === 0 || 
+           Array.from(participant.audioTrackPublications.values()).some(pub => pub.isMuted);
+  };
+
   return (
     <>
       <style>{keyframesStyle}</style>
@@ -246,16 +255,13 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
               style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
               disabled={!localParticipant}
             >
-              {localParticipant?.audioTrackPublications.size === 0 || 
-               Array.from(localParticipant?.audioTrackPublications.values() || []).some(pub => pub.isMuted) ? 
-               'Unmute Self' : 'Mute Self'}
+              {isParticipantMuted(localParticipant!) ? 'Unmute Self' : 'Mute Self'}
             </button>
 
             <h3 style={{...styles.sectionTitle, marginTop: '20px'}}>Participants ({participants.length})</h3>
             <ul style={styles.participantList}>
               {participants.map(p => {
-                const isMuted = p.audioTrackPublications.size === 0 || 
-                               Array.from(p.audioTrackPublications.values()).some(pub => pub.isMuted);
+                const isMuted = isParticipantMuted(p);
                 
                 return (
                   <li key={p.identity} style={styles.participantItem}>

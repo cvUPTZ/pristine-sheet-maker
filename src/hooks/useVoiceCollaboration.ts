@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +14,7 @@ interface VoiceParticipant {
 
 interface AudioManager {
   getAudioOutputDevices: () => Promise<MediaDeviceInfo[]>;
-  // Other methods that might exist
+  setAudioOutputDevice: (deviceId: string) => Promise<boolean>;
 }
 
 interface VoiceCollaborationOptions {
@@ -39,7 +40,7 @@ export function useVoiceCollaboration({
   const [remoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [peerStatuses] = useState<Map<string, RTCPeerConnectionState>>(new Map());
   const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'failed' | 'authorizing' | 'disconnecting'>('disconnected');
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
   
@@ -54,11 +55,8 @@ export function useVoiceCollaboration({
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
-    // Check connection quality periodically
     const intervalId = setInterval(() => {
       if (navigator.onLine) {
-        // This is a simple check - in a real app, you might want to do
-        // more sophisticated network quality testing
         const connectionQuality = Math.random() > 0.9 ? 'unstable' : 'online';
         setNetworkStatus(connectionQuality);
       } else {
@@ -81,7 +79,7 @@ export function useVoiceCollaboration({
       return rooms;
     } catch (err: any) {
       console.error('Error fetching voice rooms:', err);
-      setError(new Error(`Failed to fetch voice rooms: ${err.message}`));
+      setError(`Failed to fetch voice rooms: ${err.message}`);
       return [];
     }
   }, []);
@@ -92,7 +90,6 @@ export function useVoiceCollaboration({
       fetchAvailableRooms(matchId);
     }
     
-    // Initialize audio devices
     const initAudioDevices = async () => {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -100,7 +97,6 @@ export function useVoiceCollaboration({
           const outputDevices = devices.filter(device => device.kind === 'audiooutput');
           setAudioOutputDevices(outputDevices);
           
-          // Set default device
           if (outputDevices.length > 0 && !selectedAudioOutputDeviceId) {
             setSelectedAudioOutputDeviceId(outputDevices[0].deviceId);
           }
@@ -112,22 +108,18 @@ export function useVoiceCollaboration({
     
     initAudioDevices();
     
-    // Simulate audio level changes for demo purposes
     const audioLevelInterval = setInterval(() => {
       if (isVoiceEnabled && !isMuted) {
-        // Generate random audio level with some "natural" variation
-        const baseLevel = Math.random() * 0.3; // Base level between 0-0.3
-        const speaking = Math.random() > 0.7; // 30% chance of "speaking"
+        const baseLevel = Math.random() * 0.3;
+        const speaking = Math.random() > 0.7;
         const level = speaking ? baseLevel + Math.random() * 0.7 : baseLevel;
         setAudioLevel(level);
         
-        // Update local participant speaking state
         setParticipants(prev => 
           prev.map(p => p.isLocal ? { ...p, isSpeaking: speaking && !isMuted } : p)
         );
       } else {
         setAudioLevel(0);
-        // Ensure local participant is not speaking when muted
         setParticipants(prev => 
           prev.map(p => p.isLocal ? { ...p, isSpeaking: false } : p)
         );
@@ -148,10 +140,8 @@ export function useVoiceCollaboration({
       setConnectionState('connecting');
       setError(null);
       
-      // Simulate connection process
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Check if user has permission to join this room
       const hasPermission = room.permissions.includes('all') || 
                            room.permissions.includes(userRole);
       
@@ -159,21 +149,17 @@ export function useVoiceCollaboration({
         throw new Error(`You don't have permission to join ${room.name}`);
       }
       
-      // Check if room is at capacity
       if (room.participant_count && room.participant_count >= room.max_participants) {
         throw new Error(`Room ${room.name} is at maximum capacity`);
       }
       
-      // Simulate successful connection
       setConnectionState('connected');
       setCurrentRoom(room);
       setIsVoiceEnabled(true);
       setIsMuted(false);
       
-      // Set room admin status
       setIsRoomAdmin(userRole === 'admin' || userRole === 'coordinator');
       
-      // Create local participant
       const localParticipant: VoiceParticipant = {
         id: userId,
         name: `User ${userId.substring(0, 4)}`,
@@ -183,7 +169,6 @@ export function useVoiceCollaboration({
         isLocal: true
       };
       
-      // Simulate other participants
       const simulatedParticipants: VoiceParticipant[] = [
         localParticipant,
         {
@@ -206,13 +191,13 @@ export function useVoiceCollaboration({
       
       setParticipants(simulatedParticipants);
       
-      // Update room participant count in database
       try {
+        const updateData: Partial<VoiceRoom> = { 
+          participant_count: (room.participant_count || 0) + 1 
+        };
         await supabase
           .from('voice_rooms')
-          .update({ 
-            participant_count: (room.participant_count || 0) + 1 
-          })
+          .update(updateData)
           .eq('id', room.id);
       } catch (err) {
         console.error('Failed to update participant count:', err);
@@ -222,7 +207,7 @@ export function useVoiceCollaboration({
     } catch (err: any) {
       console.error('Error joining voice room:', err);
       setConnectionState('failed');
-      setError(err instanceof Error ? err : new Error(err.message || 'Failed to join voice room'));
+      setError(err instanceof Error ? err.message : 'Failed to join voice room');
       return false;
     } finally {
       setIsConnecting(false);
@@ -236,16 +221,15 @@ export function useVoiceCollaboration({
     try {
       setConnectionState('disconnecting');
       
-      // Simulate disconnection process
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      // Update room participant count in database
       try {
+        const updateData: Partial<VoiceRoom> = { 
+          participant_count: Math.max(0, (currentRoom.participant_count || 1) - 1)
+        };
         await supabase
           .from('voice_rooms')
-          .update({ 
-            participant_count: Math.max(0, (currentRoom.participant_count || 1) - 1)
-          })
+          .update(updateData)
           .eq('id', currentRoom.id);
       } catch (err) {
         console.error('Failed to update participant count:', err);
@@ -257,10 +241,9 @@ export function useVoiceCollaboration({
       setParticipants([]);
       setConnectionState('disconnected');
       
-      // Don't clear currentRoom to allow for reconnection
     } catch (err: any) {
       console.error('Error leaving voice room:', err);
-      setError(new Error(`Failed to leave voice room: ${err.message}`));
+      setError(`Failed to leave voice room: ${err.message}`);
     }
   }, [currentRoom]);
 
@@ -270,7 +253,6 @@ export function useVoiceCollaboration({
     
     setIsMuted(prev => !prev);
     
-    // Update local participant
     setParticipants(prev => 
       prev.map(p => p.isLocal ? { ...p, isMuted: !isMuted } : p)
     );
@@ -288,23 +270,23 @@ export function useVoiceCollaboration({
   }, [isRoomAdmin, isVoiceEnabled]);
 
   const selectAudioOutputDevice = useCallback(async (deviceId: string) => {
-    if (!audioManager) return;
+    if (!audioManager.current) return;
     
     try {
-      // AudioManager doesn't have setAudioOutputDevice, so we'll handle this differently
-      // For now, just store the selected device ID
-      setSelectedAudioOutputDeviceId(deviceId);
-      console.log('Selected audio output device:', deviceId);
+      const success = await audioManager.current.setAudioOutputDevice(deviceId);
+      if (success) {
+        setSelectedAudioOutputDeviceId(deviceId);
+        console.log('Selected audio output device:', deviceId);
+      }
     } catch (error) {
       console.error('Failed to select audio output device:', error);
     }
-  }, [audioManager]);
+  }, []);
 
   // Handle errors
   useEffect(() => {
     if (error) {
       console.error('Voice collaboration error:', error);
-      setError(error.message || 'An unknown error occurred');
     }
   }, [error]);
 
@@ -328,7 +310,7 @@ export function useVoiceCollaboration({
     audioOutputDevices,
     selectedAudioOutputDeviceId,
     selectAudioOutputDevice,
-    error: error?.message || null,
+    error,
     fetchAvailableRooms,
   };
 }
