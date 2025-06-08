@@ -1,7 +1,10 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
+import { LiveKitService } from '@/services/LiveKitService';
+import { AudioLevelMonitor } from '@/services/AudioLevelMonitor';
 import { supabase } from '@/integrations/supabase/client';
+import { Participant, ConnectionState, LocalParticipant, RemoteParticipant, RemoteTrack, RemoteTrackPublication } from 'livekit-client';
 
 interface VoiceParticipant {
   id: string;
@@ -43,9 +46,39 @@ export function useVoiceCollaboration({
   const [error, setError] = useState<string | null>(null);
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
+  const [audioLevels, setAudioLevels] = useState<Map<string, number>>(new Map());
   
-  const audioManager = useRef<AudioManager | null>(null);
+  const liveKitService = useRef<LiveKitService>(new LiveKitService());
+  const audioMonitor = useRef<AudioLevelMonitor | null>(null);
   const voiceService = useRef<VoiceRoomService>(VoiceRoomService.getInstance());
+  const participantAudioMonitors = useRef<Map<string, AudioLevelMonitor>>(new Map());
+
+  // If matchId is not provided, return a disabled state immediately.
+  if (!matchId) {
+    return {
+      isVoiceEnabled: false,
+      isMuted: false,
+      isConnecting: false,
+      participants: [],
+      audioLevel: 0,
+      toggleMute: () => console.warn('Collaboration disabled: No matchId provided.'),
+      availableRooms: [],
+      currentRoom: null,
+      isRoomAdmin: false,
+      joinVoiceRoom: () => Promise.resolve(false),
+      leaveVoiceRoom: () => Promise.resolve(),
+      networkStatus: 'offline' as const,
+      remoteStreams,
+      peerStatuses,
+      connectionState: 'disconnected' as const,
+      adminSetParticipantMute: () => false,
+      audioOutputDevices: [],
+      selectedAudioOutputDeviceId: null,
+      selectAudioOutputDevice: () => Promise.resolve(),
+      error: null,
+      fetchAvailableRooms: () => Promise.resolve([]),
+    };
+  }
 
   // Network status monitoring
   useEffect(() => {
@@ -70,6 +103,164 @@ export function useVoiceCollaboration({
       clearInterval(intervalId);
     };
   }, []);
+
+  // Setup LiveKit event handlers
+  useEffect(() => {
+    const service = liveKitService.current;
+
+    service.onParticipantConnected = (participant: RemoteParticipant) => {
+      console.log('[useVoiceCollaboration] Participant connected:', participant.identity);
+      updateParticipantsList();
+      setupParticipantAudioMonitoring(participant);
+    };
+
+    service.onParticipantDisconnected = (participant: RemoteParticipant) => {
+      console.log('[useVoiceCollaboration] Participant disconnected:', participant.identity);
+      cleanupParticipantAudioMonitoring(participant.identity);
+      updateParticipantsList();
+    };
+
+    service.onConnectionStateChanged = (state: ConnectionState) => {
+      console.log('[useVoiceCollaboration] Connection state changed:', state);
+      
+      switch (state) {
+        case ConnectionState.Connecting:
+          setConnectionState('connecting');
+          break;
+        case ConnectionState.Connected:
+          setConnectionState('connected');
+          setIsVoiceEnabled(true);
+          break;
+        case ConnectionState.Disconnected:
+          setConnectionState('disconnected');
+          setIsVoiceEnabled(false);
+          setCurrentRoom(null);
+          break;
+        case ConnectionState.Reconnecting:
+          setConnectionState('connecting');
+          break;
+        default:
+          setConnectionState('failed');
+      }
+    };
+
+    service.onTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+      if (track.kind === 'audio') {
+        setupParticipantAudioMonitoring(participant);
+      }
+    };
+
+    service.onError = (err: Error) => {
+      console.error('[useVoiceCollaboration] Error:', err);
+      setError(err.message);
+      setConnectionState('failed');
+    };
+
+    return () => {
+      service.disconnect();
+      cleanupAllAudioMonitoring();
+    };
+  }, []);
+
+  const setupParticipantAudioMonitoring = (participant: RemoteParticipant) => {
+    const audioTracks = Array.from(participant.audioTrackPublications.values());
+    
+    audioTracks.forEach(publication => {
+      if (publication.track && publication.track instanceof MediaStreamTrack) {
+        const stream = new MediaStream([publication.track]);
+        const monitor = new AudioLevelMonitor((level) => {
+          setAudioLevels(prev => {
+            const newMap = new Map(prev);
+            newMap.set(participant.identity, level);
+            return newMap;
+          });
+        });
+
+        monitor.startMonitoring(stream).catch(console.error);
+        participantAudioMonitors.current.set(participant.identity, monitor);
+      }
+    });
+  };
+
+  const cleanupParticipantAudioMonitoring = (participantId: string) => {
+    const monitor = participantAudioMonitors.current.get(participantId);
+    if (monitor) {
+      monitor.stopMonitoring();
+      participantAudioMonitors.current.delete(participantId);
+    }
+    
+    setAudioLevels(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(participantId);
+      return newMap;
+    });
+  };
+
+  const cleanupAllAudioMonitoring = () => {
+    participantAudioMonitors.current.forEach(monitor => monitor.stopMonitoring());
+    participantAudioMonitors.current.clear();
+    
+    if (audioMonitor.current) {
+      audioMonitor.current.stopMonitoring();
+      audioMonitor.current = null;
+    }
+    
+    setAudioLevels(new Map());
+  };
+
+  const updateParticipantsList = () => {
+    const allParticipants = liveKitService.current.getParticipants();
+    const localParticipant = liveKitService.current.getLocalParticipant();
+    
+    const voiceParticipants: VoiceParticipant[] = allParticipants.map(p => {
+      const isLocal = p === localParticipant;
+      const audioLevel = audioLevels.get(p.identity) || 0;
+      
+      let isMuted = false;
+      if (isLocal && localParticipant) {
+        isMuted = !(localParticipant as LocalParticipant).isMicrophoneEnabled;
+      } else {
+        // Check remote participant's audio tracks
+        const audioTracks = Array.from(p.audioTrackPublications.values());
+        isMuted = audioTracks.length === 0 || audioTracks.some(pub => pub.isMuted);
+      }
+
+      return {
+        id: p.identity,
+        name: p.name || p.identity,
+        role: userRole, // In a real implementation, this would come from participant metadata
+        isMuted,
+        isSpeaking: audioLevel > 0.1 && !isMuted,
+        isLocal,
+      };
+    });
+
+    setParticipants(voiceParticipants);
+  };
+
+  // Update participants list when audio levels change
+  useEffect(() => {
+    updateParticipantsList();
+  }, [audioLevels, userRole]);
+
+  // Setup local audio monitoring
+  const setupLocalAudioMonitoring = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioMonitor.current = new AudioLevelMonitor((level) => {
+        setAudioLevel(level);
+        setAudioLevels(prev => {
+          const newMap = new Map(prev);
+          newMap.set(userId, level);
+          return newMap;
+        });
+      });
+      
+      await audioMonitor.current.startMonitoring(stream);
+    } catch (err) {
+      console.error('Failed to setup local audio monitoring:', err);
+    }
+  };
 
   // Fetch available rooms
   const fetchAvailableRooms = useCallback(async (matchId: string) => {
@@ -107,89 +298,47 @@ export function useVoiceCollaboration({
     };
     
     initAudioDevices();
-    
-    const audioLevelInterval = setInterval(() => {
-      if (isVoiceEnabled && !isMuted) {
-        const baseLevel = Math.random() * 0.3;
-        const speaking = Math.random() > 0.7;
-        const level = speaking ? baseLevel + Math.random() * 0.7 : baseLevel;
-        setAudioLevel(level);
-        
-        setParticipants(prev => 
-          prev.map(p => p.isLocal ? { ...p, isSpeaking: speaking && !isMuted } : p)
-        );
-      } else {
-        setAudioLevel(0);
-        setParticipants(prev => 
-          prev.map(p => p.isLocal ? { ...p, isSpeaking: false } : p)
-        );
-      }
-    }, 500);
-    
-    return () => {
-      clearInterval(audioLevelInterval);
-    };
-  }, [fetchAvailableRooms, isVoiceEnabled, isMuted, matchId, selectedAudioOutputDeviceId]);
+  }, [fetchAvailableRooms, matchId, selectedAudioOutputDeviceId]);
 
   // Join a voice room
   const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
-    if (isConnecting) return;
+    if (isConnecting) return false;
     
     try {
       setIsConnecting(true);
       setConnectionState('connecting');
       setError(null);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const hasPermission = room.permissions.includes('all') || 
-                           room.permissions.includes(userRole);
-      
-      if (!hasPermission) {
-        throw new Error(`You don't have permission to join ${room.name}`);
+      // Get LiveKit token from Supabase function
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('get-livekit-token', {
+        body: {
+          roomId: room.id,
+          userId: userId,
+          userName: `User ${userId.substring(0, 4)}`,
+          userRole: userRole,
+        },
+      });
+
+      if (tokenError || !tokenData?.token) {
+        throw new Error('Failed to get LiveKit token');
       }
-      
-      if (room.participant_count && room.participant_count >= room.max_participants) {
-        throw new Error(`Room ${room.name} is at maximum capacity`);
-      }
-      
-      setConnectionState('connected');
+
+      // Connect to LiveKit room
+      await liveKitService.current.connect(
+        tokenData.token,
+        tokenData.serverUrl,
+        room.id
+      );
+
       setCurrentRoom(room);
-      setIsVoiceEnabled(true);
-      setIsMuted(false);
-      
       setIsRoomAdmin(userRole === 'admin' || userRole === 'coordinator');
       
-      const localParticipant: VoiceParticipant = {
-        id: userId,
-        name: `User ${userId.substring(0, 4)}`,
-        role: userRole,
-        isMuted: false,
-        isSpeaking: false,
-        isLocal: true
-      };
+      // Setup local audio monitoring
+      await setupLocalAudioMonitoring();
       
-      const simulatedParticipants: VoiceParticipant[] = [
-        localParticipant,
-        {
-          id: 'sim-1',
-          name: 'John Doe',
-          role: 'tracker',
-          isMuted: Math.random() > 0.5,
-          isSpeaking: Math.random() > 0.7,
-          isLocal: false
-        },
-        {
-          id: 'sim-2',
-          name: 'Jane Smith',
-          role: 'coordinator',
-          isMuted: Math.random() > 0.5,
-          isSpeaking: Math.random() > 0.7,
-          isLocal: false
-        }
-      ];
-      
-      setParticipants(simulatedParticipants);
+      // Enable microphone
+      await liveKitService.current.enableMicrophone();
+      setIsMuted(false);
       
       try {
         const updateData: Partial<VoiceRoom> = { 
@@ -221,7 +370,8 @@ export function useVoiceCollaboration({
     try {
       setConnectionState('disconnecting');
       
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await liveKitService.current.disconnect();
+      cleanupAllAudioMonitoring();
       
       try {
         const updateData: Partial<VoiceRoom> = { 
@@ -239,6 +389,7 @@ export function useVoiceCollaboration({
       setIsMuted(false);
       setAudioLevel(0);
       setParticipants([]);
+      setCurrentRoom(null);
       setConnectionState('disconnected');
       
     } catch (err: any) {
@@ -248,36 +399,40 @@ export function useVoiceCollaboration({
   }, [currentRoom]);
 
   // Toggle mute status
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     if (!isVoiceEnabled) return;
     
-    setIsMuted(prev => !prev);
-    
-    setParticipants(prev => 
-      prev.map(p => p.isLocal ? { ...p, isMuted: !isMuted } : p)
-    );
-  }, [isVoiceEnabled, isMuted]);
+    try {
+      const newMutedState = await liveKitService.current.toggleMicrophone();
+      setIsMuted(!newMutedState);
+      updateParticipantsList();
+    } catch (err) {
+      console.error('Failed to toggle mute:', err);
+    }
+  }, [isVoiceEnabled]);
 
   // Admin function to mute/unmute participants
-  const adminSetParticipantMute = useCallback((participantId: string, shouldMute: boolean) => {
+  const adminSetParticipantMute = useCallback(async (participantId: string, shouldMute: boolean) => {
     if (!isRoomAdmin || !isVoiceEnabled) return false;
     
-    setParticipants(prev => 
-      prev.map(p => p.id === participantId ? { ...p, isMuted: shouldMute } : p)
-    );
-    
-    return true;
+    try {
+      const success = await liveKitService.current.moderateMuteParticipant(participantId, shouldMute);
+      if (success) {
+        updateParticipantsList();
+      }
+      return success;
+    } catch (err) {
+      console.error('Failed to moderate participant:', err);
+      return false;
+    }
   }, [isRoomAdmin, isVoiceEnabled]);
 
   const selectAudioOutputDevice = useCallback(async (deviceId: string) => {
-    if (!audioManager.current) return;
-    
     try {
-      const success = await audioManager.current.setAudioOutputDevice(deviceId);
-      if (success) {
-        setSelectedAudioOutputDeviceId(deviceId);
-        console.log('Selected audio output device:', deviceId);
-      }
+      // In a real implementation, you would set the audio output device
+      // This is limited by browser APIs
+      setSelectedAudioOutputDeviceId(deviceId);
+      console.log('Selected audio output device:', deviceId);
     } catch (error) {
       console.error('Failed to select audio output device:', error);
     }
