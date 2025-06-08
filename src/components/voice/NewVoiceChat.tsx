@@ -1,25 +1,26 @@
-import React, { useEffect, useRef } from 'react'; // Added useRef
+
+import React, { useEffect, useRef } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState } from 'livekit-client';
-import { toast } from '@/components/ui/sonner'; // Assuming this path is correct from project root
+import { toast } from '@/components/ui/sonner';
 
-// Enhanced styling - consider moving to CSS Modules or a styled-components approach for a larger app
+// Enhanced styling
 const styles = {
   container: {
     fontFamily: 'Arial, sans-serif',
     padding: '20px',
-    maxWidth: '700px', // Slightly wider for better layout
-    margin: '20px auto', // Add some top/bottom margin
-    boxShadow: '0 0 10px rgba(0,0,0,0.1)', // Add subtle shadow for better separation
+    maxWidth: '700px',
+    margin: '20px auto',
+    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
     borderRadius: '8px',
-    background: '#fff', // Add a background color
+    background: '#fff',
   },
   section: {
     marginBottom: '25px',
     padding: '15px',
     border: '1px solid #e0e0e0',
     borderRadius: '6px',
-    background: '#f9f9f9', // Light background for sections
+    background: '#f9f9f9',
   },
   sectionTitle: {
     fontSize: '1.2em',
@@ -37,11 +38,11 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '10px', // Increased padding
+    padding: '10px',
     borderBottom: '1px solid #e8e8e8',
-    transition: 'background-color 0.2s ease', // Hover effect
+    transition: 'background-color 0.2s ease',
   },
-  roomItemHover: { // Example: style for hover (would need JS or CSS :hover)
+  roomItemHover: {
     backgroundColor: '#f0f0f0',
   },
   participantList: {
@@ -51,7 +52,7 @@ const styles = {
   participantItem: {
     padding: '8px 5px',
     color: '#444',
-    borderBottom: '1px dashed #eee', // Lighter separator for participants
+    borderBottom: '1px dashed #eee',
     display: 'flex',
     alignItems: 'center',
   },
@@ -65,7 +66,7 @@ const styles = {
     backgroundColor: 'green',
     marginLeft: '10px',
     display: 'inline-block',
-    animation: 'pulse 1s infinite', // Simple pulse, better with CSS keyframes
+    animation: 'pulse 1s infinite',
   },
   mutedIndicator: {
     marginLeft: '10px',
@@ -78,7 +79,7 @@ const styles = {
     marginLeft: '5px',
   },
   button: {
-    padding: '10px 15px', // Slightly larger buttons
+    padding: '10px 15px',
     marginRight: '10px',
     cursor: 'pointer',
     border: 'none',
@@ -92,34 +93,41 @@ const styles = {
     backgroundColor: '#cccccc',
     cursor: 'not-allowed',
   },
-  leaveButton: { // Specific style for leave button if needed
-    backgroundColor: '#dc3545', // Red for leave/destructive actions
+  leaveButton: {
+    backgroundColor: '#dc3545',
   },
-  statusMessage: { // Base for info, error, loading
+  statusMessage: {
     padding: '10px',
     margin: '10px 0',
     borderRadius: '4px',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   error: {
     color: '#721c24',
     backgroundColor: '#f8d7da',
     borderColor: '#f5c6cb',
+    padding: '10px',
+    margin: '10px 0',
+    borderRadius: '4px',
+    textAlign: 'center' as const,
   },
   info: {
     color: '#004085',
     backgroundColor: '#cce5ff',
     borderColor: '#b8daff',
+    padding: '10px',
+    margin: '10px 0',
+    borderRadius: '4px',
+    textAlign: 'center' as const,
   },
   loadingText: {
-    textAlign: 'center',
+    textAlign: 'center' as const,
     padding: '20px',
     fontSize: '1em',
     color: '#555',
   }
 };
 
-// CSS Keyframes for speaking animation (would typically be in a CSS file)
 const keyframesStyle = `
   @keyframes pulse {
     0% { transform: scale(0.9); opacity: 0.7; }
@@ -127,7 +135,6 @@ const keyframesStyle = `
     100% { transform: scale(0.9); opacity: 0.7; }
   }
 `;
-
 
 interface NewVoiceChatProps {
   matchId: string;
@@ -151,20 +158,18 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
     leaveRoom,
     toggleMuteSelf,
     fetchAvailableRooms,
-    moderateMuteParticipant, // Ensure this is destructured from the hook
+    moderateMuteParticipant,
   } = useNewVoiceCollaboration();
 
-  // To keep track of the last shown error to prevent duplicate toasts for the same error instance
   const lastShownErrorRef = useRef<Error | null>(null);
 
   useEffect(() => {
     if (error && error !== lastShownErrorRef.current) {
       toast.error(error.message || 'An unknown error occurred.', {
-        id: error.message, // Optional: use message as ID to prevent duplicates of same message
+        id: error.message,
       });
       lastShownErrorRef.current = error;
     }
-    // Clear ref if error is gone, so a new instance of a similar error can be shown later
     if (!error && lastShownErrorRef.current) {
         lastShownErrorRef.current = null;
     }
@@ -181,7 +186,6 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
   };
 
   const renderConnectionState = () => {
-    // Error rendering is now handled by the useEffect and toast
     if (isConnecting) return <p style={{...styles.statusMessage, ...styles.info}}>Connecting to room...</p>;
     if (isConnected) return <p style={{...styles.statusMessage, ...styles.info}}>Connected to room: {currentRoomId}</p>;
     if (connectionState === ConnectionState.Disconnected && currentRoomId) {
@@ -195,7 +199,7 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
 
   return (
     <>
-      <style>{keyframesStyle}</style> {/* Inject keyframes - not ideal for prod, but works for now */}
+      <style>{keyframesStyle}</style>
       <div style={styles.container}>
         {renderConnectionState()}
 
@@ -217,7 +221,7 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                     <button
                       onClick={() => handleJoinRoom(room.id)}
                       style={isConnecting ? {...styles.button, ...styles.buttonDisabled} : styles.button}
-                      disabled={isConnecting} // Disable join if already trying to connect
+                      disabled={isConnecting}
                     >
                       Join Room
                     </button>
@@ -242,40 +246,41 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
               style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
               disabled={!localParticipant}
             >
-              {localParticipant?.isMicrophoneMuted ? 'Unmute Self' : 'Mute Self'}
+              {localParticipant?.audioTrackPublications.size === 0 || 
+               Array.from(localParticipant?.audioTrackPublications.values() || []).some(pub => pub.isMuted) ? 
+               'Unmute Self' : 'Mute Self'}
             </button>
 
             <h3 style={{...styles.sectionTitle, marginTop: '20px'}}>Participants ({participants.length})</h3>
             <ul style={styles.participantList}>
-              {participants.map(p => (
-                <li key={p.identity} style={styles.participantItem}>
-                  <span style={styles.participantName}>{p.name || p.identity}</span>
-                  {p.isLocal && <span style={styles.localUserIndicator}>(You)</span>}
-                  {p.isMicrophoneMuted && <span style={styles.mutedIndicator}>(Muted)</span>}
-                  {p.isSpeaking && !p.isMicrophoneMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
+              {participants.map(p => {
+                const isMuted = p.audioTrackPublications.size === 0 || 
+                               Array.from(p.audioTrackPublications.values()).some(pub => pub.isMuted);
+                
+                return (
+                  <li key={p.identity} style={styles.participantItem}>
+                    <span style={styles.participantName}>{p.name || p.identity}</span>
+                    {p.isLocal && <span style={styles.localUserIndicator}>(You)</span>}
+                    {isMuted && <span style={styles.mutedIndicator}>(Muted)</span>}
+                    {p.isSpeaking && !isMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
 
-                  {/* Moderation Button */}
-                  {canModerate && !p.isLocal && (
-                    <button
-                      onClick={async () => {
-                        // Add a confirmation dialog for better UX before moderation action
-                        // For now, direct action:
-                        const success = await moderateMuteParticipant(p.identity, !p.isMicrophoneMuted);
-                        if (!success) {
-                          // Error should be handled by toast via the hook's error state.
-                          // Optionally, show a specific toast here if moderateMuteParticipant itself returns detailed error.
-                          // toast.error(`Failed to ${p.isMicrophoneMuted ? 'unmute' : 'mute'} ${p.name || p.identity}`);
-                        }
-                        // Participant list should re-render with updated mute state via LiveKit events
-                      }}
-                      style={{...styles.button, marginLeft: '10px', fontSize: '0.8em', padding: '5px 8px'}}
-                      title={p.isMicrophoneMuted ? `Unmute ${p.name || p.identity}` : `Mute ${p.name || p.identity}`}
-                    >
-                      {p.isMicrophoneMuted ? 'Unmute' : 'Mute'}
-                    </button>
-                  )}
-                </li>
-              ))}
+                    {canModerate && !p.isLocal && (
+                      <button
+                        onClick={async () => {
+                          const success = await moderateMuteParticipant(p.identity, !isMuted);
+                          if (!success) {
+                            // Error handling via toast is done in the hook
+                          }
+                        }}
+                        style={{...styles.button, marginLeft: '10px', fontSize: '0.8em', padding: '5px 8px'}}
+                        title={isMuted ? `Unmute ${p.name || p.identity}` : `Mute ${p.name || p.identity}`}
+                      >
+                        {isMuted ? 'Unmute' : 'Mute'}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

@@ -1,10 +1,9 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VoiceRoom {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   max_participants: number;
   priority: number;
   permissions: string[];
@@ -13,6 +12,7 @@ export interface VoiceRoom {
   match_id: string;
   created_at: string;
   updated_at: string;
+  participant_count?: number;
 }
 
 export interface VoiceRoomParticipant {
@@ -21,6 +21,12 @@ export interface VoiceRoomParticipant {
   user_id: string;
   room_id: string;
   joined_at: string;
+  user_name?: string;
+  user_email?: string;
+  user_role?: string;
+  is_muted?: boolean;
+  is_speaking?: boolean;
+  connection_quality?: string;
 }
 
 export class VoiceRoomService {

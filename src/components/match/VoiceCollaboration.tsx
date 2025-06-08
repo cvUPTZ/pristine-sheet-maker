@@ -6,13 +6,28 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, MicOff, Phone, PhoneOff, Volume2, Users, Crown, Shield, Wifi, WifiOff, Activity, AlertTriangle, RefreshCw, Settings } from 'lucide-react';
 import { useVoiceCollaboration } from '@/hooks/useVoiceCollaboration';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
+import { VoiceRoomService, VoiceRoom as ServiceVoiceRoom } from '@/services/voiceRoomService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceCollaborationProps {
   matchId: string;
   userId: string;
   className?: string;
+}
+
+// Local interface that matches what useVoiceCollaboration expects
+interface VoiceRoom {
+  id: string;
+  match_id: string;
+  name: string;
+  description: string | null;
+  max_participants: number;
+  priority: number;
+  permissions: string[];
+  is_private: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
 }
 
 type WebRTCConnectionStateType = 'disconnected' | 'connecting' | 'connected' | 'failed' | 'authorizing' | 'disconnecting';
@@ -94,7 +109,25 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
   });
 
   useEffect(() => {
-    setRoomToRejoin(currentRoom);
+    // Convert ServiceVoiceRoom to VoiceRoom for compatibility
+    if (currentRoom) {
+      const compatibleRoom: VoiceRoom = {
+        id: currentRoom.id,
+        match_id: currentRoom.match_id,
+        name: currentRoom.name,
+        description: currentRoom.description || null,
+        max_participants: currentRoom.max_participants,
+        priority: currentRoom.priority,
+        permissions: currentRoom.permissions,
+        is_private: currentRoom.is_private,
+        is_active: currentRoom.is_active,
+        created_at: currentRoom.created_at,
+        updated_at: currentRoom.updated_at,
+      };
+      setRoomToRejoin(compatibleRoom);
+    } else {
+      setRoomToRejoin(null);
+    }
   }, [currentRoom]);
 
   useEffect(() => {
@@ -105,7 +138,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
 
   const handleRejoin = async () => {
     if (isConnecting) return; 
-    if (roomToRejoin) {
+    if (roomToRejoin && currentRoom) {
       const isCurrentlyConnected = connectionState === 'connected' || 
                                   connectionState === 'connecting';
       
@@ -113,7 +146,12 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         await leaveVoiceRoom(); 
         await new Promise(resolve => setTimeout(resolve, 250));
       }
-      joinVoiceRoom(roomToRejoin);
+      // Convert back to ServiceVoiceRoom
+      const serviceRoom: ServiceVoiceRoom = {
+        ...currentRoom,
+        description: currentRoom.description || undefined,
+      };
+      joinVoiceRoom(serviceRoom);
     }
   };
 
