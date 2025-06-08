@@ -163,7 +163,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
           <div
             key={i}
             className={`${isMobile ? 'w-0.5 h-2' : 'w-1 h-3'} rounded-sm transition-colors ${
-              level > (i + 1) * 0.125 ? 'bg-green-500' : 'bg-gray-300'
+              level > (i + 1) * 0.05 ? 'bg-green-500' : 'bg-gray-300'
             }`}
           />
         ))}
