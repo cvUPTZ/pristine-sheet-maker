@@ -1,5 +1,5 @@
 import { MatchEvent, Player, EventType as GlobalEventType } from '@/types';
-import { ShotEventData, PassEventData } from '@/types/eventData';
+import { ShotEventData, PassEventData, PressureEventData } from '@/types/eventData'; // Added PressureEventData
 import { calculateXg } from './xgCalculator';
 
 // Define interfaces for aggregated statistics
@@ -48,6 +48,9 @@ export interface PlayerStatSummary {
   progressivePasses: number;
   passesToFinalThird: number;
   passNetworkSent: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
+  totalPressures: number;
+  successfulPressures: number;
+  pressureRegains: number;
 }
 
 export interface AggregatedStats {
@@ -110,6 +113,9 @@ function initializePlayerStatSummary(
     progressivePasses: 0,
     passesToFinalThird: 0,
     passNetworkSent: [],
+    totalPressures: 0,
+    successfulPressures: 0,
+    pressureRegains: 0,
   };
 }
 
@@ -317,6 +323,30 @@ export function aggregateMatchEvents(
         break;
       case 'dribble':
         if(playerSummary) playerSummary.dribbles +=1;
+        break;
+      case 'pressure':
+        if (playerSummary && event.event_data) {
+          const pressureData = event.event_data as PressureEventData;
+
+          if (pressureData.outcome) {
+            playerSummary.totalPressures += 1;
+
+            const successfulPressureOutcomes: Array<PressureEventData['outcome']> = [
+              'regain_possession',
+              'forced_turnover_error',
+              'foul_won'
+            ];
+
+            if (successfulPressureOutcomes.includes(pressureData.outcome)) {
+              playerSummary.successfulPressures += 1;
+            }
+
+            if (pressureData.outcome === 'regain_possession') {
+              playerSummary.pressureRegains += 1;
+            }
+          }
+        }
+        // Note: Team-level pressure stats are not being aggregated in this step.
         break;
       // Other event types like 'freeKick', 'throwIn', 'goalKick', 'substitution', etc.
       // can be added here if they contribute to specific stats.

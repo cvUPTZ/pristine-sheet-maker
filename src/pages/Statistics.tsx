@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2 } from 'lucide-react'; // Added Share2 for Passing Network
+import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck } from 'lucide-react'; // Added Share2, ShieldCheck
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
@@ -16,7 +16,7 @@ import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
 import PassMatrixTable from '@/components/analytics/PassMatrixTable';
 import ShotMap from '@/components/analytics/ShotMap';
-import PassingNetworkMap from '@/components/analytics/PassingNetworkMap'; // Import PassingNetworkMap
+import PassingNetworkMap from '@/components/analytics/PassingNetworkMap';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType, ShotStats as TeamShotStats, Player, Team } from '@/types/index';
@@ -27,7 +27,7 @@ const Statistics = () => {
   const { toast } = useToast();
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
-  const [selectedMatchFullData, setSelectedMatchFullData] = useState<any>(null); // To store full match data for passing to components
+  const [selectedMatchFullData, setSelectedMatchFullData] = useState<any>(null);
   const [statistics, setStatistics] = useState<StatisticsType>({
     possession: { home: 0, away: 0 },
     passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
@@ -88,12 +88,12 @@ const Statistics = () => {
       
       const { data: matchDetailData, error: matchError } = await supabase
         .from('matches')
-        .select('*') // Fetch all columns for selectedMatchFullData
+        .select('*')
         .eq('id', matchId)
         .single();
 
       if (matchError) throw matchError;
-      setSelectedMatchFullData(matchDetailData); // Store full match data
+      setSelectedMatchFullData(matchDetailData);
 
       const { data: eventsData, error: eventsError } = await supabase
         .from('match_events')
@@ -103,8 +103,13 @@ const Statistics = () => {
 
       if (eventsError) {
         console.error('Error fetching events:', eventsError);
-        setEvents([]); // Clear events on error
+        setEvents([]);
       } else {
+        const homePlayersList: Player[] = matchDetailData.home_team_players || [];
+        const awayPlayersList: Player[] = matchDetailData.away_team_players || [];
+        const allPlayers = [...homePlayersList, ...awayPlayersList];
+        setAllPlayersForMatch(allPlayers);
+
         const formattedEvents: MatchEvent[] = (eventsData || []).map(event => {
           let coordinates = { x: 0, y: 0 };
           if (event.coordinates) {
@@ -134,27 +139,20 @@ const Statistics = () => {
             team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
             coordinates,
             created_by: event.created_by,
-            // Ensure player object is attached if needed by event consumers, or enrich in aggregator
-            player: (matchDetailData.home_team_players || []).concat(matchDetailData.away_team_players || []).find((p: Player) => p.id === event.player_id)
+            player: allPlayers.find((p: Player) => String(p.id) === String(event.player_id) || p.jersey_number === event.player_id) // Simplified lookup
           };
         });
         setEvents(formattedEvents);
 
-        const homePlayersList: Player[] = matchDetailData.home_team_players || [];
-        const awayPlayersList: Player[] = matchDetailData.away_team_players || [];
-        setAllPlayersForMatch([...homePlayersList, ...awayPlayersList]);
-
         const aggregatedData: AggregatedStats = aggregateMatchEvents(formattedEvents, homePlayersList, awayPlayersList);
 
-        // Map AggregatedStats to the local 'statistics' state
         const homeTeamEventsCount = formattedEvents.filter(e => e.team === 'home').length;
         const awayTeamEventsCount = formattedEvents.filter(e => e.team === 'away').length;
         const totalEventsCount = homeTeamEventsCount + awayTeamEventsCount;
         const homePossession = totalEventsCount > 0 ? Math.round((homeTeamEventsCount / totalEventsCount) * 100) : 50;
 
-
         setStatistics({
-            possession: { home: homePossession, away: 100 - homePossession }, // Placeholder for now
+            possession: { home: homePossession, away: 100 - homePossession },
             shots: {
                 home: { onTarget: aggregatedData.homeTeamStats.shotsOnTarget, offTarget: aggregatedData.homeTeamStats.shots - aggregatedData.homeTeamStats.shotsOnTarget, total: aggregatedData.homeTeamStats.shots, totalXg: aggregatedData.homeTeamStats.totalXg },
                 away: { onTarget: aggregatedData.awayTeamStats.shotsOnTarget, offTarget: aggregatedData.awayTeamStats.shots - aggregatedData.awayTeamStats.shotsOnTarget, total: aggregatedData.awayTeamStats.shots, totalXg: aggregatedData.awayTeamStats.totalXg }
@@ -166,18 +164,18 @@ const Statistics = () => {
             fouls: { home: aggregatedData.homeTeamStats.foulsCommitted, away: aggregatedData.awayTeamStats.foulsCommitted },
             corners: { home: aggregatedData.homeTeamStats.corners, away: aggregatedData.awayTeamStats.corners },
             offsides: { home: aggregatedData.homeTeamStats.offsides, away: aggregatedData.awayTeamStats.offsides },
-            ballsPlayed: { home: homeTeamEventsCount, away: awayTeamEventsCount }, // Recalculate here or add to aggregator
-            ballsLost: { home: 0, away: 0 }, // Placeholder - needs specific event type or logic in aggregator
-            duels: { home: {}, away: {} }, // Placeholder - needs specific event type or logic in aggregator
-            crosses: { home: {}, away: {} } // Placeholder - needs specific event type or logic in aggregator
+            ballsPlayed: { home: homeTeamEventsCount, away: awayTeamEventsCount },
+            ballsLost: { home: 0, away: 0 },
+            duels: { home: {}, away: {} },
+            crosses: { home: {}, away: {} }
         });
 
         const pagePlayerStats: PlayerStatistics[] = aggregatedData.playerStats.map((aggPlayer: AggPlayerStatSummary) => ({
             playerId: aggPlayer.playerId,
             playerName: aggPlayer.playerName,
             team: aggPlayer.team,
-            teamId: aggPlayer.team, // Assuming team is 'home' or 'away'
-            player: allPlayersForMatch.find(p => p.id === aggPlayer.playerId),
+            teamId: aggPlayer.team,
+            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jersey_number),
             events: {
                 passes: { successful: aggPlayer.passesCompleted, attempted: aggPlayer.passesAttempted },
                 shots: { onTarget: aggPlayer.shotsOnTarget, offTarget: aggPlayer.shots - aggPlayer.shotsOnTarget },
@@ -191,7 +189,9 @@ const Statistics = () => {
             progressivePasses: aggPlayer.progressivePasses,
             passesToFinalThird: aggPlayer.passesToFinalThird,
             passNetworkSent: aggPlayer.passNetworkSent,
-            // other PlayerStatistics fields if needed
+            totalPressures: aggPlayer.totalPressures,
+            successfulPressures: aggPlayer.successfulPressures,
+            pressureRegains: aggPlayer.pressureRegains,
         }));
         setPlayerStats(pagePlayerStats);
       }
@@ -221,9 +221,7 @@ const Statistics = () => {
     }
   };
 
-  // Local calculation functions (calculateStatisticsFromEvents, calculatePlayerStatistics) are now removed.
-
-  const selectedMatchInfo = matches.find(m => m.id === selectedMatch); // Used for display names
+  const selectedMatchInfo = matches.find(m => m.id === selectedMatch);
 
   if (loading) {
     return (
@@ -279,6 +277,7 @@ const Statistics = () => {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Key Metrics Cards as before */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Events</CardTitle>
@@ -334,18 +333,19 @@ const Statistics = () => {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-9"> {/* Updated to grid-cols-9 */}
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
               <TabsTrigger value="shotmap">Shot Map / xG</TabsTrigger>
-              <TabsTrigger value="passingnetwork">Passing Network</TabsTrigger> {/* New Tab */}
+              <TabsTrigger value="passingnetwork">Passing Network</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
               <TabsTrigger value="players">Players</TabsTrigger>
               <TabsTrigger value="passes">Pass Matrix</TabsTrigger>
               <TabsTrigger value="flow">Ball Flow</TabsTrigger>
             </TabsList>
 
+            {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MatchRadarChart 
@@ -366,13 +366,11 @@ const Statistics = () => {
               />
             </TabsContent>
 
+            {/* Detailed Tab */}
             <TabsContent value="detailed" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Detailed Match Statistics
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Detailed Match Statistics</CardTitle>
                   <CardDescription>Comprehensive breakdown of match statistics</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -385,6 +383,7 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
+            {/* Performance Tab */}
             <TabsContent value="performance" className="space-y-6">
               <PlayerPerformanceChart
                 playerStats={playerStats}
@@ -398,42 +397,22 @@ const Statistics = () => {
               />
             </TabsContent>
 
+            {/* Shot Map / xG Tab */}
             <TabsContent value="shotmap" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5" />
-                    Shot Analysis & Expected Goals (xG)
-                  </CardTitle>
-                  <CardDescription>
-                    Shot locations, outcomes, and Expected Goals (xG) values for each team.
-                  </CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Shot Analysis & Expected Goals (xG)</CardTitle>
+                  <CardDescription>Shot locations, outcomes, and Expected Goals (xG) values for each team.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-md">
-                          {selectedMatchFullData?.home_team_name || 'Home'} - Total Expected Goals (xG)
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-2xl font-bold">
-                          {statistics.shots?.home?.totalXg?.toFixed(2) || '0.00'}
-                        </p>
-                      </CardContent>
+                      <CardHeader className="pb-2"><CardTitle className="text-md">{selectedMatchFullData?.home_team_name || 'Home'} - Total Expected Goals (xG)</CardTitle></CardHeader>
+                      <CardContent><p className="text-2xl font-bold">{statistics.shots?.home?.totalXg?.toFixed(2) || '0.00'}</p></CardContent>
                     </Card>
                     <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-md">
-                          {selectedMatchFullData?.away_team_name || 'Away'} - Total Expected Goals (xG)
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-2xl font-bold">
-                          {statistics.shots?.away?.totalXg?.toFixed(2) || '0.00'}
-                        </p>
-                      </CardContent>
+                      <CardHeader className="pb-2"><CardTitle className="text-md">{selectedMatchFullData?.away_team_name || 'Away'} - Total Expected Goals (xG)</CardTitle></CardHeader>
+                      <CardContent><p className="text-2xl font-bold">{statistics.shots?.away?.totalXg?.toFixed(2) || '0.00'}</p></CardContent>
                     </Card>
                   </div>
                   <ShotMap
@@ -445,28 +424,25 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
+            {/* Passing Network Tab */}
             <TabsContent value="passingnetwork" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Share2 className="h-5 w-5" />
-                    Passing Network Analysis
-                  </CardTitle>
-                  <CardDescription>
-                    Visualization of team passing patterns and player connections.
-                  </CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" />Passing Network Analysis</CardTitle>
+                  <CardDescription>Visualization of team passing patterns and player connections.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <PassingNetworkMap
                     playerStats={playerStats}
                     allPlayers={allPlayersForMatch}
-                    homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
-                    awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
+                    homeTeam={selectedMatchFullData ? { id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team : undefined}
+                    awayTeam={selectedMatchFullData ? { id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team : undefined}
                   />
                 </CardContent>
               </Card>
             </TabsContent>
 
+            {/* Advanced Tab */}
             <TabsContent value="advanced" className="space-y-6">
               <MatchHeatMap
                 events={events}
@@ -480,13 +456,11 @@ const Statistics = () => {
               />
             </TabsContent>
 
+            {/* Players Tab */}
             <TabsContent value="players" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Player Performance
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Player Performance</CardTitle>
                   <CardDescription>Individual player statistics and performance metrics</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -504,6 +478,9 @@ const Statistics = () => {
                           <th className="text-center py-2 px-1">Goals</th>
                           <th className="text-center py-2 px-1">Assists</th>
                           <th className="text-center py-2 px-1">xG</th>
+                          <th className="text-center py-2 px-1">Pressures</th>
+                          <th className="text-center py-2 px-1">Successful Press.</th>
+                          <th className="text-center py-2 px-1">Pressure Regains</th>
                           <th className="text-center py-2 px-1">Fouls</th>
                           <th className="text-center py-2 px-1">Cards</th>
                         </tr>
@@ -519,48 +496,30 @@ const Statistics = () => {
                                 {player.team === 'home' ? selectedMatchFullData.home_team_name : selectedMatchFullData.away_team_name}
                               </span>
                             </td>
-                            <td className="text-center py-2 px-1">
-                              {player.events.passes.successful}/{player.events.passes.attempted}
-                            </td>
-                            <td className="text-center py-2 px-1">
-                              {player.events.passes.attempted > 0 
-                                ? `${Math.round((player.events.passes.successful / player.events.passes.attempted) * 100)}%`
-                                : '0%'
-                              }
-                            </td>
+                            <td className="text-center py-2 px-1">{player.events.passes.successful}/{player.events.passes.attempted}</td>
+                            <td className="text-center py-2 px-1">{player.events.passes.attempted > 0 ? `${Math.round((player.events.passes.successful / player.events.passes.attempted) * 100)}%` : '0%'}</td>
                             <td className="text-center py-2 px-1">{player.progressivePasses || 0}</td>
                             <td className="text-center py-2 px-1">{player.passesToFinalThird || 0}</td>
-                            <td className="text-center py-2 px-1">
-                              {player.events.shots.onTarget + player.events.shots.offTarget}
-                            </td>
+                            <td className="text-center py-2 px-1">{player.events.shots.onTarget + player.events.shots.offTarget}</td>
                             <td className="text-center py-2 px-1">{player.events.goals}</td>
                             <td className="text-center py-2 px-1">{player.events.assists}</td>
                             <td className="text-center py-2 px-1">{player.totalXg?.toFixed(2) || '0.00'}</td>
+                            <td className="text-center py-2 px-1">{player.totalPressures || 0}</td>
+                            <td className="text-center py-2 px-1">{player.successfulPressures || 0}</td>
+                            <td className="text-center py-2 px-1">{player.pressureRegains || 0}</td>
                             <td className="text-center py-2 px-1">{player.events.fouls}</td>
                             <td className="text-center py-2 px-1">
                               <div className="flex justify-center gap-1">
-                                {player.events.cards.yellow > 0 && (
-                                  <span className="bg-yellow-400 text-white px-1 py-0.5 rounded text-xs">
-                                    {player.events.cards.yellow}Y
-                                  </span>
-                                )}
-                                {player.events.cards.red > 0 && (
-                                  <span className="bg-red-500 text-white px-1 py-0.5 rounded text-xs">
-                                    {player.events.cards.red}R
-                                  </span>
-                                )}
-                                {player.events.cards.yellow === 0 && player.events.cards.red === 0 && (
-                                  <span className="text-gray-400">-</span>
-                                )}
+                                {player.events.cards.yellow > 0 && <span className="bg-yellow-400 text-white px-1 py-0.5 rounded text-xs">{player.events.cards.yellow}Y</span>}
+                                {player.events.cards.red > 0 && <span className="bg-red-500 text-white px-1 py-0.5 rounded text-xs">{player.events.cards.red}R</span>}
+                                {player.events.cards.yellow === 0 && player.events.cards.red === 0 && <span className="text-gray-400">-</span>}
                               </div>
                             </td>
                           </tr>
                         ))}
                         {playerStats.length === 0 && (
                           <tr>
-                            <td colSpan={12} className="text-center py-8 text-gray-500"> {/* Updated colSpan */}
-                              No player statistics available
-                            </td>
+                            <td colSpan={15} className="text-center py-8 text-gray-500">No player statistics available</td>
                           </tr>
                         )}
                       </tbody>
@@ -570,7 +529,8 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="passes" className="space-y-6"> {/* This is now Pass Matrix */}
+            {/* Pass Matrix Tab */}
+            <TabsContent value="passes" className="space-y-6">
               <PassMatrixTable
                 events={events}
                 homeTeamName={selectedMatchFullData.home_team_name}
@@ -580,13 +540,11 @@ const Statistics = () => {
               />
             </TabsContent>
 
+            {/* Ball Flow Tab */}
             <TabsContent value="flow" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Ball Flow Analysis
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Ball Flow Analysis</CardTitle>
                   <CardDescription>Visualization of ball movement and flow patterns</CardDescription>
                 </CardHeader>
                 <CardContent>
