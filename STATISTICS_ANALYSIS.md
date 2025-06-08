@@ -48,7 +48,7 @@ This document provides a deep dive into the statistics and analytics features cu
     - **Purpose:** Primarily for real-time match event tracking and input.
     - **Features:**
         - Team setup, player selection.
-        - Event recording interfaces (`TrackerPianoInput.tsx`, pitch interaction). `TrackerPianoInput.tsx` has been redesigned for a context-aware, single-player focus (see Section 14). Modals for detailed event data (Sections 11-13) are still used but triggered within this new focused context.
+        - Event recording interfaces (`TrackerPianoInput.tsx`, pitch interaction). `TrackerPianoInput.tsx` has been redesigned for a context-aware, single-player focus (Section 14), with event details collected via context-specific modals (Sections 11-13) or potentially faster post-tap modifiers (Section 14.5).
         - Real-time display of some basic stats.
         - `MatchAnalysisV2.tsx` includes role-based views, voice collaboration, and tracker assignment features.
 
@@ -63,7 +63,7 @@ This document provides a deep dive into the statistics and analytics features cu
 2.  **Event Recording (Real-time):**
     - Trackers use `MatchAnalysisV2.tsx` (or `MatchAnalysis.tsx`).
     - `TrackerPianoInput.tsx` now operates with a single `focusedPlayer` and their assigned `focusedAssignedEventTypes`.
-    - UI interactions trigger event creation. For shots, passes, and pressures, modals (`ShotDetailModal.tsx`, `PassDetailModal.tsx`, `PressureDetailModal.tsx`) are used to collect detailed attributes within this focused player context.
+    - UI interactions trigger event creation. For shots, passes, and pressures, the current design uses modals (`ShotDetailModal.tsx`, `PassDetailModal.tsx`, `PressureDetailModal.tsx`) to collect detailed attributes within this focused player context. A future refinement (Section 14.5) proposes replacing these with faster post-tap modifiers for live tracking efficiency.
     - `useMatchState` and `useMatchCollaboration` manage local state and synchronize events. Event creation logic populates `event_data` with strongly-typed objects.
     - Events are sent to Supabase (`match_events` table) and potentially broadcast to other connected clients.
 3.  **Ball Tracking (Real-time):** (Content as before)
@@ -88,7 +88,7 @@ This document provides a deep dive into the statistics and analytics features cu
 *   **Description:** (Content as before)
 *   **Data Required (from new `MatchEvent` with `PressureEventData`):** (Content as before)
 *   **Calculation/Generation:**
-    1.  **Data Collection (Implemented):** `TrackerPianoInput.tsx` (now redesigned for single-player focus) uses `PressureDetailModal.tsx` to capture `outcome`.
+    1.  **Data Collection (Implemented):** `TrackerPianoInput.tsx` (now redesigned for single-player focus, see Section 14) uses `PressureDetailModal.tsx` to capture `outcome`. The input method may be further refined (Section 14.5).
     2.  **Processing (Implemented - Player Level):** (Content as before)
     3.  **Visualization (Pending):** (Content as before)
 *   **UI Integration (Partially Implemented):** (Content as before)
@@ -99,116 +99,128 @@ This document provides a deep dive into the statistics and analytics features cu
 ## 11. UI Design for Enhanced Shot Data Collection (xG Feature)
 
 *   **Status: Implemented**
-*   The UI for recording shot events was enhanced. `TrackerPianoInput.tsx` now triggers `ShotDetailModal.tsx` when a 'shot' event is selected for the focused player, allowing collection of detailed `ShotEventData`.
-*   **Note:** The core principles of contextual input via a modal remain, adapted to the new single-player focus of `TrackerPianoInput.tsx` (Section 14).
+*   The UI for recording shot events was enhanced. `TrackerPianoInput.tsx` (now operating in a single-player context, see Section 14) triggers `ShotDetailModal.tsx` when a 'shot' event is selected for the `focusedPlayer`, allowing collection of detailed `ShotEventData`.
+*   **Note:** The current primary input method uses this modal. A future refinement (Section 14.5) aims to replace/augment this with faster post-tap modifiers for live tracking.
 
 ### 11.1. Design Goals (Achieved)
 (Content as before)
 
 ### 11.2. Implemented UI Flow and Components (Adapted to Single-Player Context)
-1.  **State Management in `TrackerPianoInput.tsx`:** (Content as before, now operates within focused player context)
-2.  **Triggering Shot Detail Collection:**
-    *   The `handleEventTypeClick` function in `TrackerPianoInput.tsx`, when `'shot'` is the event type for the `focusedPlayer`, sets `pendingEventTrigger` (with `focusedPlayer` info) and opens the `ShotDetailModal.tsx`.
-3.  **Shot Detail Modal (`src/components/modals/ShotDetailModal.tsx`):** (Content as before)
-4.  **Modifications to `recordEvent` in `TrackerPianoInput.tsx`:** (Content as before)
+(Content as before)
 
 ### 11.3. Data Flow Summary for Shots (Implemented)
-1.  `TrackerPianoInput.tsx` operates with a `focusedPlayer`.
-2.  User taps the "Shot" button (which is one of the `focusedAssignedEventTypes`).
-3.  `handleEventTypeClick` sets `pendingEventTrigger` (with `focusedPlayer` info) and opens the "Shot Detail Modal".
-4.  User fills in shot details in the modal.
-5.  User clicks "Record Shot" in the modal.
-6.  The modal calls `handleRecordShotWithDetails` in `TrackerPianoInput.tsx`.
-7.  `handleRecordShotWithDetails` calls the main `recordEvent` function with the `focusedPlayer` and detailed `ShotEventData`.
-8.  `recordEvent` sends data to Supabase.
+(Content as before)
+
+This implementation successfully allows for the collection of detailed shot attributes.
 
 ## 12. UI Design for Detailed Pass Data Collection (Passing Network Feature)
 
 *   **Status: Implemented**
-*   The UI for recording pass events was enhanced. `TrackerPianoInput.tsx` now triggers `PassDetailModal.tsx` when a 'pass' event is selected for the `focusedPlayer`, allowing collection of `recipient_player_id` and other pass details.
-*   **Note:** The core principles of contextual input via a modal remain, adapted to the new single-player focus of `TrackerPianoInput.tsx` (Section 14).
+*   The UI for recording pass events was enhanced. `TrackerPianoInput.tsx` (now operating in a single-player context) triggers `PassDetailModal.tsx` when a 'pass' event is selected for the `focusedPlayer`.
+*   **Note:** The current primary input method uses this modal. A future refinement (Section 14.5) aims to replace/augment this with faster post-tap modifiers for live tracking.
 
 ### 12.1. Design Goals (Achieved)
 (Content as before)
 
 ### 12.2. Implemented UI Flow and Components for `TrackerPianoInput.tsx` (Adapted to Single-Player Context)
-1.  **State Management in `TrackerPianoInput.tsx`:** (Content as before, now operates within focused player context)
-2.  **Triggering Pass Detail Collection:**
-    *   The `handleEventTypeClick` function, when `'pass'` is the event type for the `focusedPlayer`, sets `pendingEventTrigger` (with `focusedPlayer` as passer) and opens `PassDetailModal.tsx`.
-3.  **Pass Detail Modal (`src/components/modals/PassDetailModal.tsx`):** (Content as before)
-4.  **Modifications to `recordEvent` in `TrackerPianoInput.tsx`:** (Content as before)
+(Content as before)
 
 ### 12.3. Data Flow Summary for Passes (via Piano Input - Implemented)
-1.  `TrackerPianoInput.tsx` operates with a `focusedPlayer` (the passer).
-2.  User taps the "Pass" button (one of the `focusedAssignedEventTypes`).
-3.  `handleEventTypeClick` opens "Pass Detail Modal" with passer info.
-4.  User selects recipient and other details in the modal.
-5.  User clicks "Record Pass".
-6.  Modal calls `handleRecordPassWithDetails`.
-7.  `handleRecordPassWithDetails` calls main `recordEvent` with `focusedPlayer` and `PassEventData`.
-8.  `recordEvent` sends data to Supabase.
+(Content as before)
+
+This implementation captures the essential pass linkage (passer to recipient) and success status.
 
 ## 13. UI Design for Pressure Event Collection (Pressure Analysis Feature)
 
 *   **Status: Implemented**
-*   The UI for recording pressure events was implemented. `TrackerPianoInput.tsx` now triggers `PressureDetailModal.tsx` when a 'pressure' event is selected for the `focusedPlayer`.
-*   **Note:** The core principles of contextual input via a modal remain, adapted to the new single-player focus of `TrackerPianoInput.tsx` (Section 14).
+*   The UI for recording pressure events was implemented. `TrackerPianoInput.tsx` (now operating in a single-player context) triggers `PressureDetailModal.tsx` when a 'pressure' event is selected for the `focusedPlayer`.
+*   **Note:** The current primary input method uses this modal. A future refinement (Section 14.5) aims to replace/augment this with faster post-tap modifiers for live tracking.
 
 ### 13.1. Design Goals (Achieved for V1 with Modal)
 (Content as before)
 
 ### 13.2. Implemented UI Flow and Components for `TrackerPianoInput.tsx` (Adapted to Single-Player Context)
-1.  **New "Pressure" Event Button:** (Available if assigned to focused player)
-2.  **State Management in `TrackerPianoInput.tsx`:** (Content as before, now operates within focused player context)
-3.  **Triggering Pressure Detail Collection:**
-    *   `handleEventTypeClick`, when `'pressure'` is the event type for the `focusedPlayer`, sets `pendingEventTrigger` (with `focusedPlayer` as pressurer) and opens `PressureDetailModal.tsx`.
-4.  **Pressure Detail Modal (`src/components/modals/PressureDetailModal.tsx`):** (Content as before)
-5.  **Modifications to `recordEvent` in `TrackerPianoInput.tsx`:** (Content as before)
+(Content as before)
 
 ### 13.3. Data Flow Summary for Pressure Events (via Piano Input - Implemented)
-1.  `TrackerPianoInput.tsx` operates with a `focusedPlayer` (the pressurer).
-2.  User taps the "Pressure" button (one of the `focusedAssignedEventTypes`).
-3.  `handleEventTypeClick` opens "Pressure Detail Modal" with pressurer info.
-4.  User selects the outcome in the modal.
-5.  User clicks "Record Pressure".
-6.  Modal calls `handleRecordPressureWithDetails`.
-7.  `handleRecordPressureWithDetails` calls main `recordEvent` with `focusedPlayer` and `PressureEventData`.
-8.  `recordEvent` sends data to Supabase.
+(Content as before)
+
+This implementation captures the essential `outcome` of a pressure event.
 
 ## 14. Refined UI Design for TrackerPianoInput.tsx (Context-Aware Workflow)
 
-*   **Status: Implemented (Core Logic)**
+*   **Status: Implemented**
 *   Based on crucial user feedback that trackers are assigned to a single player for specific event types, the UI and workflow of `src/components/TrackerPianoInput.tsx` have been redesigned for speed and contextual awareness.
 
 ### 14.1. Core Principles of the Redesign (Achieved)
-
-*   **Single Player Focus:** The interface now assumes the tracker is working on one specific, programmatically determined `focusedPlayer` based on their assignments.
-*   **Contextual Event Types:** Only the event types assigned to the tracker for the `focusedPlayer` are displayed and active.
-*   **Speed and Efficiency:** Clicks are reduced by removing manual player selection within this component. Modals are still used for detail collection for specific events (shot, pass, pressure) but are triggered in the context of the `focusedPlayer`.
+(Content as before)
 
 ### 14.2. UI Changes Implemented in `TrackerPianoInput.tsx`
-
-1.  **Removal of General Player Selection UI:**
-    *   The `Card` component that previously allowed manual selection of Home/Away teams and players has been removed.
-2.  **Display of Focused Player Information:**
-    *   A new `Card` is displayed at the top, showing the `focusedPlayer`'s name, jersey number, and team name (derived from `fullMatchRoster` and assignment).
-3.  **Dynamic and Focused Event Type Buttons:**
-    *   The event type buttons grid now maps over `focusedAssignedEventTypes`, ensuring only relevant event buttons are shown.
+(Content as before)
 
 ### 14.3. Data Fetching and State Management Changes (`fetchAssignments` and component state):**
+(Content as before)
 
-*   The `fetchAssignments` function was refactored to:
-    *   Identify the first valid assignment (with `player_id` and `assigned_event_types`) for the current user/match.
-    *   Set `focusedPlayer` (with details from `fullMatchRoster`), `focusedPlayerTeam`, and `focusedAssignedEventTypes` based on this single assignment.
-    *   An error message is displayed if no valid/specific assignment is found.
-*   State variables `selectedPlayer`, `selectedTeam`, and `assignedEventTypes` were repurposed or replaced by `focusedPlayer`, `focusedPlayerTeam`, and `focusedAssignedEventTypes`. The `assignedPlayers` state (for lists) was removed.
+### 14.4. Impact on Event Recording (`recordEvent` function and modal triggers):**
+(Content as before)
 
-### 14.4. Impact on Event Recording (`recordEvent` function):**
+This redesign makes `TrackerPianoInput.tsx` a specialized tool for trackers focusing on their specific assignments. While modals are still used for collecting detailed attributes for shots, passes, and pressures, the overall interaction flow is more direct and context-aware.
 
-*   When an event button is tapped, the `player` argument passed to `recordEvent` is now always the `focusedPlayer`.
-*   The `teamContext` is derived from `focusedPlayerTeam`.
-*   Modals for 'shot', 'pass', and 'pressure' events are triggered using the `focusedPlayer` context.
-*   The `PassDetailModal`'s `teamPlayers` prop is populated with teammates of the `focusedPlayer` from the `fullMatchRoster`.
+### 14.5. Fast Detail Input Design (Post-Tap Modifiers)
 
-This redesign makes `TrackerPianoInput.tsx` a specialized tool for trackers focusing on their specific assignments. While modals are still used for collecting detailed attributes, the primary interaction is streamlined around the assigned player and their allowed event types. Future iterations might explore replacing modals with even faster inline input methods for these attributes.
+To maximize speed and efficiency for live event logging in `TrackerPianoInput.tsx` (now operating in a single `focusedPlayer` context), the primary method for capturing critical event details will shift from opening a modal for each event to a system of "post-tap modifier buttons."
+
+**General Principle:**
+1.  The tracker first taps the main event type button (e.g., "Shot", "Pass", "Pressure") associated with their `focusedPlayer`. This logs the event immediately with sensible default values for its `event_data`.
+2.  Immediately after this initial tap, a small, contextual set of modifier buttons appears briefly (e.g., for 2-3 seconds or until another action is taken).
+3.  A second, quick tap on one of these modifier buttons updates the `event_data` of the just-logged event with the selected detail.
+4.  If no modifier is tapped within the timeout, the event remains logged with its initial default details.
+
+**Specific Designs by Event Type:**
+
+*   **'Shot' Events:**
+    *   **Initial Tap on "Shot" button:**
+        *   Logs a 'shot' event.
+        *   `ShotEventData` defaults: `on_target: false`, `is_goal: false`. Other fields like `body_part_used`, `shot_type`, `situation`, `assist_type` default to generic values (e.g., 'unknown', 'other', 'open_play', 'none') or are omitted if fully optional. `xg_value` is calculated based on these defaults (and coordinates if available).
+    *   **Post-Tap Modifier Buttons (Appear temporarily):**
+        *   `[ Goal ]`
+        *   `[ On Target (Saved/Blocked) ]`
+        *   `[ Off Target / Blocked Wide ]`
+        *   (Alternative: Separate "Off Target" and "Blocked")
+    *   **Action:** Tapping a modifier updates the `ShotEventData` of the last shot event (e.g., sets `is_goal: true, on_target: true` for "Goal").
+
+*   **'Pass' Events:**
+    *   **Initial Tap on "Pass" button:**
+        *   Logs a 'pass' event from the `focusedPlayer`.
+        *   `PassEventData` defaults: `success: true`.
+        *   `recipient_player_id`: Remains `undefined` for this fast piano input method. This detail is expected to be enriched via other means (e.g., video analysis, a separate detailed editing UI).
+        *   `end_coordinates`: Remains `undefined`.
+        *   `pass_type`: Defaults to a generic value (e.g., 'short' or 'unknown').
+    *   **Post-Tap Modifier Buttons (Appear temporarily):**
+        *   `[ Pass Failed ]`
+    *   **Action:** Tapping "Pass Failed" updates `PassEventData.success` to `false` for the last pass.
+
+*   **'Pressure' Events:**
+    *   **Initial Tap on "Pressure" button:**
+        *   Logs a 'pressure' event by the `focusedPlayer`.
+        *   `PressureEventData` defaults: `outcome: 'no_effect'`.
+    *   **Post-Tap Modifier Buttons (Appear temporarily):**
+        *   `[ Regain Possession ]`
+        *   `[ Forced Turnover ]` (maps to `forced_turnover_error`)
+        *   `[ Foul Won ]`
+        *   (Possibly) `[ Forced Back/Side ]` (maps to `forced_pass_backwards`)
+    *   **Action:** Tapping a modifier updates `PressureEventData.outcome` for the last pressure event.
+
+**UI for Modifier Buttons:**
+*   These should appear in a consistent, easily accessible location (e.g., a small horizontal panel above or below the main event buttons).
+*   They should be clearly labeled and sufficiently large.
+*   They disappear automatically after a short timeout or when another main event type button is pressed.
+
+**Modal Usage - Shift in Role:**
+*   The existing detailed modals (`ShotDetailModal.tsx`, `PassDetailModal.tsx`, `PressureDetailModal.tsx`) will **no longer be part of the primary, live event logging workflow** in `TrackerPianoInput.tsx` for these core attributes.
+*   They may be repurposed for:
+    *   An "Edit Last Event" feature, allowing more comprehensive changes to the last logged event.
+    *   A separate, slower "Detailed Input Mode" if such a mode is deemed necessary by users.
+    *   Use by admin interfaces for post-match data correction or enrichment.
+    *   Collecting *additional, less frequent* attributes for an event if a "More Details..." button is provided after a primary event + post-tap modifier.
 ```
