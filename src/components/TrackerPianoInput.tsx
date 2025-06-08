@@ -11,6 +11,7 @@ import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
 import { Undo } from 'lucide-react';
+import ShotDetailModal from '@/components/modals/ShotDetailModal'; // Import the modal
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -49,6 +50,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
+
+  // State for shot detail modal
+  const [showShotDetailModal, setShowShotDetailModal] = useState(false);
+  const [currentShotInitialData, setCurrentShotInitialData] = useState<Partial<ShotEventData>>({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+  const [pendingEventTrigger, setPendingEventTrigger] = useState<{ eventType: EnhancedEventType, player?: PlayerForPianoInput, coordinates?: { x: number, y: number } } | null>(null);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -232,9 +238,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   };
 
-  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('TrackerPianoInput recordEvent called with:', { 
-      eventType, 
+  const recordEvent = async (
+    eventType: EnhancedEventType,
+    player?: PlayerForPianoInput,
+    details?: { coordinates?: {x: number, y: number}, event_data?: Partial<MatchSpecificEventData> }
+  ) => {
+    console.log('TrackerPianoInput recordEvent called with:', {
+      eventType,
       player, 
       details, 
       user: user?.id,
@@ -287,10 +297,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       let specificEventData: MatchSpecificEventData;
 
       // Create specific event_data based on eventType.key
-      // For now, using minimal data. UI will later provide more details.
       switch (eventType.key as AppEventType) {
         case 'shot':
-          specificEventData = { on_target: false } as ShotEventData; // Default, UI might provide actual
+          if (details?.event_data && typeof (details.event_data as ShotEventData).on_target === 'boolean') {
+            specificEventData = details.event_data as ShotEventData;
+          } else {
+            specificEventData = { on_target: (details as any)?.on_target || false } as ShotEventData;
+          }
           break;
         case 'pass':
           specificEventData = { success: true } as PassEventData; // Default
@@ -314,16 +327,15 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       }
 
       // Add known details if they exist, e.g. from a more complex 'details' object in future
-      if (details) {
+      // This block might be redundant if details.event_data is comprehensive, but kept for safety/flexibility
+      if (details && !details.event_data) { // Only apply if details.event_data wasn't already used
         if (eventType.key === 'shot' && typeof (details as any).on_target === 'boolean') {
           (specificEventData as ShotEventData).on_target = (details as any).on_target;
         }
         if (eventType.key === 'pass' && typeof (details as any).success === 'boolean') {
           (specificEventData as PassEventData).success = (details as any).success;
         }
-        // Potentially add more specific detail handling here as UI evolves
       }
-
 
       const eventDataForSupabase = {
         match_id: matchId,
@@ -377,11 +389,34 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   };
 
+  const handleRecordShotWithDetails = async (shotDetails: ShotEventData) => {
+    if (pendingEventTrigger) {
+      try {
+        const eventDetailsForRecordEvent = {
+          coordinates: pendingEventTrigger.coordinates,
+          event_data: shotDetails
+        };
+        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, eventDetailsForRecordEvent);
+      } catch (error) {
+        console.error('Error recording shot event with details:', error);
+      } finally {
+        setShowShotDetailModal(false);
+        setPendingEventTrigger(null);
+      }
+    }
+  };
+
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    try {
-      await recordEvent(eventType, selectedPlayer || undefined);
-    } catch (error) {
-      console.error('Error recording event:', error);
+    if (eventType.key === 'shot') {
+      setPendingEventTrigger({ eventType, player: selectedPlayer || undefined, coordinates: undefined /* TODO: Get coordinates */ });
+      setCurrentShotInitialData({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+      setShowShotDetailModal(true);
+    } else {
+      try {
+        await recordEvent(eventType, selectedPlayer || undefined, undefined);
+      } catch (error) {
+        console.error('Error recording non-shot event:', error);
+      }
     }
   };
 
@@ -672,6 +707,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {showShotDetailModal && pendingEventTrigger && (
+        <ShotDetailModal
+          isOpen={showShotDetailModal}
+          onClose={() => {
+            setShowShotDetailModal(false);
+            setPendingEventTrigger(null);
+          }}
+          onSubmit={handleRecordShotWithDetails}
+          initialDetails={currentShotInitialData}
+        />
       )}
 
       {/* Event Types - Enhanced SVG Design */}

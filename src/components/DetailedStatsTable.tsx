@@ -39,10 +39,10 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
     return passes;
   };
 
-  const homeShots = getShotStats(statistics.shots?.home || 0);
-  const awayShots = getShotStats(statistics.shots?.away || 0);
-  const homePasses = getPassStats(statistics.passes?.home || 0);
-  const awayPasses = getPassStats(statistics.passes?.away || 0);
+  const homeShots = getShotStats(statistics.shots?.home || { onTarget: 0, offTarget: 0, total: 0, totalXg: 0 });
+  const awayShots = getShotStats(statistics.shots?.away || { onTarget: 0, offTarget: 0, total: 0, totalXg: 0 });
+  const homePasses = getPassStats(statistics.passes?.home || { successful: 0, attempted: 0 });
+  const awayPasses = getPassStats(statistics.passes?.away || { successful: 0, attempted: 0 });
 
   const statsData = [
     {
@@ -85,6 +85,12 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
       label: 'Balls Lost',
       home: statistics.ballsLost?.home?.toString() || '0',
       away: statistics.ballsLost?.away?.toString() || '0',
+      unit: ''
+    },
+    {
+      label: 'Total xG',
+      home: homeShots.totalXg?.toFixed(2) || '0.00',
+      away: awayShots.totalXg?.toFixed(2) || '0.00',
       unit: ''
     }
   ];
