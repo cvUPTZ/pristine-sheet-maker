@@ -1,7 +1,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
-import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
+// Participant and LocalParticipant might not be needed if VoiceParticipant is comprehensive
+import { ConnectionState } from 'livekit-client';
+import { VoiceParticipant } from '@/types'; // Import VoiceParticipant
 import { toast } from '@/components/ui/sonner';
 
 // Enhanced styling
@@ -197,13 +199,9 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
 
   const canModerate = userRole === 'admin' || userRole === 'coordinator';
 
-  const isParticipantMuted = (participant: Participant): boolean => {
-    if (participant.isLocal && localParticipant) {
-      const localP = localParticipant as LocalParticipant;
-      return !localP.isMicrophoneEnabled;
-    }
-    return participant.audioTrackPublications.size === 0 || 
-           Array.from(participant.audioTrackPublications.values()).some(pub => pub.isMuted);
+  // Updated to use VoiceParticipant and its isMuted property
+  const isParticipantMuted = (participant: VoiceParticipant): boolean => {
+    return !!participant.isMuted;
   };
 
   return (
@@ -255,15 +253,17 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
               style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
               disabled={!localParticipant}
             >
-              {isParticipantMuted(localParticipant!) ? 'Unmute Self' : 'Mute Self'}
+              {/* localParticipant is now VoiceParticipant, so isParticipantMuted works directly */}
+              {localParticipant && isParticipantMuted(localParticipant) ? 'Unmute Self' : 'Mute Self'}
             </button>
 
             <h3 style={{...styles.sectionTitle, marginTop: '20px'}}>Participants ({participants.length})</h3>
             <ul style={styles.participantList}>
-              {participants.map(p => {
+              {participants.map(p => { // p is now VoiceParticipant
                 const isMuted = isParticipantMuted(p);
                 
                 return (
+                  // key, p.name, p.identity, p.isLocal, p.isSpeaking are all valid for VoiceParticipant
                   <li key={p.identity} style={styles.participantItem}>
                     <span style={styles.participantName}>{p.name || p.identity}</span>
                     {p.isLocal && <span style={styles.localUserIndicator}>(You)</span>}
@@ -273,6 +273,7 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                     {canModerate && !p.isLocal && (
                       <button
                         onClick={async () => {
+                          // p.identity is correct
                           const success = await moderateMuteParticipant(p.identity, !isMuted);
                           if (!success) {
                             // Error handling via toast is done in the hook

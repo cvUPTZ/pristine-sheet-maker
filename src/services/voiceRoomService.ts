@@ -1,34 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-
-export interface VoiceRoom {
-  id: string;
-  name: string;
-  description?: string | null;
-  max_participants: number;
-  priority: number;
-  permissions: string[];
-  is_private: boolean;
-  is_active: boolean;
-  match_id: string;
-  created_at: string;
-  updated_at: string | null;
-  participant_count?: number;
-}
-
-export interface VoiceRoomParticipant {
-  id: string;
-  name: string;
-  user_id: string;
-  room_id: string;
-  joined_at: string;
-  user_name?: string;
-  user_email?: string;
-  user_role?: string;
-  is_muted?: boolean;
-  is_speaking?: boolean;
-  connection_quality?: string;
-}
+import { VoiceRoom, VoiceParticipant } from '@/types';
 
 export class VoiceRoomService {
   private static instance: VoiceRoomService;
@@ -147,7 +119,7 @@ export class VoiceRoomService {
     return createdRooms;
   }
 
-  async getRoomParticipants(roomId: string): Promise<VoiceRoomParticipant[]> {
+  async getRoomParticipants(roomId: string): Promise<VoiceParticipant[]> {
     // This would require a separate participants table or real-time presence tracking
     // For now, return an empty array as this functionality needs to be implemented
     // with LiveKit's participant tracking or a custom participants table

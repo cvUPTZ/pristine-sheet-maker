@@ -2,17 +2,11 @@
 import { Room, RoomEvent, RemoteParticipant, Participant, ConnectionState, LocalParticipant } from 'livekit-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/database.types';
+import { VoiceRoom } from '@/types'; // Import the new VoiceRoom type
 
 // Environment variables (ensure these are set in your .env file)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-interface VoiceRoomDetails {
-  id: string;
-  name: string;
-  max_participants?: number;
-  // Add other relevant fields from your voice_rooms table
-}
 
 export class NewVoiceChatManager {
   private supabase: SupabaseClient<Database>;
@@ -59,7 +53,7 @@ export class NewVoiceChatManager {
     }
   }
 
-  public async listAvailableRooms(matchId: string): Promise<VoiceRoomDetails[]> {
+  public async listAvailableRooms(matchId: string): Promise<VoiceRoom[]> {
     const authToken = await this.getAuthToken();
     if (!authToken) {
         return [];

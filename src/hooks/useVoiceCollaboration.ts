@@ -2,15 +2,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { supabase } from '@/integrations/supabase/client';
-
-interface VoiceParticipant {
-  id: string;
-  name?: string;
-  role?: string;
-  isMuted: boolean;
-  isSpeaking: boolean;
-  isLocal: boolean;
-}
+import { VoiceParticipant } from '@/types'; // Import the new VoiceParticipant type
 
 interface AudioManager {
   getAudioOutputDevices: () => Promise<MediaDeviceInfo[]>;
@@ -162,30 +154,39 @@ export function useVoiceCollaboration({
       
       const localParticipant: VoiceParticipant = {
         id: userId,
+        identity: userId, // Added: Use userId as identity
+        user_id: userId, // Added: Use userId as user_id
         name: `User ${userId.substring(0, 4)}`,
         role: userRole,
         isMuted: false,
         isSpeaking: false,
-        isLocal: true
+        isLocal: true,
+        room_id: room.id // Added: current room context
       };
       
       const simulatedParticipants: VoiceParticipant[] = [
         localParticipant,
         {
           id: 'sim-1',
+          identity: 'sim-1', // Added
+          user_id: 'sim-1', // Added
           name: 'John Doe',
           role: 'tracker',
           isMuted: Math.random() > 0.5,
           isSpeaking: Math.random() > 0.7,
-          isLocal: false
+          isLocal: false,
+          room_id: room.id // Added
         },
         {
           id: 'sim-2',
+          identity: 'sim-2', // Added
+          user_id: 'sim-2', // Added
           name: 'Jane Smith',
           role: 'coordinator',
           isMuted: Math.random() > 0.5,
           isSpeaking: Math.random() > 0.7,
-          isLocal: false
+          isLocal: false,
+          room_id: room.id // Added
         }
       ];
       

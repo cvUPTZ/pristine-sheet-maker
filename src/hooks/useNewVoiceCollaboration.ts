@@ -1,19 +1,44 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { NewVoiceChatManager } from '@/services/NewVoiceChatManager';
-import { Participant, ConnectionState } from 'livekit-client';
+import { Participant as LivekitParticipant, ConnectionState, LocalParticipant, ConnectionQuality } from 'livekit-client';
+import { VoiceRoom, VoiceParticipant } from '@/types';
 
-interface VoiceRoomDetails {
-  id: string;
-  name: string;
-  max_participants?: number;
-}
+// Helper function to convert LiveKit Participant to VoiceParticipant
+const livekitParticipantToVoiceParticipant = (
+  lp: LivekitParticipant,
+  currentRoomId: string | null,
+  localUserIdentity: string | null, // Renamed for clarity from localIdentity
+  localDbUserId?: string,
+  localAppRole?: string
+): VoiceParticipant => {
+  const isLocal = lp.identity === localUserIdentity;
+  const voiceParticipant: VoiceParticipant = {
+    id: lp.sid,
+    identity: lp.identity,
+    name: lp.name || lp.identity,
+    isMuted: lp.isMicrophoneMuted,
+    isSpeaking: lp.isSpeaking,
+    isLocal: isLocal,
+    connection_quality: lp.connectionQuality ? ConnectionQuality[lp.connectionQuality] : 'unknown',
+    // audioTrackPublications: new Map(lp.audioTrackPublications), // Convert Map to new Map to ensure type compatibility if needed by VoiceParticipant
+    audioTrackPublications: lp.audioTrackPublications as any, // Cast to any if direct assignment is problematic, or ensure VoiceParticipant type matches
+    room_id: currentRoomId || undefined,
+    user_id: isLocal ? localDbUserId : undefined,
+    role: isLocal ? localAppRole : undefined,
+  };
+  if (lp instanceof LocalParticipant) {
+    voiceParticipant.isMicrophoneEnabled = lp.isMicrophoneEnabled;
+    voiceParticipant.isMuted = !lp.isMicrophoneEnabled;
+  }
+  return voiceParticipant;
+};
 
 interface UseNewVoiceCollaborationReturn {
-  availableRooms: VoiceRoomDetails[];
+  availableRooms: VoiceRoom[];
   currentRoomId: string | null;
-  participants: Participant[];
-  localParticipant: Participant | null;
+  participants: VoiceParticipant[];
+  localParticipant: VoiceParticipant | null;
   connectionState: ConnectionState | null;
   isConnecting: boolean;
   isConnected: boolean;
@@ -28,19 +53,35 @@ interface UseNewVoiceCollaborationReturn {
 
 export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
   const [manager] = useState(() => new NewVoiceChatManager());
-  const [availableRooms, setAvailableRooms] = useState<VoiceRoomDetails[]>([]);
+  const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [localParticipant, setLocalParticipant] = useState<Participant | null>(null);
+  const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
+  const [localParticipant, setLocalParticipant] = useState<VoiceParticipant | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Store local user's specific IDs and role
+  const [localUserIdentity, setLocalUserIdentity] = useState<string | null>(null);
+  const [localUserDbId, setLocalUserDbId] = useState<string | null>(null);
+  const [localUserAppRole, setLocalUserAppRole] = useState<string | null>(null);
+
   useEffect(() => {
-    manager.onParticipantsChanged = (newParticipants: Participant[]) => {
-      setParticipants(newParticipants);
-      setLocalParticipant(manager.getLocalParticipant());
+    manager.onParticipantsChanged = (newLivekitParticipants: LivekitParticipant[]) => {
+      const localLkParticipant = manager.getLocalParticipant();
+      const convertedParticipants = newLivekitParticipants.map(lp =>
+        livekitParticipantToVoiceParticipant(lp, currentRoomId, localLkParticipant?.identity || null, localUserDbId || undefined, localUserAppRole || undefined)
+      );
+      setParticipants(convertedParticipants);
+
+      if (localLkParticipant) {
+        setLocalParticipant(
+          livekitParticipantToVoiceParticipant(localLkParticipant, currentRoomId, localLkParticipant.identity, localUserDbId || undefined, localUserAppRole || undefined)
+        );
+      } else {
+        setLocalParticipant(null);
+      }
     };
 
     manager.onConnectionStateChanged = (state: ConnectionState) => {
@@ -51,6 +92,9 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
         setCurrentRoomId(null);
         setParticipants([]);
         setLocalParticipant(null);
+        setLocalUserIdentity(null); // Reset local user info on disconnect
+        setLocalUserDbId(null);
+        setLocalUserAppRole(null);
       }
     };
 
@@ -80,23 +124,42 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
   const joinRoom = useCallback(async (roomId: string, userId: string, userRole: string, userName: string) => {
     setIsConnecting(true);
     setError(null);
+    // Store userId and userRole for enriching local VoiceParticipant
+    setLocalUserIdentity(userId); // Assuming userId from input is the LiveKit identity
+    setLocalUserDbId(userId); // Assuming userId from input is also the DB ID
+    setLocalUserAppRole(userRole);
+
     try {
       const success = await manager.joinRoom(roomId, userId, userRole, userName);
       if (success) {
         setCurrentRoomId(roomId);
+        // Initial participant update after joining might be handled by onParticipantsChanged
+        // Or explicitly fetch and set local participant here
+        const localLkParticipant = manager.getLocalParticipant();
+        if (localLkParticipant) {
+          setLocalParticipant(
+            livekitParticipantToVoiceParticipant(localLkParticipant, roomId, userId, userId, userRole)
+          );
+        }
+      } else {
+        // If join failed, reset local user info
+        setLocalUserIdentity(null);
+        setLocalUserDbId(null);
+        setLocalUserAppRole(null);
       }
     } catch (err) {
       setError(err as Error);
+      setLocalUserIdentity(null);
+      setLocalUserDbId(null);
+      setLocalUserAppRole(null);
     } finally {
       setIsConnecting(false);
     }
-  }, [manager]);
+  }, [manager]); // Removed localUserIdentity, localUserDbId, localUserAppRole from deps to avoid re-runs
 
   const leaveRoom = useCallback(async () => {
     await manager.leaveRoom();
-    setCurrentRoomId(null);
-    setParticipants([]);
-    setLocalParticipant(null);
+    // State resets are handled in onConnectionStateChanged for Disconnected state
   }, [manager]);
 
   const toggleMuteSelf = useCallback(async () => {

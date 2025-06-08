@@ -311,3 +311,36 @@ export interface AnalysisJob {
   error?: string;
   colabLogUrl?: string; // Link to a specific Colab output/log if applicable
 }
+
+export interface VoiceRoom {
+  id: string;
+  name: string;
+  description?: string | null;
+  max_participants: number;
+  priority: number;
+  permissions: string[];
+  is_private: boolean;
+  is_active: boolean;
+  match_id: string;
+  created_at: string;
+  updated_at?: string | null;
+  participant_count?: number;
+}
+
+export interface VoiceParticipant {
+  id: string; // Sid for LiveKit participant, or database ID
+  identity: string; // User's unique identifier (LiveKit)
+  name?: string; // Display name
+  user_id?: string; // Database user ID
+  room_id?: string; // Database room ID
+  role?: string; // User role in the application context
+  isMuted?: boolean; // Microphone muted status
+  isSpeaking?: boolean; // Actively speaking
+  isLocal?: boolean; // Is this the local participant?
+  joined_at?: string; // Timestamp of joining (from database)
+  user_name?: string; // User's name (from database, potentially redundant with name)
+  user_email?: string; // User's email (from database)
+  connection_quality?: string; // e.g., "good", "poor" (LiveKit connectionQuality)
+  audioTrackPublications?: Map<string, any>; // Map of audio tracks from LiveKit (TrackPublication)
+  isMicrophoneEnabled?: boolean; // Specifically for LocalParticipant's mic status
+}
