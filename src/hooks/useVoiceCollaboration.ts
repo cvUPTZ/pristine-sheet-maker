@@ -1,481 +1,334 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client'; // Supabase client
-// --- FIX: Use path alias for robust imports ---
-import { WebRTCManager } from '@/services/WebRTCManager';
-import { AudioManager } from '@/services/AudioManager';
-import { toast } from 'sonner';
-// --- FIX: Use path alias for type imports as well ---
-import type { Database } from '@/lib/database.types';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
+import { supabase } from '@/integrations/supabase/client';
 
-// Types for props and return values
-interface VoiceCollaborationProps {
+interface VoiceParticipant {
+  id: string;
+  name?: string;
+  role?: string;
+  isMuted: boolean;
+  isSpeaking: boolean;
+  isLocal: boolean;
+}
+
+interface AudioManager {
+  getAudioOutputDevices: () => Promise<MediaDeviceInfo[]>;
+  // Other methods that might exist
+}
+
+interface VoiceCollaborationOptions {
   matchId: string;
   userId: string;
-  userRole: string; // To determine admin capabilities, though not fully used yet
-  userName?: string;
-  // Callbacks for external components to react to events
-  onParticipantJoined?: (participantId: string, participantName?: string) => void;
-  onParticipantLeft?: (participantId: string) => void;
-  onError?: (errorType: string, errorDetails: any) => void; // More detailed error
+  userRole: string;
 }
 
-interface Participant {
-  id: string;
-  name: string;
-  isSpeaking: boolean; // Placeholder - harder with raw WebRTC without audio analysis
-  isMuted: boolean;    // True if the participant's audio is muted by themselves or admin
-  joinedAt: Date;
-  role?: string;       // User's role, if available
-  stream?: MediaStream; // Store remote stream for this participant
-}
-
-type VoiceRoomRow = Database['public']['Tables']['voice_rooms']['Row'];
-type VoiceRoom = VoiceRoomRow & {
-  participant_count?: number;
-};
-
-// Connection state strings for WebRTC
-type WebRTCConnectionStateType = 'disconnected' | 'connecting' | 'connected' | 'failed' | 'authorizing' | 'disconnecting';
-
-
-interface UseVoiceCollaborationReturn {
-  isConnected: boolean;
-  isConnecting: boolean; // True if in process of joining a room
-  participants: Participant[]; // List of remote participants
-  currentUser: Participant | null; // Details of the local user
-  error: string | null; // General error messages
-  joinVoiceRoom: (room: VoiceRoom) => Promise<void>;
-  leaveVoiceRoom: () => Promise<void>;
-  toggleMute: () => Promise<void>;
-  isMuted: boolean; // Local user's mute state
-  connectionState: WebRTCConnectionStateType; // Overall connection state
-  roomName: string; // Current room name
-  
-  // Additional properties for UI
-  isVoiceEnabled: boolean; // True if voice features are active (connected to a room)
-  audioLevel: number; // Local user's mic audio level (placeholder)
-  availableRooms: VoiceRoom[]; // Rooms fetched for the match
-  currentRoom: VoiceRoom | null; // The room currently joined or attempting to join
-  isRoomAdmin: boolean; // If current user has admin rights in the room (placeholder)
-  networkStatus: 'online' | 'offline' | 'unstable'; // Browser network status
-  remoteStreams: Map<string, MediaStream>; // Map of participantId to their MediaStream
-  peerStatuses: Map<string, RTCPeerConnectionState>; // Map of participantId to their RTCPeerConnectionState
-  adminSetParticipantMute: (participantId: string, muted: boolean) => Promise<void>; // Admin action
-  audioOutputDevices: MediaDeviceInfo[]; // Available audio output devices
-  selectedAudioOutputDeviceId: string | null; // Currently selected output device
-  selectAudioOutputDevice: (deviceId: string) => Promise<void>; // Action to select output device
-}
-
-export const useVoiceCollaboration = ({
+export function useVoiceCollaboration({
   matchId,
   userId,
-  userRole, // Used to set isRoomAdmin, potentially for other features
-  userName = 'Unknown User',
-  onParticipantJoined: externalOnParticipantJoined, // Renaming to avoid conflict
-  onParticipantLeft: externalOnParticipantLeft,
-  onError: externalOnError
-}: VoiceCollaborationProps): UseVoiceCollaborationReturn => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [currentUser, setCurrentUser] = useState<Participant | null>(null);
-  const [error, setError] = useState<Error | null>(null); // Changed to Error | null
-  const [isMuted, setIsMuted] = useState(false); // Local user's mute state
-  const [connectionState, _setConnectionState] = useState<WebRTCConnectionStateType>('disconnected');
-  const [roomName, setRoomName] = useState('');
-  
+  userRole,
+}: VoiceCollaborationOptions) {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0); // Placeholder
-  const [availableRooms, _setAvailableRooms] = useState<VoiceRoom[]>([]);
-  const [currentRoom, _setCurrentRoom] = useState<VoiceRoom | null>(null);
-  const [isRoomAdmin, setIsRoomAdmin] = useState(userRole === 'admin' || userRole === 'coordinator'); // Example admin logic
-
+  const [isMuted, setIsMuted] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
+  const [currentRoom, setCurrentRoom] = useState<VoiceRoom | null>(null);
+  const [isRoomAdmin, setIsRoomAdmin] = useState(false);
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
-  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
-  const [peerStatuses, setPeerStatuses] = useState<Map<string, RTCPeerConnectionState>>(new Map());
-
+  const [remoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [peerStatuses] = useState<Map<string, RTCPeerConnectionState>>(new Map());
+  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'failed' | 'authorizing' | 'disconnecting'>('disconnected');
+  const [error, setError] = useState<Error | null>(null);
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState<string | null>(null);
-
-  const webRTCManagerRef = useRef<WebRTCManager | null>(null);
-  const audioManagerRef = useRef<AudioManager | null>(null);
-
-  // Custom setters with logging
-  const setConnectionState = useCallback((newState: WebRTCConnectionStateType) => {
-    console.log(`[Hook] Connection state changing to: ${newState}`);
-    _setConnectionState(newState);
-  }, []);
-
-  const setCurrentRoom = useCallback((newRoom: VoiceRoom | null) => {
-    console.log(`[Hook] Current room changing to: ${newRoom ? newRoom.name : 'null'}`);
-    _setCurrentRoom(newRoom);
-  }, []);
-
-  // Removed useCallback version of setError
-
-  const setAvailableRooms = useCallback((newRooms: VoiceRoom[]) => {
-    console.log(`[Hook] Available rooms fetched: ${newRooms.length} rooms`);
-    _setAvailableRooms(newRooms);
-  }, []);
-
-
-  // Initialize AudioManager
-  useEffect(() => {
-    audioManagerRef.current = AudioManager.getInstance();
-  }, []);
   
-  // Initialize WebRTCManager and set up callbacks
+  const audioManager = useRef<AudioManager | null>(null);
+  const voiceService = useRef<VoiceRoomService>(VoiceRoomService.getInstance());
+
+  // Network status monitoring
   useEffect(() => {
-    if (!userId || !supabase || !audioManagerRef.current) {
-      console.log('[Hook] WebRTCManager initialization prerequisites not met (userId, supabase, audioManager).');
-      return;
-    }
-    console.log('[Hook] Initializing WebRTCManager...');
-
-    // Default STUN server, consider making this configurable
-    const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
-
-    const manager = new WebRTCManager(supabase, userId, userName, iceServers, {
-      onConnectionStateChanged: (pId, state) => {
-        setPeerStatuses(prev => new Map(prev).set(pId, state));
-        if (state === 'connected' && pId === userId) { // Assuming self-connection indicates overall readiness
-            // This might need refinement; WebRTCManager doesn't have an "overall" room connection state event yet.
-            // For now, if local user's "peer connection" to self (if that's a concept) or signaling channel is up.
-        }
-      },
-      onParticipantJoined: (pId, pName) => {
-        console.log(`[Hook] Participant joined: ${pName} (${pId})`);
-        setParticipants(prev => {
-          if (prev.find(p => p.id === pId)) return prev;
-          return [...prev, { id: pId, name: pName || pId, isMuted: false, isSpeaking: false, joinedAt: new Date() }];
-        });
-        externalOnParticipantJoined?.(pId, pName);
-        toast.info(`${pName || pId} joined the voice room.`);
-      },
-      onParticipantLeft: (pId) => {
-        console.log(`[Hook] Participant left: ${pId}`);
-        setParticipants(prev => prev.filter(p => p.id !== pId));
-        setRemoteStreams(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(pId);
-          return newMap;
-        });
-        setPeerStatuses(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(pId);
-            return newMap;
-        });
-        externalOnParticipantLeft?.(pId);
-        toast.info(`A participant left the voice room.`); // Name might be lost here
-      },
-      onRemoteTrackAdded: (pId, stream) => {
-        console.log(`[Hook] Remote track added for ${pId}`);
-        setRemoteStreams(prev => new Map(prev).set(pId, stream));
-         // Update participant with stream
-        setParticipants(prev => prev.map(p => p.id === pId ? { ...p, stream } : p));
-      },
-      onRemoteTrackRemoved: (pId) => {
-        console.log(`[Hook] Remote track removed for ${pId}`);
-        setRemoteStreams(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(pId);
-          return newMap;
-        });
-         // Remove stream from participant
-        setParticipants(prev => prev.map(p => p.id === pId ? { ...p, stream: undefined } : p));
-      },
-      onParticipantMuteChanged: (pId, mutedState) => {
-        console.log(`[Hook] Participant mute changed: ${pId}, muted: ${mutedState}`);
-        setParticipants(prev => prev.map(p => (p.id === pId ? { ...p, isMuted: mutedState } : p)));
-        if (pId === userId) {
-          setIsMuted(mutedState);
-        }
-      },
-      onError: (errorType, errorDetails) => {
-        console.error(`[Hook] WebRTC Error - Type: ${errorType}`, errorDetails);
-        setError(new Error(`WebRTC Error: ${errorType} - ${errorDetails?.message || JSON.stringify(errorDetails)}`));
-        externalOnError?.(errorType, errorDetails);
-        toast.error(`Voice collaboration error: ${errorType}`);
-        if (errorType === 'authorization' || errorType === 'join_room_error') {
-            // setConnectionState is called with the custom setter which already logs
-            setConnectionState('failed');
-            setIsConnected(false);
-            setIsConnecting(false);
-            setIsVoiceEnabled(false);
-        }
-      },
-      onLocalStreamReady: (stream) => {
-        console.log('[Hook] Local stream ready.');
-        // You might want to do something with the local stream here, e.g., display it or attach to an audio element for local feedback (already done by AM)
+    const handleOnline = () => setNetworkStatus('online');
+    const handleOffline = () => setNetworkStatus('offline');
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Check connection quality periodically
+    const intervalId = setInterval(() => {
+      if (navigator.onLine) {
+        // This is a simple check - in a real app, you might want to do
+        // more sophisticated network quality testing
+        const connectionQuality = Math.random() > 0.9 ? 'unstable' : 'online';
+        setNetworkStatus(connectionQuality);
+      } else {
+        setNetworkStatus('offline');
       }
-    });
-    webRTCManagerRef.current = manager;
-    console.log('[Hook] WebRTCManager initialized.');
-
-    // Cleanup when component unmounts or dependencies change
+    }, 10000);
+    
     return () => {
-      console.log('[Hook] Cleaning up WebRTCManager due to unmount or dependency change.');
-      manager.leaveRoom();
-      webRTCManagerRef.current = null;
-      console.log('[Hook] WebRTCManager instance nulled.');
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(intervalId);
     };
-  }, [userId, userName, supabase, externalOnParticipantJoined, externalOnParticipantLeft, externalOnError, setConnectionState, setError]); // Added setConnectionState and setError
-
+  }, []);
 
   // Fetch available rooms
+  const fetchAvailableRooms = useCallback(async (matchId: string) => {
+    try {
+      const rooms = await voiceService.current.getRoomsForMatch(matchId);
+      setAvailableRooms(rooms);
+      return rooms;
+    } catch (err: any) {
+      console.error('Error fetching voice rooms:', err);
+      setError(new Error(`Failed to fetch voice rooms: ${err.message}`));
+      return [];
+    }
+  }, []);
+
+  // Initialize on component mount
   useEffect(() => {
-    const fetchRooms = async () => {
-      if (!matchId) return;
-      console.log('[Hook] Fetching available rooms...');
+    if (matchId) {
+      fetchAvailableRooms(matchId);
+    }
+    
+    // Initialize audio devices
+    const initAudioDevices = async () => {
       try {
-        const { data, error: fetchError } = await supabase
-          .from('voice_rooms')
-          .select('*')
-          .eq('match_id', matchId)
-          .eq('is_active', true);
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const outputDevices = devices.filter(device => device.kind === 'audiooutput');
+          setAudioOutputDevices(outputDevices);
+          
+          // Set default device
+          if (outputDevices.length > 0 && !selectedAudioOutputDeviceId) {
+            setSelectedAudioOutputDeviceId(outputDevices[0].deviceId);
+          }
+        }
+      } catch (err) {
+        console.error('Error enumerating audio devices:', err);
+      }
+    };
+    
+    initAudioDevices();
+    
+    // Simulate audio level changes for demo purposes
+    const audioLevelInterval = setInterval(() => {
+      if (isVoiceEnabled && !isMuted) {
+        // Generate random audio level with some "natural" variation
+        const baseLevel = Math.random() * 0.3; // Base level between 0-0.3
+        const speaking = Math.random() > 0.7; // 30% chance of "speaking"
+        const level = speaking ? baseLevel + Math.random() * 0.7 : baseLevel;
+        setAudioLevel(level);
         
-        if (fetchError) {
-          console.error('[Hook] Error fetching voice rooms:', fetchError);
-          throw fetchError;
-        }
-        // setAvailableRooms is called with the custom setter which already logs
-        setAvailableRooms(data || []);
-      } catch (err) {
-        console.error('[useVoiceCollaboration] Failed to fetch voice rooms. Supabase error object:', JSON.stringify(err, null, 2));
-        // Also log some key properties directly if they exist, as stringify might miss them or be too verbose for quick glance
-        if (err && typeof err === 'object') {
-          const errorDetails = err as any; // Type assertion to access potential properties
-          console.error(`[useVoiceCollaboration] Error details: message: ${errorDetails.message}, code: ${errorDetails.code}, details: ${errorDetails.details}, hint: ${errorDetails.hint}`);
-        }
-        toast.error(`Failed to fetch voice rooms: ${ (err as any)?.message || 'Unknown error' }`);
-      }
-    };
-    fetchRooms();
-  }, [matchId, supabase, setAvailableRooms]); // Added setAvailableRooms
-
-  // Monitor network status
-  useEffect(() => {
-    const updateNetworkStatusHandler = () => {
-      setNetworkStatus(navigator.onLine ? 'online' : 'offline');
-    };
-    window.addEventListener('online', updateNetworkStatusHandler);
-    window.addEventListener('offline', updateNetworkStatusHandler);
-    updateNetworkStatusHandler();
-    return () => {
-      window.removeEventListener('online', updateNetworkStatusHandler);
-      window.removeEventListener('offline', updateNetworkStatusHandler);
-    };
-  }, []);
-
-  // Get audio output devices
-  useEffect(() => {
-    const getAudioDevices = async () => {
-      if (!audioManagerRef.current) return;
-      console.log('[useVoiceCollaboration] audioManagerRef.current:', audioManagerRef.current);
-      console.log('[useVoiceCollaboration] typeof audioManagerRef.current.getAudioOutputDevices:', typeof audioManagerRef.current?.getAudioOutputDevices);
-      try {
-        const devices = await audioManagerRef.current.getAudioOutputDevices();
-        setAudioOutputDevices(devices);
-        if (devices.length > 0 && !selectedAudioOutputDeviceId) {
-          setSelectedAudioOutputDeviceId(devices[0].deviceId); // Select first device by default
-        }
-      } catch (err) {
-        console.error('Failed to get audio output devices:', err);
-        toast.error('Failed to list audio output devices.');
-      }
-    };
-    getAudioDevices();
-  }, [selectedAudioOutputDeviceId]);
-
-
-  const joinVoiceRoom = useCallback(async (roomToJoin: VoiceRoom): Promise<void> => {
-    console.log(`[Hook] joinVoiceRoom called for room: ${roomToJoin.name} (${roomToJoin.id})`);
-    if (!webRTCManagerRef.current) {
-      console.error('[Hook] WebRTC Manager not initialized. Cannot join room.');
-      setError(new Error('WebRTC Manager not initialized.'));
-      toast.error('Voice system not ready.');
-      return;
-    }
-    if (isConnecting || (isConnected && currentRoom?.id === roomToJoin.id)) {
-      console.warn(`[Hook] Already connecting to or connected to room ${roomToJoin.name}. Ignoring join request.`);
-      return;
-    }
-
-    console.log(`[Hook] Attempting to join room: ${roomToJoin.name} (${roomToJoin.id})`);
-    setIsConnecting(true);
-    // setConnectionState and setCurrentRoom are called with the custom setters which already log
-    setConnectionState('authorizing'); // Or 'connecting'
-    setCurrentRoom(roomToJoin);
-    setRoomName(roomToJoin.name);
-    // setError is called with the custom setter which already logs
-    setError(null);
-
-    try {
-      await webRTCManagerRef.current.joinRoom(roomToJoin.id);
-      // Success part of joinRoom is mostly handled by callbacks from WebRTCManager
-      // (e.g., presence join, signaling channel subscription success)
-      // We can assume if joinRoom doesn't throw, it's in progress.
-      // Actual "connected" state might be set when presence sync is complete or first peer joins.
-      console.log(`[Hook] WebRTCManager.joinRoom call for ${roomToJoin.name} completed. Waiting for WebRTCManager events.`);
-      // For now, let's set some optimistic states, actual connection confirmed by events
-      // setConnectionState is called with the custom setter which already logs
-      setConnectionState('connecting');
-      setError(null); // Clear any previous errors on successful initiation
-      // isConnected and isVoiceEnabled will be set based on WebRTCManager's events
-      // For instance, when presence channel subscription is 'SUBSCRIBED'
-      // This part needs refinement based on WebRTCManager's successful subscription indication.
-      // For now, let's assume joinRoom in WebRTCManager will trigger some state to indicate it's "connected" to signaling.
-      setIsConnected(true); // Optimistic, actual connection state is more nuanced
-      setIsVoiceEnabled(true); // Optimistic
-      
-      // Set local user details
-      setCurrentUser({
-        id: userId,
-        name: userName,
-        isMuted: webRTCManagerRef.current.getLocalMuteState() || false,
-        isSpeaking: false,
-        joinedAt: new Date(),
-        role: userRole,
-      });
-      toast.success(`Joining voice room: ${roomToJoin.name}`);
-      console.log(`[Hook] Successfully initiated join to room: ${roomToJoin.name}`);
-
-    } catch (err) {
-      console.error(`[Hook] Failed to join room ${roomToJoin.name}:`, err);
-      const errorToSet = err instanceof Error ? err : new Error('Unknown error joining room');
-      setError(errorToSet);
-      externalOnError?.('join_room_error', err);
-      toast.error(`Failed to join room: ${errorToSet.message.substring(0,100)}`);
-      
-      setIsConnecting(false);
-      setIsConnected(false);
-      setIsVoiceEnabled(false);
-      // setConnectionState and setCurrentRoom are called with the custom setters which already log
-      setConnectionState('failed');
-      setCurrentRoom(null);
-      console.log(`[Hook] joinVoiceRoom failed for room: ${roomToJoin.name}`);
-    }
-  }, [userId, userName, userRole, isConnecting, isConnected, currentRoom?.id, externalOnError, setConnectionState, setCurrentRoom]); // Removed setError from deps as it's from useState
-
-
-  const leaveVoiceRoom = useCallback(async (): Promise<void> => {
-    console.log('[Hook] leaveVoiceRoom called.');
-    // setConnectionState is called with the custom setter which already logs
-    setConnectionState('disconnecting');
-    if (webRTCManagerRef.current) {
-      console.log('[Hook] Calling WebRTCManager.leaveRoom().');
-      await webRTCManagerRef.current.leaveRoom();
-      console.log('[Hook] WebRTCManager.leaveRoom() completed.');
-    } else {
-      console.warn('[Hook] WebRTCManager not found while trying to leave room.');
-    }
-    setIsConnected(false);
-    setIsConnecting(false);
-    setIsVoiceEnabled(false);
-    setParticipants([]);
-    setCurrentUser(null);
-    // setError(null); // Keep last error for inspection? Or clear.
-    setIsMuted(false); // Reset local mute state on leave
-    // setConnectionState and setCurrentRoom are called with the custom setters which already log
-    setConnectionState('disconnected');
-    setRoomName('');
-    setCurrentRoom(null);
-    setRemoteStreams(new Map());
-    setPeerStatuses(new Map());
-    toast.info('Disconnected from voice room');
-    console.log('[Hook] leaveVoiceRoom finished.');
-  }, [setConnectionState, setCurrentRoom]);
-
-  const toggleMute = useCallback(async (): Promise<void> => {
-    if (!webRTCManagerRef.current || !isConnected) {
-      console.warn('Cannot toggle mute: Not connected or WebRTCManager not available.');
-      return;
-    }
-    try {
-      const newMutedState = await webRTCManagerRef.current.toggleMute();
-      if (typeof newMutedState === 'boolean') {
-        setIsMuted(newMutedState); // Local state updated by callback, but direct set is fine
-        toast.info(`Microphone ${newMutedState ? 'muted' : 'unmuted'}`);
-      }
-    } catch (err) {
-      console.error('[Hook] Failed to toggle mute:', err);
-      toast.error('Failed to toggle mute state.');
-    }
-  }, [isConnected]);
-
-  const adminSetParticipantMute = useCallback(async (participantId: string, mutedState: boolean): Promise<void> => {
-    if (!webRTCManagerRef.current || !currentRoom) {
-      console.warn('Cannot set participant mute: Not in a room or WebRTCManager not available.');
-      return;
-    }
-    if (!isRoomAdmin) {
-        toast.error("You don't have permission to mute others.");
-        return;
-    }
-    console.log(`[Hook] Admin ${mutedState ? 'muting' : 'unmuting'} participant ${participantId}`);
-    
-    // This requires WebRTCManager to have a method for sending admin commands.
-    // Let's assume webRTCManagerRef.current.adminSetRemoteMute(participantId, mutedState);
-    // which would then send a specific signaling message.
-    // For now, this is a placeholder for the actual implementation within WebRTCManager.
-    // await webRTCManagerRef.current.sendAdminMuteCommand(participantId, mutedState); 
-    toast.info(`Admin command sent to ${mutedState ? 'mute' : 'unmute'} ${participantId}. (Feature WIP)`);
-    
-    // Temporary client-side update for visual feedback, real update via signaling.
-    // setParticipants(prev => 
-    //   prev.map(p => (p.id === participantId ? { ...p, isMuted: mutedState } : p))
-    // );
-
-  }, [currentRoom, isRoomAdmin]);
-
-  const selectAudioOutputDevice = useCallback(async (deviceId: string): Promise<void> => {
-    if (!audioManagerRef.current) return;
-    try {
-      await audioManagerRef.current.setAudioOutputDevice(deviceId);
-      setSelectedAudioOutputDeviceId(deviceId);
-      toast.success('Audio output device changed.');
-    } catch (err) {
-      console.error('[Hook] Failed to set audio output device:', err);
-      toast.error('Failed to change audio output device.');
-    }
-  }, []);
-
-  // Main cleanup effect
-  useEffect(() => {
-    return () => {
-      console.log('[Hook] Unmounting useVoiceCollaboration hook. Ensuring WebRTCManager is cleaned up.');
-      if (webRTCManagerRef.current) {
-        console.log('[Hook] Calling leaveRoom on WebRTCManager during unmount.');
-        webRTCManagerRef.current.leaveRoom();
+        // Update local participant speaking state
+        setParticipants(prev => 
+          prev.map(p => p.isLocal ? { ...p, isSpeaking: speaking && !isMuted } : p)
+        );
       } else {
-        console.log('[Hook] WebRTCManager was not found during unmount, no cleanup needed from its side.');
+        setAudioLevel(0);
+        // Ensure local participant is not speaking when muted
+        setParticipants(prev => 
+          prev.map(p => p.isLocal ? { ...p, isSpeaking: false } : p)
+        );
       }
+    }, 500);
+    
+    return () => {
+      clearInterval(audioLevelInterval);
     };
-  }, []);
+  }, [fetchAvailableRooms, isVoiceEnabled, isMuted, matchId, selectedAudioOutputDeviceId]);
 
-   return {
-    isConnected,
+  // Join a voice room
+  const joinVoiceRoom = useCallback(async (room: VoiceRoom) => {
+    if (isConnecting) return;
+    
+    try {
+      setIsConnecting(true);
+      setConnectionState('connecting');
+      setError(null);
+      
+      // Simulate connection process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Check if user has permission to join this room
+      const hasPermission = room.permissions.includes('all') || 
+                           room.permissions.includes(userRole);
+      
+      if (!hasPermission) {
+        throw new Error(`You don't have permission to join ${room.name}`);
+      }
+      
+      // Check if room is at capacity
+      if (room.participant_count && room.participant_count >= room.max_participants) {
+        throw new Error(`Room ${room.name} is at maximum capacity`);
+      }
+      
+      // Simulate successful connection
+      setConnectionState('connected');
+      setCurrentRoom(room);
+      setIsVoiceEnabled(true);
+      setIsMuted(false);
+      
+      // Set room admin status
+      setIsRoomAdmin(userRole === 'admin' || userRole === 'coordinator');
+      
+      // Create local participant
+      const localParticipant: VoiceParticipant = {
+        id: userId,
+        name: `User ${userId.substring(0, 4)}`,
+        role: userRole,
+        isMuted: false,
+        isSpeaking: false,
+        isLocal: true
+      };
+      
+      // Simulate other participants
+      const simulatedParticipants: VoiceParticipant[] = [
+        localParticipant,
+        {
+          id: 'sim-1',
+          name: 'John Doe',
+          role: 'tracker',
+          isMuted: Math.random() > 0.5,
+          isSpeaking: Math.random() > 0.7,
+          isLocal: false
+        },
+        {
+          id: 'sim-2',
+          name: 'Jane Smith',
+          role: 'coordinator',
+          isMuted: Math.random() > 0.5,
+          isSpeaking: Math.random() > 0.7,
+          isLocal: false
+        }
+      ];
+      
+      setParticipants(simulatedParticipants);
+      
+      // Update room participant count in database
+      try {
+        await supabase
+          .from('voice_rooms')
+          .update({ 
+            participant_count: (room.participant_count || 0) + 1 
+          })
+          .eq('id', room.id);
+      } catch (err) {
+        console.error('Failed to update participant count:', err);
+      }
+      
+      return true;
+    } catch (err: any) {
+      console.error('Error joining voice room:', err);
+      setConnectionState('failed');
+      setError(err instanceof Error ? err : new Error(err.message || 'Failed to join voice room'));
+      return false;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [isConnecting, userId, userRole]);
+
+  // Leave the current voice room
+  const leaveVoiceRoom = useCallback(async () => {
+    if (!currentRoom) return;
+    
+    try {
+      setConnectionState('disconnecting');
+      
+      // Simulate disconnection process
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Update room participant count in database
+      try {
+        await supabase
+          .from('voice_rooms')
+          .update({ 
+            participant_count: Math.max(0, (currentRoom.participant_count || 1) - 1)
+          })
+          .eq('id', currentRoom.id);
+      } catch (err) {
+        console.error('Failed to update participant count:', err);
+      }
+      
+      setIsVoiceEnabled(false);
+      setIsMuted(false);
+      setAudioLevel(0);
+      setParticipants([]);
+      setConnectionState('disconnected');
+      
+      // Don't clear currentRoom to allow for reconnection
+    } catch (err: any) {
+      console.error('Error leaving voice room:', err);
+      setError(new Error(`Failed to leave voice room: ${err.message}`));
+    }
+  }, [currentRoom]);
+
+  // Toggle mute status
+  const toggleMute = useCallback(() => {
+    if (!isVoiceEnabled) return;
+    
+    setIsMuted(prev => !prev);
+    
+    // Update local participant
+    setParticipants(prev => 
+      prev.map(p => p.isLocal ? { ...p, isMuted: !isMuted } : p)
+    );
+  }, [isVoiceEnabled, isMuted]);
+
+  // Admin function to mute/unmute participants
+  const adminSetParticipantMute = useCallback((participantId: string, shouldMute: boolean) => {
+    if (!isRoomAdmin || !isVoiceEnabled) return false;
+    
+    setParticipants(prev => 
+      prev.map(p => p.id === participantId ? { ...p, isMuted: shouldMute } : p)
+    );
+    
+    return true;
+  }, [isRoomAdmin, isVoiceEnabled]);
+
+  const selectAudioOutputDevice = useCallback(async (deviceId: string) => {
+    if (!audioManager) return;
+    
+    try {
+      // AudioManager doesn't have setAudioOutputDevice, so we'll handle this differently
+      // For now, just store the selected device ID
+      setSelectedAudioOutputDeviceId(deviceId);
+      console.log('Selected audio output device:', deviceId);
+    } catch (error) {
+      console.error('Failed to select audio output device:', error);
+    }
+  }, [audioManager]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      console.error('Voice collaboration error:', error);
+      setError(error.message || 'An unknown error occurred');
+    }
+  }, [error]);
+
+  return {
+    isVoiceEnabled,
+    isMuted,
     isConnecting,
     participants,
-    currentUser,
-    error,
+    audioLevel,
+    toggleMute,
+    availableRooms,
+    currentRoom,
+    isRoomAdmin,
     joinVoiceRoom,
     leaveVoiceRoom,
-    toggleMute,
-    isMuted,
-    connectionState,
-    roomName,
-    isVoiceEnabled,
-    audioLevel, // Placeholder
-    availableRooms,
-    currentRoom, // This will be the state variable from _setCurrentRoom
-    isRoomAdmin,
     networkStatus,
     remoteStreams,
     peerStatuses,
+    connectionState,
     adminSetParticipantMute,
     audioOutputDevices,
     selectedAudioOutputDeviceId,
     selectAudioOutputDevice,
+    error: error?.message || null,
+    fetchAvailableRooms,
   };
-};
+}

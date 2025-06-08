@@ -122,7 +122,7 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({
         is_private: currentRoom.is_private,
         is_active: currentRoom.is_active,
         created_at: currentRoom.created_at,
-        updated_at: currentRoom.updated_at,
+        updated_at: currentRoom.updated_at || new Date().toISOString(),
       };
       setRoomToRejoin(compatibleRoom);
     } else {

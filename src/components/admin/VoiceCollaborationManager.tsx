@@ -173,14 +173,14 @@ const VoiceCollaborationManager: React.FC = () => {
       let allParticipants: VoiceParticipant[] = [];
       for (const room of rooms) {
         const roomParticipants = await voiceService.getRoomParticipants(room.id);
-        const mappedParticipants = roomParticipants.map(p => ({
+        const mappedParticipants: VoiceParticipant[] = roomParticipants.map(p => ({
           id: p.id,
           user_id: p.user_id,
           room_id: p.room_id,
-          is_muted: p.is_muted,
-          is_speaking: p.is_speaking,
+          is_muted: p.is_muted ?? false,
+          is_speaking: p.is_speaking ?? false,
           is_connected: true,
-          connection_quality: p.connection_quality,
+          connection_quality: (p.connection_quality as 'excellent' | 'good' | 'fair' | 'poor') || 'good',
           audio_level: Math.random() * 0.8 + 0.1, // Simulated for now
           joined_at: p.joined_at,
           user_profile: {
