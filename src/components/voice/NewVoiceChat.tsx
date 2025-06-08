@@ -154,11 +154,13 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
     isConnected,
     isLoadingRooms,
     error,
+    audioLevels,
     joinRoom,
     leaveRoom,
     toggleMuteSelf,
     fetchAvailableRooms,
     moderateMuteParticipant,
+    getAudioLevel,
   } = useNewVoiceCollaboration();
 
   const lastShownErrorRef = useRef<Error | null>(null);
@@ -202,8 +204,14 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
       const localP = localParticipant as LocalParticipant;
       return !localP.isMicrophoneEnabled;
     }
-    return participant.audioTrackPublications.size === 0 || 
-           Array.from(participant.audioTrackPublications.values()).some(pub => pub.isMuted);
+    // For remote participants, check if they have audio tracks enabled
+    const audioTrackPublications = Array.from(participant.audioTrackPublications.values());
+    return audioTrackPublications.length === 0 || audioTrackPublications.some(pub => pub.isMuted);
+  };
+
+  const isParticipantSpeaking = (participant: Participant): boolean => {
+    const audioLevel = getAudioLevel(participant.identity);
+    return audioLevel > 0.1 && !isParticipantMuted(participant); // Threshold for speaking detection
   };
 
   return (
@@ -262,20 +270,41 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
             <ul style={styles.participantList}>
               {participants.map(p => {
                 const isMuted = isParticipantMuted(p);
+                const isSpeaking = isParticipantSpeaking(p);
+                const audioLevel = getAudioLevel(p.identity);
                 
                 return (
                   <li key={p.identity} style={styles.participantItem}>
                     <span style={styles.participantName}>{p.name || p.identity}</span>
                     {p.isLocal && <span style={styles.localUserIndicator}>(You)</span>}
                     {isMuted && <span style={styles.mutedIndicator}>(Muted)</span>}
-                    {p.isSpeaking && !isMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
+                    {isSpeaking && !isMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
+                    
+                    {/* Audio level indicator */}
+                    {!isMuted && (
+                      <div style={{
+                        marginLeft: '10px',
+                        width: '30px',
+                        height: '4px',
+                        backgroundColor: '#eee',
+                        borderRadius: '2px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          width: `${Math.max(audioLevel * 100, 2)}%`,
+                          height: '100%',
+                          backgroundColor: isSpeaking ? '#22c55e' : '#94a3b8',
+                          transition: 'width 0.1s ease-out'
+                        }} />
+                      </div>
+                    )}
 
                     {canModerate && !p.isLocal && (
                       <button
                         onClick={async () => {
                           const success = await moderateMuteParticipant(p.identity, !isMuted);
                           if (!success) {
-                            // Error handling via toast is done in the hook
+                            toast.error('Failed to moderate participant. This feature may require server-side implementation.');
                           }
                         }}
                         style={{...styles.button, marginLeft: '10px', fontSize: '0.8em', padding: '5px 8px'}}
@@ -288,6 +317,16 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                 );
               })}
             </ul>
+
+            {/* Real-time audio levels debug info */}
+            <div style={{...styles.section, marginTop: '20px'}}>
+              <h4 style={styles.sectionTitle}>Audio Levels (Debug)</h4>
+              {Array.from(audioLevels.entries()).map(([participantId, level]) => (
+                <div key={participantId} style={{fontSize: '0.8em', color: '#666'}}>
+                  {participantId}: {(level * 100).toFixed(1)}%
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

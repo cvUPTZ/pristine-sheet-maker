@@ -19,11 +19,13 @@ interface UseNewVoiceCollaborationReturn {
   isConnected: boolean;
   isLoadingRooms: boolean;
   error: Error | null;
+  audioLevels: Map<string, number>;
   joinRoom: (roomId: string, userId: string, userRole: string, userName: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
   toggleMuteSelf: () => Promise<boolean | undefined>;
   fetchAvailableRooms: (matchId: string) => Promise<void>;
   moderateMuteParticipant: (targetIdentity: string, mute: boolean) => Promise<boolean>;
+  getAudioLevel: (participantId: string) => number;
 }
 
 export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
@@ -36,14 +38,17 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [audioLevels, setAudioLevels] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     manager.onParticipantsChanged = (newParticipants: Participant[]) => {
+      console.log('[useNewVoiceCollaboration] Participants updated:', newParticipants.length);
       setParticipants(newParticipants);
       setLocalParticipant(manager.getLocalParticipant());
     };
 
     manager.onConnectionStateChanged = (state: ConnectionState) => {
+      console.log('[useNewVoiceCollaboration] Connection state changed:', state);
       setConnectionState(state);
       setIsConnecting(state === ConnectionState.Connecting);
       
@@ -51,12 +56,22 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
         setCurrentRoomId(null);
         setParticipants([]);
         setLocalParticipant(null);
+        setAudioLevels(new Map());
       }
     };
 
     manager.onError = (err: Error) => {
+      console.error('[useNewVoiceCollaboration] Error:', err);
       setError(err);
       setIsConnecting(false);
+    };
+
+    manager.onAudioLevelChanged = (participantId: string, level: number) => {
+      setAudioLevels(prev => {
+        const newMap = new Map(prev);
+        newMap.set(participantId, level);
+        return newMap;
+      });
     };
 
     return () => {
@@ -68,9 +83,12 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
     setIsLoadingRooms(true);
     setError(null);
     try {
+      console.log('[useNewVoiceCollaboration] Fetching rooms for match:', matchId);
       const rooms = await manager.listAvailableRooms(matchId);
+      console.log('[useNewVoiceCollaboration] Found rooms:', rooms.length);
       setAvailableRooms(rooms);
     } catch (err) {
+      console.error('[useNewVoiceCollaboration] Error fetching rooms:', err);
       setError(err as Error);
     } finally {
       setIsLoadingRooms(false);
@@ -81,11 +99,16 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
     setIsConnecting(true);
     setError(null);
     try {
+      console.log('[useNewVoiceCollaboration] Joining room:', roomId);
       const success = await manager.joinRoom(roomId, userId, userRole, userName);
       if (success) {
         setCurrentRoomId(roomId);
+        console.log('[useNewVoiceCollaboration] Successfully joined room');
+      } else {
+        throw new Error('Failed to join room');
       }
     } catch (err) {
+      console.error('[useNewVoiceCollaboration] Error joining room:', err);
       setError(err as Error);
     } finally {
       setIsConnecting(false);
@@ -93,18 +116,26 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
   }, [manager]);
 
   const leaveRoom = useCallback(async () => {
+    console.log('[useNewVoiceCollaboration] Leaving room');
     await manager.leaveRoom();
     setCurrentRoomId(null);
     setParticipants([]);
     setLocalParticipant(null);
+    setAudioLevels(new Map());
   }, [manager]);
 
   const toggleMuteSelf = useCallback(async () => {
+    console.log('[useNewVoiceCollaboration] Toggling mute');
     return await manager.toggleMuteSelf();
   }, [manager]);
 
   const moderateMuteParticipant = useCallback(async (targetIdentity: string, mute: boolean) => {
+    console.log('[useNewVoiceCollaboration] Moderating participant:', targetIdentity, 'mute:', mute);
     return await manager.moderateMuteParticipant(targetIdentity, mute);
+  }, [manager]);
+
+  const getAudioLevel = useCallback((participantId: string): number => {
+    return manager.getAudioLevel(participantId);
   }, [manager]);
 
   const isConnected = connectionState === ConnectionState.Connected;
@@ -119,10 +150,12 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
     isConnected,
     isLoadingRooms,
     error,
+    audioLevels,
     joinRoom,
     leaveRoom,
     toggleMuteSelf,
     fetchAvailableRooms,
     moderateMuteParticipant,
+    getAudioLevel,
   };
 };

@@ -1,300 +1,222 @@
 
-import { Room, RoomEvent, RemoteParticipant, Participant, ConnectionState, LocalParticipant } from 'livekit-client';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/database.types';
-
-// Environment variables (ensure these are set in your .env file)
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { supabase } from '@/integrations/supabase/client';
+import { LiveKitService } from './LiveKitService';
+import { AudioLevelMonitor } from './AudioLevelMonitor';
+import { ConnectionState, Participant, LocalParticipant, RemoteParticipant } from 'livekit-client';
 
 interface VoiceRoomDetails {
   id: string;
   name: string;
   max_participants?: number;
-  // Add other relevant fields from your voice_rooms table
 }
 
 export class NewVoiceChatManager {
-  private supabase: SupabaseClient<Database>;
-  private liveKitRoom: Room | null = null;
+  private liveKitService: LiveKitService;
+  private audioLevelMonitor: AudioLevelMonitor;
   private currentRoomId: string | null = null;
-  private localParticipantName: string | null = null;
-  private localParticipantIdentity: string | null = null;
+  private participants: Participant[] = [];
+  private audioLevels: Map<string, number> = new Map();
 
-  // Callbacks for UI updates
-  public onParticipantsChanged: ((participants: Participant[]) => void) | null = null;
-  public onConnectionStateChanged: ((state: ConnectionState) => void) | null = null;
-  public onError: ((error: Error) => void) | null = null;
+  public onParticipantsChanged?: (participants: Participant[]) => void;
+  public onConnectionStateChanged?: (state: ConnectionState) => void;
+  public onError?: (error: Error) => void;
+  public onAudioLevelChanged?: (participantId: string, level: number) => void;
 
   constructor() {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error('Supabase URL or Anon Key is not defined. Please check your environment variables.');
-    }
-    this.supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
+    this.liveKitService = new LiveKitService();
+    this.audioLevelMonitor = new AudioLevelMonitor();
+    this.setupLiveKitCallbacks();
   }
 
-  private async getAuthToken(): Promise<string | null> {
-    const { data: { session }, error } = await this.supabase.auth.getSession();
-    if (error || !session) {
-      this.handleError(error || new Error('No active session'), 'Error fetching session');
-      return null;
-    }
-    return session.access_token;
+  private setupLiveKitCallbacks(): void {
+    this.liveKitService.onParticipantConnected = (participant: RemoteParticipant) => {
+      this.updateParticipants();
+      this.setupParticipantAudioMonitoring(participant);
+    };
+
+    this.liveKitService.onParticipantDisconnected = () => {
+      this.updateParticipants();
+    };
+
+    this.liveKitService.onConnectionStateChanged = (state: ConnectionState) => {
+      this.onConnectionStateChanged?.(state);
+      
+      if (state === ConnectionState.Connected) {
+        this.updateParticipants();
+        this.setupLocalAudioMonitoring();
+      }
+    };
+
+    this.liveKitService.onTrackSubscribed = (track, participant) => {
+      if (track.kind === 'audio') {
+        this.setupParticipantAudioMonitoring(participant);
+      }
+    };
+
+    this.liveKitService.onError = (error: Error) => {
+      this.onError?.(error);
+    };
   }
 
-  private handleError(error: any, defaultMessage: string): void {
-    let specificMessage = defaultMessage;
+  private updateParticipants(): void {
+    this.participants = this.liveKitService.getParticipants();
+    this.onParticipantsChanged?.(this.participants);
+  }
 
-    if (error && error.details && typeof error.details === 'string') {
-      specificMessage = error.details;
-    } else if (error && error.message && typeof error.message === 'string') {
-      specificMessage = error.message;
-    } else if (typeof error === 'string') {
-      specificMessage = error;
-    }
-
-    console.error(`NewVoiceChatManager Error: ${specificMessage}`, error);
-    if (this.onError) {
-      this.onError(new Error(specificMessage));
+  private setupLocalAudioMonitoring(): void {
+    const localParticipant = this.liveKitService.getLocalParticipant();
+    if (localParticipant) {
+      // Monitor local audio track
+      const audioTrack = localParticipant.audioTrackPublications.values().next().value?.track;
+      if (audioTrack && audioTrack.mediaStreamTrack) {
+        const stream = new MediaStream([audioTrack.mediaStreamTrack]);
+        this.audioLevelMonitor.startMonitoring(stream).catch(console.error);
+        this.audioLevelMonitor.setCallback((level) => {
+          this.audioLevels.set(localParticipant.identity, level);
+          this.onAudioLevelChanged?.(localParticipant.identity, level);
+        });
+      }
     }
   }
 
-  public async listAvailableRooms(matchId: string): Promise<VoiceRoomDetails[]> {
-    const authToken = await this.getAuthToken();
-    if (!authToken) {
-        return [];
-    }
+  private setupParticipantAudioMonitoring(participant: RemoteParticipant): void {
+    // Set up audio level monitoring for remote participant
+    participant.audioTrackPublications.forEach((publication) => {
+      if (publication.track && publication.track.mediaStreamTrack) {
+        const stream = new MediaStream([publication.track.mediaStreamTrack]);
+        // Create separate monitor for each participant
+        const monitor = new AudioLevelMonitor((level) => {
+          this.audioLevels.set(participant.identity, level);
+          this.onAudioLevelChanged?.(participant.identity, level);
+        });
+        monitor.startMonitoring(stream).catch(console.error);
+      }
+    });
+  }
 
+  async listAvailableRooms(matchId: string): Promise<VoiceRoomDetails[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from('voice_rooms')
-        .select('*')
+        .select('id, name, max_participants')
         .eq('match_id', matchId)
-        .eq('is_active', true)
-        .order('priority', { ascending: true });
+        .eq('is_active', true);
 
-      if (error) {
-        this.handleError(error, `Error fetching rooms for match ${matchId}:`);
-        return [];
-      }
-      return data || [];
-    } catch (err) {
-      this.handleError(err as Error, `Unexpected error fetching rooms for match ${matchId}:`);
-      return [];
+      if (error) throw error;
+
+      return data?.map(room => ({
+        id: room.id,
+        name: room.name,
+        max_participants: room.max_participants
+      })) || [];
+    } catch (error) {
+      console.error('[NewVoiceChatManager] Error fetching rooms:', error);
+      throw new Error(`Failed to fetch voice rooms: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  public async joinRoom(roomId: string, userId: string, userRole: string, participantName?: string): Promise<boolean> {
-    if (this.liveKitRoom && this.currentRoomId === roomId) {
-      console.warn('Already connected to this room.');
-      return true;
-    }
-
-    await this.leaveRoom();
-
-    this.currentRoomId = roomId;
-    this.localParticipantIdentity = userId;
-    this.localParticipantName = participantName || userId;
-
-    const authToken = await this.getAuthToken();
-    if (!authToken) {
-        this.handleError(new Error('Authentication token not available.'), 'Authentication failed');
-        this.currentRoomId = null;
-        return false;
-    }
-
+  async joinRoom(roomId: string, userId: string, userRole: string, userName: string): Promise<boolean> {
     try {
-      const { data: joinData, error: joinFuncError } = await this.supabase.functions.invoke('join-voice-room', {
-        body: { roomId, userId, userRole },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      console.log('[NewVoiceChatManager] Joining room:', roomId);
 
-      if (joinFuncError || (joinData && (joinData as any).error) || !(joinData as any)?.authorized) {
-        const message = (joinData as any)?.error || joinFuncError?.message || 'Failed to authorize room entry. You may not have permission or the room is inactive.';
-        this.handleError(joinFuncError || new Error(message), message);
-        this.currentRoomId = null;
-        return false;
-      }
-      console.log('Successfully authorized and logged in voice_room_participants:', joinData);
-
-      const { data: tokenData, error: tokenFuncError } = await this.supabase.functions.invoke('generate-livekit-token', {
+      // Get LiveKit token from Supabase edge function
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('get-livekit-token', {
         body: {
           roomId,
-          participantIdentity: this.localParticipantIdentity!,
-          participantName: this.localParticipantName!,
-        },
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-
-      if (tokenFuncError || (tokenData && (tokenData as any).error) || !(tokenData as any)?.token) {
-        const message = (tokenData as any)?.error || tokenFuncError?.message || 'Failed to obtain a voice session token. Please try again.';
-        this.handleError(tokenFuncError || new Error(message), message);
-        this.currentRoomId = null;
-        return false;
-      }
-      const liveKitToken = (tokenData as any).token;
-
-      this.liveKitRoom = new Room();
-      this.liveKitRoom.on(RoomEvent.ConnectionStateChanged, this.handleConnectionStateChange);
-      this.liveKitRoom.on(RoomEvent.ParticipantConnected, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.ParticipantDisconnected, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.LocalTrackPublished, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.LocalTrackUnpublished, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.TrackSubscribed, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.TrackUnsubscribed, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.TrackMuted, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.TrackUnmuted, this.handleParticipantChange);
-      this.liveKitRoom.on(RoomEvent.ActiveSpeakersChanged, this.handleParticipantChange);
-
-      const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL;
-      if (!LIVEKIT_URL) {
-        this.handleError(new Error('LiveKit URL is not configured.'), 'LiveKit client configuration error.');
-        this.currentRoomId = null;
-        return false;
-      }
-
-      try {
-        await this.liveKitRoom.connect(LIVEKIT_URL, liveKitToken, { autoSubscribe: true });
-      } catch (lkError: any) {
-        console.error('LiveKit Connection Error:', lkError);
-        let detailedMessage = 'Failed to connect to the voice server.';
-        if (lkError && lkError.message) {
-          if (lkError.message.includes('full')) {
-            detailedMessage = 'The voice room is currently full. Please try again later.';
-          } else if (lkError.message.includes('permission')) {
-              detailedMessage = 'Permission denied to connect to the voice server.';
-          } else {
-              detailedMessage = `Voice server connection failed: ${lkError.message}`;
-          }
+          userId,
+          userName,
+          userRole
         }
-        this.handleError(lkError, detailedMessage);
-        this.currentRoomId = null;
-        return false;
-      }
-
-      await this.liveKitRoom.localParticipant.setMicrophoneEnabled(true);
-
-      console.log(`Successfully connected to LiveKit room: ${roomId}`);
-      if (this.onConnectionStateChanged) {
-        this.onConnectionStateChanged(this.liveKitRoom.state);
-      }
-      this.updateParticipants();
-      return true;
-
-    } catch (err: any) {
-      this.handleError(err, 'An unexpected error occurred while joining the room.');
-      await this.leaveRoom();
-      return false;
-    }
-  }
-
-  private handleConnectionStateChange = (state: ConnectionState) => {
-    console.log('LiveKit Connection State:', state);
-    if (this.onConnectionStateChanged) {
-      this.onConnectionStateChanged(state);
-    }
-    if (state === ConnectionState.Disconnected) {
-      console.log('Disconnected from LiveKit. Cleaning up.');
-      this.liveKitRoom?.removeAllListeners();
-      this.liveKitRoom = null;
-      this.currentRoomId = null;
-      this.updateParticipants();
-    }
-  }
-
-  private handleParticipantChange = () => {
-    this.updateParticipants();
-  }
-
-  private updateParticipants() {
-    if (this.onParticipantsChanged) {
-      if (this.liveKitRoom) {
-        const participants = [
-          this.liveKitRoom.localParticipant,
-          ...Array.from(this.liveKitRoom.remoteParticipants.values()),
-        ];
-        this.onParticipantsChanged(participants);
-      } else {
-        this.onParticipantsChanged([]);
-      }
-    }
-  }
-
-  public async leaveRoom(): Promise<void> {
-    if (this.liveKitRoom) {
-      console.log('Leaving LiveKit room:', this.currentRoomId);
-      await this.liveKitRoom.disconnect();
-      this.liveKitRoom.removeAllListeners();
-      this.liveKitRoom = null;
-      if (this.onConnectionStateChanged && this.currentRoomId !== null) {
-         this.onConnectionStateChanged(ConnectionState.Disconnected);
-      }
-      this.currentRoomId = null;
-      this.updateParticipants();
-    }
-  }
-
-  public async toggleMuteSelf(): Promise<boolean | undefined> {
-    if (this.liveKitRoom && this.liveKitRoom.localParticipant) {
-      const localParticipant = this.liveKitRoom.localParticipant as LocalParticipant;
-      const isMuted = localParticipant.isMicrophoneEnabled === false;
-      await localParticipant.setMicrophoneEnabled(isMuted);
-      return isMuted;
-    }
-    console.warn('Cannot toggle mute: No local participant or microphone track.');
-    return undefined;
-  }
-
-  public getLocalParticipant(): Participant | null {
-    return this.liveKitRoom?.localParticipant || null;
-  }
-
-  public getRemoteParticipants(): RemoteParticipant[] {
-    return this.liveKitRoom ? Array.from(this.liveKitRoom.remoteParticipants.values()) : [];
-  }
-
-  public getCurrentRoomId(): string | null {
-    return this.currentRoomId;
-  }
-
-  public async moderateMuteParticipant(targetIdentity: string, mute: boolean): Promise<boolean> {
-    if (!this.currentRoomId) {
-      this.handleError(new Error('Not connected to a room.'), 'Moderation action failed');
-      return false;
-    }
-    const authToken = await this.getAuthToken();
-    if (!authToken) {
-        return false;
-    }
-
-    try {
-      const { data, error: funcError } = await this.supabase.functions.invoke('moderate-livekit-room', {
-        body: {
-          roomId: this.currentRoomId,
-          targetIdentity,
-          mute,
-        },
-        headers: { Authorization: `Bearer ${authToken}` }
       });
 
-      if (funcError || (data && (data as any).error)) {
-        const message = (data as any)?.error || funcError?.message || 'Failed to moderate participant.';
-        this.handleError(funcError || new Error(message), message);
-        return false;
+      if (tokenError || !tokenData?.token) {
+        throw new Error(`Failed to get LiveKit token: ${tokenError?.message || 'No token received'}`);
       }
-      console.log(`Moderation action successful for ${targetIdentity}: ${(data as any).message}`);
+
+      // Connect to LiveKit
+      const serverUrl = tokenData.serverUrl || 'wss://your-livekit-server.com';
+      await this.liveKitService.connect(tokenData.token, serverUrl, roomId);
+
+      // Enable microphone by default
+      await this.liveKitService.enableMicrophone();
+
+      this.currentRoomId = roomId;
+      console.log('[NewVoiceChatManager] Successfully joined room:', roomId);
+      
       return true;
-    } catch (err: any) {
-      this.handleError(err, `Error moderating participant ${targetIdentity}`);
+    } catch (error) {
+      console.error('[NewVoiceChatManager] Failed to join room:', error);
+      this.onError?.(error as Error);
       return false;
     }
   }
 
-  public dispose(): void {
-    console.log('Disposing NewVoiceChatManager.');
-    this.leaveRoom();
-    this.onParticipantsChanged = null;
-    this.onConnectionStateChanged = null;
-    this.onError = null;
+  async leaveRoom(): Promise<void> {
+    try {
+      if (this.currentRoomId) {
+        console.log('[NewVoiceChatManager] Leaving room:', this.currentRoomId);
+        
+        this.audioLevelMonitor.stopMonitoring();
+        await this.liveKitService.disconnect();
+        
+        this.currentRoomId = null;
+        this.participants = [];
+        this.audioLevels.clear();
+        
+        this.onParticipantsChanged?.([]);
+        console.log('[NewVoiceChatManager] Successfully left room');
+      }
+    } catch (error) {
+      console.error('[NewVoiceChatManager] Error leaving room:', error);
+      this.onError?.(error as Error);
+    }
+  }
+
+  async toggleMuteSelf(): Promise<boolean | undefined> {
+    try {
+      const newMuteState = await this.liveKitService.toggleMicrophone();
+      console.log('[NewVoiceChatManager] Toggled mute, now muted:', !newMuteState);
+      return !newMuteState; // Return muted state (opposite of enabled)
+    } catch (error) {
+      console.error('[NewVoiceChatManager] Error toggling mute:', error);
+      this.onError?.(error as Error);
+      return undefined;
+    }
+  }
+
+  async moderateMuteParticipant(targetIdentity: string, mute: boolean): Promise<boolean> {
+    try {
+      return await this.liveKitService.moderateMuteParticipant(targetIdentity, mute);
+    } catch (error) {
+      console.error('[NewVoiceChatManager] Error moderating participant:', error);
+      this.onError?.(error as Error);
+      return false;
+    }
+  }
+
+  getParticipants(): Participant[] {
+    return this.participants;
+  }
+
+  getLocalParticipant(): Participant | null {
+    return this.liveKitService.getLocalParticipant();
+  }
+
+  getConnectionState(): ConnectionState | null {
+    return this.liveKitService.getConnectionState();
+  }
+
+  isConnected(): boolean {
+    return this.liveKitService.isConnected();
+  }
+
+  getAudioLevel(participantId: string): number {
+    return this.audioLevels.get(participantId) || 0;
+  }
+
+  dispose(): void {
+    this.audioLevelMonitor.stopMonitoring();
+    this.liveKitService.disconnect().catch(console.error);
+    this.audioLevels.clear();
   }
 }
