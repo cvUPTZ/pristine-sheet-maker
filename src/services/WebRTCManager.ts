@@ -135,15 +135,11 @@ export class WebRTCManager {
       }
       
       // 4. Subscribe to signaling messages (Postgres changes on realtime_transient_messages)
-      // Assuming realtime_transient_messages has columns: room_id, sender_id, to_user_id, message_type, payload
-      // `payload` is the JSONB column containing actual data like SDP, ICE, etc.
-      // `sender_id` is the originator user_id.
-      // `to_user_id` is for targeted messages, NULL for broadcast.
-      const signalingChannelName = `realtime_transient_messages_room_${roomId}`; // Custom name for clarity
+      const signalingChannelName = `realtime_transient_messages_room_${roomId}`;
       this.signalingChannel = this.supabaseClient.channel(signalingChannelName, {
         config: {
-          broadcast: { self: false }, // Don't receive our own messages through this
-          presence: { key: this.localUserId }, // Optional, can help debug presence on this channel
+          broadcast: { self: false },
+          presence: { key: this.localUserId },
         },
       });
 
@@ -155,13 +151,10 @@ export class WebRTCManager {
             event: 'INSERT',
             schema: 'public',
             table: 'realtime_transient_messages',
-            // Filter for messages in this room, targeted to current user OR broadcast (to_user_id is NULL)
-            // AND not sent by the current user (sender_id !== this.localUserId)
             filter: `room_id=eq.${roomId}`,
           },
-          (payload: any) => { // Type properly, Supabase types should provide RealtimePostgresChangesPayload
-            // Additional client-side filtering because filter string might not support all conditions perfectly (e.g. OR with sender_id)
-            if (payload.new.sender_id === this.localUserId) return; // Ignore messages sent by self
+          (payload: any) => {
+            if (payload.new.sender_id === this.localUserId) return;
             if (payload.new.to_user_id === null || payload.new.to_user_id === this.localUserId) {
                  this.handleSignalingMessage(payload.new);
             }
@@ -183,7 +176,7 @@ export class WebRTCManager {
       console.log(`[WebRTCManager] joinRoom: Setting up presence channel: ${presenceChannelName}`);
       this.presenceChannel = this.supabaseClient.channel(presenceChannelName, {
         config: {
-          presence: { key: this.localUserId }, // Track this user's presence
+          presence: { key: this.localUserId },
         },
       });
 
@@ -191,15 +184,15 @@ export class WebRTCManager {
         console.log(`[WebRTCManager] Presence Event: Sync received for room ${roomId}. Processing state.`);
         const presenceState = this.presenceChannel?.state;
         if (presenceState) {
-          for (const userId in presenceState) {
+          // Fix: Use Object.keys() instead of for...in with presenceState directly
+          Object.keys(presenceState).forEach(userId => {
             if (userId !== this.localUserId) {
-              // @ts-ignore TODO: state structure might need casting
-              const presences = presenceState[userId] as Array<{ user_name?: string }>;
+              const presences = (presenceState as any)[userId] as Array<{ user_name?: string }>;
               const userName = presences[0]?.user_name;
               console.log(`[WebRTCManager] Presence Sync: Found user ${userId} (${userName}) in room. Attempting to create/verify peer connection.`);
-              this.createPeerConnection(userId, userName || `User ${userId}`, true); // Assume new users are initiators
+              this.createPeerConnection(userId, userName || `User ${userId}`, true);
             }
-          }
+          });
         } else {
           console.log(`[WebRTCManager] Presence Sync: No presence state available for room ${roomId}.`);
         }
@@ -218,7 +211,7 @@ export class WebRTCManager {
       this.presenceChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         if (key !== this.localUserId) {
           // @ts-ignore
-          const userName = leftPresences[0]?.user_name; // Name might not be available on leftPresences
+          const userName = leftPresences[0]?.user_name;
           console.log(`[WebRTCManager] Presence Event: User ${key} left room ${roomId}. Closing peer connection.`);
           this.closePeerConnection(key);
           this.onParticipantLeft?.(key);
@@ -228,11 +221,9 @@ export class WebRTCManager {
       this.presenceChannel.subscribe(async (status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log(`[WebRTCManager] joinRoom: Successfully subscribed to presence channel ${presenceChannelName} for room ${roomId}.`);
-          // Announce presence
           console.log(`[WebRTCManager] joinRoom: Tracking presence for localUser: ${this.localUserId} (${this.localUserName}) in room ${roomId}.`);
           const trackStatus = await this.presenceChannel?.track({
             user_name: this.localUserName,
-            // online_at: new Date().toISOString(), // Example custom presence data
           });
           if (trackStatus === 'ok') {
             console.log(`[WebRTCManager] joinRoom: Presence tracked successfully for ${this.localUserId}.`);
@@ -252,36 +243,26 @@ export class WebRTCManager {
     } catch (error) {
       console.error(`[WebRTCManager] joinRoom: Critical error during joinRoom for ${roomId}:`, error);
       this.onError?.('join_room_error', error);
-      this.currentRoomId = null; // Reset room ID if join fails critically
+      this.currentRoomId = null;
       console.log(`[WebRTCManager] joinRoom: Cleared currentRoomId due to critical error. Attempting cleanup.`);
-      await this.leaveRoom(); // Attempt cleanup
+      await this.leaveRoom();
     }
   }
 
-  // Placeholder for handleSignalingMessage, createPeerConnection, closePeerConnection, sendSignalingMessage, leaveRoom etc.
-  // These will be implemented in subsequent steps.
-
-  private handleSignalingMessage(message: /* RealtimePostgresChangesPayload<any>['new'] */ any): void {
-    // message is the 'new' record from realtime_transient_messages
+  private handleSignalingMessage(message: any): void {
     const fromUserId = message.sender_id; 
-    const data = message.payload; // This is the JSONB column, should contain our signaling data (type, sdp, candidate)
-    const messageType = message.message_type; // The 'type' field like 'sdp-offer', 'participant-mute-status'
+    const data = message.payload;
+    const messageType = message.message_type;
 
     if (!fromUserId || !data) {
       console.warn('Received incomplete signaling message:', message);
       return;
     }
-    
-    // The actual signaling payload (like SDP offer/answer or ICE candidate) is inside `data`
-    // The `message_type` column itself might be redundant if `data.type` also exists,
-    // but using it as the primary switch key as per subtask.
-    // Let's assume `data` directly contains sdp/candidate or other relevant fields based on `message_type`.
 
     console.log(`[WebRTCManager] handleSignalingMessage: Received message type '${messageType}' from ${fromUserId}. Payload:`, data);
 
-    switch (messageType) { // Using message.message_type as the switch key
+    switch (messageType) {
       case 'sdp-offer':
-        // data is expected to be { sdp: RTCSessionDescriptionInit }
         if (data.sdp) {
           console.log(`[WebRTCManager] handleSignalingMessage: Handling sdp-offer from ${fromUserId}.`);
           this.handleSdpOffer(fromUserId, data.sdp);
@@ -290,7 +271,6 @@ export class WebRTCManager {
         }
         break;
       case 'sdp-answer':
-        // data is expected to be { sdp: RTCSessionDescriptionInit }
         if (data.sdp) {
           console.log(`[WebRTCManager] handleSignalingMessage: Handling sdp-answer from ${fromUserId}.`);
           this.handleSdpAnswer(fromUserId, data.sdp);
@@ -299,7 +279,6 @@ export class WebRTCManager {
         }
         break;
       case 'ice-candidate':
-        // data is expected to be { candidate: RTCIceCandidateInit }
         if (data.candidate) {
           console.log(`[WebRTCManager] handleSignalingMessage: Handling ice-candidate from ${fromUserId}.`);
           this.handleIceCandidate(fromUserId, data.candidate);
@@ -308,8 +287,6 @@ export class WebRTCManager {
         }
         break;
       case 'participant-mute-status':
-        // data is expected to be { userId: string, isMuted: boolean }
-        // Note: `message.from_user_id` should be the same as `data.userId` for this message type.
         if (data.userId && typeof data.isMuted === 'boolean') {
           console.log(`[WebRTCManager] handleSignalingMessage: Handling participant-mute-status for ${data.userId}, isMuted: ${data.isMuted}.`);
           this.onParticipantMuteChanged?.(data.userId, data.isMuted);
@@ -322,23 +299,23 @@ export class WebRTCManager {
     }
   }
 
-  private createPeerConnection(remoteUserId: string, remoteUserName: string | undefined, isInitiator: boolean): RTCPeerConnection | null {
+  private createPeerConnection(remoteUserId: string, remoteUserName: string | undefined, isInitiator: boolean): RTCPeerConnection | undefined {
     console.log(`[WebRTCManager] createPeerConnection: Called for remoteUserId: ${remoteUserId}, remoteUserName: ${remoteUserName}, isInitiator: ${isInitiator}`);
     if (this.peerConnections.has(remoteUserId)) {
       console.warn(`[WebRTCManager] createPeerConnection: Peer connection already exists for ${remoteUserId}. Returning existing one.`);
-      return this.peerConnections.get(remoteUserId) || null;
+      return this.peerConnections.get(remoteUserId);
     }
     if (!this.localStream) {
       console.error('[WebRTCManager] createPeerConnection: Local stream is not available. Cannot create peer connection.');
       this.onError?.('media_error', new Error('Local stream not available for peer connection.'));
-      return null;
+      return undefined;
     }
 
     console.log(`[WebRTCManager] createPeerConnection: Creating new RTCPeerConnection for ${remoteUserId}.`);
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     console.log(`[WebRTCManager] createPeerConnection: RTCPeerConnection created for ${remoteUserId} with ICE servers:`, this.iceServers);
 
-    // Add local stream tracks
+    // ... keep existing code (adding tracks, event handlers, etc.)
     console.log(`[WebRTCManager] createPeerConnection: Adding local stream tracks to PC for ${remoteUserId}.`);
     this.localStream.getTracks().forEach(track => {
       try {
@@ -349,11 +326,10 @@ export class WebRTCManager {
       }
     });
 
-    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log(`[WebRTCManager] createPeerConnection: ICE candidate generated for ${remoteUserId}. Sending...`);
-        if (this.currentRoomId) { // Ensure still in a room
+        if (this.currentRoomId) {
             this.sendSignalingMessage(remoteUserId, 'ice-candidate', { candidate: event.candidate.toJSON() });
         } else {
             console.warn(`[WebRTCManager] createPeerConnection: ICE candidate for ${remoteUserId} not sent, not in a room.`);
@@ -363,13 +339,11 @@ export class WebRTCManager {
       }
     };
 
-    // Handle remote tracks
     pc.ontrack = (event) => {
       console.log(`[WebRTCManager] createPeerConnection: Remote track received from ${remoteUserId}. Track:`, event.track, 'Streams:', event.streams);
       this.onRemoteTrackAdded?.(remoteUserId, event.streams[0]);
     };
 
-    // Handle connection state changes
     pc.onconnectionstatechange = () => {
       const newState = pc.connectionState;
       console.log(`[WebRTCManager] createPeerConnection: RTCPeerConnection state for ${remoteUserId} changed to: ${newState}`);
@@ -377,7 +351,6 @@ export class WebRTCManager {
       switch (newState) {
         case 'failed':
           console.error(`[WebRTCManager] createPeerConnection: Peer connection for ${remoteUserId} failed.`);
-          // this.closePeerConnection(remoteUserId); // Let presence dictate complete closure, or handle reconnect logic
           break;
         case 'disconnected':
           console.warn(`[WebRTCManager] createPeerConnection: Peer connection for ${remoteUserId} disconnected.`);
@@ -396,10 +369,8 @@ export class WebRTCManager {
     pc.oniceconnectionstatechange = () => {
         const newIceState = pc.iceConnectionState;
         console.log(`[WebRTCManager] createPeerConnection: ICE connection state for ${remoteUserId} changed to: ${newIceState}`);
-        // Potentially log more details or handle specific ICE states like 'failed'
         if (newIceState === 'failed') {
             console.error(`[WebRTCManager] createPeerConnection: ICE connection for ${remoteUserId} failed.`);
-            // Consider custom error or more specific handling if ICE connection fails
             this.onError?.('webrtc_ice_error', { userId: remoteUserId, error: new Error('ICE connection failed') });
         }
     };
@@ -428,9 +399,6 @@ export class WebRTCManager {
         });
     }
 
-    // Notify about participant joining, even before connection is fully established
-    // This is triggered by presence, actual media flow will be later.
-    // this.onParticipantJoined?.(remoteUserId, remoteUserName); // Already called in presence join event
     console.log(`[WebRTCManager] createPeerConnection: Finished setup for ${remoteUserId}.`);
     return pc;
   }
@@ -443,14 +411,13 @@ export class WebRTCManager {
       pc.getSenders().forEach(sender => {
         if (sender.track) {
           console.log(`[WebRTCManager] closePeerConnection: Stopping track ${sender.track.id} for ${remoteUserId}.`);
-          sender.track.stop(); // Stop tracks associated with this sender
+          sender.track.stop();
         }
       });
-      pc.close(); // This will trigger onconnectionstatechange to 'closed'
+      pc.close();
       this.peerConnections.delete(remoteUserId);
       console.log(`[WebRTCManager] closePeerConnection: Deleted PC for ${remoteUserId} from map. Total PCs: ${this.peerConnections.size}`);
-      this.onRemoteTrackRemoved?.(remoteUserId); // Notify UI to remove video/audio elements
-      // this.onParticipantLeft?.(remoteUserId); // Already called in presence leave event
+      this.onRemoteTrackRemoved?.(remoteUserId);
       console.log(`[WebRTCManager] closePeerConnection: Successfully closed and cleaned up PC for ${remoteUserId}.`);
     } else {
       console.warn(`[WebRTCManager] closePeerConnection: No peer connection found for ${remoteUserId} to close.`);
@@ -458,9 +425,9 @@ export class WebRTCManager {
   }
   
   public async sendSignalingMessage(
-    toUserId: string | null, // null for broadcast (e.g. mute status)
-    messageType: string, // e.g. 'sdp-offer', 'ice-candidate', 'participant-mute-status'
-    payloadData: any    // The actual data like { sdp: ... } or { candidate: ... } or { userId: ..., isMuted: ... }
+    toUserId: string | null,
+    messageType: string,
+    payloadData: any
   ): Promise<void> {
     if (!this.currentRoomId) {
       console.error('[WebRTCManager] sendSignalingMessage: Cannot send message, not in a room.');
@@ -470,18 +437,16 @@ export class WebRTCManager {
 
     const messageObject = {
       room_id: this.currentRoomId,
-      sender_id: this.localUserId, // from_user_id
-      to_user_id: toUserId,        // null for broadcast
-      message_type: messageType,   // Custom type field for the switch in handleSignalingMessage
-      payload: payloadData,        // The JSONB payload (sdp, ice, mute status etc.)
+      sender_id: this.localUserId,
+      to_user_id: toUserId,
+      message_type: messageType,
+      payload: payloadData,
     };
 
-    // Avoid logging full SDP/ICE objects for brevity in console, log just type and target
     const logPayload = (messageType === 'sdp-offer' || messageType === 'sdp-answer' || messageType === 'ice-candidate')
         ? `{ type: '${messageType}', target: '${toUserId}' } (payload data omitted for brevity)`
         : payloadData;
     console.log(`[WebRTCManager] sendSignalingMessage: Sending type '${messageType}' to ${toUserId || 'all in room ' + this.currentRoomId}. Payload (abbreviated for SDP/ICE):`, logPayload);
-
 
     const { error } = await this.supabaseClient
       .from('realtime_transient_messages')
@@ -495,16 +460,12 @@ export class WebRTCManager {
     }
   }
 
-  // Placeholder for SDP/ICE handling methods
   private async handleSdpOffer(fromUserId: string, offerSdp: RTCSessionDescriptionInit): Promise<void> {
-    console.log(`[WebRTCManager] handleSdpOffer: Received SDP offer from ${fromUserId}.`); // Full SDP not logged here
+    console.log(`[WebRTCManager] handleSdpOffer: Received SDP offer from ${fromUserId}.`);
     let pc = this.peerConnections.get(fromUserId);
     if (!pc) {
       console.log(`[WebRTCManager] handleSdpOffer: No existing peer connection for ${fromUserId} on offer, creating one (as non-initiator).`);
-      // TODO: Need to get remoteUserName if creating PC here. For now, it might be undefined.
-      // This scenario (offer before presence) should be handled gracefully.
-      // Presence usually calls createPeerConnection first. If offer comes first, it means remote initiated.
-      pc = this.createPeerConnection(fromUserId, undefined /* userName might be unknown here */, false); // Not initiator
+      pc = this.createPeerConnection(fromUserId, undefined, false);
     }
 
     if (!pc) {
@@ -533,7 +494,7 @@ export class WebRTCManager {
   }
 
   private async handleSdpAnswer(fromUserId: string, answerSdp: RTCSessionDescriptionInit): Promise<void> {
-    console.log(`[WebRTCManager] handleSdpAnswer: Received SDP answer from ${fromUserId}.`); // Full SDP not logged here
+    console.log(`[WebRTCManager] handleSdpAnswer: Received SDP answer from ${fromUserId}.`);
     const pc = this.peerConnections.get(fromUserId);
     if (!pc) {
       console.error(`[WebRTCManager] handleSdpAnswer: No peer connection found for ${fromUserId}. Cannot process answer.`);
@@ -544,7 +505,7 @@ export class WebRTCManager {
     try {
       console.log(`[WebRTCManager] handleSdpAnswer: Setting remote description for ${fromUserId} with received answer.`);
       await pc.setRemoteDescription(new RTCSessionDescription(answerSdp));
-      console.log(`[WebRTCManager] handleSdpAnswer: Remote description successfully set for ${fromUserId} after answer.`);
+      console.log(`[WebRTCManager] handleSdpAnswer: Remote description successfully set for ${remoteUserId} after answer.`);
     } catch (error) {
       console.error(`[WebRTCManager] handleSdpAnswer: Error processing SDP answer from ${fromUserId}:`, error);
       this.onError?.('webrtc_answer_error', { userId: fromUserId, error });
@@ -552,7 +513,6 @@ export class WebRTCManager {
   }
 
   private async handleIceCandidate(fromUserId: string, candidateInfo: RTCIceCandidateInit): Promise<void> {
-    // Candidate info is small enough to log if needed, but for now, just the fact.
     console.log(`[WebRTCManager] handleIceCandidate: Received ICE candidate from ${fromUserId}.`);
     const pc = this.peerConnections.get(fromUserId);
     if (!pc) {
@@ -571,9 +531,6 @@ export class WebRTCManager {
       await pc.addIceCandidate(new RTCIceCandidate(candidateInfo));
       console.log(`[WebRTCManager] handleIceCandidate: Successfully added ICE candidate for ${fromUserId}.`);
     } catch (error) {
-      // Ignore benign "Error: Cannot add ICE candidate before remote description"
-      // This can happen due to race conditions where candidates arrive before SDP answer is fully processed.
-      // WebRTC is designed to handle this by queueing candidates.
       if (error instanceof DOMException && error.message.includes("remote description")) {
         console.warn(`[WebRTCManager] handleIceCandidate: Ignoring addIceCandidate error (likely benign race condition due to candidate arriving before remote description set) for ${fromUserId}: ${error.message}`);
       } else {
@@ -582,7 +539,6 @@ export class WebRTCManager {
       }
     }
   }
-
 
   public async leaveRoom(): Promise<void> {
     console.log(`[WebRTCManager] leaveRoom: Attempting to leave room: ${this.currentRoomId}, localUserId: ${this.localUserId}`);
@@ -605,19 +561,18 @@ export class WebRTCManager {
         console.log('[WebRTCManager] leaveRoom: No presence channel to untrack/unsubscribe from.');
     }
     
-    // Close all peer connections
     console.log(`[WebRTCManager] leaveRoom: Closing all peer connections. Current count: ${this.peerConnections.size}`);
     this.peerConnections.forEach((pc, userId) => {
       console.log(`[WebRTCManager] leaveRoom: Closing peer connection for userId: ${userId}`);
-      this.closePeerConnection(userId); // Use the existing method that also cleans up tracks and map entries
+      this.closePeerConnection(userId);
     });
-    // Ensure the map is clear after all connections are closed
     this.peerConnections.clear(); 
     console.log(`[WebRTCManager] leaveRoom: All peer connections closed and map cleared.`);
 
     if (this.localStream) {
       console.log('[WebRTCManager] leaveRoom: Releasing local media stream.');
-      AudioManager.getInstance().releaseMediaStream(this.localStream);
+      // Fix: Use correct method name
+      AudioManager.getInstance().releaseMediaStream();
       this.localStream = null;
       console.log('[WebRTCManager] leaveRoom: Local media stream released and set to null.');
     } else {
@@ -638,22 +593,18 @@ export class WebRTCManager {
     let newMuteState: boolean | undefined;
     this.localStream.getAudioTracks().forEach(track => {
       track.enabled = !track.enabled;
-      newMuteState = !track.enabled; // isMuted is true if track.enabled is false
+      newMuteState = !track.enabled;
       console.log(`[WebRTCManager] toggleMute: Audio track ${track.id} (${track.label}) ${track.enabled ? 'unmuted' : 'muted'}. New mute state: ${newMuteState}`);
     });
 
     if (typeof newMuteState === 'boolean' && this.currentRoomId) {
-      // Send mute status to other participants
-      // `toUserId: null` indicates a broadcast message for this room.
-      // RLS policy on `realtime_transient_messages` needs to allow inserts where `to_user_id` IS NULL
-      // for authorized senders (auth.uid() in room).
       await this.sendSignalingMessage(null, 'participant-mute-status', {
         userId: this.localUserId,
         isMuted: newMuteState,
       });
       this.onParticipantMuteChanged?.(this.localUserId, newMuteState);
     }
-    return newMuteState; // Fixed typo: was newMuteSate
+    return newMuteState;
   }
 
   public getLocalMuteState(): boolean | undefined {
@@ -665,10 +616,6 @@ export class WebRTCManager {
 
   public async setAudioOutputDevice(deviceId: string): Promise<void> {
     try {
-      // This assumes AudioManager has a method to set the output device for all playing audio elements.
-      // WebRTC RTCPeerConnection itself doesn't directly control output device per connection.
-      // This is typically handled by attaching remote streams to <audio> elements and then
-      // calling setSinkId() on those elements.
       await AudioManager.getInstance().setAudioOutputDevice(deviceId);
       console.log(`[WebRTCManager] setAudioOutputDevice: Audio output device successfully set to ${deviceId} via AudioManager.`);
     } catch (error) {

@@ -37,7 +37,8 @@ export class AudioManager {
       const audioElement = new Audio();
       audioElement.srcObject = stream;
       audioElement.autoplay = true;
-      audioElement.playsInline = true;
+      // Use type assertion for playsInline
+      (audioElement as any).playsInline = true;
       
       if (peerId) {
         this.audioElements.set(peerId, audioElement);
