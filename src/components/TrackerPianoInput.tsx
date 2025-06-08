@@ -10,7 +10,7 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo, UserCircle } from 'lucide-react'; // Added UserCircle
+import { Undo, UserCircle, AlertTriangle } from 'lucide-react';
 import ShotDetailModal from '@/components/modals/ShotDetailModal';
 import PassDetailModal from '@/components/modals/PassDetailModal';
 import PressureDetailModal from '@/components/modals/PressureDetailModal';
@@ -24,9 +24,8 @@ export interface PlayerForPianoInput {
 }
 interface TrackerPianoInputProps {
   matchId: string;
-  // Optional props for team names if not reliably in fullMatchRoster.teamName
-  // homeTeamName?: string;
-  // awayTeamName?: string;
+  homeTeamNameProp?: string;
+  awayTeamNameProp?: string;
 }
 
 interface EnhancedEventType {
@@ -37,7 +36,6 @@ interface EnhancedEventType {
   description?: string;
 }
 
-// TODO: Potentially move EVENT_TYPE_LABELS here or make it accessible for better label display
 const EVENT_TYPE_LABELS_LOCAL: Record<string, string> = {
     pass: 'Pass', shot: 'Shot', tackle: 'Tackle', foul: 'Foul', corner: 'Corner',
     offside: 'Offside', goal: 'Goal', assist: 'Assist', yellowCard: 'Yellow Card',
@@ -51,15 +49,14 @@ const EVENT_TYPE_LABELS_LOCAL: Record<string, string> = {
     pressure: 'Pressure', dribble_attempt: 'Dribble Attempt', ball_recovery: 'Ball Recovery'
 };
 
-interface FullRoster { // For clarity
+interface FullRoster {
     home: PlayerForPianoInput[];
     away: PlayerForPianoInput[];
 }
 
-
-const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
+const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, homeTeamNameProp, awayTeamNameProp }) => {
   // State for focused player and their assigned event types
-  const [focusedPlayer, setFocusedPlayer] = useState<(PlayerForPianoInput & {teamName?: string}) | null>(null);
+  const [focusedPlayer, setFocusedPlayer] = useState<(PlayerForPianoInput & { teamName?: string }) | null>(null);
   const [focusedPlayerTeam, setFocusedPlayerTeam] = useState<'home' | 'away' | null>(null);
   const [focusedAssignedEventTypes, setFocusedAssignedEventTypes] = useState<EnhancedEventType[]>([]);
 
@@ -93,7 +90,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         const eventInfo = {
           id: event.id,
           eventType: { key: event.type, label: EVENT_TYPE_LABELS_LOCAL[event.type] || event.type },
-          player: focusedPlayer,
+          player: focusedPlayer, // Use focusedPlayer here
           timestamp: Date.now()
         };
         setLastRecordedEvent(eventInfo);
@@ -125,11 +122,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         }));
       };
       setFullMatchRoster({
-        home: parsePlayerData(matchData.home_team_players, matchData.home_team_name || 'Home'),
-        away: parsePlayerData(matchData.away_team_players, matchData.away_team_name || 'Away')
+        home: parsePlayerData(matchData.home_team_players, matchData.home_team_name || homeTeamNameProp || 'Home'),
+        away: parsePlayerData(matchData.away_team_players, matchData.away_team_name || awayTeamNameProp || 'Away')
       });
     } catch (e) { console.error("Error fetching match details:", e); setError("Could not load team rosters."); }
-  }, [matchId]);
+  }, [matchId, homeTeamNameProp, awayTeamNameProp]);
 
   const fetchAssignments = useCallback(async () => {
     if (!matchId || !user?.id || !fullMatchRoster) return;
@@ -148,7 +145,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       const firstValidAssignment = assignments?.find(a => a.player_id && a.assigned_event_types && a.assigned_event_types.length > 0);
 
       if (!firstValidAssignment || !firstValidAssignment.player_id) {
-        setError("No specific player/event assignment found for you in this match. Please check with your administrator.");
+        setError("No specific player/event assignment found. Please check with your administrator.");
         setFocusedPlayer(null); setFocusedPlayerTeam(null); setFocusedAssignedEventTypes([]);
         setLoading(false);
         return;
@@ -156,7 +153,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
       const teamId = firstValidAssignment.player_team_id as 'home' | 'away';
       const playerList = teamId === 'home' ? fullMatchRoster.home : fullMatchRoster.away;
-      // Attempt to find by ID first, then by jersey number as a fallback
+
       let playerDetails = playerList.find(p => String(p.id) === String(firstValidAssignment.player_id));
       if (!playerDetails) {
         playerDetails = playerList.find(p => String(p.jersey_number) === String(firstValidAssignment.player_id));
@@ -169,7 +166,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         return;
       }
 
-      setFocusedPlayer(playerDetails); // playerDetails already includes teamName from fetchMatchDetails
+      setFocusedPlayer(playerDetails);
       setFocusedPlayerTeam(teamId);
 
       const eventKeys = firstValidAssignment.assigned_event_types || [];
@@ -188,7 +185,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   const recordEvent = async (
     eventType: EnhancedEventType,
-    player: PlayerForPianoInput | null,
+    player: PlayerForPianoInput | null, // This will be focusedPlayer from context
     details?: { coordinates?: {x: number, y: number}, event_data?: Partial<MatchSpecificEventData> }
   ) => {
     if (!matchId || !user?.id || !eventType || !player || !focusedPlayerTeam ) {
@@ -210,7 +207,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         case 'shot':
           specificEventData = details?.event_data && typeof (details.event_data as ShotEventData).on_target === 'boolean'
             ? details.event_data as ShotEventData
-            : { on_target: false, ...((details?.event_data as Partial<ShotEventData>) || {}) } as ShotEventData;
+            : { on_target: false, is_goal: false, ...((details?.event_data as Partial<ShotEventData>) || {}) } as ShotEventData;
           break;
         case 'pass':
           specificEventData = details?.event_data && typeof (details.event_data as PassEventData).success === 'boolean'
@@ -269,34 +266,28 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   };
 
   const handleRecordShotWithDetails = async (shotDetails: ShotEventData) => {
-    if (pendingEventTrigger && pendingEventTrigger.player) {
-      try {
-        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: shotDetails });
-      } catch (error) { console.error('Error recording shot with details:', error); }
-      finally { setShowShotDetailModal(false); setPendingEventTrigger(null); }
+    if (pendingEventTrigger && pendingEventTrigger.player) { // player is now focusedPlayer
+      await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: shotDetails });
+      setShowShotDetailModal(false); setPendingEventTrigger(null);
     }
   };
 
   const handleRecordPassWithDetails = async (passDetails: PassEventData) => {
-    if (pendingEventTrigger && pendingEventTrigger.player) {
-      try {
-        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: passDetails });
-      } catch (error) { console.error('Error recording pass with details:', error); }
-      finally { setShowPassDetailModal(false); setPendingEventTrigger(null); }
+    if (pendingEventTrigger && pendingEventTrigger.player) { // player is now focusedPlayer
+      await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: passDetails });
+      setShowPassDetailModal(false); setPendingEventTrigger(null);
     }
   };
 
   const handleRecordPressureWithDetails = async (pressureDetails: PressureEventData) => {
-    if (pendingEventTrigger && pendingEventTrigger.player) {
-      try {
-        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: pressureDetails });
-      } catch (error) { console.error('Error recording pressure with details:', error); }
-      finally { setShowPressureDetailModal(false); setPendingEventTrigger(null); }
+    if (pendingEventTrigger && pendingEventTrigger.player) { // player is now focusedPlayer
+      await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: pressureDetails });
+      setShowPressureDetailModal(false); setPendingEventTrigger(null);
     }
   };
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    if (!focusedPlayer) {
+    if (!focusedPlayer) { // Use focusedPlayer
         toast({ title: "No Player Focused", description: "Cannot record event, no player assigned or focused.", variant: "destructive" });
         return;
     }
@@ -355,8 +346,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     return (
       <motion.div className="flex items-center justify-center p-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="text-center">
-          <div className="text-lg font-semibold mb-2 text-red-600">Assignment Error</div>
-          <div className="text-sm text-gray-600 mb-4">{error}</div>
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+          <div className="text-lg font-semibold mb-2 mt-2 text-destructive">Assignment Error</div>
+          <div className="text-sm text-muted-foreground mb-4">{error}</div>
           <Button onClick={fetchAssignments} variant="outline">Retry Fetching Assignments</Button>
         </div>
       </motion.div>
@@ -367,8 +359,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     return (
       <motion.div className="flex items-center justify-center p-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="text-center">
-          <div className="text-lg font-semibold mb-2 text-orange-600">No Active Player Assignment</div>
-          <div className="text-sm text-gray-600 mb-4">No specific player and event types assigned for tracking in this match, or an error occurred. Please check assignments.</div>
+          <UserCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+          <div className="text-lg font-semibold mb-2 mt-2">No Active Player Assignment</div>
+          <div className="text-sm text-muted-foreground mb-4">A specific player and their event types must be assigned to you for this tracking interface. Please contact your administrator.</div>
           <Button onClick={fetchAssignments} variant="outline">Retry Fetching Assignments</Button>
         </div>
       </motion.div>
@@ -393,7 +386,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
             <div>
               <div className="font-bold text-lg text-indigo-800 dark:text-indigo-100">Tracking: {focusedPlayer.name}</div>
               <div className="text-sm text-indigo-600 dark:text-indigo-300">
-                Team: {focusedPlayer.teamName || (focusedPlayerTeam === 'home' ? 'Home Team' : 'Away Team')}
+                Team: {focusedPlayer.teamName || (focusedPlayerTeam === 'home' ? (homeTeamNameProp || 'Home') : (awayTeamNameProp || 'Away'))}
               </div>
             </div>
           </div>
@@ -423,7 +416,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         )}
       </AnimatePresence>
 
-      {/* REMOVED Player Selection UI */}
+      {/* REMOVED General Player Selection UI */}
 
       {/* Modals */}
       {showShotDetailModal && pendingEventTrigger && pendingEventTrigger.player && (
@@ -446,6 +439,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
           onSubmit={handleRecordPressureWithDetails}
           initialDetails={currentPressureInitialData}
           pressurer={pendingEventTrigger.player}
+          // opponentPlayers={ focusedPlayerTeam === 'home' ? fullMatchRoster?.away : fullMatchRoster?.home } // Example
         />
       )}
 
