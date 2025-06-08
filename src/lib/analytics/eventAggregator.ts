@@ -1,5 +1,6 @@
 import { MatchEvent, Player, EventType as GlobalEventType } from '@/types';
 import { ShotEventData, PassEventData } from '@/types/eventData';
+import { calculateXg } from './xgCalculator';
 
 // Define interfaces for aggregated statistics
 export interface TeamStats {
@@ -20,6 +21,7 @@ export interface TeamStats {
   clearances: number;
   blocks: number; // Defensive blocks
   possession: number; // Placeholder - possession usually calculated differently
+  totalXg: number;
 }
 
 export interface PlayerStatSummary {
@@ -42,6 +44,7 @@ export interface PlayerStatSummary {
   clearances: number;
   blocks: number;
   dribbles: number;
+  totalXg: number;
 }
 
 export interface AggregatedStats {
@@ -70,6 +73,7 @@ function initializeTeamStats(): TeamStats {
     clearances: 0,
     blocks: 0,
     possession: 0,
+    totalXg: 0,
   };
 }
 
@@ -99,6 +103,7 @@ function initializePlayerStatSummary(
     clearances: 0,
     blocks: 0,
     dribbles: 0,
+    totalXg: 0,
   };
 }
 
@@ -170,6 +175,20 @@ export function aggregateMatchEvents(
         if (event.event_data && (event.event_data as ShotEventData).on_target === true) {
           targetTeamStats.shotsOnTarget += 1;
           if (playerSummary) playerSummary.shotsOnTarget += 1;
+        }
+        // Calculate and aggregate xG for shots
+        if (event.event_data) {
+          const shotData = event.event_data as ShotEventData;
+          // Type guard to ensure it's actually ShotEventData, important if event_data can be GenericEventData for 'shot'
+          if (typeof shotData.on_target === 'boolean') { // on_target is a mandatory field for ShotEventData
+            const xgValue = calculateXg(shotData, event.coordinates);
+            targetTeamStats.totalXg += xgValue;
+            if (playerSummary) {
+              playerSummary.totalXg += xgValue;
+            }
+            // Optional: To store xG on the event itself if events are mutable after creation
+            // (shotData as any).xg_value = xgValue;
+          }
         }
         break;
       case 'goal':

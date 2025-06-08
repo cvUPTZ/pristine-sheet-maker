@@ -89,6 +89,7 @@ export interface ShotStats {
   onTarget: number;
   offTarget: number;
   total?: number;
+  totalXg?: number; // Added for team xG
 }
 
 export interface PassStats {
@@ -136,6 +137,7 @@ export interface PlayerStatistics {
     assists: number;
     [key: string]: any;
   };
+  totalXg?: number; // Added for player xG
 }
 
 export interface Statistics {

@@ -93,6 +93,9 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
                 max={Math.max((statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0), 1)} 
                 className="h-2"
               />
+              <div className="text-xs text-muted-foreground mt-1">
+                Total xG: {statistics.shots?.home?.totalXg?.toFixed(2) || '0.00'}
+              </div>
             </div>
             <div>
               <div className="text-sm font-medium mb-1">{awayTeamName}</div>
@@ -104,6 +107,9 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({
                 max={Math.max((statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0), 1)} 
                 className="h-2"
               />
+              <div className="text-xs text-muted-foreground mt-1">
+                Total xG: {statistics.shots?.away?.totalXg?.toFixed(2) || '0.00'}
+              </div>
             </div>
           </div>
         </div>

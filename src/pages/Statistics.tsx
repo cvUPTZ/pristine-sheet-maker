@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart } from 'lucide-react';
-import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer';
-import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts';
-import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap';
+// import MatchStatsVisualizer from '@/components/visualizations/MatchStatsVisualizer'; // Not used, can remove
+// import TeamTimeSegmentCharts from '@/components/visualizations/TeamTimeSegmentCharts'; // Not used
+// import PlayerHeatmap from '@/components/visualizations/PlayerHeatmap'; // Not used
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
@@ -18,10 +18,12 @@ import MatchHeatMap from '@/components/analytics/MatchHeatMap';
 import StatisticsDisplay from '@/components/StatisticsDisplay';
 import DetailedStatsTable from '@/components/DetailedStatsTable';
 import PassMatrixTable from '@/components/analytics/PassMatrixTable';
+import ShotMap from '@/components/analytics/ShotMap'; // Import ShotMap
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType } from '@/types/index';
+import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType, ShotStats as TeamShotStats } from '@/types/index';
 import { ShotEventData, PassEventData } from '@/types/eventData';
+import { calculateXg } from '@/lib/analytics/xgCalculator';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -31,7 +33,7 @@ const Statistics = () => {
   const [statistics, setStatistics] = useState<StatisticsType>({
     possession: { home: 0, away: 0 },
     passes: { home: { successful: 0, attempted: 0 }, away: { successful: 0, attempted: 0 } },
-    shots: { home: { onTarget: 0, offTarget: 0 }, away: { onTarget: 0, offTarget: 0 } },
+    shots: { home: { onTarget: 0, offTarget: 0, total: 0, totalXg: 0 }, away: { onTarget: 0, offTarget: 0, total: 0, totalXg: 0 } },
     fouls: { home: 0, away: 0 },
     corners: { home: 0, away: 0 },
     offsides: { home: 0, away: 0 },
@@ -84,7 +86,6 @@ const Statistics = () => {
     try {
       setLoading(true);
       
-      // Fetch match details with statistics and ball tracking data
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .select('match_statistics, ball_tracking_data, home_team_name, away_team_name, home_team_players, away_team_players')
@@ -93,7 +94,6 @@ const Statistics = () => {
 
       if (matchError) throw matchError;
 
-      // Fetch match events
       const { data: eventsData, error: eventsError } = await supabase
         .from('match_events')
         .select('*')
@@ -104,7 +104,6 @@ const Statistics = () => {
         console.error('Error fetching events:', eventsError);
       } else {
         const formattedEvents: MatchEvent[] = (eventsData || []).map(event => {
-          // Parse coordinates safely
           let coordinates = { x: 0, y: 0 };
           if (event.coordinates) {
             try {
@@ -117,8 +116,6 @@ const Statistics = () => {
               console.warn('Failed to parse coordinates:', event.coordinates);
             }
           }
-
-          // Ensure coordinates have x and y properties
           if (!coordinates.x) coordinates.x = 0;
           if (!coordinates.y) coordinates.y = 0;
 
@@ -126,8 +123,8 @@ const Statistics = () => {
             id: event.id,
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
-            type: event.event_type as EventType, // event_type from DB maps to type in MatchEvent
-            event_data: event.event_data, // Assign directly from DB, should be JSON or null
+            type: event.event_type as EventType,
+            event_data: event.event_data,
             created_at: event.created_at,
             tracker_id: null,
             team_id: null,
@@ -139,34 +136,22 @@ const Statistics = () => {
         });
         setEvents(formattedEvents);
 
-        // Calculate statistics from events if not available
-        if (!matchData?.match_statistics || Object.keys(matchData.match_statistics).length === 0) {
-          const calculatedStats = calculateStatisticsFromEvents(formattedEvents);
-          setStatistics(calculatedStats);
-        } else {
-          const stats = matchData.match_statistics as unknown as StatisticsType;
-          setStatistics(stats);
-        }
+        // Always recalculate stats client-side to ensure xG is included
+        const calculatedStats = calculateStatisticsFromEvents(formattedEvents);
+        setStatistics(calculatedStats);
 
-        // Calculate player statistics
         const calculatedPlayerStats = calculatePlayerStatistics(formattedEvents, matchData);
         setPlayerStats(calculatedPlayerStats);
       }
 
-      // Process ball tracking data
       if (matchData?.ball_tracking_data) {
         const ballTrackingArray = Array.isArray(matchData.ball_tracking_data) 
           ? matchData.ball_tracking_data 
           : [];
-        
         const ballDataFiltered = ballTrackingArray.filter((point: any) => 
-          point && 
-          typeof point.x === 'number' && 
-          typeof point.y === 'number' &&
-          !isNaN(point.x) && 
-          !isNaN(point.y)
+          point && typeof point.x === 'number' && typeof point.y === 'number' &&
+          !isNaN(point.x) && !isNaN(point.y)
         );
-        
         setBallData(ballDataFiltered);
       } else {
         setBallData([]);
@@ -184,64 +169,80 @@ const Statistics = () => {
     }
   };
 
-  const calculateStatisticsFromEvents = (events: MatchEvent[]): StatisticsType => {
-    const homeEvents = events.filter(e => e.team === 'home');
-    const awayEvents = events.filter(e => e.team === 'away');
+  const calculateStatisticsFromEvents = (currentEvents: MatchEvent[]): StatisticsType => {
+    const homeEvents = currentEvents.filter(e => e.team === 'home');
+    const awayEvents = currentEvents.filter(e => e.team === 'away');
 
-    const calculateTeamStats = (teamEvents: MatchEvent[]) => {
-      const passes = teamEvents.filter(e => e.type === 'pass');
-      const shots = teamEvents.filter(e => e.type === 'shot');
-      const fouls = teamEvents.filter(e => e.type === 'foul');
-      const corners = teamEvents.filter(e => e.type === 'corner');
-      
+    const calculateTeamShotStats = (teamFilteredEvents: MatchEvent[]): TeamShotStats => {
+      const shots = teamFilteredEvents.filter(e => e.type === 'shot');
+      let totalXgForTeam = 0;
+      shots.forEach(shot => {
+        if (shot.event_data) {
+          const shotData = shot.event_data as ShotEventData;
+          if (typeof shotData.on_target === 'boolean') {
+            totalXgForTeam += calculateXg(shotData, shot.coordinates);
+          }
+        }
+      });
       return {
-        passes: {
-          successful: passes.filter(e => e.event_data && (e.event_data as PassEventData).success === true).length,
-          attempted: passes.length
-        },
-        shots: {
-          onTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === true).length,
-          offTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === false).length
-        },
-        fouls: fouls.length,
-        corners: corners.length
+        onTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === true).length,
+        offTarget: shots.filter(e => e.event_data && (e.event_data as ShotEventData).on_target === false).length,
+        total: shots.length,
+        totalXg: totalXgForTeam,
       };
     };
 
-    const homeStats = calculateTeamStats(homeEvents);
-    const awayStats = calculateTeamStats(awayEvents);
+    const calculateTeamPassStats = (teamFilteredEvents: MatchEvent[]) => {
+        const passes = teamFilteredEvents.filter(e => e.type === 'pass');
+        return {
+            successful: passes.filter(e => e.event_data && (e.event_data as PassEventData).success === true).length,
+            attempted: passes.length,
+        };
+    };
 
-    // Calculate possession based on event distribution
-    const totalEvents = homeEvents.length + awayEvents.length;
-    const homePossession = totalEvents > 0 ? Math.round((homeEvents.length / totalEvents) * 100) : 50;
+    const homePassStats = calculateTeamPassStats(homeEvents);
+    const awayPassStats = calculateTeamPassStats(awayEvents);
+    const homeShotStats = calculateTeamShotStats(homeEvents);
+    const awayShotStats = calculateTeamShotStats(awayEvents);
+
+    const totalEventsCount = homeEvents.length + awayEvents.length;
+    const homePossession = totalEventsCount > 0 ? Math.round((homeEvents.length / totalEventsCount) * 100) : 50;
     const awayPossession = 100 - homePossession;
 
     return {
       possession: { home: homePossession, away: awayPossession },
-      passes: { home: homeStats.passes, away: awayStats.passes },
-      shots: { home: homeStats.shots, away: awayStats.shots },
-      fouls: { home: homeStats.fouls, away: awayStats.fouls },
-      corners: { home: homeStats.corners, away: awayStats.corners },
-      offsides: { home: 0, away: 0 },
+      passes: { home: homePassStats, away: awayPassStats },
+      shots: { home: homeShotStats, away: awayShotStats },
+      fouls: { home: homeEvents.filter(e => e.type === 'foul').length, away: awayEvents.filter(e => e.type === 'foul').length },
+      corners: { home: homeEvents.filter(e => e.type === 'corner').length, away: awayEvents.filter(e => e.type === 'corner').length },
+      offsides: { home: homeEvents.filter(e => e.type === 'offside').length, away: awayEvents.filter(e => e.type === 'offside').length },
       ballsPlayed: { home: homeEvents.length, away: awayEvents.length },
-      ballsLost: { home: 0, away: 0 },
-      duels: { home: { won: 0, total: 0 }, away: { won: 0, total: 0 } },
-      crosses: { home: { total: 0, successful: 0 }, away: { total: 0, successful: 0 } }
+      ballsLost: { home: homeEvents.filter(e => e.type === 'ballLost').length, away: awayEvents.filter(e => e.type === 'ballLost').length },
+      duels: { home: {won: 0, total:0}, away: {won:0, total:0} }, // Placeholder
+      crosses: { home: {total:0, successful:0}, away: {total:0, successful:0} } // Placeholder
     };
   };
 
-  const calculatePlayerStatistics = (events: MatchEvent[], matchData: any): PlayerStatistics[] => {
+  const calculatePlayerStatistics = (currentEvents: MatchEvent[], matchDetailData: any): PlayerStatistics[] => {
     const playerStatsMap = new Map<string | number, PlayerStatistics>();
 
-    events.forEach(event => {
-      if (!event.player_id) return;
+    const getPlayerName = (playerId: string | number, teamSide: 'home' | 'away') => {
+      const playersList = teamSide === 'home' ? matchDetailData?.home_team_players : matchDetailData?.away_team_players;
+      const player = (playersList || []).find((p: any) => String(p.id) === String(playerId) || String(p.player_id) === String(playerId) || String(p.jersey_number) === String(playerId));
+      return player?.name || player?.player_name || `Player ${playerId}`;
+    };
 
+    currentEvents.forEach(event => {
+      if (!event.player_id) return;
       const playerId = event.player_id;
+      const playerTeam = event.team || 'home';
+
       if (!playerStatsMap.has(playerId)) {
+        const playerName = getPlayerName(playerId, playerTeam);
         playerStatsMap.set(playerId, {
           playerId,
-          playerName: `Player ${playerId}`,
-          team: event.team || 'home',
+          playerName: playerName,
+          team: playerTeam,
           events: {
             passes: { successful: 0, attempted: 0 },
             shots: { onTarget: 0, offTarget: 0 },
@@ -249,38 +250,47 @@ const Statistics = () => {
             fouls: 0,
             cards: { yellow: 0, red: 0 },
             goals: 0,
-            assists: 0
-          }
+            assists: 0,
+          },
+          totalXg: 0,
         });
       }
 
-      const playerStats = playerStatsMap.get(playerId)!;
+      const currentPlayerStats = playerStatsMap.get(playerId)!;
 
       switch (event.type) {
         case 'pass':
-          playerStats.events.passes.attempted++;
+          currentPlayerStats.events.passes.attempted++;
           if (event.event_data && (event.event_data as PassEventData).success === true) {
-            playerStats.events.passes.successful++;
+            currentPlayerStats.events.passes.successful++;
           }
           break;
         case 'shot':
-          if (event.event_data && (event.event_data as ShotEventData).on_target === true) {
-            playerStats.events.shots.onTarget++;
-          } else if (event.event_data && (event.event_data as ShotEventData).on_target === false) { // ensure it's explicitly false
-            playerStats.events.shots.offTarget++;
+          let xgValue = 0;
+          if (event.event_data) {
+            const shotData = event.event_data as ShotEventData;
+            if (typeof shotData.on_target === 'boolean') {
+              xgValue = calculateXg(shotData, event.coordinates);
+              if (shotData.on_target === true) {
+                currentPlayerStats.events.shots.onTarget++;
+              } else {
+                currentPlayerStats.events.shots.offTarget++;
+              }
+            }
           }
+          currentPlayerStats.totalXg = (currentPlayerStats.totalXg || 0) + xgValue;
           break;
         case 'goal':
-          playerStats.events.goals++;
+          currentPlayerStats.events.goals++;
           break;
         case 'foul':
-          playerStats.events.fouls++;
+          currentPlayerStats.events.fouls++;
           break;
         case 'yellowCard':
-          playerStats.events.cards.yellow++;
+          currentPlayerStats.events.cards.yellow++;
           break;
         case 'redCard':
-          playerStats.events.cards.red++;
+          currentPlayerStats.events.cards.red++;
           break;
       }
     });
@@ -307,7 +317,6 @@ const Statistics = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
@@ -316,7 +325,6 @@ const Statistics = () => {
           </Button>
           <h1 className="text-2xl font-bold">Match Statistics & Analytics</h1>
         </div>
-        
         <Select value={selectedMatch} onValueChange={setSelectedMatch}>
           <SelectTrigger className="w-80">
             <SelectValue placeholder="Select a match" />
@@ -334,7 +342,6 @@ const Statistics = () => {
 
       {selectedMatchData && (
         <>
-          {/* Match Info Card */}
           <Card>
             <CardHeader>
               <CardTitle>{selectedMatchData.name || `${selectedMatchData.home_team_name} vs ${selectedMatchData.away_team_name}`}</CardTitle>
@@ -346,7 +353,6 @@ const Statistics = () => {
             </CardHeader>
           </Card>
 
-          {/* Key Metrics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -360,7 +366,6 @@ const Statistics = () => {
                 </p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Passes</CardTitle>
@@ -375,7 +380,6 @@ const Statistics = () => {
                 </p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Shots</CardTitle>
@@ -383,14 +387,13 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {((statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)) + ((statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0))}
+                  {((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Home: {(statistics.shots?.home?.onTarget || 0) + (statistics.shots?.home?.offTarget || 0)} • Away: {(statistics.shots?.away?.onTarget || 0) + (statistics.shots?.away?.offTarget || 0)}
+                  Home: {statistics.shots?.home?.total || 0} • Away: {statistics.shots?.away?.total || 0}
                 </p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Ball Tracking Points</CardTitle>
@@ -405,12 +408,12 @@ const Statistics = () => {
             </Card>
           </div>
 
-          {/* Tabbed Analytics */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8"> {/* Updated to grid-cols-8 */}
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="shotmap">Shot Map / xG</TabsTrigger> {/* New Tab */}
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
               <TabsTrigger value="players">Players</TabsTrigger>
               <TabsTrigger value="passes">Passes</TabsTrigger>
@@ -469,6 +472,53 @@ const Statistics = () => {
               />
             </TabsContent>
 
+            <TabsContent value="shotmap" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Shot Analysis & Expected Goals (xG)
+                  </CardTitle>
+                  <CardDescription>
+                    Shot locations, outcomes, and Expected Goals (xG) values for each team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-md">
+                          {selectedMatchData?.home_team_name || 'Home'} - Total Expected Goals (xG)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold">
+                          {statistics.shots?.home?.totalXg?.toFixed(2) || '0.00'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-md">
+                          {selectedMatchData?.away_team_name || 'Away'} - Total Expected Goals (xG)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold">
+                          {statistics.shots?.away?.totalXg?.toFixed(2) || '0.00'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <ShotMap
+                    shots={events.filter(event => event.type === 'shot')}
+                    homeTeamName={selectedMatchData?.home_team_name}
+                    awayTeamName={selectedMatchData?.away_team_name}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="advanced" className="space-y-6">
               <MatchHeatMap
                 events={events}
@@ -503,6 +553,7 @@ const Statistics = () => {
                           <th className="text-center py-2">Shots</th>
                           <th className="text-center py-2">Goals</th>
                           <th className="text-center py-2">Assists</th>
+                          <th className="text-center py-2">xG</th> {/* New Header */}
                           <th className="text-center py-2">Fouls</th>
                           <th className="text-center py-2">Cards</th>
                         </tr>
@@ -532,6 +583,7 @@ const Statistics = () => {
                             </td>
                             <td className="text-center py-2">{player.events.goals}</td>
                             <td className="text-center py-2">{player.events.assists}</td>
+                            <td className="text-center py-2">{player.totalXg?.toFixed(2) || '0.00'}</td> {/* xG Value */}
                             <td className="text-center py-2">{player.events.fouls}</td>
                             <td className="text-center py-2">
                               <div className="flex justify-center gap-1">
@@ -554,7 +606,7 @@ const Statistics = () => {
                         ))}
                         {playerStats.length === 0 && (
                           <tr>
-                            <td colSpan={9} className="text-center py-8 text-gray-500">
+                            <td colSpan={10} className="text-center py-8 text-gray-500"> {/* Updated colSpan */}
                               No player statistics available
                             </td>
                           </tr>
