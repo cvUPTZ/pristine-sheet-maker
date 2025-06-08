@@ -138,6 +138,9 @@ export interface PlayerStatistics {
     [key: string]: any;
   };
   totalXg?: number; // Added for player xG
+  progressivePasses?: number;
+  passesToFinalThird?: number;
+  passNetworkSent?: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
 }
 
 export interface Statistics {

@@ -45,6 +45,9 @@ export interface PlayerStatSummary {
   blocks: number;
   dribbles: number;
   totalXg: number;
+  progressivePasses: number;
+  passesToFinalThird: number;
+  passNetworkSent: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
 }
 
 export interface AggregatedStats {
@@ -104,6 +107,9 @@ function initializePlayerStatSummary(
     blocks: 0,
     dribbles: 0,
     totalXg: 0,
+    progressivePasses: 0,
+    passesToFinalThird: 0,
+    passNetworkSent: [],
   };
 }
 
@@ -115,6 +121,9 @@ export function aggregateMatchEvents(
   const homeTeamStats = initializeTeamStats();
   const awayTeamStats = initializeTeamStats();
   const playerStatsMap = new Map<string | number, PlayerStatSummary>();
+
+  const PITCH_LENGTH = 105; // meters
+  const PITCH_WIDTH = 68;   // meters
 
   const getPlayerDetails = (
     playerId: string | number,
@@ -204,9 +213,68 @@ export function aggregateMatchEvents(
       case 'pass':
         targetTeamStats.passesAttempted += 1;
         if (playerSummary) playerSummary.passesAttempted += 1;
-        if (event.event_data && (event.event_data as PassEventData).success === true) {
+
+        const passData = event.event_data as PassEventData;
+        if (passData && passData.success === true) {
           targetTeamStats.passesCompleted += 1;
           if (playerSummary) playerSummary.passesCompleted += 1;
+
+          // Advanced pass calculations for successful passes with coordinates
+          if (playerSummary && event.coordinates && passData.end_coordinates) {
+            const startCoords = event.coordinates;
+            const endCoords = passData.end_coordinates;
+
+            // Attacking direction normalization (assuming all events are recorded as if attacking towards positive X)
+            // If actual data has different orientations per team, normalization is needed here or before this function.
+            // For this implementation, we assume coordinates are already normalized or consistently recorded.
+
+            const finalThirdX = (2 / 3) * PITCH_LENGTH;
+            const ownHalfEndX = PITCH_LENGTH / 2;
+
+            // Passes to Final Third
+            if (startCoords.x < finalThirdX && endCoords.x >= finalThirdX) {
+              playerSummary.passesToFinalThird += 1;
+            }
+
+            // Progressive Passes
+            const longitudinalDistanceGained = endCoords.x - startCoords.x;
+            let isProgressive = false;
+
+            if (startCoords.x < ownHalfEndX) { // Originates in own half
+              if (longitudinalDistanceGained >= 30) isProgressive = true;
+            } else if (startCoords.x < finalThirdX) { // Originates in opponent's half, not final third
+              if (longitudinalDistanceGained >= 15) isProgressive = true;
+            }
+
+            // Simplified penalty area check (last ~16.5m of pitch length, central ~20m width as per FIFA (20.16m for 18-yard box width))
+            const penaltyAreaMinX = PITCH_LENGTH - 16.5;
+            const penaltyAreaMinY = (PITCH_WIDTH / 2) - (20.16 / 2); // Approx half of 18-yard box width from center
+            const penaltyAreaMaxY = (PITCH_WIDTH / 2) + (20.16 / 2);
+
+            if (startCoords.x >= PITCH_LENGTH / 3 && // Not from own defensive third
+                endCoords.x >= penaltyAreaMinX &&
+                endCoords.y >= penaltyAreaMinY && endCoords.y <= penaltyAreaMaxY ) {
+              isProgressive = true;
+            }
+
+            if (isProgressive) {
+              playerSummary.progressivePasses += 1;
+            }
+          }
+        }
+
+        // Player-to-Player Pass Network (Sent)
+        if (playerSummary && passData && passData.recipient_player_id) {
+          const recipientId = passData.recipient_player_id;
+          let passLink = playerSummary.passNetworkSent.find(link => link.toPlayerId === recipientId);
+          if (!passLink) {
+            passLink = { toPlayerId: recipientId, count: 0, successfulCount: 0 };
+            playerSummary.passNetworkSent.push(passLink);
+          }
+          passLink.count += 1;
+          if (passData.success) {
+            passLink.successfulCount += 1;
+          }
         }
         break;
       case 'foul':
