@@ -1,5 +1,5 @@
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { AudioManager } from './AudioManager'; // Assuming AudioManager.ts exists in the same directory or path is adjusted
+import { AudioManager } from './AudioManager';
 
 interface WebRTCManagerCallbacks {
   onConnectionStateChanged?: (userId: string, state: RTCPeerConnectionState) => void;
@@ -40,12 +40,11 @@ export class WebRTCManager {
   public onError: WebRTCManagerCallbacks['onError'];
   public onLocalStreamReady: WebRTCManagerCallbacks['onLocalStreamReady'];
 
-
   constructor(
     supabaseClient: SupabaseClient,
     userId: string,
     userName: string | undefined,
-    iceServers: IceServerConfig[] = [{ urls: 'stun:stun.l.google.com:19302' }], // Default STUN server
+    iceServers: IceServerConfig[] = [{ urls: 'stun:stun.l.google.com:19302' }],
     callbacks?: WebRTCManagerCallbacks
   ) {
     this.supabaseClient = supabaseClient;
@@ -66,8 +65,7 @@ export class WebRTCManager {
       this.onLocalStreamReady = callbacks.onLocalStreamReady;
     }
 
-    // Ensure AudioManager instance is available if needed for early operations, though typically used in joinRoom
-    AudioManager.getInstance(); 
+    AudioManager.getInstance();
   }
 
   public async joinRoom(roomId: string): Promise<void> {
@@ -184,7 +182,6 @@ export class WebRTCManager {
         console.log(`[WebRTCManager] Presence Event: Sync received for room ${roomId}. Processing state.`);
         const presenceState = this.presenceChannel?.state;
         if (presenceState) {
-          // Fix: Use Object.keys() instead of for...in with presenceState directly
           Object.keys(presenceState).forEach(userId => {
             if (userId !== this.localUserId) {
               const presences = (presenceState as any)[userId] as Array<{ user_name?: string }>;
@@ -315,7 +312,6 @@ export class WebRTCManager {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     console.log(`[WebRTCManager] createPeerConnection: RTCPeerConnection created for ${remoteUserId} with ICE servers:`, this.iceServers);
 
-    // ... keep existing code (adding tracks, event handlers, etc.)
     console.log(`[WebRTCManager] createPeerConnection: Adding local stream tracks to PC for ${remoteUserId}.`);
     this.localStream.getTracks().forEach(track => {
       try {
@@ -505,7 +501,7 @@ export class WebRTCManager {
     try {
       console.log(`[WebRTCManager] handleSdpAnswer: Setting remote description for ${fromUserId} with received answer.`);
       await pc.setRemoteDescription(new RTCSessionDescription(answerSdp));
-      console.log(`[WebRTCManager] handleSdpAnswer: Remote description successfully set for ${remoteUserId} after answer.`);
+      console.log(`[WebRTCManager] handleSdpAnswer: Remote description successfully set for ${fromUserId} after answer.`);
     } catch (error) {
       console.error(`[WebRTCManager] handleSdpAnswer: Error processing SDP answer from ${fromUserId}:`, error);
       this.onError?.('webrtc_answer_error', { userId: fromUserId, error });
@@ -571,7 +567,6 @@ export class WebRTCManager {
 
     if (this.localStream) {
       console.log('[WebRTCManager] leaveRoom: Releasing local media stream.');
-      // Fix: Use correct method name
       AudioManager.getInstance().releaseMediaStream();
       this.localStream = null;
       console.log('[WebRTCManager] leaveRoom: Local media stream released and set to null.');
