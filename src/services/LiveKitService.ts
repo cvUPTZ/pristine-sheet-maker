@@ -1,5 +1,5 @@
 
-import { Room, connect, RoomOptions, Track, RemoteParticipant, LocalParticipant, ConnectionState, Participant } from 'livekit-client';
+import { Room, RoomOptions, Track, RemoteParticipant, LocalParticipant, ConnectionState, Participant, RoomEvent, DisconnectReason, LocalTrackPublication, RemoteTrackPublication, RemoteTrack } from 'livekit-client';
 
 export interface LiveKitConfig {
   serverUrl: string;
@@ -14,8 +14,8 @@ export class LiveKitService {
   public onParticipantConnected?: (participant: RemoteParticipant) => void;
   public onParticipantDisconnected?: (participant: RemoteParticipant) => void;
   public onConnectionStateChanged?: (state: ConnectionState) => void;
-  public onLocalTrackPublished?: (track: Track) => void;
-  public onTrackSubscribed?: (track: Track, participant: RemoteParticipant) => void;
+  public onLocalTrackPublished?: (publication: LocalTrackPublication) => void;
+  public onTrackSubscribed?: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void;
   public onError?: (error: Error) => void;
 
   async connect(token: string, serverUrl: string, roomName: string): Promise<Room> {
@@ -32,38 +32,41 @@ export class LiveKitService {
         },
       };
 
-      this.room = await connect(serverUrl, token, roomOptions);
+      this.room = new Room(roomOptions);
       this.localParticipant = this.room.localParticipant;
 
       // Set up event listeners
-      this.room.on('participantConnected', (participant: RemoteParticipant) => {
+      this.room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
         console.log('[LiveKitService] Participant connected:', participant.identity);
         this.onParticipantConnected?.(participant);
       });
 
-      this.room.on('participantDisconnected', (participant: RemoteParticipant) => {
+      this.room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
         console.log('[LiveKitService] Participant disconnected:', participant.identity);
         this.onParticipantDisconnected?.(participant);
       });
 
-      this.room.on('connectionStateChanged', (state: ConnectionState) => {
+      this.room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
         console.log('[LiveKitService] Connection state changed:', state);
         this.onConnectionStateChanged?.(state);
       });
 
-      this.room.on('localTrackPublished', (track: Track) => {
-        console.log('[LiveKitService] Local track published:', track.kind);
-        this.onLocalTrackPublished?.(track);
+      this.room.on(RoomEvent.LocalTrackPublished, (publication: LocalTrackPublication, participant: LocalParticipant) => {
+        console.log('[LiveKitService] Local track published:', publication.kind);
+        this.onLocalTrackPublished?.(publication);
       });
 
-      this.room.on('trackSubscribed', (track: Track, participant: RemoteParticipant) => {
+      this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
         console.log('[LiveKitService] Track subscribed:', track.kind, 'from', participant.identity);
-        this.onTrackSubscribed?.(track, participant);
+        this.onTrackSubscribed?.(track, publication, participant);
       });
 
-      this.room.on('disconnected', (reason?: string) => {
+      this.room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
         console.log('[LiveKitService] Disconnected:', reason);
       });
+
+      // Connect to the room
+      await this.room.connect(serverUrl, token);
 
       console.log('[LiveKitService] Successfully connected to room');
       return this.room;
