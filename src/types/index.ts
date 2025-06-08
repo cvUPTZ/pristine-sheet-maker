@@ -141,6 +141,9 @@ export interface PlayerStatistics {
   progressivePasses?: number;
   passesToFinalThird?: number;
   passNetworkSent?: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
+  totalPressures?: number;
+  successfulPressures?: number;
+  pressureRegains?: number;
 }
 
 export interface Statistics {

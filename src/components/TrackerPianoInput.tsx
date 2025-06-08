@@ -4,38 +4,29 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { EventType as AppEventType } from '@/types'; // Renamed to avoid conflict with local EventType if any
-import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
+import { EventType as AppEventType } from '@/types';
+import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData, PressureEventData } from '@/types/eventData';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo } from 'lucide-react';
+import { Undo, UserCircle } from 'lucide-react'; // Added UserCircle
 import ShotDetailModal from '@/components/modals/ShotDetailModal';
-import PassDetailModal from '@/components/modals/PassDetailModal'; // Import PassDetailModal
+import PassDetailModal from '@/components/modals/PassDetailModal';
+import PressureDetailModal from '@/components/modals/PressureDetailModal';
 
-// Define interfaces for type safety
-// Ensure PlayerForPianoInput is exported or moved to a shared types file if PassDetailModal needs it directly
-export interface PlayerForPianoInput { // Exporting for potential use in PassDetailModal props if not already shared
+export interface PlayerForPianoInput {
   id: number;
   name: string;
   position?: string;
   jersey_number?: number;
+  teamName?: string;
 }
 interface TrackerPianoInputProps {
   matchId: string;
-}
-
-interface PlayerForPianoInput {
-  id: number;
-  name: string;
-  position?: string;
-  jersey_number?: number;
-}
-
-interface AssignedPlayers {
-  home: PlayerForPianoInput[];
-  away: PlayerForPianoInput[];
+  // Optional props for team names if not reliably in fullMatchRoster.teamName
+  // homeTeamName?: string;
+  // awayTeamName?: string;
 }
 
 interface EnhancedEventType {
@@ -46,362 +37,231 @@ interface EnhancedEventType {
   description?: string;
 }
 
+// TODO: Potentially move EVENT_TYPE_LABELS here or make it accessible for better label display
+const EVENT_TYPE_LABELS_LOCAL: Record<string, string> = {
+    pass: 'Pass', shot: 'Shot', tackle: 'Tackle', foul: 'Foul', corner: 'Corner',
+    offside: 'Offside', goal: 'Goal', assist: 'Assist', yellowCard: 'Yellow Card',
+    redCard: 'Red Card', substitution: 'Substitution', card: 'Card', penalty: 'Penalty',
+    'free-kick': 'Free Kick', 'goal-kick': 'Goal Kick', 'throw-in': 'Throw In',
+    interception: 'Interception', possession: 'Possession', ballLost: 'Ball Lost',
+    ballRecovered: 'Ball Recovered', dribble: 'Dribble', cross: 'Cross',
+    clearance: 'Clearance', block: 'Block', save: 'Save', ownGoal: 'Own Goal',
+    freeKick: 'Free Kick', throwIn: 'Throw In', goalKick: 'Goal Kick',
+    aerialDuel: 'Aerial Duel', groundDuel: 'Ground Duel', sub: 'Sub',
+    pressure: 'Pressure', dribble_attempt: 'Dribble Attempt', ball_recovery: 'Ball Recovery'
+};
+
+interface FullRoster { // For clarity
+    home: PlayerForPianoInput[];
+    away: PlayerForPianoInput[];
+}
+
+
 const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
-  const [assignedEventTypes, setAssignedEventTypes] = useState<EnhancedEventType[]>([]);
-  const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away' | null>(null);
+  // State for focused player and their assigned event types
+  const [focusedPlayer, setFocusedPlayer] = useState<(PlayerForPianoInput & {teamName?: string}) | null>(null);
+  const [focusedPlayerTeam, setFocusedPlayerTeam] = useState<'home' | 'away' | null>(null);
+  const [focusedAssignedEventTypes, setFocusedAssignedEventTypes] = useState<EnhancedEventType[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [lastRecordedEvent, setLastRecordedEvent] = useState<any>(null);
-  const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
+  const [fullMatchRoster, setFullMatchRoster] = useState<FullRoster | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
 
-  // State for shot detail modal
+  // State for modals
   const [showShotDetailModal, setShowShotDetailModal] = useState(false);
-  const [currentShotInitialData, setCurrentShotInitialData] = useState<Partial<ShotEventData>>({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+  const [currentShotInitialData, setCurrentShotInitialData] = useState<Partial<ShotEventData>>({ on_target: false, is_goal: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
 
-  // State for pass detail modal
   const [showPassDetailModal, setShowPassDetailModal] = useState(false);
   const [currentPassInitialData, setCurrentPassInitialData] = useState<Partial<PassEventData>>({ success: true, pass_type: 'short' });
 
-  const [pendingEventTrigger, setPendingEventTrigger] = useState<{ eventType: EnhancedEventType, player?: PlayerForPianoInput, coordinates?: { x: number, y: number } } | null>(null);
+  const [showPressureDetailModal, setShowPressureDetailModal] = useState(false);
+  const [currentPressureInitialData, setCurrentPressureInitialData] = useState<Partial<PressureEventData>>({ outcome: 'no_effect' });
+
+  const [pendingEventTrigger, setPendingEventTrigger] = useState<{ eventType: EnhancedEventType, player: PlayerForPianoInput, coordinates?: { x: number, y: number } } | null>(null);
 
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Use the centralized real-time system
-  const { } = useRealtimeMatch({
+  useRealtimeMatch({
     matchId,
     onEventReceived: (event) => {
-      console.log('[TrackerPianoInput] Event received via real-time:', event);
-      if (event.created_by === user?.id) {
+      if (event.created_by === user?.id && focusedPlayer && event.player_id === focusedPlayer.id) {
         const eventInfo = {
           id: event.id,
-          eventType: { key: event.type, label: event.type },
-          player: selectedPlayer,
+          eventType: { key: event.type, label: EVENT_TYPE_LABELS_LOCAL[event.type] || event.type },
+          player: focusedPlayer,
           timestamp: Date.now()
         };
         setLastRecordedEvent(eventInfo);
-        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]); // Keep last 5 events
+        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]);
       }
     }
   });
 
-  // Use unified tracker connection for status broadcasting
   const { broadcastStatus } = useUnifiedTrackerConnection(matchId, user?.id || '');
 
   const fetchMatchDetails = useCallback(async () => {
-    if (!matchId) {
-      console.error("Match ID is missing.");
-      return;
-    }
-
+    if (!matchId) return;
     try {
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
-        .select('home_team_players, away_team_players')
+        .select('home_team_players, away_team_players, home_team_name, away_team_name')
         .eq('id', matchId)
         .single();
+      if (matchError) throw matchError;
 
-      if (matchError) {
-        console.error("Error fetching match details:", matchError);
-        return;
-      }
-
-      const parsePlayerData = (data: any): PlayerForPianoInput[] => {
-        if (typeof data === 'string') {
-          try {
-            return JSON.parse(data);
-          } catch {
-            return [];
-          }
-        }
-        return Array.isArray(data) ? data : [];
+      const parsePlayerData = (data: any, teamName: string): PlayerForPianoInput[] => {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : (Array.isArray(data) ? data : []);
+        return parsed.map((p: any) => ({
+            id: p.id || p.jersey_number || Date.now() + Math.random(),
+            name: p.name || p.player_name || `Player ${p.jersey_number || p.id}`,
+            jersey_number: p.jersey_number || p.number,
+            position: p.position,
+            teamName
+        }));
       };
-
-      const homePlayers = parsePlayerData(matchData.home_team_players);
-      const awayPlayers = parsePlayerData(matchData.away_team_players);
-      setFullMatchRoster({ home: homePlayers, away: awayPlayers });
-
-    } catch (error: any) {
-      console.error("Error fetching match details:", error);
-    }
+      setFullMatchRoster({
+        home: parsePlayerData(matchData.home_team_players, matchData.home_team_name || 'Home'),
+        away: parsePlayerData(matchData.away_team_players, matchData.away_team_name || 'Away')
+      });
+    } catch (e) { console.error("Error fetching match details:", e); setError("Could not load team rosters."); }
   }, [matchId]);
 
   const fetchAssignments = useCallback(async () => {
-    if (!matchId || !user?.id) {
-      console.error("Match ID or user ID is missing.");
-      return;
-    }
-
-    console.log('=== TRACKER DEBUG: Starting fetchAssignments (User/Match specific) ===');
-    console.log('User ID:', user.id);
-    console.log('Match ID:', matchId);
+    if (!matchId || !user?.id || !fullMatchRoster) return;
+    setLoading(true);
+    setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { data: assignments, error: assignmentsError } = await supabase
         .from('match_tracker_assignments')
         .select('*')
         .eq('match_id', matchId)
         .eq('tracker_user_id', user.id);
 
-      console.log('=== RAW ASSIGNMENTS DATA ===');
-      console.log('Assignments found:', data?.length || 0);
-      console.log('Full assignments data:', data);
+      if (assignmentsError) throw assignmentsError;
 
-      if (error) {
-        console.error("Error fetching tracker assignments:", error);
-        setError("Failed to fetch tracker assignments");
+      const firstValidAssignment = assignments?.find(a => a.player_id && a.assigned_event_types && a.assigned_event_types.length > 0);
+
+      if (!firstValidAssignment || !firstValidAssignment.player_id) {
+        setError("No specific player/event assignment found for you in this match. Please check with your administrator.");
+        setFocusedPlayer(null); setFocusedPlayerTeam(null); setFocusedAssignedEventTypes([]);
         setLoading(false);
         return;
       }
 
-      if (!data || data.length === 0) {
-        console.log("No assignments found - setting error state");
-        setError("No assignments found for this tracker and match. Please contact your administrator.");
-        setAssignedEventTypes([]);
-        setAssignedPlayers({ home: [], away: [] });
+      const teamId = firstValidAssignment.player_team_id as 'home' | 'away';
+      const playerList = teamId === 'home' ? fullMatchRoster.home : fullMatchRoster.away;
+      // Attempt to find by ID first, then by jersey number as a fallback
+      let playerDetails = playerList.find(p => String(p.id) === String(firstValidAssignment.player_id));
+      if (!playerDetails) {
+        playerDetails = playerList.find(p => String(p.jersey_number) === String(firstValidAssignment.player_id));
+      }
+
+      if (!playerDetails) {
+        setError(`Assigned player (ID/Number: ${firstValidAssignment.player_id}) not found in ${teamId} team roster. Contact admin.`);
+        setFocusedPlayer(null); setFocusedPlayerTeam(null); setFocusedAssignedEventTypes([]);
         setLoading(false);
         return;
       }
 
-      const eventTypes = Array.from(new Set(data.flatMap(assignment => assignment.assigned_event_types || [])));
-      const assignedEventTypesData: EnhancedEventType[] = eventTypes
-        .filter(key => key)
-        .map(key => ({ key, label: key }));
-      setAssignedEventTypes(assignedEventTypesData);
+      setFocusedPlayer(playerDetails); // playerDetails already includes teamName from fetchMatchDetails
+      setFocusedPlayerTeam(teamId);
 
-      const homePlayers: PlayerForPianoInput[] = [];
-      const awayPlayers: PlayerForPianoInput[] = [];
+      const eventKeys = firstValidAssignment.assigned_event_types || [];
+      setFocusedAssignedEventTypes(eventKeys.map(key => ({ key, label: EVENT_TYPE_LABELS_LOCAL[key] || key })));
 
-      data.forEach(assignment => {
-        if (assignment.player_team_id === 'home') {
-          const player = fullMatchRoster?.home?.find(p => String(p.id) === String(assignment.player_id));
-          if (player && !homePlayers.some(p => p.id === player.id)) {
-            homePlayers.push(player);
-          }
-        } else if (assignment.player_team_id === 'away') {
-          const player = fullMatchRoster?.away?.find(p => String(assignment.player_id) === String(assignment.player_id));
-          if (player && !awayPlayers.some(p => p.id === player.id)) {
-            awayPlayers.push(player);
-          }
-        }
-      });
-
-      setAssignedPlayers({ home: homePlayers, away: awayPlayers });
-      setError(null);
-
-    } catch (error: any) {
-      console.error("Error fetching tracker assignments:", error);
-      setError("Failed to fetch tracker assignments");
+    } catch (e: any) {
+      console.error("Error fetching tracker assignments:", e);
+      setError("Failed to fetch assignments.");
     } finally {
       setLoading(false);
     }
   }, [matchId, user?.id, fullMatchRoster]);
 
-  useEffect(() => {
-    fetchMatchDetails();
-  }, [fetchMatchDetails]);
-
-  useEffect(() => {
-    if (fullMatchRoster) {
-      fetchAssignments();
-    }
-  }, [fetchAssignments, fullMatchRoster]);
-
-  const undoLastAction = async () => {
-    if (recentEvents.length === 0) {
-      toast({
-        title: "Aucune action à annuler",
-        description: "Il n'y a pas d'action récente à annuler",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const lastEvent = recentEvents[0];
-    
-    try {
-      const { error } = await supabase
-        .from('match_events')
-        .delete()
-        .eq('id', lastEvent.id);
-
-      if (error) throw error;
-
-      // Remove from local state
-      setRecentEvents(prev => prev.slice(1));
-      setLastRecordedEvent(null);
-
-      toast({
-        title: "Action annulée",
-        description: `L'événement ${lastEvent.eventType.label} a été supprimé`,
-      });
-
-    } catch (error: any) {
-      console.error('Error undoing last action:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible d'annuler la dernière action",
-        variant: "destructive",
-      });
-    }
-  };
+  useEffect(() => { fetchMatchDetails(); }, [fetchMatchDetails]);
+  useEffect(() => { if (fullMatchRoster) fetchAssignments(); }, [fetchAssignments, fullMatchRoster]);
 
   const recordEvent = async (
     eventType: EnhancedEventType,
-    player?: PlayerForPianoInput,
+    player: PlayerForPianoInput | null,
     details?: { coordinates?: {x: number, y: number}, event_data?: Partial<MatchSpecificEventData> }
   ) => {
-    console.log('TrackerPianoInput recordEvent called with:', {
-      eventType,
-      player, 
-      details, 
-      user: user?.id,
-      matchId 
-    });
-    
-    if (!matchId) {
-      console.error("Match ID is missing.");
-      throw new Error("Match ID is missing");
-    }
-
-    if (!user?.id) {
-      console.error("User not authenticated");
-      throw new Error("User not authenticated");
-    }
-
-    if (!eventType) {
-      console.error("Event type is missing");
-      throw new Error("Event type is missing");
+    if (!matchId || !user?.id || !eventType || !player || !focusedPlayerTeam ) {
+        console.error("Missing critical data for recording event:", {matchId, user, eventType, player, focusedPlayerTeam});
+        toast({ title: "Error", description: "Cannot record event: critical data missing.", variant: "destructive" });
+        return;
     }
 
     setIsRecording(true);
     setRecordingEventType(eventType.key);
-    
-    // Broadcast that we're recording
-    broadcastStatus({
-      status: 'recording',
-      timestamp: Date.now()
-    });
+    broadcastStatus({ status: 'recording', timestamp: Date.now() });
 
     try {
-      let teamContext = null;
-      if (player && assignedPlayers) {
-        if (assignedPlayers.home?.some(p => p.id === player.id)) {
-          teamContext = 'home';
-        } else if (assignedPlayers.away?.some(p => p.id === player.id)) {
-          teamContext = 'away';
-        }
-      }
-
-      const playerId = player ? parseInt(String(player.id), 10) : null;
-      
-      if (player && (isNaN(playerId!) || playerId === null)) {
-        console.error("Invalid player ID:", player.id);
-        throw new Error("Invalid player ID");
-      }
-
+      const playerId = player.id;
       const timestampInSeconds = Math.floor(Date.now() / 1000);
-
       let specificEventData: MatchSpecificEventData;
 
-      // Create specific event_data based on eventType.key
       switch (eventType.key as AppEventType) {
         case 'shot':
-          if (details?.event_data && typeof (details.event_data as ShotEventData).on_target === 'boolean') {
-            specificEventData = details.event_data as ShotEventData;
-          } else {
-            // Fallback or default if not coming from modal - this path should ideally not be hit for shots if modal is enforced
-            specificEventData = { on_target: (details as any)?.on_target || false } as ShotEventData;
-          }
+          specificEventData = details?.event_data && typeof (details.event_data as ShotEventData).on_target === 'boolean'
+            ? details.event_data as ShotEventData
+            : { on_target: false, ...((details?.event_data as Partial<ShotEventData>) || {}) } as ShotEventData;
           break;
         case 'pass':
-          if (details?.event_data && typeof (details.event_data as PassEventData).success === 'boolean') {
-            specificEventData = details.event_data as PassEventData;
-          } else {
-            // Fallback or default if not coming from modal - this path should ideally not be hit for passes if modal is enforced
-            specificEventData = { success: (details as any)?.success || true } as PassEventData;
-          }
+          specificEventData = details?.event_data && typeof (details.event_data as PassEventData).success === 'boolean'
+            ? details.event_data as PassEventData
+            : { success: true, ...((details?.event_data as Partial<PassEventData>) || {}) } as PassEventData;
+          break;
+        case 'pressure':
+          specificEventData = details?.event_data && (details.event_data as PressureEventData).outcome
+            ? details.event_data as PressureEventData
+            : { outcome: 'no_effect', ...((details?.event_data as Partial<PressureEventData>) || {}) } as PressureEventData;
           break;
         case 'tackle':
-          specificEventData = { success: true } as TackleEventData; // Default
-          break;
-        case 'foul':
-          specificEventData = {} as FoulCommittedEventData;
-          break;
-        case 'yellowCard':
-        case 'redCard':
-          specificEventData = { card_type: eventType.key === 'yellowCard' ? 'yellow' : 'red' } as CardEventData;
-          break;
-        case 'substitution':
-          // Requires player_in_id and player_out_id, which are not yet in `details`
-          specificEventData = { player_in_id: '', player_out_id: '' } as SubstitutionEventData;
+          specificEventData = { success: true, ...details?.event_data } as TackleEventData;
           break;
         default:
-          specificEventData = {} as GenericEventData;
-      }
-
-      // Add known details if they exist, e.g. from a more complex 'details' object in future
-      // This block might be redundant if details.event_data is comprehensive, but kept for safety/flexibility
-      if (details && !details.event_data) { // Only apply if details.event_data wasn't already used
-        if (eventType.key === 'shot' && typeof (details as any).on_target === 'boolean') {
-          (specificEventData as ShotEventData).on_target = (details as any).on_target;
-        }
-        if (eventType.key === 'pass' && typeof (details as any).success === 'boolean') {
-          (specificEventData as PassEventData).success = (details as any).success;
-        }
+          specificEventData = { ...details?.event_data } as GenericEventData;
       }
 
       const eventDataForSupabase = {
         match_id: matchId,
-        event_type: eventType.key, // This is the DB column name
+        event_type: eventType.key,
         timestamp: timestampInSeconds,
         player_id: playerId,
-        team: teamContext,
+        team: focusedPlayerTeam,
         coordinates: details?.coordinates || null,
-        event_data: specificEventData, // This is the new structured data for the JSON column
+        event_data: specificEventData,
         created_by: user.id
       };
 
-      console.log('Inserting event data:', eventDataForSupabase);
+      const { data: newDbEvent, error: dbError } = await supabase.from('match_events').upsert([eventDataForSupabase]).select().single();
+      if (dbError) throw dbError;
 
-      // Use upsert for faster insertion and avoid conflicts
-      const { data, error } = await supabase
-        .from('match_events')
-        .upsert([eventDataForSupabase])
-        .select();
-
-      if (error) {
-        console.error("Error recording event:", error);
-        throw new Error(`Failed to record event: ${error.message}`);
+      if (newDbEvent) {
+        const eventInfo = {
+          id: newDbEvent.id,
+          eventType: { key: newDbEvent.event_type, label: EVENT_TYPE_LABELS_LOCAL[newDbEvent.event_type] || newDbEvent.event_type },
+          player: player,
+          timestamp: newDbEvent.timestamp * 1000
+        };
+        setLastRecordedEvent(eventInfo);
+        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]);
       }
-
-      console.log('Event recorded successfully:', data);
       
-      // Broadcast that we're back to active status
-      broadcastStatus({
-        status: 'active',
-        timestamp: Date.now()
-      });
+      broadcastStatus({ status: 'active', timestamp: Date.now() });
+      toast({ title: "Event Recorded", description: `${eventType.label} by ${player.name} recorded.` });
       
-      toast({
-        title: "Event Recorded",
-        description: `${eventType.label}${player ? ` by ${player.name}` : ''} recorded successfully`,
-      });
-      
-    } catch (error: any) {
-      console.error("Error in recordEvent:", error);
-      broadcastStatus({ status: 'active', timestamp: Date.now() }); // Reset status on error
-      toast({
-        title: "Error",
-        description: error.message || "Failed to record event",
-        variant: "destructive",
-      });
-      throw error;
+    } catch (e: any) {
+      console.error("Error in recordEvent:", e);
+      broadcastStatus({ status: 'active', timestamp: Date.now() });
+      toast({ title: "Error", description: e.message || "Failed to record event", variant: "destructive" });
+      throw e;
     } finally {
       setIsRecording(false);
       setRecordingEventType(null);
@@ -409,84 +269,81 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   };
 
   const handleRecordShotWithDetails = async (shotDetails: ShotEventData) => {
-    if (pendingEventTrigger) {
+    if (pendingEventTrigger && pendingEventTrigger.player) {
       try {
-        const eventDetailsForRecordEvent = {
-          coordinates: pendingEventTrigger.coordinates,
-          event_data: shotDetails
-        };
-        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, eventDetailsForRecordEvent);
-      } catch (error) {
-        console.error('Error recording shot event with details:', error);
-      } finally {
-        setShowShotDetailModal(false);
-        setPendingEventTrigger(null);
-      }
-    }
-  };
-
-  const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    if (eventType.key === 'shot') {
-      setPendingEventTrigger({ eventType, player: selectedPlayer || undefined, coordinates: undefined /* TODO: Get coordinates */ });
-      setCurrentShotInitialData({ on_target: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none', is_goal: false });
-      setShowShotDetailModal(true);
-    } else if (eventType.key === 'pass') {
-      if (!selectedPlayer) {
-        toast({ title: "Select Passer", description: "Please select the player making the pass.", variant: "destructive" });
-        return;
-      }
-      setPendingEventTrigger({ eventType, player: selectedPlayer, coordinates: undefined /* Or actual coordinates if available */ });
-      setCurrentPassInitialData({ success: true, pass_type: 'short' }); // Reset/default details
-      setShowPassDetailModal(true);
-    } else {
-      try {
-        await recordEvent(eventType, selectedPlayer || undefined, undefined);
-      } catch (error) {
-        console.error('Error recording non-shot/non-pass event:', error);
-      }
+        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: shotDetails });
+      } catch (error) { console.error('Error recording shot with details:', error); }
+      finally { setShowShotDetailModal(false); setPendingEventTrigger(null); }
     }
   };
 
   const handleRecordPassWithDetails = async (passDetails: PassEventData) => {
     if (pendingEventTrigger && pendingEventTrigger.player) {
       try {
-        const eventDetailsForRecordEvent = {
-          coordinates: pendingEventTrigger.coordinates,
-          event_data: passDetails
-        };
-        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, eventDetailsForRecordEvent);
-      } catch (error) {
-        console.error('Error recording pass event with details:', error);
-      } finally {
-        setShowPassDetailModal(false);
-        setPendingEventTrigger(null);
-      }
-    } else {
-      toast({ title: "Error", description: "Passer information is missing.", variant: "destructive"});
-      setShowPassDetailModal(false);
-      setPendingEventTrigger(null);
+        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: passDetails });
+      } catch (error) { console.error('Error recording pass with details:', error); }
+      finally { setShowPassDetailModal(false); setPendingEventTrigger(null); }
     }
   };
 
-  const handlePlayerSelect = (player: PlayerForPianoInput, team: 'home' | 'away') => {
-    setSelectedPlayer(player);
-    setSelectedTeam(team);
+  const handleRecordPressureWithDetails = async (pressureDetails: PressureEventData) => {
+    if (pendingEventTrigger && pendingEventTrigger.player) {
+      try {
+        await recordEvent(pendingEventTrigger.eventType, pendingEventTrigger.player, { coordinates: pendingEventTrigger.coordinates, event_data: pressureDetails });
+      } catch (error) { console.error('Error recording pressure with details:', error); }
+      finally { setShowPressureDetailModal(false); setPendingEventTrigger(null); }
+    }
+  };
+
+  const handleEventTypeClick = async (eventType: EnhancedEventType) => {
+    if (!focusedPlayer) {
+        toast({ title: "No Player Focused", description: "Cannot record event, no player assigned or focused.", variant: "destructive" });
+        return;
+    }
+    const currentCoordinates = undefined; // Placeholder for potential future pitch integration
+
+    if (eventType.key === 'shot') {
+      setPendingEventTrigger({ eventType, player: focusedPlayer, coordinates: currentCoordinates });
+      setCurrentShotInitialData({ on_target: false, is_goal: false, body_part_used: 'right_foot', shot_type: 'normal', situation: 'open_play', assist_type: 'none' });
+      setShowShotDetailModal(true);
+    } else if (eventType.key === 'pass') {
+      setPendingEventTrigger({ eventType, player: focusedPlayer, coordinates: currentCoordinates });
+      setCurrentPassInitialData({ success: true, pass_type: 'short' });
+      setShowPassDetailModal(true);
+    } else if (eventType.key === 'pressure') {
+      setPendingEventTrigger({ eventType, player: focusedPlayer, coordinates: currentCoordinates });
+      setCurrentPressureInitialData({ outcome: 'no_effect' });
+      setShowPressureDetailModal(true);
+    } else {
+      try {
+        await recordEvent(eventType, focusedPlayer, {coordinates: currentCoordinates});
+      } catch (error) { console.error('Error recording event:', error); }
+    }
+  };
+
+  const undoLastAction = async () => {
+    if (recentEvents.length === 0) {
+      toast({ title: "Aucune action à annuler", description: "Il n'y a pas d'action récente à annuler.", variant: "destructive" });
+      return;
+    }
+    const lastEventToUndo = recentEvents[0];
+    try {
+      const { error: deleteError } = await supabase.from('match_events').delete().eq('id', lastEventToUndo.id);
+      if (deleteError) throw deleteError;
+      setRecentEvents(prev => prev.slice(1));
+      setLastRecordedEvent(recentEvents.length > 1 ? recentEvents[1] : null);
+      toast({ title: "Action annulée", description: `L'événement ${lastEventToUndo.eventType.label} a été supprimé.` });
+    } catch (e: any) {
+      console.error('Error undoing last action:', e);
+      toast({ title: "Erreur", description: "Impossible d'annuler la dernière action.", variant: "destructive" });
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <motion.div 
-          className="text-center"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <motion.div 
-            className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          />
+        <motion.div className="text-center" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+          <motion.div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} />
           <div className="text-lg font-semibold mb-2">Loading assignments...</div>
           <div className="text-sm text-gray-600">Please wait while we fetch your tracker assignments.</div>
         </motion.div>
@@ -496,35 +353,23 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   if (error) {
     return (
-      <motion.div 
-        className="flex items-center justify-center p-8"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div className="flex items-center justify-center p-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="text-center">
           <div className="text-lg font-semibold mb-2 text-red-600">Assignment Error</div>
           <div className="text-sm text-gray-600 mb-4">{error}</div>
-          <Button onClick={fetchAssignments} variant="outline">
-            Retry
-          </Button>
+          <Button onClick={fetchAssignments} variant="outline">Retry Fetching Assignments</Button>
         </div>
       </motion.div>
     );
   }
 
-  if (!assignedEventTypes.length && !assignedPlayers?.home?.length && !assignedPlayers?.away?.length) {
+  if (!focusedPlayer) {
     return (
-      <motion.div 
-        className="flex items-center justify-center p-8"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-      >
+      <motion.div className="flex items-center justify-center p-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="text-center">
-          <div className="text-lg font-semibold mb-2">No Assignments</div>
-          <div className="text-sm text-gray-600 mb-4">You have no event types or players assigned for this match.</div>
-          <Button onClick={fetchAssignments} variant="outline">
-            Refresh Assignments
-          </Button>
+          <div className="text-lg font-semibold mb-2 text-orange-600">No Active Player Assignment</div>
+          <div className="text-sm text-gray-600 mb-4">No specific player and event types assigned for tracking in this match, or an error occurred. Please check assignments.</div>
+          <Button onClick={fetchAssignments} variant="outline">Retry Fetching Assignments</Button>
         </div>
       </motion.div>
     );
@@ -532,113 +377,43 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   return (
     <div className="space-y-6 p-4">
-      {/* Undo Button - Fixed position and easily accessible */}
-      <motion.div
-        className="fixed top-4 right-4 z-50"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Button
-          onClick={undoLastAction}
-          disabled={recentEvents.length === 0}
-          variant="outline"
-          size="lg"
-          className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow-lg"
-        >
-          <Undo className="h-5 w-5 mr-2" />
-          Annuler Dernière Action
+      <motion.div className="fixed top-4 right-4 z-50" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
+        <Button onClick={undoLastAction} disabled={recentEvents.length === 0} variant="outline" size="lg" className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow-lg">
+          <Undo className="h-5 w-5 mr-2" /> Annuler Dernière Action
         </Button>
       </motion.div>
 
-      {/* Selected Player Display */}
-      <AnimatePresence>
-        {selectedPlayer && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card className="border-2 border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <motion.div 
-                      className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"
-                      whileHover={{ scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {selectedPlayer.jersey_number || selectedPlayer.name.charAt(0)}
-                    </motion.div>
-                    <div>
-                      <div className="font-bold text-xl text-green-800 dark:text-green-200">
-                        {selectedPlayer.name}
-                      </div>
-                      <div className="text-sm text-green-600 dark:text-green-300 flex items-center gap-2">
-                        <span className="px-2 py-1 bg-green-200 dark:bg-green-800 rounded-full text-xs font-medium">
-                          {selectedTeam === 'home' ? 'Home' : 'Away'}
-                        </span>
-                        {selectedPlayer.position && (
-                          <span className="px-2 py-1 bg-blue-200 dark:bg-blue-800 rounded-full text-xs font-medium">
-                            {selectedPlayer.position}
-                          </span>
-                        )}
-                        {selectedPlayer.jersey_number && (
-                          <span className="px-2 py-1 bg-purple-200 dark:bg-purple-800 rounded-full text-xs font-medium">
-                            #{selectedPlayer.jersey_number}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => {
-                      setSelectedPlayer(null);
-                      setSelectedTeam(null);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="hover:bg-red-50 hover:border-red-300"
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Focused Player Display */}
+      <Card className="mb-4 border-2 border-indigo-400 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900 dark:to-purple-900">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+              {focusedPlayer.jersey_number || focusedPlayer.name?.charAt(0) || '?'}
+            </div>
+            <div>
+              <div className="font-bold text-lg text-indigo-800 dark:text-indigo-100">Tracking: {focusedPlayer.name}</div>
+              <div className="text-sm text-indigo-600 dark:text-indigo-300">
+                Team: {focusedPlayer.teamName || (focusedPlayerTeam === 'home' ? 'Home Team' : 'Away Team')}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Last Recorded Event */}
+      {/* Last Recorded Event Display */}
       <AnimatePresence>
-        {lastRecordedEvent && (
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.4 }}
-          >
+        {lastRecordedEvent && lastRecordedEvent.player?.id === focusedPlayer.id && (
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.4 }}>
             <Card className="border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 shadow-lg">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center"
-                    animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 10, -10, 0] 
-                    }}
-                    transition={{ duration: 0.6 }}
-                  >
-                    <span className="text-white text-lg">⚽</span>
+                  <motion.div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center" animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -10, 0] }} transition={{ duration: 0.6 }}>
+                    <EventTypeSvg eventType={lastRecordedEvent.eventType.key} isRecording={false} disabled={true} />
                   </motion.div>
                   <div className="flex-1">
-                    <div className="font-semibold text-blue-800 dark:text-blue-200">
-                      Last Event: {lastRecordedEvent.eventType.label}
-                    </div>
+                    <div className="font-semibold text-blue-800 dark:text-blue-200">Last Event: {lastRecordedEvent.eventType.label}</div>
                     <div className="text-sm text-blue-600 dark:text-blue-300">
-                      {lastRecordedEvent.player && `by ${lastRecordedEvent.player.name} • `}
-                      {new Date(lastRecordedEvent.timestamp).toLocaleTimeString()}
+                      By {lastRecordedEvent.player.name} • {new Date(lastRecordedEvent.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
@@ -648,228 +423,61 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
         )}
       </AnimatePresence>
 
-      {/* Player Selection */}
-      {(assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="shadow-xl border-2 border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <span className="text-2xl">⚽</span>
-                Select Player
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
-              {assignedPlayers?.home?.length > 0 && (
-                <div>
-                  <h3 className="font-bold mb-4 text-lg text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                    <span className="w-4 h-4 bg-blue-500 rounded-full"></span>
-                    Home Team
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {assignedPlayers.home.map((player, index) => (
-                      <motion.div
-                        key={`home-${player.id}`}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Button
-                          onClick={() => handlePlayerSelect(player, 'home')}
-                          variant={selectedPlayer?.id === player.id && selectedTeam === 'home' ? 'default' : 'outline'}
-                          className={`w-full h-auto p-4 flex flex-col items-center gap-2 transition-all duration-200 ${
-                            selectedPlayer?.id === player.id && selectedTeam === 'home' 
-                              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg transform scale-105' 
-                              : 'hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950'
-                          }`}
-                        >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                            selectedPlayer?.id === player.id && selectedTeam === 'home'
-                              ? 'bg-white text-blue-600'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-                          }`}>
-                            {player.jersey_number || player.name.charAt(0)}
-                          </div>
-                          <div className="text-center">
-                            <div className="font-semibold text-sm">{player.name}</div>
-                            {player.position && (
-                              <div className="text-xs opacity-75">{player.position}</div>
-                            )}
-                          </div>
-                        </Button>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* REMOVED Player Selection UI */}
 
-              {assignedPlayers?.away?.length > 0 && (
-                <div>
-                  <h3 className="font-bold mb-4 text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
-                    <span className="w-4 h-4 bg-red-500 rounded-full"></span>
-                    Away Team
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {assignedPlayers.away.map((player, index) => (
-                      <motion.div
-                        key={`away-${player.id}`}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Button
-                          onClick={() => handlePlayerSelect(player, 'away')}
-                          variant={selectedPlayer?.id === player.id && selectedTeam === 'away' ? 'default' : 'outline'}
-                          className={`w-full h-auto p-4 flex flex-col items-center gap-2 transition-all duration-200 ${
-                            selectedPlayer?.id === player.id && selectedTeam === 'away' 
-                              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg transform scale-105' 
-                              : 'hover:bg-red-50 hover:border-red-300 dark:hover:bg-red-950'
-                          }`}
-                        >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                            selectedPlayer?.id === player.id && selectedTeam === 'away'
-                              ? 'bg-white text-red-600'
-                              : 'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
-                          }`}>
-                            {player.jersey_number || player.name.charAt(0)}
-                          </div>
-                          <div className="text-center">
-                            <div className="font-semibold text-sm">{player.name}</div>
-                            {player.position && (
-                              <div className="text-xs opacity-75">{player.position}</div>
-                            )}
-                          </div>
-                        </Button>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+      {/* Modals */}
+      {showShotDetailModal && pendingEventTrigger && pendingEventTrigger.player && (
+        <ShotDetailModal isOpen={showShotDetailModal} onClose={() => { setShowShotDetailModal(false); setPendingEventTrigger(null); }} onSubmit={handleRecordShotWithDetails} initialDetails={currentShotInitialData} />
       )}
-
-      {showShotDetailModal && pendingEventTrigger && (
-        <ShotDetailModal
-          isOpen={showShotDetailModal}
-          onClose={() => {
-            setShowShotDetailModal(false);
-            setPendingEventTrigger(null);
-          }}
-          onSubmit={handleRecordShotWithDetails}
-          initialDetails={currentShotInitialData}
-        />
-      )}
-
       {showPassDetailModal && pendingEventTrigger && pendingEventTrigger.player && (
         <PassDetailModal
           isOpen={showPassDetailModal}
-          onClose={() => {
-            setShowPassDetailModal(false);
-            setPendingEventTrigger(null);
-          }}
+          onClose={() => { setShowPassDetailModal(false); setPendingEventTrigger(null); }}
           onSubmit={handleRecordPassWithDetails}
           initialDetails={currentPassInitialData}
           passer={pendingEventTrigger.player}
-          teamPlayers={
-            selectedTeam === 'home'
-              ? (assignedPlayers?.home || [])
-              : (assignedPlayers?.away || [])
-          }
+          teamPlayers={ (focusedPlayerTeam === 'home' ? fullMatchRoster?.home : fullMatchRoster?.away)?.filter(p => p.id !== focusedPlayer?.id) || [] }
+        />
+      )}
+      {showPressureDetailModal && pendingEventTrigger && pendingEventTrigger.player && (
+        <PressureDetailModal
+          isOpen={showPressureDetailModal}
+          onClose={() => { setShowPressureDetailModal(false); setPendingEventTrigger(null); }}
+          onSubmit={handleRecordPressureWithDetails}
+          initialDetails={currentPressureInitialData}
+          pressurer={pendingEventTrigger.player}
         />
       )}
 
-      {/* Event Types - Enhanced SVG Design */}
-      {assignedEventTypes.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
+      {/* Event Types - Now uses focusedAssignedEventTypes */}
+      {focusedAssignedEventTypes.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-2xl p-8 shadow-2xl border-2 border-purple-200">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                🎹 Record Events
+                🎹 Record Events for {focusedPlayer?.name}
               </h2>
-              <p className="text-purple-600 dark:text-purple-300 mt-2">
-                Tap any event type to record instantly
-              </p>
+              <p className="text-purple-600 dark:text-purple-300 mt-2">Tap assigned event type to record.</p>
             </div>
-            
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
-              {assignedEventTypes.map((eventType, index) => (
-                <motion.div
-                  key={eventType.key}
-                  initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    delay: index * 0.1,
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 20
-                  }}
-                  whileHover={{ scale: 1.1, y: -10 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative"
-                >
+              {focusedAssignedEventTypes.map((eventType, index) => (
+                <motion.div key={eventType.key} initial={{ opacity: 0, scale: 0.5, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.4, delay: index * 0.1, type: "spring", stiffness: 300, damping: 20 }} whileHover={{ scale: 1.1, y: -10 }} whileTap={{ scale: 0.95 }} className="relative">
                   <div className="text-center">
-                    <EventTypeSvg
-                      eventType={eventType.key}
-                      isRecording={recordingEventType === eventType.key}
-                      disabled={isRecording}
-                      onClick={() => handleEventTypeClick(eventType)}
-                    />
-                    <motion.div
-                      className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                        {eventType.label}
-                      </span>
+                    <EventTypeSvg eventType={eventType.key} isRecording={recordingEventType === eventType.key} disabled={isRecording || !focusedPlayer} onClick={() => handleEventTypeClick(eventType)} />
+                    <motion.div className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700" whileHover={{ scale: 1.05 }}>
+                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">{EVENT_TYPE_LABELS_LOCAL[eventType.key] || eventType.label}</span>
                     </motion.div>
                   </div>
-                  
-                  {recordingEventType === eventType.key && (
-                    <motion.div
-                      className="absolute -inset-4 rounded-full border-4 border-green-400"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.7, 1, 0.7]
-                      }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
-                    />
-                  )}
+                  {recordingEventType === eventType.key && ( <motion.div className="absolute -inset-4 rounded-full border-4 border-green-400" animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7]}} transition={{ duration: 0.8, repeat: Infinity }} /> )}
                 </motion.div>
               ))}
             </div>
-            
-            {isRecording && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mt-8 text-center"
-              >
-                <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-lg font-bold shadow-xl">
-                  <motion.div
-                    className="w-4 h-4 bg-white rounded-full"
-                    animate={{ scale: [1, 1.5, 1] }}
-                    transition={{ duration: 0.6, repeat: Infinity }}
-                  />
-                  Recording Event...
-                </div>
-              </motion.div>
-            )}
+            {isRecording && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="mt-8 text-center"> <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-lg font-bold shadow-xl"> <motion.div className="w-4 h-4 bg-white rounded-full" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 0.6, repeat: Infinity }} /> Recording Event... </div> </motion.div> )}
           </div>
         </motion.div>
+      )}
+      {focusedAssignedEventTypes.length === 0 && !loading && !error && focusedPlayer && (
+         <Card className="mt-4"><CardContent className="p-4 text-center text-gray-600">No event types assigned for {focusedPlayer.name}. Please check assignments.</CardContent></Card>
       )}
     </div>
   );
