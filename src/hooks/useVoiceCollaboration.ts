@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { VoiceRoomService, VoiceRoom } from '@/services/voiceRoomService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,17 +8,13 @@ interface VoiceCollaborationOptions {
 }
 
 /**
- * This hook is now a "connection manager". It is responsible for fetching
- * available rooms and getting the token required to connect to LiveKit.
- * It does NOT use any hooks from '@livekit/components-react' and can be
- * used anywhere in your application without a <LiveKitRoom> context.
+ * This hook manages the state required to connect to a voice room.
+ * It is responsible for fetching available rooms and getting the token/URL
+ * from a Supabase function. It does NOT use any LiveKit hooks itself.
  */
 export function useVoiceCollaboration({ userId, userRole }: VoiceCollaborationOptions) {
-  // State to hold the credentials for the <LiveKitRoom> component
   const [token, setToken] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
-
-  // UI and application logic state
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableRooms, setAvailableRooms] = useState<VoiceRoom[]>([]);
@@ -50,7 +46,7 @@ export function useVoiceCollaboration({ userId, userRole }: VoiceCollaborationOp
         }
         setCurrentRoom(room);
         setServerUrl(data.serverUrl);
-        setToken(data.token); // Setting the token will trigger the UI to render <LiveKitRoom>
+        setToken(data.token);
       } catch (err: any) {
         console.error('Error joining voice room:', err);
         setError(err.message);
@@ -62,7 +58,6 @@ export function useVoiceCollaboration({ userId, userRole }: VoiceCollaborationOp
   );
 
   const leaveVoiceRoom = useCallback(() => {
-    // Clearing the token will cause the UI to unmount <LiveKitRoom>, disconnecting cleanly.
     setToken(null);
     setServerUrl(null);
     setCurrentRoom(null);
