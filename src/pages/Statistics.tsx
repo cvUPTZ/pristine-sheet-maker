@@ -11,8 +11,9 @@ import PassingNetworkMap from '@/components/analytics/PassingNetworkMap';
 import AdvancedStatsTable from '@/components/analytics/AdvancedStatsTable';
 import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import { PlayerForPianoInput } from '@/components/TrackerPianoInput';
-import { MatchEvent } from '@/types/index';
+import { MatchEvent, Player } from '@/types/index';
 import { ShotEventData, PassEventData } from '@/types/eventData';
+import { PlayerStatSummary } from '@/lib/analytics/eventAggregator';
 
 interface MatchData {
   id: string;
@@ -37,36 +38,6 @@ interface DatabaseMatchEvent {
   created_by: string;
   type?: string;
   event_data?: any;
-}
-
-interface PlayerStatSummary {
-  playerId: string | number;
-  playerName: string;
-  team: 'home' | 'away';
-  jerseyNumber: number;
-  passesAttempted: number;
-  passesCompleted: number;
-  shots: number;
-  shotsOnTarget: number;
-  goals: number;
-  assists: number;
-  tackles: number;
-  tacklesWon: number;
-  foulsCommitted: number;
-  yellowCards: number;
-  redCards: number;
-  minutesPlayed: number;
-  distanceCovered: number;
-  sprints: number;
-  heatmapData: Array<{ x: number; y: number; intensity: number }>;
-  passAccuracy: number;
-  pressureApplied: number;
-  pressureRegains: number;
-  interceptions: number;
-  crosses: number;
-  clearances: number;
-  blocks: number;
-  dribbles: number;
 }
 
 const Statistics: React.FC = () => {
@@ -232,26 +203,29 @@ const Statistics: React.FC = () => {
       return {
         playerId: player.id,
         playerName: player.name,
-        team: player.team,
         jerseyNumber: player.jersey_number || 0,
-        passesAttempted: passes.length,
-        passesCompleted: successfulPasses.length,
+        team: player.team,
         shots: shots.length,
         shotsOnTarget: shotsOnTarget.length,
         goals: goals.length,
         assists: 0,
-        tackles: tackles.length,
-        tacklesWon: successfulTackles.length,
+        passesAttempted: passes.length,
+        passesCompleted: successfulPasses.length,
         foulsCommitted: playerEvents.filter(e => (e.type || e.event_type) === 'foul').length,
         yellowCards: playerEvents.filter(e => (e.type || e.event_type) === 'yellowCard').length,
         redCards: playerEvents.filter(e => (e.type || e.event_type) === 'redCard').length,
-        minutesPlayed: 90,
-        distanceCovered: 0,
-        sprints: 0,
-        heatmapData: [],
-        passAccuracy: passes.length > 0 ? (successfulPasses.length / passes.length) * 100 : 0,
-        pressureApplied: pressure.length,
-        pressureRegains: pressure.filter(e => {
+        tackles: tackles.length,
+        interceptions: playerEvents.filter(e => (e.type || e.event_type) === 'interception').length,
+        crosses: playerEvents.filter(e => (e.type || e.event_type) === 'cross').length,
+        clearances: playerEvents.filter(e => (e.type || e.event_type) === 'clearance').length,
+        blocks: playerEvents.filter(e => (e.type || e.event_type) === 'block').length,
+        dribbles: playerEvents.filter(e => (e.type || e.event_type) === 'dribble').length,
+        totalXg: 0, // Would need to be calculated from shot xG values
+        progressivePasses: 0, // Would need coordinate analysis
+        passesToFinalThird: 0, // Would need coordinate analysis
+        passNetworkSent: [], // Would need recipient analysis
+        totalPressures: pressure.length,
+        successfulPressures: pressure.filter(e => {
           try {
             const eventData = e.event_data;
             return eventData && (eventData.outcome === 'regain_possession' || eventData.outcome === 'forced_turnover_error');
@@ -259,11 +233,14 @@ const Statistics: React.FC = () => {
             return false;
           }
         }).length,
-        interceptions: playerEvents.filter(e => (e.type || e.event_type) === 'interception').length,
-        crosses: playerEvents.filter(e => (e.type || e.event_type) === 'cross').length,
-        clearances: playerEvents.filter(e => (e.type || e.event_type) === 'clearance').length,
-        blocks: playerEvents.filter(e => (e.type || e.event_type) === 'block').length,
-        dribbles: playerEvents.filter(e => (e.type || e.event_type) === 'dribble').length,
+        pressureRegains: pressure.filter(e => {
+          try {
+            const eventData = e.event_data;
+            return eventData && eventData.outcome === 'regain_possession';
+          } catch {
+            return false;
+          }
+        }).length,
       };
     });
   }, [matchData, events]);
@@ -288,6 +265,15 @@ const Statistics: React.FC = () => {
         status: 'confirmed',
       }));
   }, [events]);
+
+  // Convert PlayerForPianoInput to Player format
+  const convertToPlayer = (player: PlayerForPianoInput): Player => ({
+    id: player.id,
+    name: player.name,
+    position: player.position || 'Unknown',
+    number: player.jersey_number || 0,
+    jersey_number: player.jersey_number,
+  });
 
   // Create proper Statistics interface data for components
   const statisticsData = useMemo(() => {
@@ -436,9 +422,22 @@ const Statistics: React.FC = () => {
           <TabsContent value="passing" className="mt-6">
             <PassingNetworkMap 
               playerStats={playerStatsSummaries}
-              allPlayers={[...(matchData.home_team_players || []), ...(matchData.away_team_players || [])]}
-              homeTeam={{ id: 'home', name: matchData.home_team_name, formation: '4-4-2', players: matchData.home_team_players || [] }}
-              awayTeam={{ id: 'away', name: matchData.away_team_name, formation: '4-3-3', players: matchData.away_team_players || [] }}
+              allPlayers={[
+                ...(matchData.home_team_players || []).map(convertToPlayer), 
+                ...(matchData.away_team_players || []).map(convertToPlayer)
+              ]}
+              homeTeam={{ 
+                id: 'home', 
+                name: matchData.home_team_name, 
+                formation: '4-4-2', 
+                players: (matchData.home_team_players || []).map(convertToPlayer)
+              }}
+              awayTeam={{ 
+                id: 'away', 
+                name: matchData.away_team_name, 
+                formation: '4-3-3', 
+                players: (matchData.away_team_players || []).map(convertToPlayer)
+              }}
             />
           </TabsContent>
 
