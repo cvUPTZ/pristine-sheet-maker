@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -62,11 +61,15 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           homeTeamName: matchData.home_team_name || '',
           awayTeamName: matchData.away_team_name || '',
           matchDate: matchData.match_date ? new Date(matchData.match_date).toISOString().slice(0, 16) : '',
-          venue: (matchData as any).venue || matchData.location || '', // Handle both venue and location
+          venue: matchData.location || '', // Use location since venue doesn't exist in DB
           homeTeamFormation: matchData.home_team_formation || '4-4-2',
           awayTeamFormation: matchData.away_team_formation || '4-3-3',
-          homeTeamPlayers: Array.isArray(matchData.home_team_players) ? matchData.home_team_players as PlayerForPianoInput[] : [],
-          awayTeamPlayers: Array.isArray(matchData.away_team_players) ? matchData.away_team_players as PlayerForPianoInput[] : [],
+          homeTeamPlayers: Array.isArray(matchData.home_team_players) 
+            ? (matchData.home_team_players as unknown as PlayerForPianoInput[]) 
+            : [],
+          awayTeamPlayers: Array.isArray(matchData.away_team_players) 
+            ? (matchData.away_team_players as unknown as PlayerForPianoInput[]) 
+            : [],
         });
       }
 
@@ -80,15 +83,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         console.error('Error fetching assignments:', assignmentsError);
         setTrackerAssignments([]);
       } else {
-        // Handle successful data fetch
-        if (Array.isArray(assignmentsData)) {
-          assignmentsData.forEach((assignment: any) => {
-            console.log('Assignment:', assignment);
-          });
-          setTrackerAssignments(assignmentsData || []);
-        } else {
-          setTrackerAssignments([]);
-        }
+        setTrackerAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
       }
     } catch (error) {
       console.error('Error fetching match data:', error);
@@ -162,19 +157,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
         if (error) throw error;
         savedMatch = data;
-      }
-
-      // Call notification function if match was created/updated successfully
-      if (savedMatch) {
-        try {
-          // Use a valid function name that exists
-          const { error: notifyError } = await supabase.rpc('get_user_role_from_auth');
-          if (notifyError) {
-            console.warn('Error calling notification function:', notifyError);
-          }
-        } catch (notifyError) {
-          console.warn('Error with notification:', notifyError);
-        }
       }
 
       toast({

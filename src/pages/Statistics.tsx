@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,7 @@ import PassingNetworkMap from '@/components/analytics/PassingNetworkMap';
 import AdvancedStatsTable from '@/components/analytics/AdvancedStatsTable';
 import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import { PlayerForPianoInput } from '@/components/TrackerPianoInput';
+import { MatchEvent } from '@/types/index';
 
 interface MatchData {
   id: string;
@@ -23,7 +23,7 @@ interface MatchData {
   status: string;
 }
 
-interface MatchEvent {
+interface DatabaseMatchEvent {
   id: string;
   match_id: string;
   event_type: string;
@@ -67,31 +67,10 @@ interface PlayerStatSummary {
   dribbles: number;
 }
 
-interface PlayerStatistics {
-  playerId: string | number;
-  playerName: string;
-  team: 'home' | 'away';
-  jerseyNumber: number;
-  passesAttempted: number;
-  passesCompleted: number;
-  shots: number;
-  goals: number;
-  assists: number;
-  tackles: number;
-  tacklesWon: number;
-  minutesPlayed: number;
-  distanceCovered: number;
-  sprints: number;
-  heatmapData: Array<{ x: number; y: number; intensity: number }>;
-  passAccuracy: number;
-  pressureApplied: number;
-  pressureRegains: number;
-}
-
 const Statistics: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const [matchData, setMatchData] = useState<MatchData | null>(null);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [events, setEvents] = useState<DatabaseMatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -102,6 +81,8 @@ const Statistics: React.FC = () => {
   }, [matchId]);
 
   const fetchMatchData = async () => {
+    if (!matchId) return;
+    
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -113,9 +94,14 @@ const Statistics: React.FC = () => {
 
       if (data) {
         setMatchData({
-          ...data,
-          home_team_players: Array.isArray(data.home_team_players) ? data.home_team_players as PlayerForPianoInput[] : [],
-          away_team_players: Array.isArray(data.away_team_players) ? data.away_team_players as PlayerForPianoInput[] : [],
+          id: data.id,
+          name: data.name || '',
+          home_team_name: data.home_team_name,
+          away_team_name: data.away_team_name,
+          home_team_players: Array.isArray(data.home_team_players) ? (data.home_team_players as unknown as PlayerForPianoInput[]) : [],
+          away_team_players: Array.isArray(data.away_team_players) ? (data.away_team_players as unknown as PlayerForPianoInput[]) : [],
+          match_date: data.match_date || '',
+          status: data.status,
         });
       }
     } catch (error) {
@@ -124,6 +110,8 @@ const Statistics: React.FC = () => {
   };
 
   const fetchEvents = async () => {
+    if (!matchId) return;
+    
     try {
       const { data, error } = await supabase
         .from('match_events')
@@ -243,22 +231,22 @@ const Statistics: React.FC = () => {
         playerId: player.id,
         playerName: player.name,
         team: player.team,
-        jerseyNumber: player.jersey_number || player.number || 0,
+        jerseyNumber: player.jersey_number || 0,
         passesAttempted: passes.length,
         passesCompleted: successfulPasses.length,
         shots: shots.length,
         shotsOnTarget: shotsOnTarget.length,
         goals: goals.length,
-        assists: 0, // Would need to be calculated from pass data
+        assists: 0,
         tackles: tackles.length,
         tacklesWon: successfulTackles.length,
         foulsCommitted: playerEvents.filter(e => (e.type || e.event_type) === 'foul').length,
         yellowCards: playerEvents.filter(e => (e.type || e.event_type) === 'yellowCard').length,
         redCards: playerEvents.filter(e => (e.type || e.event_type) === 'redCard').length,
-        minutesPlayed: 90, // Default, would need actual calculation
-        distanceCovered: 0, // Would need tracking data
-        sprints: 0, // Would need tracking data
-        heatmapData: [], // Would need position tracking data
+        minutesPlayed: 90,
+        distanceCovered: 0,
+        sprints: 0,
+        heatmapData: [],
         passAccuracy: passes.length > 0 ? (successfulPasses.length / passes.length) * 100 : 0,
         pressureApplied: pressure.length,
         pressureRegains: pressure.filter(e => {
@@ -277,6 +265,25 @@ const Statistics: React.FC = () => {
       };
     });
   }, [matchData, events]);
+
+  // Convert database events to MatchEvent format for components
+  const convertedEvents: MatchEvent[] = useMemo(() => {
+    return events.map(event => ({
+      id: event.id,
+      match_id: event.match_id,
+      timestamp: event.timestamp || 0,
+      event_data: event.event_data,
+      created_at: event.created_at,
+      tracker_id: null,
+      team_id: null,
+      player_id: event.player_id,
+      team: event.team as 'home' | 'away',
+      coordinates: event.coordinates,
+      created_by: event.created_by,
+      type: (event.type || event.event_type) as any,
+      status: 'confirmed',
+    }));
+  }, [events]);
 
   if (loading || !matchData) {
     return (
@@ -356,13 +363,14 @@ const Statistics: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TeamPerformanceRadar 
-                homeTeamData={teamStats.home}
-                awayTeamData={teamStats.away}
+                homeTeam={teamStats.home}
+                awayTeam={teamStats.away}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
               <AdvancedStatsTable 
-                events={events}
+                homeStats={teamStats.home}
+                awayStats={teamStats.away}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
@@ -370,12 +378,12 @@ const Statistics: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="players" className="mt-6">
-            <DetailedStatsTable playerStats={playerStatsSummaries} />
+            <DetailedStatsTable players={playerStatsSummaries} />
           </TabsContent>
 
           <TabsContent value="shots" className="mt-6">
             <ShotMap 
-              events={events}
+              shots={convertedEvents.filter(e => e.type === 'shot')}
               homeTeamName={matchData.home_team_name}
               awayTeamName={matchData.away_team_name}
             />
@@ -383,14 +391,14 @@ const Statistics: React.FC = () => {
 
           <TabsContent value="passing" className="mt-6">
             <PassingNetworkMap 
-              events={events}
+              passes={convertedEvents.filter(e => e.type === 'pass')}
               homePlayers={matchData.home_team_players || []}
               awayPlayers={matchData.away_team_players || []}
             />
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">
-            <EventTimelineChart events={events} />
+            <EventTimelineChart events={convertedEvents} />
           </TabsContent>
         </Tabs>
       </div>

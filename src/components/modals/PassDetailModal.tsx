@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PassEventData } from '@/types/eventData';
-import { PlayerForPianoInput } from '../TrackerPianoInput'; // Adjust path if TrackerPianoInput exports this, or move to a common types file
+import { PlayerForPianoInput } from '../TrackerPianoInput';
 import { useToast } from '@/hooks/use-toast';
 
 interface PassDetailModalProps {
@@ -15,7 +15,7 @@ interface PassDetailModalProps {
   onSubmit: (details: PassEventData) => void;
   initialDetails: Partial<PassEventData>;
   passer: PlayerForPianoInput | null;
-  teamPlayers: PlayerForPianoInput[]; // List of players on the same team as the passer
+  teamPlayers: PlayerForPianoInput[];
 }
 
 const PassDetailModal: React.FC<PassDetailModalProps> = ({
@@ -78,7 +78,7 @@ const PassDetailModal: React.FC<PassDetailModalProps> = ({
               <SelectContent>
                 {availableRecipients.map(player => (
                   <SelectItem key={player.id} value={String(player.id)}>
-                    {player.name} (#{player.jersey_number || player.number})
+                    {player.name} (#{player.jersey_number || 0})
                   </SelectItem>
                 ))}
               </SelectContent>
