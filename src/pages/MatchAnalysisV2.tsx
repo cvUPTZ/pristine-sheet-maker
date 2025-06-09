@@ -18,6 +18,18 @@ import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, 
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
 
+// Type for TrackerVoiceInput players
+interface VoiceInputPlayer {
+  id: number;
+  name: string;
+  jersey_number: number | null;
+}
+
+interface VoiceInputAssignedPlayers {
+  home: VoiceInputPlayer[];
+  away: VoiceInputPlayer[];
+}
+
 const MatchAnalysisV2: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const { userRole, user } = useAuth();
@@ -31,6 +43,22 @@ const MatchAnalysisV2: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isSmall = useBreakpoint('sm');
+
+  // Convert PlayerForPianoInput to VoiceInputPlayer format
+  const convertPlayersForVoiceInput = (players: AssignedPlayers): VoiceInputAssignedPlayers => {
+    return {
+      home: players.home.map(player => ({
+        id: Number(player.id),
+        name: player.player_name,
+        jersey_number: player.jersey_number
+      })),
+      away: players.away.map(player => ({
+        id: Number(player.id),
+        name: player.player_name,
+        jersey_number: player.jersey_number
+      }))
+    };
+  };
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -358,7 +386,7 @@ const MatchAnalysisV2: React.FC = () => {
                   <TrackerVoiceInput
                     matchId={matchId}
                     trackerUserId={user?.id || ''}
-                    assignedPlayers={assignedPlayers}
+                    assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
                     assignedEventTypes={assignedEventTypes}
                     onRecordEvent={handleRecordEvent}
                   />
