@@ -205,6 +205,32 @@ const Statistics = () => {
             pressureRegains: aggPlayer.pressureRegains,
         }));
         setPlayerStats(pagePlayerStats);
+
+        // Convert PlayerStatistics to PlayerStatSummary for passing network
+        const playerStatSummaries: AggPlayerStatSummary[] = pagePlayerStats.map(ps => ({
+          playerId: ps.playerId,
+          playerName: ps.playerName,
+          team: ps.team,
+          jerseyNumber: ps.player?.jersey_number || 0,
+          passesAttempted: ps.events.passes.attempted,
+          passesCompleted: ps.events.passes.successful,
+          shots: ps.events.shots.onTarget + ps.events.shots.offTarget,
+          shotsOnTarget: ps.events.shots.onTarget,
+          goals: ps.events.goals,
+          assists: ps.events.assists,
+          foulsCommitted: ps.events.fouls,
+          yellowCards: ps.events.cards.yellow,
+          redCards: ps.events.cards.red,
+          tackles: ps.events.tackles.successful,
+          totalXg: ps.totalXg || 0,
+          progressivePasses: ps.progressivePasses || 0,
+          passesToFinalThird: ps.passesToFinalThird || 0,
+          passNetworkSent: ps.passNetworkSent || {},
+          totalPressures: ps.totalPressures || 0,
+          successfulPressures: ps.successfulPressures || 0,
+          pressureRegains: ps.pressureRegains || 0,
+        }));
+
       }
 
       if (matchDetailData?.ball_tracking_data) {
@@ -438,7 +464,7 @@ const Statistics = () => {
                 </CardHeader>
                 <CardContent>
                   <PassingNetworkMap
-                    playerStats={playerStats}
+                    playerStats={playerStatSummaries}
                     allPlayers={allPlayersForMatch}
                     homeTeam={selectedMatchFullData ? { id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team : undefined}
                     awayTeam={selectedMatchFullData ? { id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team : undefined}

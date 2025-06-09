@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +54,11 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       const teamPasses = events.filter(e => e.team === team && e.type === 'pass');
       const totalPasses = teamPasses.length;
       if (totalPasses === 0) return { rate: NaN, total: 0, successful: 0 };
-      const successfulPasses = teamPasses.filter(e => e.event_data?.success === true).length;
+      // Use optional chaining and type assertion for event_data
+      const successfulPasses = teamPasses.filter(e => {
+        const eventData = e.event_data as any;
+        return eventData?.success === true;
+      }).length;
       return { rate: (successfulPasses / totalPasses) * 100, total: totalPasses, successful: successfulPasses };
     };
 
@@ -63,7 +66,11 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       const teamShots = events.filter(e => e.team === team && e.type === 'shot');
       const totalShots = teamShots.length;
       if (totalShots === 0) return { rate: NaN, total: 0, onTarget: 0 };
-      const shotsOnTarget = teamShots.filter(e => e.event_data?.on_target === true).length;
+      // Use optional chaining and type assertion for event_data
+      const shotsOnTarget = teamShots.filter(e => {
+        const eventData = e.event_data as any;
+        return eventData?.on_target === true;
+      }).length;
       return { rate: (shotsOnTarget / totalShots) * 100, total: totalShots, onTarget: shotsOnTarget };
     };
 
