@@ -9,8 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
 
-
-
 interface Match {
   id: string;
   name: string | null;
