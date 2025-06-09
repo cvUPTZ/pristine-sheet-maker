@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   LiveKitRoom,
@@ -55,13 +56,13 @@ const VoiceCollaborationUI = ({
   const connectionState = useConnectionState();
   const { localParticipant } = useLocalParticipant();
   const remoteParticipants = useParticipants();
-  const localAudioTrack = useTracks([Track.Source.Microphone], { participant: localParticipant })[0];
+  const localAudioTrack = useTracks([Track.Source.Microphone], { onlySubscribed: false })[0];
 
   useEffect(() => {
-    if (localAudioTrack?.mediaStream) {
+    if (localAudioTrack?.track && 'mediaStream' in localAudioTrack.track) {
       audioMonitor.current?.stopMonitoring();
       audioMonitor.current = new AudioLevelMonitor(setLocalAudioLevel);
-      audioMonitor.current.startMonitoring(localAudioTrack.mediaStream);
+      audioMonitor.current.startMonitoring(localAudioTrack.track.mediaStream);
       return () => audioMonitor.current?.stopMonitoring();
     }
   }, [localAudioTrack]);
@@ -109,14 +110,13 @@ const VoiceCollaborationUI = ({
     const iconSize = "h-2 w-2";
     if (state === ConnectionState.Connecting || state === ConnectionState.Reconnecting) return <Badge variant="outline" className={`${baseClasses} bg-yellow-100 text-yellow-800`}><Activity className={`${iconSize} animate-spin`} />Connecting...</Badge>;
     if (state === ConnectionState.Connected) return <Badge variant="outline" className={`${baseClasses} bg-green-100 text-green-800`}><Mic className={iconSize} />Connected</Badge>;
-    if (state === ConnectionState.Failed) return <Badge variant="destructive" className={`${baseClasses}`}><AlertTriangle className={iconSize} />Failed</Badge>;
     if (state === ConnectionState.Disconnected) return <Badge variant="destructive" className={`${baseClasses}`}><WifiOff className={iconSize} />Dropped</Badge>;
     return null;
   };
 
   return (
     <Card className={`border-blue-200 ${connectionState === ConnectionState.Connected ? 'bg-green-50/50' : 'bg-blue-50/50'}`}>
-      <RoomAudioRenderer sinkId={selectedAudioOutputDeviceId ?? undefined} />
+      <RoomAudioRenderer />
       <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
         <CardTitle className={`flex items-center justify-between ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
           <div className="flex items-center gap-2"><Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />Voice Collaboration{getNetworkIcon()}</div>
@@ -138,7 +138,7 @@ const VoiceCollaborationUI = ({
                 {participants.map((p) => (
                   <div key={p.identity} className={`flex items-center justify-between p-2 rounded ${isMobile ? 'text-xs' : 'text-sm'} bg-white/50`}>
                     <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500" title="Connected" /><span>{p.name || p.identity}</span>{getRoleIcon(p.isLocal ? userRole : undefined)}{p.isLocal && <Badge variant="outline" className="text-[10px] px-1">You</Badge>}</div>
-                    <div className="flex items-center gap-2">{p.isMuted && <MicOff className="h-3 w-3 text-red-500" />}{p.isSpeaking && !p.isMuted && (<div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />)}{isRoomAdmin && !p.isLocal && (<Button size="sm" variant="ghost" onClick={() => adminSetParticipantMute(p.identity, !p.isMuted)} className="p-1 h-6 w-6">{p.isMuted ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}</Button>)}</div>
+                    <div className="flex items-center gap-2">{p.isMicrophoneEnabled === false && <MicOff className="h-3 w-3 text-red-500" />}{p.isSpeaking && p.isMicrophoneEnabled !== false && (<div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />)}{isRoomAdmin && !p.isLocal && (<Button size="sm" variant="ghost" onClick={() => adminSetParticipantMute(p.identity, p.isMicrophoneEnabled !== false)} className="p-1 h-6 w-6">{p.isMicrophoneEnabled === false ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}</Button>)}</div>
                   </div>
                 ))}
               </div>
@@ -240,7 +240,6 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({ matchId, userId
             audioOutputDevices={audioOutputDevices}
             selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
             onSelectAudioOutputDevice={setSelectedAudioOutputDeviceId}
-            onAdminMute={(pid, mute) => console.log(`Admin mute for ${pid} to ${mute}`)}
           />
         </LiveKitRoom>
       ) : (

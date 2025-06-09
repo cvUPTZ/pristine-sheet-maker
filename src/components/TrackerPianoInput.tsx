@@ -16,7 +16,7 @@ interface TrackerPianoInputProps {
   matchId: string;
 }
 
-interface PlayerForPianoInput {
+export interface PlayerForPianoInput {
   id: number;
   name: string;
   position?: string;

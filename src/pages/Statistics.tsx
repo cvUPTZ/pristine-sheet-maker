@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck } from 'lucide-react'; // Added Share2, ShieldCheck
+import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck } from 'lucide-react';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
@@ -45,7 +46,6 @@ const Statistics = () => {
   const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>([]);
   const [loading, setLoading] = useState(true);
   const [allPlayersForMatch, setAllPlayersForMatch] = useState<Player[]>([]);
-
 
   useEffect(() => {
     fetchMatches();
@@ -105,8 +105,20 @@ const Statistics = () => {
         console.error('Error fetching events:', eventsError);
         setEvents([]);
       } else {
-        const homePlayersList: Player[] = matchDetailData.home_team_players || [];
-        const awayPlayersList: Player[] = matchDetailData.away_team_players || [];
+        // Parse player data safely
+        const parsePlayerData = (data: any): Player[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
+
+        const homePlayersList: Player[] = parsePlayerData(matchDetailData.home_team_players);
+        const awayPlayersList: Player[] = parsePlayerData(matchDetailData.away_team_players);
         const allPlayers = [...homePlayersList, ...awayPlayersList];
         setAllPlayersForMatch(allPlayers);
 
@@ -131,7 +143,7 @@ const Statistics = () => {
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             type: event.event_type as EventType,
-            event_data: event.event_data,
+            event_data: event.event_data || null,
             created_at: event.created_at,
             tracker_id: null,
             team_id: null,
@@ -139,7 +151,7 @@ const Statistics = () => {
             team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
             coordinates,
             created_by: event.created_by,
-            player: allPlayers.find((p: Player) => String(p.id) === String(event.player_id) || p.jersey_number === event.player_id) // Simplified lookup
+            player: allPlayers.find((p: Player) => String(p.id) === String(event.player_id) || p.jersey_number === event.player_id)
           };
         });
         setEvents(formattedEvents);
@@ -175,7 +187,7 @@ const Statistics = () => {
             playerName: aggPlayer.playerName,
             team: aggPlayer.team,
             teamId: aggPlayer.team,
-            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jersey_number),
+            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jerseyNumber),
             events: {
                 passes: { successful: aggPlayer.passesCompleted, attempted: aggPlayer.passesAttempted },
                 shots: { onTarget: aggPlayer.shotsOnTarget, offTarget: aggPlayer.shots - aggPlayer.shotsOnTarget },
