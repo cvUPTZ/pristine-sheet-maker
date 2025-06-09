@@ -11,7 +11,7 @@ import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
-import TrackerVoiceInput from '@/components/TrackerVoiceInput';
+import { TrackerVoiceInput } from '@/components/TrackerVoiceInput';
 import { EventType as LocalEventType } from '@/types/matchForm'; // Renamed to avoid conflict
 import { EventType as AppEventType } from '@/types'; // Added for global EventType
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
