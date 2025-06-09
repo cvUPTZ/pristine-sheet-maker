@@ -13,7 +13,7 @@ import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import { PlayerForPianoInput } from '@/components/TrackerPianoInput';
 import { MatchEvent, Player } from '@/types/index';
 import { ShotEventData, PassEventData } from '@/types/eventData';
-import { PlayerStatSummary } from '@/lib/analytics/eventAggregator';
+import { PlayerStatSummary, aggregateMatchEvents } from '@/lib/analytics/eventAggregator';
 
 interface MatchData {
   id: string;
@@ -156,95 +156,6 @@ const Statistics: React.FC = () => {
     };
   }, [events]);
 
-  const playerStatsSummaries = useMemo((): PlayerStatSummary[] => {
-    if (!matchData) return [];
-
-    const allPlayers = [
-      ...(matchData.home_team_players || []).map(p => ({ ...p, team: 'home' as const })),
-      ...(matchData.away_team_players || []).map(p => ({ ...p, team: 'away' as const }))
-    ];
-
-    return allPlayers.map(player => {
-      const playerEvents = events.filter(e => e.player_id === player.id);
-      
-      const passes = playerEvents.filter(e => (e.type || e.event_type) === 'pass');
-      const shots = playerEvents.filter(e => (e.type || e.event_type) === 'shot');
-      const tackles = playerEvents.filter(e => (e.type || e.event_type) === 'tackle');
-      const goals = playerEvents.filter(e => (e.type || e.event_type) === 'goal');
-      const pressure = playerEvents.filter(e => (e.type || e.event_type) === 'pressure');
-
-      const successfulPasses = passes.filter(e => {
-        try {
-          const eventData = e.event_data as PassEventData;
-          return eventData && eventData.success === true;
-        } catch {
-          return false;
-        }
-      });
-
-      const shotsOnTarget = shots.filter(e => {
-        try {
-          const eventData = e.event_data as ShotEventData;
-          return eventData && eventData.on_target === true;
-        } catch {
-          return false;
-        }
-      });
-
-      const successfulTackles = tackles.filter(e => {
-        try {
-          const eventData = e.event_data;
-          return eventData && eventData.success === true;
-        } catch {
-          return false;
-        }
-      });
-
-      return {
-        playerId: player.id,
-        playerName: player.name,
-        jerseyNumber: player.jersey_number || 0,
-        team: player.team,
-        shots: shots.length,
-        shotsOnTarget: shotsOnTarget.length,
-        goals: goals.length,
-        assists: 0,
-        passesAttempted: passes.length,
-        passesCompleted: successfulPasses.length,
-        foulsCommitted: playerEvents.filter(e => (e.type || e.event_type) === 'foul').length,
-        yellowCards: playerEvents.filter(e => (e.type || e.event_type) === 'yellowCard').length,
-        redCards: playerEvents.filter(e => (e.type || e.event_type) === 'redCard').length,
-        tackles: tackles.length,
-        interceptions: playerEvents.filter(e => (e.type || e.event_type) === 'interception').length,
-        crosses: playerEvents.filter(e => (e.type || e.event_type) === 'cross').length,
-        clearances: playerEvents.filter(e => (e.type || e.event_type) === 'clearance').length,
-        blocks: playerEvents.filter(e => (e.type || e.event_type) === 'block').length,
-        dribbles: playerEvents.filter(e => (e.type || e.event_type) === 'dribble').length,
-        totalXg: 0, // Would need to be calculated from shot xG values
-        progressivePasses: 0, // Would need coordinate analysis
-        passesToFinalThird: 0, // Would need coordinate analysis
-        passNetworkSent: [], // Would need recipient analysis
-        totalPressures: pressure.length,
-        successfulPressures: pressure.filter(e => {
-          try {
-            const eventData = e.event_data;
-            return eventData && (eventData.outcome === 'regain_possession' || eventData.outcome === 'forced_turnover_error');
-          } catch {
-            return false;
-          }
-        }).length,
-        pressureRegains: pressure.filter(e => {
-          try {
-            const eventData = e.event_data;
-            return eventData && eventData.outcome === 'regain_possession';
-          } catch {
-            return false;
-          }
-        }).length,
-      };
-    });
-  }, [matchData, events]);
-
   // Convert database events to MatchEvent format for components
   const convertedEvents: MatchEvent[] = useMemo(() => {
     return events
@@ -275,6 +186,16 @@ const Statistics: React.FC = () => {
     jersey_number: player.jersey_number,
   });
 
+  // Get aggregated stats using the event aggregator
+  const aggregatedStats = useMemo(() => {
+    if (!matchData) return null;
+    
+    const homePlayers = (matchData.home_team_players || []).map(convertToPlayer);
+    const awayPlayers = (matchData.away_team_players || []).map(convertToPlayer);
+    
+    return aggregateMatchEvents(convertedEvents, homePlayers, awayPlayers);
+  }, [matchData, convertedEvents]);
+
   // Create proper Statistics interface data for components
   const statisticsData = useMemo(() => {
     return {
@@ -284,13 +205,13 @@ const Statistics: React.FC = () => {
           onTarget: teamStats.home.shotsOnTarget, 
           offTarget: teamStats.home.shots - teamStats.home.shotsOnTarget,
           total: teamStats.home.shots,
-          totalXg: 0
+          totalXg: aggregatedStats?.homeTeamStats.totalXg || 0
         }, 
         away: { 
           onTarget: teamStats.away.shotsOnTarget, 
           offTarget: teamStats.away.shots - teamStats.away.shotsOnTarget,
           total: teamStats.away.shots,
-          totalXg: 0
+          totalXg: aggregatedStats?.awayTeamStats.totalXg || 0
         } 
       },
       passes: { 
@@ -311,7 +232,7 @@ const Statistics: React.FC = () => {
       duels: { home: {}, away: {} },
       crosses: { home: {}, away: {} }
     };
-  }, [teamStats]);
+  }, [teamStats, aggregatedStats]);
 
   if (loading || !matchData) {
     return (
@@ -420,25 +341,27 @@ const Statistics: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="passing" className="mt-6">
-            <PassingNetworkMap 
-              playerStats={playerStatsSummaries}
-              allPlayers={[
-                ...(matchData.home_team_players || []).map(convertToPlayer), 
-                ...(matchData.away_team_players || []).map(convertToPlayer)
-              ]}
-              homeTeam={{ 
-                id: 'home', 
-                name: matchData.home_team_name, 
-                formation: '4-4-2', 
-                players: (matchData.home_team_players || []).map(convertToPlayer)
-              }}
-              awayTeam={{ 
-                id: 'away', 
-                name: matchData.away_team_name, 
-                formation: '4-3-3', 
-                players: (matchData.away_team_players || []).map(convertToPlayer)
-              }}
-            />
+            {aggregatedStats && (
+              <PassingNetworkMap 
+                playerStats={aggregatedStats.playerStats}
+                allPlayers={[
+                  ...(matchData.home_team_players || []).map(convertToPlayer), 
+                  ...(matchData.away_team_players || []).map(convertToPlayer)
+                ]}
+                homeTeam={{ 
+                  id: 'home', 
+                  name: matchData.home_team_name, 
+                  formation: '4-4-2', 
+                  players: (matchData.home_team_players || []).map(convertToPlayer)
+                }}
+                awayTeam={{ 
+                  id: 'away', 
+                  name: matchData.away_team_name, 
+                  formation: '4-3-3', 
+                  players: (matchData.away_team_players || []).map(convertToPlayer)
+                }}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">
