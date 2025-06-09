@@ -17,6 +17,7 @@ export const useGeminiSpeechRecognition = (context: GeminiContext) => {
       setError("Speech recognition is not supported by your browser.")
       return
     }
+    
 
     const recognition = new SpeechRecognitionAPI()
     recognition.continuous = false // Process after each pause
