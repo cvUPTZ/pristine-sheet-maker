@@ -1,148 +1,73 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { parseCommandWithAI, ParsedCommand, GeminiContext } from '@/lib/ai-parser'
 
-import { useState, useRef } from 'react';
+export const useGeminiSpeechRecognition = (context: GeminiContext) => {
+  const [isListening, setIsListening] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const onCommandParsedRef = useRef<(command: ParsedCommand, transcript: string) => void>(() => {})
 
-// Type declarations for Speech Recognition API
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: {
-      new (): SpeechRecognition;
-    };
-    webkitSpeechRecognition?: {
-      new (): SpeechRecognition;
-    };
-  }
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  readonly isFinal: boolean;
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-/**
- * @typedef {object} SpeechRecognitionHook
- * @property {boolean} isListening - Whether speech recognition is currently active.
- * @property {string} transcript - The latest recognized speech transcript.
- * @property {string | null} error - Any error message from speech recognition.
- * @property {() => void} startListening - Function to start speech recognition.
- * @property {() => void} stopListening - Function to stop speech recognition.
- */
-
-/**
- * Custom hook for speech recognition functionality.
- * @returns {SpeechRecognitionHook}
- */
-const useSpeechRecognition = () => {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-  /**
-   * Initializes and starts speech recognition.
-   */
-  const startListening = () => {
-    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionConstructor) {
-      setError('Speech recognition is not supported in this browser.');
-      return;
+  useEffect(() => {
+    const SpeechRecognitionAPI = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) {
+      setError("Speech recognition is not supported by your browser.")
+      return
     }
 
-    // Clean up any existing recognition instance
-    if (recognitionRef.current) {
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
-    }
+    const recognition = new SpeechRecognitionAPI()
+    recognition.continuous = false // Process after each pause
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+    recognitionRef.current = recognition
 
-    recognitionRef.current = new SpeechRecognitionConstructor();
-    const recognition = recognitionRef.current;
-
-    setIsListening(true);
-    setTranscript('');
-    setError(null);
-
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-      for (let i = 0; i < event.results.length; i++) {
-        const segment = event.results[i];
-        if (segment.isFinal) {
-          finalTranscript += segment[0].transcript;
-        } else {
-          interimTranscript += segment[0].transcript;
-        }
-      }
-      setTranscript(finalTranscript + interimTranscript);
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      setError(event.error);
-    };
-
+    recognition.onstart = () => setIsListening(true)
     recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
-
-  /**
-   * Stops speech recognition.
-   */
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
+      setIsListening(false)
+      // If it ends without processing, it means no final speech was detected
+      if (!isProcessing) setTranscript('')
     }
-    setIsListening(false);
-  };
+    recognition.onerror = (event) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+         setError(`Speech error: ${event.error}`)
+      }
+    }
 
-  return {
-    isListening,
-    transcript,
-    error,
-    startListening,
-    stopListening,
-  };
-};
+    recognition.onresult = (event) => {
+      const lastResult = event.results[event.results.length - 1]
+      const currentTranscript = lastResult[0].transcript
+      setTranscript(currentTranscript)
 
-export default useSpeechRecognition;
+      if (lastResult.isFinal) {
+        setIsProcessing(true)
+        parseCommandWithAI(currentTranscript, context)
+          .then(parsedCommand => {
+            onCommandParsedRef.current(parsedCommand, currentTranscript)
+          })
+          .catch(e => setError(`Command parsing failed: ${e.message}`))
+          .finally(() => setIsProcessing(false))
+      }
+    }
+
+    return () => recognitionRef.current?.abort()
+  }, [context, isProcessing]) // re-run if isProcessing changes to handle onend correctly
+
+  const startListening = useCallback((onCommandParsed: (command: ParsedCommand, transcript: string) => void) => {
+    if (recognitionRef.current && !isListening) {
+      onCommandParsedRef.current = onCommandParsed
+      setTranscript('')
+      setError(null)
+      recognitionRef.current.start()
+    }
+  }, [isListening])
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop()
+    }
+  }, [isListening])
+
+  return { isListening, isProcessing, transcript, error, startListening, stopListening }
+}
