@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import TrackerVoiceInput from '@/components/TrackerVoiceInput';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
-import TrackerVoiceInput from '@/components/TrackerVoiceInput'; // Fixed: Added missing import
 import { useToast } from '@/components/ui/use-toast';
 import MatchTimer from '@/components/MatchTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
