@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +12,7 @@ import AdvancedStatsTable from '@/components/analytics/AdvancedStatsTable';
 import EventTimelineChart from '@/components/analytics/EventTimelineChart';
 import { PlayerForPianoInput } from '@/components/TrackerPianoInput';
 import { MatchEvent } from '@/types/index';
+import { ShotEventData, PassEventData } from '@/types/eventData';
 
 interface MatchData {
   id: string;
@@ -137,21 +139,21 @@ const Statistics: React.FC = () => {
       }
       acc[type].push(event);
       return acc;
-    }, {} as Record<string, MatchEvent[]>);
+    }, {} as Record<string, DatabaseMatchEvent[]>);
   }, [events]);
 
   const teamStats = useMemo(() => {
     const homeEvents = events.filter(e => e.team === 'home');
     const awayEvents = events.filter(e => e.team === 'away');
 
-    const calculateTeamStats = (teamEvents: MatchEvent[]) => {
+    const calculateTeamStats = (teamEvents: DatabaseMatchEvent[]) => {
       const shots = teamEvents.filter(e => (e.type || e.event_type) === 'shot');
       const passes = teamEvents.filter(e => (e.type || e.event_type) === 'pass');
       const goals = teamEvents.filter(e => (e.type || e.event_type) === 'goal');
       
       const shotsOnTarget = shots.filter(e => {
         try {
-          const eventData = e.event_data;
+          const eventData = e.event_data as ShotEventData;
           return eventData && eventData.on_target === true;
         } catch {
           return false;
@@ -160,7 +162,7 @@ const Statistics: React.FC = () => {
 
       const successfulPasses = passes.filter(e => {
         try {
-          const eventData = e.event_data;
+          const eventData = e.event_data as PassEventData;
           return eventData && eventData.success === true;
         } catch {
           return false;
@@ -202,7 +204,7 @@ const Statistics: React.FC = () => {
 
       const successfulPasses = passes.filter(e => {
         try {
-          const eventData = e.event_data;
+          const eventData = e.event_data as PassEventData;
           return eventData && eventData.success === true;
         } catch {
           return false;
@@ -211,7 +213,7 @@ const Statistics: React.FC = () => {
 
       const shotsOnTarget = shots.filter(e => {
         try {
-          const eventData = e.event_data;
+          const eventData = e.event_data as ShotEventData;
           return eventData && eventData.on_target === true;
         } catch {
           return false;
@@ -268,21 +270,23 @@ const Statistics: React.FC = () => {
 
   // Convert database events to MatchEvent format for components
   const convertedEvents: MatchEvent[] = useMemo(() => {
-    return events.map(event => ({
-      id: event.id,
-      match_id: event.match_id,
-      timestamp: event.timestamp || 0,
-      event_data: event.event_data,
-      created_at: event.created_at,
-      tracker_id: null,
-      team_id: null,
-      player_id: event.player_id,
-      team: event.team as 'home' | 'away',
-      coordinates: event.coordinates,
-      created_by: event.created_by,
-      type: (event.type || event.event_type) as any,
-      status: 'confirmed',
-    }));
+    return events
+      .filter(event => event.timestamp !== null)
+      .map(event => ({
+        id: event.id,
+        match_id: event.match_id,
+        timestamp: event.timestamp || 0,
+        event_data: event.event_data,
+        created_at: event.created_at,
+        tracker_id: null,
+        team_id: null,
+        player_id: event.player_id,
+        team: event.team as 'home' | 'away',
+        coordinates: event.coordinates,
+        created_by: event.created_by,
+        type: (event.type || event.event_type) as any,
+        status: 'confirmed',
+      }));
   }, [events]);
 
   if (loading || !matchData) {
@@ -363,14 +367,34 @@ const Statistics: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TeamPerformanceRadar 
-                homeTeam={teamStats.home}
-                awayTeam={teamStats.away}
+                statistics={{
+                  possession: { home: teamStats.home.possession, away: teamStats.away.possession },
+                  shots: { home: teamStats.home, away: teamStats.away },
+                  passes: { home: teamStats.home, away: teamStats.away },
+                  corners: { home: 0, away: 0 },
+                  fouls: { home: 0, away: 0 },
+                  offsides: { home: 0, away: 0 },
+                  ballsPlayed: { home: 0, away: 0 },
+                  ballsLost: { home: 0, away: 0 },
+                  duels: { home: {}, away: {} },
+                  crosses: { home: {}, away: {} }
+                }}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
               <AdvancedStatsTable 
-                homeStats={teamStats.home}
-                awayStats={teamStats.away}
+                statistics={{
+                  possession: { home: teamStats.home.possession, away: teamStats.away.possession },
+                  shots: { home: teamStats.home, away: teamStats.away },
+                  passes: { home: teamStats.home, away: teamStats.away },
+                  corners: { home: 0, away: 0 },
+                  fouls: { home: 0, away: 0 },
+                  offsides: { home: 0, away: 0 },
+                  ballsPlayed: { home: 0, away: 0 },
+                  ballsLost: { home: 0, away: 0 },
+                  duels: { home: {}, away: {} },
+                  crosses: { home: {}, away: {} }
+                }}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
@@ -378,7 +402,22 @@ const Statistics: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="players" className="mt-6">
-            <DetailedStatsTable players={playerStatsSummaries} />
+            <DetailedStatsTable 
+              statistics={{
+                possession: { home: teamStats.home.possession, away: teamStats.away.possession },
+                shots: { home: teamStats.home, away: teamStats.away },
+                passes: { home: teamStats.home, away: teamStats.away },
+                corners: { home: 0, away: 0 },
+                fouls: { home: 0, away: 0 },
+                offsides: { home: 0, away: 0 },
+                ballsPlayed: { home: 0, away: 0 },
+                ballsLost: { home: 0, away: 0 },
+                duels: { home: {}, away: {} },
+                crosses: { home: {}, away: {} }
+              }}
+              homeTeamName={matchData.home_team_name}
+              awayTeamName={matchData.away_team_name}
+            />
           </TabsContent>
 
           <TabsContent value="shots" className="mt-6">
@@ -398,7 +437,11 @@ const Statistics: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">
-            <EventTimelineChart events={convertedEvents} />
+            <EventTimelineChart 
+              events={convertedEvents}
+              homeTeamName={matchData.home_team_name}
+              awayTeamName={matchData.away_team_name}
+            />
           </TabsContent>
         </Tabs>
       </div>
