@@ -5,8 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
-import TrackerVoiceInput from '@/components/TrackerVoiceInput'; // Added
-import { useToast } from '@/components/ui/use-toast'; // Added
+import TrackerVoiceInput from '@/components/TrackerVoiceInput'; // Fixed: Added missing import
+import { useToast } from '@/components/ui/use-toast';
 import MatchTimer from '@/components/MatchTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';

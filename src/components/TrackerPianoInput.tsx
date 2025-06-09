@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -293,6 +292,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     setSelectedTeam(team);
   };
 
+  useEffect(() => {
+    if (assignedPlayers && !selectedPlayer) {
+      const allPlayers = [...(assignedPlayers.home || []), ...(assignedPlayers.away || [])];
+      if (allPlayers.length === 1) {
+        const singlePlayer = allPlayers[0];
+        const isHomePlayer = assignedPlayers.home?.includes(singlePlayer);
+        setSelectedPlayer(singlePlayer);
+        setSelectedTeam(isHomePlayer ? 'home' : 'away');
+      }
+    }
+  }, [assignedPlayers, selectedPlayer]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -349,6 +360,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       </motion.div>
     );
   }
+
+  const totalAssignedPlayers = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
+  const showPlayerSelection = totalAssignedPlayers > 1;
 
   return (
     <div className="space-y-6 p-4">
@@ -409,20 +423,27 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                             #{selectedPlayer.jersey_number}
                           </span>
                         )}
+                        {totalAssignedPlayers === 1 && (
+                          <span className="px-2 py-1 bg-orange-200 dark:bg-orange-800 rounded-full text-xs font-medium">
+                            Auto-selected
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    onClick={() => {
-                      setSelectedPlayer(null);
-                      setSelectedTeam(null);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="hover:bg-red-50 hover:border-red-300"
-                  >
-                    Clear
-                  </Button>
+                  {showPlayerSelection && (
+                    <Button 
+                      onClick={() => {
+                        setSelectedPlayer(null);
+                        setSelectedTeam(null);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="hover:bg-red-50 hover:border-red-300"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -468,8 +489,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         )}
       </AnimatePresence>
 
-      {/* Player Selection */}
-      {(assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
+      {/* Player Selection - Only show when there are multiple players */}
+      {showPlayerSelection && (assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -590,7 +611,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 🎹 Record Events
               </h2>
               <p className="text-purple-600 dark:text-purple-300 mt-2">
-                Tap any event type to record instantly
+                {totalAssignedPlayers === 1 
+                  ? "Tap any event type to record instantly" 
+                  : selectedPlayer 
+                    ? `Recording for ${selectedPlayer.name}` 
+                    : "Select a player first, then tap any event type"}
               </p>
             </div>
             
@@ -615,7 +640,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     <EventTypeSvg
                       eventType={eventType.key}
                       isRecording={recordingEventType === eventType.key}
-                      disabled={isRecording}
+                      disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)}
                       onClick={() => handleEventTypeClick(eventType)}
                     />
                     <motion.div
