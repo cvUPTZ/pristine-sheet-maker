@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { pipeline,env  } from '@xenova/transformers';
+// import { pipeline,env  } from '@xenova/transformers';
+// Use dynamic import from a CDN
+const { pipeline, env } = await import('https://esm.sh/@xenova/transformers@2.17.2');
+env.remoteHost = 'https://huggingface.co/';
 
 // Specify a remote location for model files
-env.remoteHost = 'https://huggingface.co/';
+// env.remoteHost = 'https://huggingface.co/';
 env.remotePathTemplate = '{model}/resolve/{revision}/';
 
 
