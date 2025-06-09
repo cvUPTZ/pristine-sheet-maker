@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -149,11 +150,13 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
     const eventToInsert = {
       match_id: matchId,
-      event_type_key: eventTypeKey,
+      event_type: eventTypeKey, // Fixed: using event_type instead of event_type_key
       player_id: playerId,
       created_by: trackerUserId,
-      timestamp: new Date().toISOString(),
-      details: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
+      timestamp: Math.floor(Date.now() / 1000), // Fixed: using timestamp as number in seconds
+      team: teamContext, // Fixed: using team instead of team_context_from_input
+      coordinates: details?.coordinates || null,
+      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext }, // Fixed: using event_data
     };
 
     console.log("Inserting event via TrackerInterface:", eventToInsert);
@@ -184,81 +187,75 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     const fetchAssignmentsForVoice = async () => {
       setIsLoadingAssignmentsForVoice(true);
       try {
-        const { data: eventTypesData, error: eventTypesError } = await supabase
-          .from('tracker_user_event_types')
-          .select('event_type_key, event_types(label)')
-          .eq('user_id', trackerUserId);
+        // Simplified approach: Get event types from match_tracker_assignments for this user
+        const { data: assignmentsData, error: assignmentsError } = await supabase
+          .from('match_tracker_assignments')
+          .select('assigned_event_types, player_id, player_team_id')
+          .eq('match_id', matchId)
+          .eq('tracker_user_id', trackerUserId);
 
-        if (eventTypesError) throw eventTypesError;
-        setAssignedEventTypesForVoice(eventTypesData.map(item => ({
-          key: item.event_type_key,
-          label: item.event_types?.label || item.event_type_key,
+        if (assignmentsError) throw assignmentsError;
+
+        // Extract unique event types
+        const allEventTypes = new Set<string>();
+        assignmentsData.forEach(assignment => {
+          if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
+            assignment.assigned_event_types.forEach(eventType => allEventTypes.add(eventType));
+          }
+        });
+
+        setAssignedEventTypesForVoice(Array.from(allEventTypes).map(key => ({
+          key,
+          label: key // Using key as label for simplicity, can be enhanced later
         })));
 
+        // Get match data to determine team IDs
         const { data: currentMatchData, error: matchDetailsError } = await supabase
           .from('matches')
-          .select('home_team_id, away_team_id')
+          .select('home_team_players, away_team_players')
           .eq('id', matchId)
           .single();
 
         if (matchDetailsError) throw matchDetailsError;
         if (!currentMatchData) throw new Error("Match details not found for assignments.");
 
-        const homeTeamId = currentMatchData.home_team_id;
-        const awayTeamId = currentMatchData.away_team_id;
+        // Parse players from match data (simplified approach)
+        const parsePlayerData = (data: any): Player[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
 
-        // Fetch players from 'players' table and filter by team_id based on match's home/away team_id.
-        // This assumes players have a direct team_id reference.
-        // If player assignments are per-match via team_rosters, adjust accordingly.
-        const { data: allPlayersData, error: playersError } = await supabase
-          .from('players')
-          .select('id, name, jersey_number, team_id');
+        const homePlayers = parsePlayerData(currentMatchData.home_team_players);
+        const awayPlayers = parsePlayerData(currentMatchData.away_team_players);
 
-        if (playersError) throw playersError;
+        // Filter players based on assignments
+        const assignedHomePlayers: Player[] = [];
+        const assignedAwayPlayers: Player[] = [];
 
-        const homePlayersList: Player[] = [];
-        const awayPlayersList: Player[] = [];
-
-        allPlayersData.forEach(player => {
-          if (player.team_id === homeTeamId) {
-            homePlayersList.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
-          } else if (player.team_id === awayTeamId) {
-            awayPlayersList.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
+        assignmentsData.forEach(assignment => {
+          if (assignment.player_team_id === 'home') {
+            const player = homePlayers.find(p => p.id === assignment.player_id);
+            if (player && !assignedHomePlayers.some(ap => ap.id === player.id)) {
+              assignedHomePlayers.push(player);
+            }
+          } else if (assignment.player_team_id === 'away') {
+            const player = awayPlayers.find(p => p.id === assignment.player_id);
+            if (player && !assignedAwayPlayers.some(ap => ap.id === player.id)) {
+              assignedAwayPlayers.push(player);
+            }
           }
         });
-        // This is a simplified player fetching. A more robust way would be via team_rosters for the specific match.
-        // For now, this assumes players are generally part of teams and we filter by the match's team IDs.
-        // If your schema uses team_rosters to link players to matches, that query would be better:
-        // supabase.from('team_rosters').select('players(id, name, jersey_number, team_id)').eq('match_id', matchId);
-        // Then distribute based on player.team_id matching homeTeamId/awayTeamId.
-        // The current `TrackerVoiceInput` expects `assignedPlayers: { home: Player[], away: Player[] }`.
-        // The example below will use a direct fetch from players and filter.
-        // A more accurate fetch based on team_rosters might look like:
-        // const { data: rosterPlayersData, error: rosterError } = await supabase
-        // .from('team_rosters')
-        // .select('players(id, name, jersey_number, team_id)')
-        // .eq('match_id', matchId);
-        // Then iterate rosterPlayersData... This is implemented in one of my earlier attempts, let's use that.
 
-        const { data: rosterPlayersData, error: rosterError } = await supabase
-          .from('team_rosters')
-          .select('players(id, name, jersey_number, team_id)')
-          .eq('match_id', matchId);
-
-        if (rosterError) throw rosterError;
-
-        const homePlayers: Player[] = [];
-        const awayPlayers: Player[] = [];
-
-        rosterPlayersData.forEach(entry => {
-          const player = entry.players as any;
-          if (player && player.team_id === homeTeamId) {
-            homePlayers.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
-          } else if (player && player.team_id === awayTeamId) {
-            awayPlayers.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
-          }
+        setAssignedPlayersForVoice({ 
+          home: assignedHomePlayers, 
+          away: assignedAwayPlayers 
         });
-        setAssignedPlayersForVoice({ home: homePlayers, away: awayPlayers });
 
       } catch (e: any) {
         console.error("Error fetching assignments for voice input:", e);

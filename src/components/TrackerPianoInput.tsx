@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ interface EnhancedEventType {
   description?: string;
 }
 
-const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
+const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecordEvent }) => {
   const [assignedEventTypes, setAssignedEventTypes] = useState<EnhancedEventType[]>([]);
   const [assignedPlayers, setAssignedPlayers] = useState<AssignedPlayers | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerForPianoInput | null>(null);
@@ -57,7 +58,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   const { toast } = useToast();
   const { user } = useAuth(); // user.id will be used for local checks, but trackerUserId for event is from TrackerInterface
-  const { onRecordEvent } = props; // Destructure the new prop for easier use
 
   // Use the centralized real-time system
   const { } = useRealtimeMatch({
@@ -79,10 +79,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   // Use unified tracker connection for status broadcasting
   const { broadcastStatus } = useUnifiedTrackerConnection(matchId, user?.id || '');
-  // Note: The props object itself is not stable if TrackerInterface re-renders,
-  // so destructuring onRecordEvent above is fine, but if used in useCallback/useEffect
-  // ensure props.onRecordEvent or a memoized version from props is used if stability is an issue.
-  // For this case, onRecordEvent is called directly in handlers, so it's okay.
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -241,9 +237,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
       });
     }
   };
-
-  // The internal recordEvent function is now removed.
-  // It's replaced by calling props.onRecordEvent.
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
     setIsRecording(true);
