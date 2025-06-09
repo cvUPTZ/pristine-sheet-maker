@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -143,7 +142,7 @@ const Statistics = () => {
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             type: event.event_type as EventType,
-            event_data: event.event_data || null,
+            event_data: null, // Set to null as it doesn't exist in the database schema
             created_at: event.created_at,
             tracker_id: null,
             team_id: null,
@@ -289,7 +288,6 @@ const Statistics = () => {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Key Metrics Cards as before */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Events</CardTitle>
@@ -357,7 +355,6 @@ const Statistics = () => {
               <TabsTrigger value="flow">Ball Flow</TabsTrigger>
             </TabsList>
 
-            {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MatchRadarChart 
@@ -378,7 +375,6 @@ const Statistics = () => {
               />
             </TabsContent>
 
-            {/* Detailed Tab */}
             <TabsContent value="detailed" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -395,7 +391,6 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            {/* Performance Tab */}
             <TabsContent value="performance" className="space-y-6">
               <PlayerPerformanceChart
                 playerStats={playerStats}
@@ -409,7 +404,6 @@ const Statistics = () => {
               />
             </TabsContent>
 
-            {/* Shot Map / xG Tab */}
             <TabsContent value="shotmap" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -436,7 +430,6 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            {/* Passing Network Tab */}
             <TabsContent value="passingnetwork" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -454,7 +447,6 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            {/* Advanced Tab */}
             <TabsContent value="advanced" className="space-y-6">
               <MatchHeatMap
                 events={events}
@@ -468,7 +460,6 @@ const Statistics = () => {
               />
             </TabsContent>
 
-            {/* Players Tab */}
             <TabsContent value="players" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -541,7 +532,6 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            {/* Pass Matrix Tab */}
             <TabsContent value="passes" className="space-y-6">
               <PassMatrixTable
                 events={events}
@@ -552,7 +542,6 @@ const Statistics = () => {
               />
             </TabsContent>
 
-            {/* Ball Flow Tab */}
             <TabsContent value="flow" className="space-y-6">
               <Card>
                 <CardHeader>

@@ -59,11 +59,15 @@ const VoiceCollaborationUI = ({
   const localAudioTrack = useTracks([Track.Source.Microphone], { onlySubscribed: false })[0];
 
   useEffect(() => {
-    if (localAudioTrack?.track && 'mediaStream' in localAudioTrack.track) {
-      audioMonitor.current?.stopMonitoring();
-      audioMonitor.current = new AudioLevelMonitor(setLocalAudioLevel);
-      audioMonitor.current.startMonitoring(localAudioTrack.track.mediaStream);
-      return () => audioMonitor.current?.stopMonitoring();
+    if (localAudioTrack?.publication?.track) {
+      const mediaStreamTrack = localAudioTrack.publication.track.mediaStreamTrack;
+      if (mediaStreamTrack) {
+        audioMonitor.current?.stopMonitoring();
+        const mediaStream = new MediaStream([mediaStreamTrack]);
+        audioMonitor.current = new AudioLevelMonitor(setLocalAudioLevel);
+        audioMonitor.current.startMonitoring(mediaStream);
+        return () => audioMonitor.current?.stopMonitoring();
+      }
     }
   }, [localAudioTrack]);
 
