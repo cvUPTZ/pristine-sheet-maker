@@ -1,9 +1,7 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import TrackerVoiceInput from '@/components/TrackerVoiceInput';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import { useToast } from '@/components/ui/use-toast';
@@ -401,30 +399,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           matchId={matchId}
           onRecordEvent={handleRecordEvent}
         />
-      </div>
-
-      {/* TrackerVoiceInput Integration */}
-      <div className="w-full mt-6"> {/* Added margin-top for spacing */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Voice Input Module</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingAssignmentsForVoice ? (
-              <p className="text-center text-gray-500">Loading voice input assignments...</p>
-            ) : assignedPlayersForVoice && assignedEventTypesForVoice.length > 0 ? (
-              <TrackerVoiceInput
-                matchId={matchId}
-                trackerUserId={trackerUserId}
-                assignedPlayers={assignedPlayersForVoice}
-                assignedEventTypes={assignedEventTypesForVoice}
-                onRecordEvent={handleRecordEvent}
-              />
-            ) : (
-              <p className="text-center text-red-500">Voice input assignments could not be loaded or are not available.</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

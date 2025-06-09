@@ -11,6 +11,7 @@ import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TrackerPianoInput from '@/components/TrackerPianoInput';
+import TrackerVoiceInput from '@/components/TrackerVoiceInput';
 import { EventType as LocalEventType } from '@/types/matchForm'; // Renamed to avoid conflict
 import { EventType as AppEventType } from '@/types'; // Added for global EventType
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
@@ -346,6 +347,24 @@ const MatchAnalysisV2: React.FC = () => {
                 />
               </CardContent>
             </Card>
+
+            {/* Voice Input */}
+            {assignedPlayers && assignedEventTypes && (
+              <Card>
+                <CardContent className="p-2 sm:p-3 lg:p-6">
+                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                    Voice Input
+                  </h2>
+                  <TrackerVoiceInput
+                    matchId={matchId}
+                    trackerUserId={user?.id || ''}
+                    assignedPlayers={assignedPlayers}
+                    assignedEventTypes={assignedEventTypes}
+                    onRecordEvent={handleRecordEvent}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
