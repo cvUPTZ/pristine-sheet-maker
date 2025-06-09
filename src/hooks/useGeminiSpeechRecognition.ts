@@ -11,7 +11,8 @@ export const useGeminiSpeechRecognition = (context: GeminiContext) => {
   const onCommandParsedRef = useRef<(command: ParsedCommand, transcript: string) => void>(() => {})
 
   useEffect(() => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
+    
     if (!SpeechRecognitionAPI) {
       setError("Speech recognition is not supported by your browser.")
       return
@@ -24,29 +25,31 @@ export const useGeminiSpeechRecognition = (context: GeminiContext) => {
     recognitionRef.current = recognition
 
     recognition.onstart = () => setIsListening(true)
+    
     recognition.onend = () => {
       setIsListening(false)
       // If it ends without processing, it means no final speech was detected
       if (!isProcessing) setTranscript('')
     }
-    recognition.onerror = (event) => {
+    
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
          setError(`Speech error: ${event.error}`)
       }
     }
-
-    recognition.onresult = (event) => {
+    
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const lastResult = event.results[event.results.length - 1]
       const currentTranscript = lastResult[0].transcript
       setTranscript(currentTranscript)
-
+      
       if (lastResult.isFinal) {
         setIsProcessing(true)
         parseCommandWithAI(currentTranscript, context)
           .then(parsedCommand => {
             onCommandParsedRef.current(parsedCommand, currentTranscript)
           })
-          .catch(e => setError(`Command parsing failed: ${e.message}`))
+          .catch((e: Error) => setError(`Command parsing failed: ${e.message}`))
           .finally(() => setIsProcessing(false))
       }
     }
