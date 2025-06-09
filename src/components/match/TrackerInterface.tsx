@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
+import TrackerVoiceInput from '@/components/TrackerVoiceInput'; // Added
+import { useToast } from '@/components/ui/use-toast'; // Added
 import MatchTimer from '@/components/MatchTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -26,12 +28,36 @@ interface MatchData {
   timer_last_started_at?: string | null;
 }
 
+// --- Types for Voice Input Assignments ---
+interface Player {
+  id: number;
+  name: string;
+  jersey_number: number | null;
+}
+
+interface AssignedPlayers {
+  home: Player[];
+  away: Player[];
+}
+
+interface AssignedEventType {
+  key: string;
+  label: string;
+}
+// --- End Types ---
+
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const isMobile = useIsMobile();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast(); // Added for handleRecordEvent
+
+  // State for voice input assignments
+  const [assignedPlayersForVoice, setAssignedPlayersForVoice] = useState<AssignedPlayers | null>(null);
+  const [assignedEventTypesForVoice, setAssignedEventTypesForVoice] = useState<AssignedEventType[]>([]);
+  const [isLoadingAssignmentsForVoice, setIsLoadingAssignmentsForVoice] = useState(true);
   
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
@@ -39,7 +65,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Use the unified tracker connection system
   const { isConnected, broadcastStatus, cleanup } = useUnifiedTrackerConnection(matchId, trackerUserId);
 
-  console.log('TrackerInterface: Render state', { 
+  console.log('TrackerInterface: Render state', {
     isConnected,
     trackerUserId,
     matchId,
@@ -111,6 +137,141 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       supabase.removeChannel(channel);
     };
   }, [trackerUserId, matchId]);
+
+  // --- Centralized Event Recording Function ---
+  const handleRecordEvent = async (
+    eventTypeKey: string,
+    playerId?: number,
+    teamContext?: 'home' | 'away',
+    details?: Record<string, any>
+  ) => {
+    console.log("TrackerInterface: handleRecordEvent called with:", { eventTypeKey, playerId, teamContext, details });
+
+    const eventToInsert = {
+      match_id: matchId,
+      event_type_key: eventTypeKey,
+      player_id: playerId,
+      created_by: trackerUserId,
+      timestamp: new Date().toISOString(),
+      details: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
+    };
+
+    console.log("Inserting event via TrackerInterface:", eventToInsert);
+
+    const { error: dbError } = await supabase.from('match_events').insert([eventToInsert]);
+
+    if (dbError) {
+      console.error('Error recording event in TrackerInterface:', dbError);
+      toast({
+        title: 'Error Recording Event',
+        description: dbError.message,
+        variant: 'destructive',
+      });
+      throw dbError;
+    } else {
+      toast({
+        title: 'Event Recorded Successfully',
+        description: `${eventTypeKey} event recorded.`,
+      });
+    }
+  };
+  // --- End Centralized Event Recording ---
+
+  // --- Fetch Assignments for Voice Input ---
+  useEffect(() => {
+    if (!matchId || !trackerUserId) return;
+
+    const fetchAssignmentsForVoice = async () => {
+      setIsLoadingAssignmentsForVoice(true);
+      try {
+        const { data: eventTypesData, error: eventTypesError } = await supabase
+          .from('tracker_user_event_types')
+          .select('event_type_key, event_types(label)')
+          .eq('user_id', trackerUserId);
+
+        if (eventTypesError) throw eventTypesError;
+        setAssignedEventTypesForVoice(eventTypesData.map(item => ({
+          key: item.event_type_key,
+          label: item.event_types?.label || item.event_type_key,
+        })));
+
+        const { data: currentMatchData, error: matchDetailsError } = await supabase
+          .from('matches')
+          .select('home_team_id, away_team_id')
+          .eq('id', matchId)
+          .single();
+
+        if (matchDetailsError) throw matchDetailsError;
+        if (!currentMatchData) throw new Error("Match details not found for assignments.");
+
+        const homeTeamId = currentMatchData.home_team_id;
+        const awayTeamId = currentMatchData.away_team_id;
+
+        // Fetch players from 'players' table and filter by team_id based on match's home/away team_id.
+        // This assumes players have a direct team_id reference.
+        // If player assignments are per-match via team_rosters, adjust accordingly.
+        const { data: allPlayersData, error: playersError } = await supabase
+          .from('players')
+          .select('id, name, jersey_number, team_id');
+
+        if (playersError) throw playersError;
+
+        const homePlayersList: Player[] = [];
+        const awayPlayersList: Player[] = [];
+
+        allPlayersData.forEach(player => {
+          if (player.team_id === homeTeamId) {
+            homePlayersList.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
+          } else if (player.team_id === awayTeamId) {
+            awayPlayersList.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
+          }
+        });
+        // This is a simplified player fetching. A more robust way would be via team_rosters for the specific match.
+        // For now, this assumes players are generally part of teams and we filter by the match's team IDs.
+        // If your schema uses team_rosters to link players to matches, that query would be better:
+        // supabase.from('team_rosters').select('players(id, name, jersey_number, team_id)').eq('match_id', matchId);
+        // Then distribute based on player.team_id matching homeTeamId/awayTeamId.
+        // The current `TrackerVoiceInput` expects `assignedPlayers: { home: Player[], away: Player[] }`.
+        // The example below will use a direct fetch from players and filter.
+        // A more accurate fetch based on team_rosters might look like:
+        // const { data: rosterPlayersData, error: rosterError } = await supabase
+        // .from('team_rosters')
+        // .select('players(id, name, jersey_number, team_id)')
+        // .eq('match_id', matchId);
+        // Then iterate rosterPlayersData... This is implemented in one of my earlier attempts, let's use that.
+
+        const { data: rosterPlayersData, error: rosterError } = await supabase
+          .from('team_rosters')
+          .select('players(id, name, jersey_number, team_id)')
+          .eq('match_id', matchId);
+
+        if (rosterError) throw rosterError;
+
+        const homePlayers: Player[] = [];
+        const awayPlayers: Player[] = [];
+
+        rosterPlayersData.forEach(entry => {
+          const player = entry.players as any;
+          if (player && player.team_id === homeTeamId) {
+            homePlayers.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
+          } else if (player && player.team_id === awayTeamId) {
+            awayPlayers.push({ id: player.id, name: player.name, jersey_number: player.jersey_number });
+          }
+        });
+        setAssignedPlayersForVoice({ home: homePlayers, away: awayPlayers });
+
+      } catch (e: any) {
+        console.error("Error fetching assignments for voice input:", e);
+        toast({ title: 'Error Fetching Voice Assignments', description: e.message, variant: 'destructive' });
+        setAssignedPlayersForVoice(null);
+        setAssignedEventTypesForVoice([]);
+      } finally {
+        setIsLoadingAssignmentsForVoice(false);
+      }
+    };
+    fetchAssignmentsForVoice();
+  }, [matchId, trackerUserId, toast]);
+  // --- End Fetch Assignments ---
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
@@ -239,7 +400,34 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       </div>
       
       <div className="w-full">
-        <TrackerPianoInput matchId={matchId} />
+        <TrackerPianoInput
+          matchId={matchId}
+          onRecordEvent={handleRecordEvent}
+        />
+      </div>
+
+      {/* TrackerVoiceInput Integration */}
+      <div className="w-full mt-6"> {/* Added margin-top for spacing */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Voice Input Module</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingAssignmentsForVoice ? (
+              <p className="text-center text-gray-500">Loading voice input assignments...</p>
+            ) : assignedPlayersForVoice && assignedEventTypesForVoice.length > 0 ? (
+              <TrackerVoiceInput
+                matchId={matchId}
+                trackerUserId={trackerUserId}
+                assignedPlayers={assignedPlayersForVoice}
+                assignedEventTypes={assignedEventTypesForVoice}
+                onRecordEvent={handleRecordEvent}
+              />
+            ) : (
+              <p className="text-center text-red-500">Voice input assignments could not be loaded or are not available.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

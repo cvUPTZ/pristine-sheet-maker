@@ -14,6 +14,12 @@ import { Undo } from 'lucide-react';
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
+  onRecordEvent: ( // Added prop
+    eventTypeKey: string,
+    playerId?: number,
+    teamContext?: 'home' | 'away',
+    details?: Record<string, any>
+  ) => Promise<void>;
 }
 
 export interface PlayerForPianoInput {
@@ -50,7 +56,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
 
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user } = useAuth(); // user.id will be used for local checks, but trackerUserId for event is from TrackerInterface
+  const { onRecordEvent } = props; // Destructure the new prop for easier use
 
   // Use the centralized real-time system
   const { } = useRealtimeMatch({
@@ -72,6 +79,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
 
   // Use unified tracker connection for status broadcasting
   const { broadcastStatus } = useUnifiedTrackerConnection(matchId, user?.id || '');
+  // Note: The props object itself is not stable if TrackerInterface re-renders,
+  // so destructuring onRecordEvent above is fine, but if used in useCallback/useEffect
+  // ensure props.onRecordEvent or a memoized version from props is used if stability is an issue.
+  // For this case, onRecordEvent is called directly in handlers, so it's okay.
 
   const fetchMatchDetails = useCallback(async () => {
     if (!matchId) {
@@ -231,114 +242,56 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId }) => {
     }
   };
 
-  const recordEvent = async (eventType: EnhancedEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('TrackerPianoInput recordEvent called with:', { 
-      eventType, 
-      player, 
-      details, 
-      user: user?.id,
-      matchId 
-    });
-    
-    if (!matchId) {
-      console.error("Match ID is missing.");
-      throw new Error("Match ID is missing");
-    }
+  // The internal recordEvent function is now removed.
+  // It's replaced by calling props.onRecordEvent.
 
-    if (!user?.id) {
-      console.error("User not authenticated");
-      throw new Error("User not authenticated");
-    }
-
-    if (!eventType) {
-      console.error("Event type is missing");
-      throw new Error("Event type is missing");
-    }
-
+  const handleEventTypeClick = async (eventType: EnhancedEventType) => {
     setIsRecording(true);
     setRecordingEventType(eventType.key);
-    
-    // Broadcast that we're recording
-    broadcastStatus({
-      status: 'recording',
-      timestamp: Date.now()
-    });
+    broadcastStatus({ status: 'recording', timestamp: Date.now() });
+
+    let teamContextForEvent: 'home' | 'away' | undefined = undefined;
+    // selectedTeam is set by handlePlayerSelect
+    if (selectedPlayer && selectedTeam) {
+      teamContextForEvent = selectedTeam;
+    }
+    // If no player is selected, teamContext remains undefined, which is fine.
 
     try {
-      let teamContext = null;
-      if (player && assignedPlayers) {
-        if (assignedPlayers.home?.some(p => p.id === player.id)) {
-          teamContext = 'home';
-        } else if (assignedPlayers.away?.some(p => p.id === player.id)) {
-          teamContext = 'away';
+      await onRecordEvent( // Use the prop here
+        eventType.key,
+        selectedPlayer?.id, // Pass selected player's ID if a player is selected
+        teamContextForEvent, // Pass team context if a player is selected
+        {
+          recorded_via: 'piano',
+          // You can add other piano-specific details here, e.g., coordinates if captured
         }
-      }
-
-      const playerId = player ? parseInt(String(player.id), 10) : null;
+      );
       
-      if (player && (isNaN(playerId!) || playerId === null)) {
-        console.error("Invalid player ID:", player.id);
-        throw new Error("Invalid player ID");
-      }
-
-      const timestampInSeconds = Math.floor(Date.now() / 1000);
-
-      const eventData = {
-        match_id: matchId,
-        event_type: eventType.key,
-        timestamp: timestampInSeconds,
-        player_id: playerId,
-        team: teamContext,
-        coordinates: details?.coordinates || null,
-        created_by: user.id
-      };
-
-      console.log('Inserting event data:', eventData);
-
-      // Use upsert for faster insertion and avoid conflicts
-      const { data, error } = await supabase
-        .from('match_events')
-        .upsert([eventData])
-        .select();
-
-      if (error) {
-        console.error("Error recording event:", error);
-        throw new Error(`Failed to record event: ${error.message}`);
-      }
-
-      console.log('Event recorded successfully:', data);
-      
-      // Broadcast that we're back to active status
-      broadcastStatus({
-        status: 'active',
+      // For local UI feedback (recent events list)
+      const eventInfoForRecentList = {
+        id: `local-${Date.now()}-${eventType.key}`, // Temporary local ID
+        eventType: { key: eventType.key, label: eventType.label }, // Use the structure expected by recentEvents
+        player: selectedPlayer, // Keep the selected player object for display
         timestamp: Date.now()
-      });
-      
-      toast({
-        title: "Event Recorded",
-        description: `${eventType.label}${player ? ` by ${player.name}` : ''} recorded successfully`,
-      });
-      
+      };
+      setLastRecordedEvent(eventInfoForRecentList); // Update last recorded event display
+      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]); // Update recent events list
+
+      // The main success toast is handled by onRecordEvent in TrackerInterface.
+      // Optionally, reset selections or provide further local feedback.
+      // E.g., clear selected player if events are usually one-off for a player selection:
+      // setSelectedPlayer(null);
+      // setSelectedTeam(null);
+      // However, users might want to record multiple events for the same player, so avoid auto-clearing for now.
+
     } catch (error: any) {
-      console.error("Error in recordEvent:", error);
-      broadcastStatus({ status: 'active', timestamp: Date.now() }); // Reset status on error
-      toast({
-        title: "Error",
-        description: error.message || "Failed to record event",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error calling onRecordEvent from PianoInput:', error);
+      // Error toast is handled by onRecordEvent in TrackerInterface.
     } finally {
       setIsRecording(false);
       setRecordingEventType(null);
-    }
-  };
-
-  const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    try {
-      await recordEvent(eventType, selectedPlayer || undefined);
-    } catch (error) {
-      console.error('Error recording event:', error);
+      broadcastStatus({ status: 'active', timestamp: Date.now() });
     }
   };
 
