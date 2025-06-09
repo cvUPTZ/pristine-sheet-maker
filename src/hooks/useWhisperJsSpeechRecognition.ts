@@ -9,6 +9,7 @@ env.remotePathTemplate = '{model}/resolve/{revision}/';
 // Define the type for the pipeline task
 type SpeechToTextPipeline = any; // Adjust if a more specific type is available from transformers.js
 
+
 export const useWhisperJsSpeechRecognition = () => {
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [isListening, setIsListening] = useState(false);
