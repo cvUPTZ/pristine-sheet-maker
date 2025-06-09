@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -61,11 +62,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           homeTeamName: matchData.home_team_name || '',
           awayTeamName: matchData.away_team_name || '',
           matchDate: matchData.match_date ? new Date(matchData.match_date).toISOString().slice(0, 16) : '',
-          venue: matchData.venue || '',
+          venue: (matchData as any).venue || matchData.location || '', // Handle both venue and location
           homeTeamFormation: matchData.home_team_formation || '4-4-2',
           awayTeamFormation: matchData.away_team_formation || '4-3-3',
-          homeTeamPlayers: Array.isArray(matchData.home_team_players) ? matchData.home_team_players : [],
-          awayTeamPlayers: Array.isArray(matchData.away_team_players) ? matchData.away_team_players : [],
+          homeTeamPlayers: Array.isArray(matchData.home_team_players) ? matchData.home_team_players as PlayerForPianoInput[] : [],
+          awayTeamPlayers: Array.isArray(matchData.away_team_players) ? matchData.away_team_players as PlayerForPianoInput[] : [],
         });
       }
 
@@ -133,11 +134,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         home_team_name: formData.homeTeamName,
         away_team_name: formData.awayTeamName,
         match_date: formData.matchDate ? new Date(formData.matchDate).toISOString() : null,
-        venue: formData.venue,
+        location: formData.venue, // Use location instead of venue
         home_team_formation: formData.homeTeamFormation,
         away_team_formation: formData.awayTeamFormation,
-        home_team_players: formData.homeTeamPlayers,
-        away_team_players: formData.awayTeamPlayers,
+        home_team_players: formData.homeTeamPlayers as any, // Cast to any for JSON compatibility
+        away_team_players: formData.awayTeamPlayers as any, // Cast to any for JSON compatibility
         status: 'scheduled'
       };
 
@@ -166,6 +167,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       // Call notification function if match was created/updated successfully
       if (savedMatch) {
         try {
+          // Use a valid function name that exists
           const { error: notifyError } = await supabase.rpc('get_user_role_from_auth');
           if (notifyError) {
             console.warn('Error calling notification function:', notifyError);
@@ -257,7 +259,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
-              date={formData.matchDate ? new Date(formData.matchDate) : undefined}
+              selected={formData.matchDate ? new Date(formData.matchDate) : undefined}
               onSelect={(date) => {
                 if (date) {
                   const formattedDate = format(date, "yyyy-MM-dd'T'HH:mm");

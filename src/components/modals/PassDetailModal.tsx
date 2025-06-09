@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -77,7 +78,7 @@ const PassDetailModal: React.FC<PassDetailModalProps> = ({
               <SelectContent>
                 {availableRecipients.map(player => (
                   <SelectItem key={player.id} value={String(player.id)}>
-                    {player.name} (#{player.jersey_number || player.jerseyNumber})
+                    {player.name} (#{player.jersey_number || player.number})
                   </SelectItem>
                 ))}
               </SelectContent>
