@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { supabase } from '@/integrations/supabase/client';
 
 // TypeScript Interfaces for our data
 interface Player { id: number; name: string; jersey_number: number | null; }
