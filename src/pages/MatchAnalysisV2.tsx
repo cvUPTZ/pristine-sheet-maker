@@ -320,7 +320,7 @@ const MatchAnalysisV2: React.FC = () => {
               homeTeam={homeTeam}
               awayTeam={awayTeam}
               isTracking={isTracking}
-              onEventRecord={handleEventRecord}
+              onEventRecord={handleRecordEvent}
             />
           </TabsContent>
         )}

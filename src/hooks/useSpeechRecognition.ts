@@ -2,11 +2,43 @@
 import { useState, useRef } from 'react';
 
 // Type declarations for Speech Recognition API
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
 declare global {
   interface Window {
-    SpeechRecognition?: typeof SpeechRecognition;
-    webkitSpeechRecognition?: typeof SpeechRecognition;
+    SpeechRecognition?: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition?: {
+      new (): SpeechRecognition;
+    };
   }
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+  readonly confidence: number;
 }
 
 interface SpeechRecognitionEvent extends Event {
@@ -41,9 +73,9 @@ const useSpeechRecognition = () => {
    * Initializes and starts speech recognition.
    */
   const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionConstructor) {
       setError('Speech recognition is not supported in this browser.');
       return;
     }
@@ -56,7 +88,7 @@ const useSpeechRecognition = () => {
       recognitionRef.current.stop();
     }
 
-    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current = new SpeechRecognitionConstructor();
     const recognition = recognitionRef.current;
 
     setIsListening(true);
