@@ -289,6 +289,44 @@ const Statistics: React.FC = () => {
       }));
   }, [events]);
 
+  // Create proper Statistics interface data for components
+  const statisticsData = useMemo(() => {
+    return {
+      possession: { home: teamStats.home.possession, away: teamStats.away.possession },
+      shots: { 
+        home: { 
+          onTarget: teamStats.home.shotsOnTarget, 
+          offTarget: teamStats.home.shots - teamStats.home.shotsOnTarget,
+          total: teamStats.home.shots,
+          totalXg: 0
+        }, 
+        away: { 
+          onTarget: teamStats.away.shotsOnTarget, 
+          offTarget: teamStats.away.shots - teamStats.away.shotsOnTarget,
+          total: teamStats.away.shots,
+          totalXg: 0
+        } 
+      },
+      passes: { 
+        home: { 
+          successful: Math.round(teamStats.home.passes * (teamStats.home.passAccuracy / 100)), 
+          attempted: teamStats.home.passes 
+        }, 
+        away: { 
+          successful: Math.round(teamStats.away.passes * (teamStats.away.passAccuracy / 100)), 
+          attempted: teamStats.away.passes 
+        } 
+      },
+      corners: { home: 0, away: 0 },
+      fouls: { home: 0, away: 0 },
+      offsides: { home: 0, away: 0 },
+      ballsPlayed: { home: 0, away: 0 },
+      ballsLost: { home: 0, away: 0 },
+      duels: { home: {}, away: {} },
+      crosses: { home: {}, away: {} }
+    };
+  }, [teamStats]);
+
   if (loading || !matchData) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
@@ -367,34 +405,12 @@ const Statistics: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TeamPerformanceRadar 
-                statistics={{
-                  possession: { home: teamStats.home.possession, away: teamStats.away.possession },
-                  shots: { home: teamStats.home, away: teamStats.away },
-                  passes: { home: teamStats.home, away: teamStats.away },
-                  corners: { home: 0, away: 0 },
-                  fouls: { home: 0, away: 0 },
-                  offsides: { home: 0, away: 0 },
-                  ballsPlayed: { home: 0, away: 0 },
-                  ballsLost: { home: 0, away: 0 },
-                  duels: { home: {}, away: {} },
-                  crosses: { home: {}, away: {} }
-                }}
+                statistics={statisticsData}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
               <AdvancedStatsTable 
-                statistics={{
-                  possession: { home: teamStats.home.possession, away: teamStats.away.possession },
-                  shots: { home: teamStats.home, away: teamStats.away },
-                  passes: { home: teamStats.home, away: teamStats.away },
-                  corners: { home: 0, away: 0 },
-                  fouls: { home: 0, away: 0 },
-                  offsides: { home: 0, away: 0 },
-                  ballsPlayed: { home: 0, away: 0 },
-                  ballsLost: { home: 0, away: 0 },
-                  duels: { home: {}, away: {} },
-                  crosses: { home: {}, away: {} }
-                }}
+                statistics={statisticsData}
                 homeTeamName={matchData.home_team_name}
                 awayTeamName={matchData.away_team_name}
               />
@@ -403,18 +419,7 @@ const Statistics: React.FC = () => {
 
           <TabsContent value="players" className="mt-6">
             <DetailedStatsTable 
-              statistics={{
-                possession: { home: teamStats.home.possession, away: teamStats.away.possession },
-                shots: { home: teamStats.home, away: teamStats.away },
-                passes: { home: teamStats.home, away: teamStats.away },
-                corners: { home: 0, away: 0 },
-                fouls: { home: 0, away: 0 },
-                offsides: { home: 0, away: 0 },
-                ballsPlayed: { home: 0, away: 0 },
-                ballsLost: { home: 0, away: 0 },
-                duels: { home: {}, away: {} },
-                crosses: { home: {}, away: {} }
-              }}
+              statistics={statisticsData}
               homeTeamName={matchData.home_team_name}
               awayTeamName={matchData.away_team_name}
             />
@@ -430,9 +435,10 @@ const Statistics: React.FC = () => {
 
           <TabsContent value="passing" className="mt-6">
             <PassingNetworkMap 
-              passes={convertedEvents.filter(e => e.type === 'pass')}
-              homePlayers={matchData.home_team_players || []}
-              awayPlayers={matchData.away_team_players || []}
+              playerStats={playerStatsSummaries}
+              allPlayers={[...(matchData.home_team_players || []), ...(matchData.away_team_players || [])]}
+              homeTeam={{ id: 'home', name: matchData.home_team_name, formation: '4-4-2', players: matchData.home_team_players || [] }}
+              awayTeam={{ id: 'away', name: matchData.away_team_name, formation: '4-3-3', players: matchData.away_team_players || [] }}
             />
           </TabsContent>
 
