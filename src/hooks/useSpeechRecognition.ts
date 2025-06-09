@@ -1,4 +1,21 @@
+
 import { useState, useRef } from 'react';
+
+// Type declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition?: typeof SpeechRecognition;
+    webkitSpeechRecognition?: typeof SpeechRecognition;
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
 
 /**
  * @typedef {object} SpeechRecognitionHook
@@ -49,7 +66,7 @@ const useSpeechRecognition = () => {
     recognition.continuous = true;
     recognition.interimResults = true;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
       let finalTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -63,7 +80,7 @@ const useSpeechRecognition = () => {
       setTranscript(finalTranscript + interimTranscript);
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       setError(event.error);
     };
 

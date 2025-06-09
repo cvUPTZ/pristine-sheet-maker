@@ -184,15 +184,15 @@ const MatchAnalysisV2: React.FC = () => {
     });
   };
 
-  const handleEventRecord = async (eventType: LocalEventType, player?: PlayerForPianoInput, details?: Record<string, any>) => {
-    console.log('handleEventRecord called with:', {
-      eventType,
-      player, 
-      details, 
-      user: user?.id,
-      matchId 
-    });
-    
+  // Centralized event recording function for MatchAnalysisV2
+  const handleRecordEvent = async (
+    eventTypeKey: string,
+    playerId?: number,
+    teamContext?: 'home' | 'away',
+    details?: Record<string, any>
+  ) => {
+    console.log("MatchAnalysisV2: handleRecordEvent called with:", { eventTypeKey, playerId, teamContext, details });
+
     if (!matchId) {
       console.error("Match ID is missing.");
       throw new Error("Match ID is missing");
@@ -203,86 +203,43 @@ const MatchAnalysisV2: React.FC = () => {
       throw new Error("User not authenticated");
     }
 
-    if (!eventType) {
+    if (!eventTypeKey) {
       console.error("Event type is missing");
       throw new Error("Event type is missing");
     }
 
     try {
-      // Determine team context
-      let teamContext = null;
-      if (player && assignedPlayers) {
-        if (assignedPlayers.home?.some(p => p.id === player.id)) {
-          teamContext = 'home';
-        } else if (assignedPlayers.away?.some(p => p.id === player.id)) {
-          teamContext = 'away';
-        }
-      }
-
-      // Ensure player_id is properly converted to integer or null
-      const playerId = player ? parseInt(String(player.id), 10) : null;
-      
-      // Validate player_id is a valid integer
-      if (player && (isNaN(playerId!) || playerId === null)) {
-        console.error("Invalid player ID:", player.id);
-        throw new Error("Invalid player ID");
-      }
-
-      // Use seconds since epoch for timestamp to fit in bigint
-      const timestampInSeconds = Math.floor(Date.now() / 1000);
-
-      let specificEventData: MatchSpecificEventData;
-      switch (eventType.key as AppEventType) {
-        case 'shot':
-          specificEventData = { on_target: false, ...details } as ShotEventData;
-          break;
-        case 'pass':
-          specificEventData = { success: true, ...details } as PassEventData;
-          break;
-        case 'tackle':
-          specificEventData = { success: true, ...details } as TackleEventData;
-          break;
-        case 'foul':
-          specificEventData = { ...details } as FoulCommittedEventData;
-          break;
-        case 'yellowCard':
-        case 'redCard':
-          specificEventData = { card_type: eventType.key === 'yellowCard' ? 'yellow' : 'red', ...details } as CardEventData;
-          break;
-        case 'substitution':
-          specificEventData = { player_in_id: '', player_out_id: '', ...details } as SubstitutionEventData;
-          break;
-        default:
-          specificEventData = { ...details } as GenericEventData;
-      }
-
-      const eventDataForSupabase = {
+      const eventToInsert = {
         match_id: matchId,
-        event_type: eventType.key, // DB column name
-        timestamp: timestampInSeconds,
+        event_type: eventTypeKey,
         player_id: playerId,
+        created_by: user.id,
+        timestamp: Math.floor(Date.now() / 1000),
         team: teamContext,
         coordinates: details?.coordinates || null,
-        event_data: specificEventData, // New structured data
-        created_by: user.id
+        event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
       };
 
-      console.log('Inserting event data:', eventDataForSupabase);
+      console.log("Inserting event via MatchAnalysisV2:", eventToInsert);
 
-      const { data, error } = await supabase
-        .from('match_events')
-        .insert([eventDataForSupabase])
-        .select();
+      const { error: dbError } = await supabase.from('match_events').insert([eventToInsert]);
 
-      if (error) {
-        console.error("Error recording event:", error);
-        throw new Error(`Failed to record event: ${error.message}`);
+      if (dbError) {
+        console.error('Error recording event in MatchAnalysisV2:', dbError);
+        toast({
+          title: 'Error Recording Event',
+          description: dbError.message,
+          variant: 'destructive',
+        });
+        throw dbError;
+      } else {
+        toast({
+          title: 'Event Recorded Successfully',
+          description: `${eventTypeKey} event recorded.`,
+        });
       }
-
-      console.log('Event recorded successfully:', data);
-      
     } catch (error: any) {
-      console.error("Error in handleEventRecord:", error);
+      console.error("Error in handleRecordEvent:", error);
       throw error;
     }
   };
@@ -383,7 +340,10 @@ const MatchAnalysisV2: React.FC = () => {
                 <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
                   Piano Input
                 </h2>
-                <TrackerPianoInput matchId={matchId} />
+                <TrackerPianoInput 
+                  matchId={matchId} 
+                  onRecordEvent={handleRecordEvent}
+                />
               </CardContent>
             </Card>
           </div>
