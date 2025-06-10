@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition'; // New Hook
-// Assuming ParsedCommand is still relevant for the structure returned by the Edge Function
-import { ParsedCommand } from '../lib/ai-parser';
-import { Mic, MicOff, AlertCircle, CheckCircle2, Info, Loader2, Volume2, VolumeX, ToggleLeft, ToggleRight, CloudCog } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client'; // For calling Edge Function
 
-// --- Prop and State Types (assuming these remain the same) ---
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition';
+import { ParsedCommand } from '../lib/ai-parser';
+import { Mic, MicOff, AlertCircle, CheckCircle2, Info, Loader2, Volume2, VolumeX, CloudCog } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+// --- Prop and State Types ---
 interface Player { id: number; name: string; jersey_number: number | null; }
 interface AssignedPlayers { home: Player[]; away: Player[]; }
 interface AssignedEventType { key: string; label: string; }
@@ -23,13 +23,6 @@ interface TrackerVoiceInputProps {
 
 type Feedback = { status: 'info' | 'success' | 'error'; message: string };
 
-// Environment variable for the Edge Function URL
-const PARSE_COMMAND_FUNCTION_URL = process.env.REACT_APP_PARSE_COMMAND_FUNCTION_URL || '';
-if (!PARSE_COMMAND_FUNCTION_URL) {
-  console.warn('REACT_APP_PARSE_COMMAND_FUNCTION_URL is not set. Voice command parsing will fail.');
-}
-
-
 // --- The Component ---
 export function TrackerVoiceInput({ 
   onRecordEvent, 
@@ -40,9 +33,7 @@ export function TrackerVoiceInput({
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [isParsingCommand, setIsParsingCommand] = useState(false); // New state for Edge Function call
-
-  // const geminiContext = useMemo(() => ({ assignedPlayers, assignedEventTypes }), [assignedPlayers, assignedEventTypes]); // Context for parser
+  const [isParsingCommand, setIsParsingCommand] = useState(false);
 
   const playSuccessSound = useCallback(() => {
     if (!isAudioEnabled) return;
@@ -70,19 +61,12 @@ export function TrackerVoiceInput({
     setIsParsingCommand(true);
 
     try {
-      if (!PARSE_COMMAND_FUNCTION_URL) {
-        throw new Error("Parse command function URL is not configured.");
-      }
-
-      // console.log("Sending to Supabase fn:", { transcript: newTranscript, assignedEventTypes, assignedPlayers });
-
       const { data: parsedCommand, error: functionError } = await supabase.functions.invoke(
-        'parse-voice-command', // Name of your Supabase Edge Function
+        'parse-voice-command',
         {
           body: {
             transcript: newTranscript,
             assignedEventTypes,
-            // assignedPlayers // Send if your Edge function uses it
           }
         }
       );
@@ -92,12 +76,9 @@ export function TrackerVoiceInput({
         throw new Error(`Error from parsing function: ${functionError.message}`);
       }
 
-      // Assuming parsedCommand is of type ParsedCommand
       const command = parsedCommand as ParsedCommand;
-      // console.log("Parsed command from Supabase:", command);
 
-
-      if (!command || !command.eventType || command.confidence < 0.5) { // Adjust confidence as needed
+      if (!command || !command.eventType || command.confidence < 0.5) {
         const message = `Could not reliably parse command from: "${newTranscript}". Reason: ${command?.reasoning || 'Low confidence or no event type.'}`;
         setFeedback({ status: 'error', message });
         setIsParsingCommand(false);
@@ -106,14 +87,13 @@ export function TrackerVoiceInput({
 
       await onRecordEvent(
         command.eventType.key,
-        command.playerId,
-        command.teamId,
+        command.player?.id,
+        command.teamContext,
         { 
           recorded_via: 'voice_whisper_js',
           transcript: newTranscript,
           confidence: command.confidence,
           parsed_data: command,
-          event_only: command.event_only // Assuming the edge function sets this
         }
       );
       
@@ -133,8 +113,8 @@ export function TrackerVoiceInput({
   const {
     isModelLoading,
     isListening,
-    isProcessing: isTranscribing, // Renaming for clarity from the hook's perspective
-    transcript: currentTranscriptFromHook, // We mainly use the callback transcript
+    isProcessing: isTranscribing,
+    transcript: currentTranscriptFromHook,
     error: whisperError,
     startListening,
     stopListening
@@ -147,7 +127,7 @@ export function TrackerVoiceInput({
   }, [whisperError]);
 
   const toggleListening = () => {
-    if (isModelLoading || isParsingCommand) return; // Don't allow if model loading or parsing
+    if (isModelLoading || isParsingCommand) return;
 
     if (isListening || isTranscribing) {
       stopListening();
@@ -157,7 +137,6 @@ export function TrackerVoiceInput({
         status: 'info', 
         message: `Listening... Say an event like: ${eventTypeNames.split(', ').slice(0, 3).join(', ')}${eventTypeNames.split(', ').length > 3 ? '...' : ''}.`
       });
-      // The hook now takes a callback for when transcription is complete
       startListening(handleTranscriptCompleted);
     }
   };
@@ -172,30 +151,40 @@ export function TrackerVoiceInput({
   
   const getButtonIcon = () => {
     if (isModelLoading || isParsingCommand) return <Loader2 size={32} className="animate-spin" />;
-    if (isTranscribing) return <Loader2 size={32} className="animate-spin" />; // Could use a different icon for transcribing
+    if (isTranscribing) return <Loader2 size={32} className="animate-spin" />;
     if (isListening) return <MicOff size={32} />;
     return <Mic size={32} />;
   };
 
   const getButtonClass = () => {
-    let baseClass = 'mic-button'; // Define this class in your CSS
-    if (isListening) baseClass += ' listening'; // Define this class
+    let baseClass = 'flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all';
+    if (isListening) {
+      baseClass += ' bg-red-500 border-red-600 text-white animate-pulse';
+    } else if (isModelLoading || isParsingCommand || isTranscribing) {
+      baseClass += ' bg-gray-400 border-gray-500 text-white cursor-not-allowed';
+    } else {
+      baseClass += ' bg-blue-500 border-blue-600 text-white hover:bg-blue-600';
+    }
     return baseClass;
   };
 
   return (
-    <div className="card w-full max-w-md mx-auto">
-      <div className="card-header">
-        <h3 className="card-title">AI Voice Command (Whisper.js)</h3>
+    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">AI Voice Command (Whisper.js)</h3>
         <div className="flex gap-2">
-          {/* Continuous mode toggle removed for simplicity with Whisper.js, can be added back if needed */}
-          <button className="icon-button" onClick={() => setIsAudioEnabled(p => !p)} aria-label="Toggle audio feedback">
+          <button 
+            className="p-2 rounded-full hover:bg-gray-100" 
+            onClick={() => setIsAudioEnabled(p => !p)} 
+            aria-label="Toggle audio feedback"
+          >
             {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
         </div>
       </div>
-      <div className="card-content">
-        <div className="voice-control-area">
+      
+      <div className="space-y-4">
+        <div className="flex flex-col items-center space-y-4">
           <button
             onClick={toggleListening}
             className={getButtonClass()}
@@ -204,10 +193,10 @@ export function TrackerVoiceInput({
           >
             {getButtonIcon()}
           </button>
-          <p className="status-text">{getStatusText()}</p>
+          <p className="text-sm text-center text-gray-600">{getStatusText()}</p>
         </div>
 
-        <div className="event-types-hint">
+        <div className="bg-blue-50 p-3 rounded-lg">
           <p className="text-sm text-gray-600 mb-2">Available events:</p>
           <div className="flex flex-wrap gap-1">
             {assignedEventTypes.map(eventType => (
@@ -218,47 +207,37 @@ export function TrackerVoiceInput({
           </div>
         </div>
 
-        {/* Display transcript from the hook as it's being recognized (interim results if available) */}
-        {/* For this hook, transcript is set upon completion, so this might show the last final transcript */}
         {currentTranscriptFromHook && !isTranscribing && !isParsingCommand && (
-          <div className="transcript-box">
+          <div className="bg-gray-50 p-3 rounded-lg">
             <p className="text-sm text-gray-500">Last transcript:</p>
-            <p className="transcript-text">"{currentTranscriptFromHook}"</p>
+            <p className="text-sm italic">"{currentTranscriptFromHook}"</p>
           </div>
         )}
 
         {feedback && (
-          <div className={`alert alert-${feedback.status}`}>
-            {feedback.status === 'error' && <AlertCircle className="icon" />}
-            {feedback.status === 'success' && <CheckCircle2 className="icon" />}
-            {feedback.status === 'info' && <Info className="icon" />}
-            <p className="alert-description">{feedback.message}</p>
+          <div className={`flex items-start space-x-2 p-3 rounded-lg ${
+            feedback.status === 'error' ? 'bg-red-50 text-red-800' :
+            feedback.status === 'success' ? 'bg-green-50 text-green-800' :
+            'bg-blue-50 text-blue-800'
+          }`}>
+            {feedback.status === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            {feedback.status === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            {feedback.status === 'info' && <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            <p className="text-sm">{feedback.message}</p>
           </div>
         )}
         
         {commandHistory.length > 0 && (
-          <div className="history-section">
-            <h4 className="history-title">Recent Events</h4>
-            <div className="history-list">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <h4 className="text-sm font-medium mb-2">Recent Events</h4>
+            <div className="space-y-1">
               {commandHistory.map((cmd, idx) => (
-                <p key={idx} className="history-item">{cmd}</p>
+                <p key={idx} className="text-sm text-gray-700">{cmd}</p>
               ))}
             </div>
           </div>
         )}
       </div>
-      
-      {/* Basic styles, assuming similar CSS structure as before */}
-      <style jsx>{`
-        .mic-button { /* Basic style */ }
-        .mic-button.listening { /* Style when listening */ }
-        .status-text { /* Style for status text */ }
-        .transcript-box { margin-top: 1rem; padding: 0.5rem; background-color: #f9f9f9; border-radius: 4px; }
-        .transcript-text { font-style: italic; }
-        .alert { /* Your alert styles */ }
-        .history-section { margin-top: 1rem; }
-        /* Add other styles as needed */
-      `}</style>
     </div>
   );
 }
