@@ -115,10 +115,7 @@ export function TrackerVoiceInput({
         id: eventToProcess.id
       });
 
-      // Optimized parsing with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-
+      // Optimized parsing with timeout - removed signal property
       const { data: parsedCommand, error: functionError } = await supabase.functions.invoke(
         'parse-voice-command',
         {
@@ -127,12 +124,9 @@ export function TrackerVoiceInput({
             assignedEventTypes,
             priority: 'high', // Add priority flag
             timeout: 2500 // Server-side timeout
-          },
-          signal: controller.signal
+          }
         }
       );
-
-      clearTimeout(timeoutId);
 
       if (functionError) {
         throw new Error(`Parse error: ${functionError.message}`);
@@ -263,7 +257,7 @@ export function TrackerVoiceInput({
       const topEvents = assignedEventTypes.slice(0, 3).map(et => et.label).join(', ');
       setDebouncedFeedback({ 
         status: 'info', 
-        message: `🎤 Listening... Say: ${topEvents}...`
+        message: `🎤 Say an event: ${topEvents}...`
       });
       startListening(handleTranscriptCompleted);
     }
@@ -274,8 +268,8 @@ export function TrackerVoiceInput({
     if (isModelLoading) return { text: "🧠 Loading model...", icon: <Loader2 size={18} className="animate-spin" /> };
     if (eventQueue.length > 0) return { text: `⚡ Processing ${eventQueue.length} event(s)...`, icon: <CloudCog size={18} className="animate-spin" /> };
     if (isTranscribing) return { text: "🎤 Transcribing...", icon: <Zap size={18} className="animate-pulse" /> };
-    if (isListening) return { text: "🎤 Listening (real-time)", icon: <Mic size={18} className="animate-pulse" /> };
-    return { text: "⚡ Ready - Fast Voice Input", icon: <Zap size={18} /> };
+    if (isListening) return { text: "🎤 Listening...", icon: <Mic size={18} className="animate-pulse" /> };
+    return { text: "⚡ Click to record event", icon: <Zap size={18} /> };
   }, [isModelLoading, eventQueue.length, isTranscribing, isListening]);
 
   const buttonConfig = useMemo(() => {
@@ -316,7 +310,7 @@ export function TrackerVoiceInput({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Zap className="h-5 w-5 text-blue-500" />
-          Real-time Match Events
+          Quick Voice Events
         </h3>
         <div className="flex gap-2">
           <button 
@@ -357,7 +351,7 @@ export function TrackerVoiceInput({
 
         {/* Quick Commands */}
         <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-          <p className="text-sm text-gray-600 mb-2 font-medium">Quick commands:</p>
+          <p className="text-sm text-gray-600 mb-2 font-medium">Say any of these:</p>
           <div className="flex flex-wrap gap-1">
             {assignedEventTypes.slice(0, 6).map(eventType => (
               <span key={eventType.key} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-medium">
