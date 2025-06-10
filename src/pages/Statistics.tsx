@@ -46,6 +46,37 @@ const Statistics = () => {
   const [loading, setLoading] = useState(true);
   const [allPlayersForMatch, setAllPlayersForMatch] = useState<Player[]>([]);
 
+  // Convert PlayerStatSummary to PlayerStatistics format
+  const convertToPlayerStatistics = (playerStats: AggPlayerStatSummary[]): PlayerStatistics[] => {
+    return playerStats.map(player => ({
+      playerId: player.playerId,
+      playerName: player.playerName,
+      team: player.team,
+      events: {
+        passes: { 
+          successful: player.passesCompleted || 0, 
+          attempted: player.passesAttempted || 0 
+        },
+        shots: { 
+          onTarget: player.shotsOnTarget || 0, 
+          offTarget: (player.shots || 0) - (player.shotsOnTarget || 0) 
+        },
+        tackles: { successful: player.tackles || 0, attempted: player.tackles || 0 },
+        fouls: player.foulsCommitted || 0,
+        cards: { yellow: player.yellowCards || 0, red: player.redCards || 0 },
+        goals: player.goals || 0,
+        assists: player.assists || 0
+      },
+      totalXg: player.totalXg,
+      progressivePasses: player.progressivePasses,
+      passesToFinalThird: player.passesToFinalThird,
+      passNetworkSent: player.passNetworkSent,
+      totalPressures: player.totalPressures,
+      successfulPressures: player.successfulPressures,
+      pressureRegains: player.pressureRegains
+    }));
+  };
+
   useEffect(() => {
     fetchMatches();
   }, []);
@@ -375,10 +406,10 @@ const Statistics = () => {
               </Card>
             </TabsContent>
 
-            {/* Performance Tab */}
+            {/* Performance Tab - Fixed the type conversion */}
             <TabsContent value="performance" className="space-y-6">
               <PlayerPerformanceChart
-                playerStats={playerStats}
+                playerStats={convertToPlayerStatistics(playerStats)}
                 homeTeamName={selectedMatchFullData.home_team_name}
                 awayTeamName={selectedMatchFullData.away_team_name}
               />
