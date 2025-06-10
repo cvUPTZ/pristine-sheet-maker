@@ -844,5 +844,3 @@ const CircularTimer: React.FC<{
 };
 
 export default TrackerPianoInput;
-
-</edits_to_apply>
