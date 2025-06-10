@@ -29,8 +29,8 @@ export const useWhisperJsSpeechRecognition = () => {
         env.remoteHost = 'https://huggingface.co/';
         env.remotePathTemplate = '{model}/resolve/{revision}/';
         
-        // Determine the best available device
-        const isWebGPUSupported = navigator.gpu !== undefined;
+        // Determine the best available device - check for WebGPU support safely
+        const isWebGPUSupported = typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu !== undefined;
         const device = isWebGPUSupported ? 'webgpu' : 'wasm';
         
         console.log(`Using device: ${device}`);

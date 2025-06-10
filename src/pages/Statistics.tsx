@@ -42,7 +42,7 @@ const Statistics = () => {
   });
   const [ballData, setBallData] = useState<any[]>([]);
   const [events, setEvents] = useState<MatchEvent[]>([]);
-  const [playerStats, setPlayerStats] = useState<PlayerStatistics[]>([]);
+  const [playerStats, setPlayerStats] = useState<AggPlayerStatSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [allPlayersForMatch, setAllPlayersForMatch] = useState<Player[]>([]);
 
@@ -184,31 +184,8 @@ const Statistics = () => {
             crosses: { home: {}, away: {} }
         });
 
-        // Convert PlayerStatSummary to PlayerStatistics format
-        const pagePlayerStats: PlayerStatistics[] = aggregatedData.playerStats.map((aggPlayer: AggPlayerStatSummary) => ({
-            playerId: aggPlayer.playerId,
-            playerName: aggPlayer.playerName,
-            team: aggPlayer.team,
-            teamId: aggPlayer.team,
-            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jerseyNumber),
-            events: {
-                passes: { successful: aggPlayer.passesCompleted, attempted: aggPlayer.passesAttempted },
-                shots: { onTarget: aggPlayer.shotsOnTarget, offTarget: aggPlayer.shots - aggPlayer.shotsOnTarget },
-                tackles: { successful: aggPlayer.tackles, attempted: aggPlayer.tackles },
-                goals: aggPlayer.goals,
-                assists: aggPlayer.assists,
-                fouls: aggPlayer.foulsCommitted,
-                cards: { yellow: aggPlayer.yellowCards, red: aggPlayer.redCards }
-            },
-            totalXg: aggPlayer.totalXg,
-            progressivePasses: aggPlayer.progressivePasses,
-            passesToFinalThird: aggPlayer.passesToFinalThird,
-            passNetworkSent: aggPlayer.passNetworkSent,
-            totalPressures: aggPlayer.totalPressures,
-            successfulPressures: aggPlayer.successfulPressures,
-            pressureRegains: aggPlayer.pressureRegains,
-        }));
-        setPlayerStats(pagePlayerStats);
+        // Use the PlayerStatSummary data directly from aggregator
+        setPlayerStats(aggregatedData.playerStats);
       }
 
       if (matchDetailData?.ball_tracking_data) {
@@ -511,23 +488,23 @@ const Statistics = () => {
                                 {player.team === 'home' ? selectedMatchFullData.home_team_name : selectedMatchFullData.away_team_name}
                               </span>
                             </td>
-                            <td className="text-center py-2 px-1">{player.events.passes.successful}/{player.events.passes.attempted}</td>
-                            <td className="text-center py-2 px-1">{player.events.passes.attempted > 0 ? `${Math.round((player.events.passes.successful / player.events.passes.attempted) * 100)}%` : '0%'}</td>
+                            <td className="text-center py-2 px-1">{player.passesCompleted}/{player.passesAttempted}</td>
+                            <td className="text-center py-2 px-1">{player.passesAttempted > 0 ? `${Math.round((player.passesCompleted / player.passesAttempted) * 100)}%` : '0%'}</td>
                             <td className="text-center py-2 px-1">{player.progressivePasses || 0}</td>
                             <td className="text-center py-2 px-1">{player.passesToFinalThird || 0}</td>
-                            <td className="text-center py-2 px-1">{player.events.shots.onTarget + player.events.shots.offTarget}</td>
-                            <td className="text-center py-2 px-1">{player.events.goals}</td>
-                            <td className="text-center py-2 px-1">{player.events.assists}</td>
+                            <td className="text-center py-2 px-1">{player.shots}</td>
+                            <td className="text-center py-2 px-1">{player.goals}</td>
+                            <td className="text-center py-2 px-1">{player.assists}</td>
                             <td className="text-center py-2 px-1">{player.totalXg?.toFixed(2) || '0.00'}</td>
                             <td className="text-center py-2 px-1">{player.totalPressures || 0}</td>
                             <td className="text-center py-2 px-1">{player.successfulPressures || 0}</td>
                             <td className="text-center py-2 px-1">{player.pressureRegains || 0}</td>
-                            <td className="text-center py-2 px-1">{player.events.fouls}</td>
+                            <td className="text-center py-2 px-1">{player.foulsCommitted}</td>
                             <td className="text-center py-2 px-1">
                               <div className="flex justify-center gap-1">
-                                {player.events.cards.yellow > 0 && <span className="bg-yellow-400 text-white px-1 py-0.5 rounded text-xs">{player.events.cards.yellow}Y</span>}
-                                {player.events.cards.red > 0 && <span className="bg-red-500 text-white px-1 py-0.5 rounded text-xs">{player.events.cards.red}R</span>}
-                                {player.events.cards.yellow === 0 && player.events.cards.red === 0 && <span className="text-gray-400">-</span>}
+                                {player.yellowCards > 0 && <span className="bg-yellow-400 text-white px-1 py-0.5 rounded text-xs">{player.yellowCards}Y</span>}
+                                {player.redCards > 0 && <span className="bg-red-500 text-white px-1 py-0.5 rounded text-xs">{player.redCards}R</span>}
+                                {player.yellowCards === 0 && player.redCards === 0 && <span className="text-gray-400">-</span>}
                               </div>
                             </td>
                           </tr>
