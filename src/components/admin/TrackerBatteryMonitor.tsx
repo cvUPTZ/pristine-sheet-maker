@@ -17,7 +17,20 @@ interface TrackerStatusDisplay {
   full_name?: string;
   batteryLevel: number | null;
   lastUpdatedAt: string | null;
+  chargingTimeInSeconds?: number | null;
+  dischargingTimeInSeconds?: number | null;
 }
+
+const formatSecondsToTime = (seconds: number | null | undefined): string => {
+  if (seconds === null || seconds === undefined || seconds <= 0) return ''; // Or 'N/A'
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  let parts = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (parts.length === 0 && seconds > 0) return '<1m'; // Handle case where time is < 1 minute but > 0
+  return parts.join(' ');
+};
 
 const TrackerBatteryMonitor: React.FC = () => {
   const [trackers, setTrackers] = useState<TrackerStatusDisplay[]>([]);
@@ -59,16 +72,31 @@ const TrackerBatteryMonitor: React.FC = () => {
       const trackersWithBattery = (trackersData || []).map(tracker => {
         let batteryLevel: number | null = null;
         let lastUpdatedAt: string | null = null;
+        let chargingTimeInSeconds: number | null = null;
+        let dischargingTimeInSeconds: number | null = null;
 
         // Get latest battery info from notifications
         const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
         if (latestBatteryInfo) {
           // Try to extract battery level from message
-          const match = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
-          if (match) {
-            batteryLevel = parseInt(match[1]);
+          const batteryMatch = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
+          if (batteryMatch) {
+            batteryLevel = parseInt(batteryMatch[1]);
           }
           lastUpdatedAt = latestBatteryInfo.created_at;
+
+          // Parse charging and discharging times
+          if (latestBatteryInfo.message) {
+            const chargingTimeMatch = latestBatteryInfo.message.match(/charging time: ([\d.]+|N\/A)s/);
+            if (chargingTimeMatch && chargingTimeMatch[1] !== 'N/A') {
+              chargingTimeInSeconds = parseFloat(chargingTimeMatch[1]);
+            }
+
+            const dischargingTimeMatch = latestBatteryInfo.message.match(/discharging time: ([\d.]+|N\/A)s/);
+            if (dischargingTimeMatch && dischargingTimeMatch[1] !== 'N/A') {
+              dischargingTimeInSeconds = parseFloat(dischargingTimeMatch[1]);
+            }
+          }
         }
 
         return {
@@ -77,7 +105,9 @@ const TrackerBatteryMonitor: React.FC = () => {
           email: tracker.email || undefined,
           full_name: tracker.full_name || undefined,
           batteryLevel,
-          lastUpdatedAt
+          lastUpdatedAt,
+          chargingTimeInSeconds,
+          dischargingTimeInSeconds
         };
       });
 
@@ -211,9 +241,21 @@ const TrackerBatteryMonitor: React.FC = () => {
                 <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>
                   <div className="flex items-center gap-2">
                     {getBatteryIcon(tracker.batteryLevel)}
-                    <Badge variant={getBatteryColor(tracker.batteryLevel) as any} className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
-                    </Badge>
+                    <div className="flex flex-col">
+                      <Badge variant={getBatteryColor(tracker.batteryLevel) as any} className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
+                        {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
+                      </Badge>
+                      {(tracker.chargingTimeInSeconds || tracker.dischargingTimeInSeconds) && (
+                        <div className={`text-xs text-gray-500 ${isMobile ? 'mt-0.5' : 'mt-0.5'}`}>
+                          {tracker.chargingTimeInSeconds && tracker.chargingTimeInSeconds > 0 && (
+                            <span>Full: {formatSecondsToTime(tracker.chargingTimeInSeconds)}</span>
+                          )}
+                          {tracker.dischargingTimeInSeconds && tracker.dischargingTimeInSeconds > 0 && (
+                            <span>Left: {formatSecondsToTime(tracker.dischargingTimeInSeconds)}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={`flex gap-2 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>

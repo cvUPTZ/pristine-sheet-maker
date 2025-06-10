@@ -29,6 +29,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
+import { useNetworkStatus } from './hooks/useNetworkStatus'; // Adjusted path
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,32 @@ const AppContent = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const isOnline = useNetworkStatus();
+
+  useEffect(() => {
+    console.log(`App component: Network is currently ${isOnline ? 'Online' : 'Offline'}`);
+  }, [isOnline]);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const registerServiceWorker = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          console.log('Service Worker: Registered successfully with scope:', registration.scope);
+        } catch (error) {
+          console.error('Service Worker: Registration failed:', error);
+        }
+      };
+      
+      // Register after the window has loaded to avoid contention for resources
+      if (document.readyState === 'complete') {
+        registerServiceWorker();
+      } else {
+        window.addEventListener('load', registerServiceWorker);
+        return () => window.removeEventListener('load', registerServiceWorker);
+      }
+    }
+  }, []); // Empty dependency array ensures this runs once on mount
 
   useEffect(() => {
     if (user && user.app_metadata?.role === 'tracker') {
