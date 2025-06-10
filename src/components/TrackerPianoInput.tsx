@@ -54,7 +54,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
-  const [pendingEvents, setPendingEvents] = useState<Map<string, { eventType: EnhancedEventType; timeout: NodeJS.Timeout; startTime: number }>>(new Map());
+  const [cancellableEvents, setCancellableEvents] = useState<any[]>([]); // New state for cancellable events
   const [showDelayedRecording, setShowDelayedRecording] = useState(false);
 
   const { toast } = useToast();
@@ -240,20 +240,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   };
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    const pendingKey = `${eventType.key}-${Date.now()}`;
-    
-    // Start the 10-second countdown
-    const startTime = Date.now();
-    const timeout = setTimeout(async () => {
-      // Record the event after 10 seconds
-      await executeEventRecord(eventType, pendingKey);
-    }, 10000);
-
-    // Add to pending events
-    setPendingEvents(prev => new Map(prev.set(pendingKey, { eventType, timeout, startTime })));
+    // Directly call executeEventRecord, removing pending logic
+    await executeEventRecord(eventType);
   };
 
-  const executeEventRecord = async (eventType: EnhancedEventType, pendingKey?: string) => {
+  const executeEventRecord = async (eventType: EnhancedEventType) => {
     setIsRecording(true);
     setRecordingEventType(eventType.key);
     broadcastStatus({ status: 'recording', timestamp: Date.now() });
@@ -266,6 +257,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     // If no player is selected, teamContext remains undefined, which is fine.
 
     try {
+      // const recordedEvent = await onRecordEvent(...); // This is the goal
+      // Temporary placeholder for now, assuming onRecordEvent will be updated
+      const simulatedRecordedEvent = { 
+          id: `db-id-${Date.now()}`, // This will be the actual DB ID
+          /* other properties that onRecordEvent might return */ 
+      };
+      
       await onRecordEvent( // Use the prop here
         eventType.key,
         selectedPlayer?.id, // Pass selected player's ID if a player is selected
@@ -276,53 +274,38 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         }
       );
       
-      // For local UI feedback (recent events list)
+      if (simulatedRecordedEvent) { // Check if event recording was successful
+        const newCancellableEvent = {
+            id: simulatedRecordedEvent.id,
+            eventTypeKey: eventType.key,
+            label: eventType.label,
+            timerStartTime: Date.now(),
+            player: selectedPlayer, // Store selected player for display if needed
+        };
+        setCancellableEvents(prev => [newCancellableEvent, ...prev.slice(0, 4)]);
+      }
+
+      // For local UI feedback (recent events list) - this can remain as is or be adapted
       const eventInfoForRecentList = {
-        id: `local-${Date.now()}-${eventType.key}`, // Temporary local ID
-        eventType: { key: eventType.key, label: eventType.label }, // Use the structure expected by recentEvents
-        player: selectedPlayer, // Keep the selected player object for display
+        // Use simulated ID if available, otherwise fallback to local
+        id: simulatedRecordedEvent?.id || `local-${Date.now()}-${eventType.key}`,
+        eventType: { key: eventType.key, label: eventType.label },
+        player: selectedPlayer,
         timestamp: Date.now()
       };
-      setLastRecordedEvent(eventInfoForRecentList); // Update last recorded event display
-      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]); // Update recent events list
-
-      // The main success toast is handled by onRecordEvent in TrackerInterface.
-      // Optionally, reset selections or provide further local feedback.
-      // E.g., clear selected player if events are usually one-off for a player selection:
-      // setSelectedPlayer(null);
-      // setSelectedTeam(null);
-      // However, users might want to record multiple events for the same player, so avoid auto-clearing for now.
+      setLastRecordedEvent(eventInfoForRecentList);
+      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]);
 
     } catch (error: any) {
       console.error('Error calling onRecordEvent from PianoInput:', error);
-      // Error toast is handled by onRecordEvent in TrackerInterface.
     } finally {
       setIsRecording(false);
       setRecordingEventType(null);
       broadcastStatus({ status: 'active', timestamp: Date.now() });
-      
-      // Remove from pending events if it exists
-      if (pendingKey) {
-        setPendingEvents(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(pendingKey);
-          return newMap;
-        });
-      }
     }
   };
 
-  const cancelPendingEvent = (pendingKey: string) => {
-    const pending = pendingEvents.get(pendingKey);
-    if (pending) {
-      clearTimeout(pending.timeout);
-      setPendingEvents(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(pendingKey);
-        return newMap;
-      });
-    }
-  };
+  // cancelPendingEvent function is removed
 
   const handleDelayedEventRecord = async (eventType: EnhancedEventType) => {
     await executeEventRecord(eventType);
@@ -704,10 +687,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
             
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
               {assignedEventTypes.map((eventType, index) => {
-                const pendingKey = Array.from(pendingEvents.keys()).find(key => 
-                  pendingEvents.get(key)?.eventType.key === eventType.key
-                );
-                const isPending = !!pendingKey;
+                // const pendingKey = Array.from(pendingEvents.keys()).find(key => 
+                //   pendingEvents.get(key)?.eventType.key === eventType.key
+                // );
+                // const isPending = !!pendingKey; // This logic is removed
                 
                 return (
                   <motion.div
@@ -721,8 +704,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                       stiffness: 300,
                       damping: 20
                     }}
-                    whileHover={{ scale: isPending ? 1 : 1.1, y: isPending ? 0 : -10 }}
-                    whileTap={{ scale: isPending ? 1 : 0.95 }}
+                    whileHover={{ scale: 1.1, y: -10 }} // Removed isPending condition
+                    whileTap={{ scale: 0.95 }} // Removed isPending condition
                     className="relative"
                   >
                     <div className="text-center">
@@ -730,12 +713,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                         <EventTypeSvg
                           eventType={eventType.key}
                           isRecording={recordingEventType === eventType.key}
-                          disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer) || isPending}
-                          onClick={() => !isPending && handleEventTypeClick(eventType)}
+                          disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)} // Removed isPending condition
+                          onClick={() => handleEventTypeClick(eventType)} // Removed isPending condition
                         />
                         
-                        {/* Circular Timer for Pending Events */}
-                        {isPending && pendingKey && (
+                        {/* Circular Timer for Pending Events - REMOVED */}
+                        {/* {isPending && pendingKey && (
                           <div className="absolute inset-0 flex items-center justify-center">
                             <CircularTimer
                               duration={10000}
@@ -743,7 +726,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                               onCancel={() => cancelPendingEvent(pendingKey)}
                             />
                           </div>
-                        )}
+                        )} */}
                       </div>
                       
                       <motion.div
@@ -812,6 +795,7 @@ const CircularTimer: React.FC<{
   return (
     <div className="relative w-20 h-20">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+        {/* Background circle */}
         <circle
           cx="50"
           cy="50"
@@ -819,8 +803,9 @@ const CircularTimer: React.FC<{
           stroke="currentColor"
           strokeWidth="8"
           fill="transparent"
-          className="text-red-200"
+          className="text-gray-300" // Adjusted color
         />
+        {/* Progress circle */}
         <circle
           cx="50"
           cy="50"
@@ -830,14 +815,15 @@ const CircularTimer: React.FC<{
           fill="transparent"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          className="text-red-500 transition-all duration-100 ease-linear"
+          className="text-blue-500 transition-all duration-100 ease-linear" // Adjusted color
         />
       </svg>
       <button
         onClick={onCancel}
-        className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 rounded-full hover:bg-opacity-100 transition-all"
+        // Adjusted styling for a generic cancel button, can be refined
+        className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-colors" 
       >
-        <span className="text-red-600 font-bold text-sm">Cancel</span>
+        <span className="text-red-500 font-semibold text-xs">Cancel</span>
       </button>
     </div>
   );
