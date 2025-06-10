@@ -9,7 +9,7 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo } from 'lucide-react';
+import { Undo, Clock, Plus } from 'lucide-react';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -54,6 +54,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
+  const [pendingEvents, setPendingEvents] = useState<Map<string, { eventType: EnhancedEventType; timeout: NodeJS.Timeout; startTime: number }>>(new Map());
+  const [showDelayedRecording, setShowDelayedRecording] = useState(false);
 
   const { toast } = useToast();
   const { user } = useAuth(); // user.id will be used for local checks, but trackerUserId for event is from TrackerInterface
@@ -238,6 +240,20 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   };
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
+    const pendingKey = `${eventType.key}-${Date.now()}`;
+    
+    // Start the 10-second countdown
+    const startTime = Date.now();
+    const timeout = setTimeout(async () => {
+      // Record the event after 10 seconds
+      await executeEventRecord(eventType, pendingKey);
+    }, 10000);
+
+    // Add to pending events
+    setPendingEvents(prev => new Map(prev.set(pendingKey, { eventType, timeout, startTime })));
+  };
+
+  const executeEventRecord = async (eventType: EnhancedEventType, pendingKey?: string) => {
     setIsRecording(true);
     setRecordingEventType(eventType.key);
     broadcastStatus({ status: 'recording', timestamp: Date.now() });
@@ -284,7 +300,33 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       setIsRecording(false);
       setRecordingEventType(null);
       broadcastStatus({ status: 'active', timestamp: Date.now() });
+      
+      // Remove from pending events if it exists
+      if (pendingKey) {
+        setPendingEvents(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(pendingKey);
+          return newMap;
+        });
+      }
     }
+  };
+
+  const cancelPendingEvent = (pendingKey: string) => {
+    const pending = pendingEvents.get(pendingKey);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      setPendingEvents(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(pendingKey);
+        return newMap;
+      });
+    }
+  };
+
+  const handleDelayedEventRecord = async (eventType: EnhancedEventType) => {
+    await executeEventRecord(eventType);
+    setShowDelayedRecording(false);
   };
 
   const handlePlayerSelect = (player: PlayerForPianoInput, team: 'home' | 'away') => {
@@ -365,7 +407,48 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const showPlayerSelection = totalAssignedPlayers > 1;
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 p-4">
+      {/* Delayed Recording Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setShowDelayedRecording(!showDelayedRecording)}
+          variant="outline"
+          size="sm"
+          className="text-orange-600 border-orange-300 hover:bg-orange-50"
+        >
+          <Clock className="h-4 w-4 mr-2" />
+          Add Delayed Event
+        </Button>
+      </div>
+
+      {/* Delayed Recording Panel */}
+      <AnimatePresence>
+        {showDelayedRecording && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-orange-50 border border-orange-200 rounded-lg p-4"
+          >
+            <h3 className="font-semibold text-orange-800 mb-3">Record Delayed Event</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+              {assignedEventTypes.map((eventType) => (
+                <Button
+                  key={`delayed-${eventType.key}`}
+                  onClick={() => handleDelayedEventRecord(eventType)}
+                  variant="outline"
+                  className="h-auto p-3 flex flex-col items-center gap-2"
+                  disabled={isRecording}
+                >
+                  <EventTypeSvg eventType={eventType.key} />
+                  <span className="text-xs">{eventType.label}</span>
+                </Button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Undo Button - Fixed position and easily accessible */}
       <motion.div
         className="fixed top-4 right-4 z-50"
@@ -620,51 +703,61 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
             </div>
             
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
-              {assignedEventTypes.map((eventType, index) => (
-                <motion.div
-                  key={eventType.key}
-                  initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    delay: index * 0.1,
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 20
-                  }}
-                  whileHover={{ scale: 1.1, y: -10 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative"
-                >
-                  <div className="text-center">
-                    <EventTypeSvg
-                      eventType={eventType.key}
-                      isRecording={recordingEventType === eventType.key}
-                      disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)}
-                      onClick={() => handleEventTypeClick(eventType)}
-                    />
-                    <motion.div
-                      className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                        {eventType.label}
-                      </span>
-                    </motion.div>
-                  </div>
-                  
-                  {recordingEventType === eventType.key && (
-                    <motion.div
-                      className="absolute -inset-4 rounded-full border-4 border-green-400"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.7, 1, 0.7]
-                      }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
-                    />
-                  )}
-                </motion.div>
-              ))}
+              {assignedEventTypes.map((eventType, index) => {
+                const pendingKey = Array.from(pendingEvents.keys()).find(key => 
+                  pendingEvents.get(key)?.eventType.key === eventType.key
+                );
+                const isPending = !!pendingKey;
+                
+                return (
+                  <motion.div
+                    key={eventType.key}
+                    initial={{ opacity: 0, scale: 0.5, y: 30 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ 
+                      duration: 0.4, 
+                      delay: index * 0.1,
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20
+                    }}
+                    whileHover={{ scale: isPending ? 1 : 1.1, y: isPending ? 0 : -10 }}
+                    whileTap={{ scale: isPending ? 1 : 0.95 }}
+                    className="relative"
+                  >
+                    <div className="text-center">
+                      <div className="relative">
+                        <EventTypeSvg
+                          eventType={eventType.key}
+                          isRecording={recordingEventType === eventType.key}
+                          disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer) || isPending}
+                          onClick={() => !isPending && handleEventTypeClick(eventType)}
+                        />
+                        
+                        {/* Circular Timer for Pending Events */}
+                        {isPending && pendingKey && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <CircularTimer
+                              duration={10000}
+                              startTime={pendingEvents.get(pendingKey)!.startTime}
+                              onCancel={() => cancelPendingEvent(pendingKey)}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <motion.div
+                        className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                          {eventType.label}
+                        </span>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
             
             {isRecording && (
@@ -690,4 +783,66 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   );
 };
 
+// Circular Timer Component
+const CircularTimer: React.FC<{
+  duration: number;
+  startTime: number;
+  onCancel: () => void;
+}> = ({ duration, startTime, onCancel }) => {
+  const [timeLeft, setTimeLeft] = useState(duration);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, duration - elapsed);
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [duration, startTime]);
+
+  const progress = timeLeft / duration;
+  const circumference = 2 * Math.PI * 45; // radius of 45
+  const strokeDashoffset = circumference * (1 - progress);
+
+  return (
+    <div className="relative w-20 h-20">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          stroke="currentColor"
+          strokeWidth="8"
+          fill="transparent"
+          className="text-red-200"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          stroke="currentColor"
+          strokeWidth="8"
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          className="text-red-500 transition-all duration-100 ease-linear"
+        />
+      </svg>
+      <button
+        onClick={onCancel}
+        className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 rounded-full hover:bg-opacity-100 transition-all"
+      >
+        <span className="text-red-600 font-bold text-sm">Cancel</span>
+      </button>
+    </div>
+  );
+};
+
 export default TrackerPianoInput;
+
+</edits_to_apply>

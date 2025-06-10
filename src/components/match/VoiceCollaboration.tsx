@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   LiveKitRoom,
@@ -32,6 +31,7 @@ import {
   ChevronUp,
   Headphones
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 // Mock hooks and services for demo
 const useVoiceCollaboration = ({ userId, userRole }: { userId: string; userRole: string }) => ({
@@ -97,11 +97,15 @@ const CompactAudioLevel = ({ level, size = 'sm' }: { level: number; size?: strin
 const ParticipantAvatar = ({ 
   participant, 
   userRole, 
-  isLocal 
+  isLocal,
+  canModerate,
+  onMuteToggle
 }: { 
   participant: LocalParticipant | RemoteParticipant; 
   userRole?: string; 
   isLocal: boolean;
+  canModerate?: boolean;
+  onMuteToggle?: (participantId: string, mute: boolean) => void;
 }) => {
   const initials = participant.name?.slice(0, 2).toUpperCase() || participant.identity?.slice(0, 2).toUpperCase() || 'U';
   const isMuted = participant.isMicrophoneEnabled === false;
@@ -129,6 +133,20 @@ const ParticipantAvatar = ({
           <Shield className="absolute -top-0.5 -right-0.5 w-3 h-3 text-blue-500" />
         )}
       </div>
+      
+      {/* Admin Controls */}
+      {canModerate && !isLocal && (
+        <div className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onMuteToggle?.(participant.identity, !isMuted)}
+            className="text-xs px-2 py-1 h-6"
+          >
+            {isMuted ? 'Unmute' : 'Mute'}
+          </Button>
+        </div>
+      )}
       
       {/* Tooltip */}
       <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
@@ -166,8 +184,28 @@ const VoiceCollaborationUI = ({
 
   const connectionState = useConnectionState();
   const { localParticipant } = useLocalParticipant();
-  const remoteParticipants = useParticipants();
-  const localAudioTrack = useTracks([Track.Source.Microphone], { onlySubscribed: false })[0];
+  const allParticipants = useParticipants();
+  
+  // Remove duplicates by using a Map with identity as key
+  const uniqueParticipants = React.useMemo(() => {
+    const participantMap = new Map();
+    
+    // Add local participant first
+    if (localParticipant) {
+      participantMap.set(localParticipant.identity, localParticipant);
+    }
+    
+    // Add remote participants, avoiding duplicates
+    allParticipants.forEach(participant => {
+      if (!participantMap.has(participant.identity)) {
+        participantMap.set(participant.identity, participant);
+      }
+    });
+    
+    return Array.from(participantMap.values());
+  }, [localParticipant, allParticipants]);
+
+  const canModerate = userRole === 'admin' || userRole === 'coordinator';
 
   useEffect(() => {
     // Simulate audio monitoring
@@ -180,8 +218,14 @@ const VoiceCollaborationUI = ({
     localParticipant?.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled);
   }, [localParticipant]);
 
+  const handleMuteToggle = useCallback(async (participantId: string, mute: boolean) => {
+    // In a real implementation, this would call the LiveKit admin API
+    console.log(`Admin ${mute ? 'muting' : 'unmuting'} participant:`, participantId);
+    // For now, just log the action - implement actual muting via LiveKit admin API
+  }, []);
+
   const isMuted = localParticipant?.isMicrophoneEnabled === false;
-  const participants = [localParticipant, ...remoteParticipants].filter(p => !!p);
+  const participants = [localParticipant, ...allParticipants].filter(p => !!p);
 
   const getConnectionColor = () => {
     if (connectionState === ConnectionState.Connected) return 'from-green-500 to-emerald-600';
@@ -201,7 +245,7 @@ const VoiceCollaborationUI = ({
       
       {/* Compact Header */}
       <div className={`
-        bg-gradient-to-r ${getConnectionColor()} p-3 text-white
+        bg-gradient-to-r ${getConnectionColor()} p-2 text-white
         transition-all duration-300
       `}>
         <div className="flex items-center justify-between">
@@ -216,7 +260,7 @@ const VoiceCollaborationUI = ({
           <div className="flex items-center gap-1">
             {/* Participant Count */}
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-white/20 text-white border-0">
-              {participants.length}
+              {uniqueParticipants.length}
             </Badge>
             
             {/* Quick Controls */}
@@ -224,7 +268,7 @@ const VoiceCollaborationUI = ({
               size="sm"
               variant="ghost"
               onClick={toggleMute}
-              className="w-7 h-7 p-0 text-white hover:bg-white/20"
+              className="w-6 h-6 p-0 text-white hover:bg-white/20"
             >
               {isMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
             </Button>
@@ -233,7 +277,7 @@ const VoiceCollaborationUI = ({
               size="sm"
               variant="ghost"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="w-7 h-7 p-0 text-white hover:bg-white/20"
+              className="w-6 h-6 p-0 text-white hover:bg-white/20"
             >
               {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </Button>
@@ -242,7 +286,7 @@ const VoiceCollaborationUI = ({
               size="sm"
               variant="ghost"
               onClick={onLeave}
-              className="w-7 h-7 p-0 text-white hover:bg-red-500/30"
+              className="w-6 h-6 p-0 text-white hover:bg-red-500/30"
             >
               <PhoneOff className="w-3 h-3" />
             </Button>
@@ -250,25 +294,27 @@ const VoiceCollaborationUI = ({
         </div>
 
         {/* Compact Participant Bar */}
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1 min-w-0 flex-1">
-            {participants.slice(0, 6).map((p) => (
+            {uniqueParticipants.slice(0, 4).map((p) => (
               <ParticipantAvatar
                 key={p.identity}
                 participant={p}
                 userRole={p.isLocal ? userRole : undefined}
                 isLocal={p.isLocal}
+                canModerate={canModerate}
+                onMuteToggle={handleMuteToggle}
               />
             ))}
-            {participants.length > 6 && (
-              <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center text-xs text-white">
-                +{participants.length - 6}
+            {uniqueParticipants.length > 4 && (
+              <div className="w-6 h-6 rounded-full bg-black/20 flex items-center justify-center text-xs text-white">
+                +{uniqueParticipants.length - 4}
               </div>
             )}
           </div>
           
           {/* Audio Level */}
-          <div className="flex items-center gap-1.5 ml-2">
+          <div className="flex items-center gap-1 ml-2">
             <Volume2 className="w-3 h-3 text-white/80" />
             <CompactAudioLevel level={isMuted ? 0 : localAudioLevel} size="xs" />
           </div>
@@ -281,7 +327,7 @@ const VoiceCollaborationUI = ({
           {/* Detailed Participant List */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-700">Participants</h4>
+              <h4 className="text-sm font-medium text-gray-700">Participants ({uniqueParticipants.length})</h4>
               <Button
                 size="sm"
                 variant="ghost"
@@ -292,13 +338,15 @@ const VoiceCollaborationUI = ({
               </Button>
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
-              {participants.map((p) => (
+            <div className="space-y-1">
+              {uniqueParticipants.map((p) => (
                 <div key={p.identity} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                   <ParticipantAvatar
                     participant={p}
                     userRole={p.isLocal ? userRole : undefined}
                     isLocal={p.isLocal}
+                    canModerate={canModerate}
+                    onMuteToggle={handleMuteToggle}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium text-gray-700 truncate">
@@ -308,6 +356,16 @@ const VoiceCollaborationUI = ({
                       <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>
                     )}
                   </div>
+                  {canModerate && !p.isLocal && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleMuteToggle(p.identity, !p.isMicrophoneEnabled)}
+                      className="text-xs px-2 py-1 h-6"
+                    >
+                      {p.isMicrophoneEnabled === false ? 'Unmute' : 'Mute'}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
