@@ -1,17 +1,8 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
-// import { pipeline,env  } from '@xenova/transformers';
-// Use dynamic import from a CDN
-const { pipeline, env } = await import('https://esm.sh/@xenova/transformers@2.17.2');
-env.remoteHost = 'https://huggingface.co/';
-
-// Specify a remote location for model files
-// env.remoteHost = 'https://huggingface.co/';
-env.remotePathTemplate = '{model}/resolve/{revision}/';
-
 
 // Define the type for the pipeline task
 type SpeechToTextPipeline = any; // Adjust if a more specific type is available from transformers.js
-
 
 export const useWhisperJsSpeechRecognition = () => {
   const [isModelLoading, setIsModelLoading] = useState(true);
@@ -31,10 +22,19 @@ export const useWhisperJsSpeechRecognition = () => {
     const initializePipeline = async () => {
       try {
         console.log('Initializing speech-to-text pipeline...');
-        // Load a small Whisper model (e.g., tiny or base)
-        // Using Xenova/whisper-tiny as an example. Other small models can be used.
-        // Models are loaded from Hugging Face hub.
-        transcriber.current = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+        
+        // Dynamic import to avoid build issues
+        const { pipeline, env } = await import('@huggingface/transformers');
+        
+        // Configure for browser usage
+        env.remoteHost = 'https://huggingface.co/';
+        env.remotePathTemplate = '{model}/resolve/{revision}/';
+        
+        // Load a small Whisper model
+        transcriber.current = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+          device: 'cpu', // Use CPU for better compatibility
+        });
+        
         setIsModelLoading(false);
         console.log('Speech-to-text pipeline initialized successfully.');
       } catch (e) {
@@ -43,6 +43,7 @@ export const useWhisperJsSpeechRecognition = () => {
         setIsModelLoading(false);
       }
     };
+    
     initializePipeline();
   }, []);
 
@@ -55,25 +56,14 @@ export const useWhisperJsSpeechRecognition = () => {
 
     try {
       const audioBuffer = await audioBlob.arrayBuffer();
-      const audioData = new Float32Array(audioBuffer.byteLength / 2); // Assuming 16-bit PCM
-
-      // This conversion might need to be more sophisticated depending on actual audio format
-      // For robust conversion, a library or detailed ArrayBuffer manipulation is needed
-      // The Whisper model expects Float32Array audio data, sampled at 16kHz
-      // MediaRecorder might provide a different format/sample rate.
-      // For this example, we'll assume the browser provides compatible audio or
-      // acknowledge this is a simplification.
-
-      // A more robust way to get AudioBuffer:
+      
+      // Create AudioContext for proper audio processing
       const audioContext = new AudioContext({ sampleRate: 16000 }); // Whisper expects 16kHz
       const decodedAudio = await audioContext.decodeAudioData(audioBuffer);
-      const monoAudioData = decodedAudio.getChannelData(0); // Assuming mono
+      const monoAudioData = decodedAudio.getChannelData(0); // Get mono channel
 
       console.log('Transcribing audio data...');
-      const output = await transcriber.current(monoAudioData, {
-        // chunk_length_s: 30, // if you want to specify chunk length
-        // stride_length_s: 5,  // if you want to specify stride length
-      });
+      const output = await transcriber.current(monoAudioData);
 
       const recognizedText = typeof output === 'string' ? output : (output as any)?.text || '';
       console.log('Transcription output:', recognizedText);
@@ -87,7 +77,6 @@ export const useWhisperJsSpeechRecognition = () => {
       setIsProcessing(false);
     }
   }, [isModelLoading]);
-
 
   const startListening = useCallback((onTranscriptCompleted: (transcript: string) => void) => {
     if (isModelLoading) {
@@ -116,7 +105,7 @@ export const useWhisperJsSpeechRecognition = () => {
         mediaRecorder.current.onstop = async () => {
           setIsListening(false);
           setIsProcessing(true);
-          const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' }); // Or other appropriate type
+          const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
           await processAudio(audioBlob);
           // Stop microphone tracks
           stream.getTracks().forEach(track => track.stop());
