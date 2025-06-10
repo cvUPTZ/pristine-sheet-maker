@@ -106,14 +106,12 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
   ];
 
   // Data for Radar chart (example) - can be expanded
-  homeTeamName,
-  awayTeamName,
-}) => {
-  const calculateRatio = (numerator: number, denominator: number): number => {
-    return denominator > 0 ? numerator / denominator : 0;
-  };
+  // This section was duplicated and is now removed.
+  // The correct definitions for radarChartData, chartConfig, and metrics
+  // are already present above in the main component scope.
+  // The JSX rendering code below this (now removed) duplicated block was also identical.
 
-  // Calculate all metrics first
+  // Calculate all metrics first for the Radar Chart
   const homePassAccuracy = calculateRatio(homeStats.passesCompleted || 0, homeStats.passesAttempted || 0) * 100;
   const awayPassAccuracy = calculateRatio(awayStats.passesCompleted || 0, awayStats.passesAttempted || 0) * 100;
 
@@ -123,55 +121,18 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
   const homeDuelSuccessRate = calculateRatio(homeStats.duelsWon || 0, (homeStats.duelsWon || 0) + (homeStats.duelsLost || 0)) * 100;
   const awayDuelSuccessRate = calculateRatio(awayStats.duelsWon || 0, (awayStats.duelsWon || 0) + (awayStats.duelsLost || 0)) * 100;
 
-  const homeBallLossRatio = calculateRatio(homeStats.ballsLost || 0, homeStats.ballsPlayed || 0) * 100;
-  const awayBallLossRatio = calculateRatio(awayStats.ballsLost || 0, awayStats.ballsPlayed || 0) * 100;
-  // For radar, higher is better. So, we might use (100 - BallLossRatio) for "Ball Retention"
+  // Using the already defined homeBallLossRatio and awayBallLossRatio from the top of the component
   const homeBallRetention = 100 - homeBallLossRatio;
   const awayBallRetention = 100 - awayBallLossRatio;
 
-  const totalRecoveries = (homeStats.ballsRecovered || 0) + (awayStats.ballsRecovered || 0);
-  const homeRecoveryShare = totalRecoveries > 0 ? ((homeStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
-  const awayRecoveryShare = totalRecoveries > 0 ? ((awayStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
-
-  const homeGoalsPerPossessionProxy = calculateRatio(homeStats.goals || 0, homeStats.possessionPercentage || 1);
-  const awayGoalsPerPossessionProxy = calculateRatio(awayStats.goals || 0, awayStats.possessionPercentage || 1);
-
-  const efficiencyMetrics = [
-    {
-      groupTitle: "Ball Retention & Loss",
-      metrics: [
-        { label: 'Ball Loss Ratio (%) (Lower is Better)', homeValue: homeBallLossRatio, awayValue: awayBallLossRatio, unit: '%' },
-      ]
-    },
-    {
-      groupTitle: "Recovery Efficiency",
-      metrics: [
-        { label: 'Total Balls Recovered', homeValue: homeStats.ballsRecovered || 0, awayValue: awayStats.ballsRecovered || 0 },
-        { label: 'Share of Total Recoveries (%)', homeValue: homeRecoveryShare, awayValue: awayRecoveryShare, unit: '%' },
-        // RecoveryRateVsOpponent might have very large % if opponent ballsPlayed is low, so using share for radar.
-      ]
-    },
-    {
-      groupTitle: "Possession Efficiency (Proxies based on Possession %)",
-      metrics: [
-        { label: 'Goals per 1% Possession', homeValue: homeGoalsPerPossessionProxy, awayValue: awayGoalsPerPossessionProxy },
-        { label: 'Shots per 1% Possession', homeValue: calculateRatio(homeStats.shots || 0, homeStats.possessionPercentage || 1), awayValue: calculateRatio(awayStats.shots || 0, awayStats.possessionPercentage || 1) },
-      ]
-    }
-  ];
-
-  const successfulPassCounts = [
-    { label: "Long Passes", homeValue: homeStats.longPasses || 0, awayValue: awayStats.longPasses || 0 },
-    { label: "Forward Passes", homeValue: homeStats.forwardPasses || 0, awayValue: awayStats.forwardPasses || 0 },
-    { label: "Backward Passes", homeValue: homeStats.backwardPasses || 0, awayValue: awayStats.backwardPasses || 0 },
-    { label: "Lateral Passes", homeValue: homeStats.lateralPasses || 0, awayValue: awayStats.lateralPasses || 0 },
-  ];
+  // Using the already defined homeRecoveryShare and awayRecoveryShare
+  // Using the already defined homeGoalsPerPossessionProxy and awayGoalsPerPossessionProxy
 
   const radarChartData = [
     { subject: 'Pass Acc.', [homeTeamName]: homePassAccuracy, [awayTeamName]: awayPassAccuracy, fullMark: 100 },
-    { subject: 'Shot Conv.', [homeTeamName]: homeShotConversion, [awayTeamName]: awayShotConversion, fullMark: Math.max(25, homeShotConversion, awayShotConversion) }, // Max 25% or actual max
+    { subject: 'Shot Conv.', [homeTeamName]: homeShotConversion, [awayTeamName]: awayShotConversion, fullMark: Math.max(25, homeShotConversion, awayShotConversion) },
     { subject: 'Duel Win %', [homeTeamName]: homeDuelSuccessRate, [awayTeamName]: awayDuelSuccessRate, fullMark: 100 },
-    { subject: 'Retention', [homeTeamName]: homeBallRetention, [awayTeamName]: awayBallRetention, fullMark: 100 }, // Higher is better
+    { subject: 'Retention', [homeTeamName]: homeBallRetention, [awayTeamName]: awayBallRetention, fullMark: 100 },
     { subject: 'Rec. Share', [homeTeamName]: homeRecoveryShare, [awayTeamName]: awayRecoveryShare, fullMark: 100 },
     { subject: 'Goals/Poss%', [homeTeamName]: homeGoalsPerPossessionProxy, [awayTeamName]: awayGoalsPerPossessionProxy, fullMark: Math.max(1, homeGoalsPerPossessionProxy, awayGoalsPerPossessionProxy)},
   ];
