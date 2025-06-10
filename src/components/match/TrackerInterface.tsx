@@ -133,6 +133,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
   ): Promise<any | null> => {
+    // console.log('[handleRecordEvent] Called with:', { eventTypeKey, playerId, teamContext, details }); // Removed diagnostic log
     const eventToInsert = {
       match_id: matchId,
       event_type: eventTypeKey,
@@ -143,14 +144,17 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       coordinates: details?.coordinates || null,
       event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
     };
+    // console.log('[handleRecordEvent] Attempting to insert event:', eventToInsert); // Removed diagnostic log
 
     const { data: insertedEvents, error: dbError } = await supabase
       .from('match_events')
       .insert([eventToInsert])
       .select();
 
+    // console.log('[handleRecordEvent] Supabase response:', { insertedEvents, dbError }); // Removed diagnostic log
+
     if (dbError) {
-      console.error('Error recording event in TrackerInterface:', dbError);
+      console.error('[handleRecordEvent] Error recording event in TrackerInterface:', dbError);
       toast({
         title: 'Error Recording Event',
         description: dbError.message,
@@ -158,12 +162,36 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       });
       return null;
     } else {
+      // console.log('[handleRecordEvent] Supabase insert reported success (no dbError). Response:', { insertedEvents }); // Removed diagnostic log
+
+      if (!insertedEvents || insertedEvents.length === 0) {
+        // console.warn('[handleRecordEvent] No dbError, but insertedEvents is null or empty.', { insertedEvents }); // Removed diagnostic log
+        toast({
+          title: 'Event Recording Issue',
+          description: 'Event was reportedly saved, but no confirmation data was received.',
+          variant: 'warning',
+        });
+        return null;
+      }
+
+      const newEvent = insertedEvents[0];
+      if (!newEvent || !newEvent.id) {
+        // console.warn('[handleRecordEvent] No dbError and insertedEvents found, but the first event is invalid or has no ID.', { newEvent }); // Removed diagnostic log
+        toast({
+          title: 'Event ID Missing',
+          description: 'Event was saved, but its ID could not be confirmed. Cancellation might be affected.',
+          variant: 'warning',
+        });
+        return null;
+      }
+
+      // If everything is fine
+      // console.log('[handleRecordEvent] Event recorded successfully and ID found. Returning event:', newEvent); // Removed diagnostic log
       toast({
         title: 'Event Recorded Successfully',
-        description: `${eventTypeKey} event recorded.`,
+        description: `${eventTypeKey} event recorded. ID: ${newEvent.id}`,
       });
-      // console.log('Event recorded successfully, returning:', insertedEvents?.[0]);
-      return insertedEvents?.[0];
+      return newEvent;
     }
   };
   // --- End Centralized Event Recording ---
