@@ -184,6 +184,7 @@ const Statistics = () => {
             crosses: { home: {}, away: {} }
         });
 
+        // Convert PlayerStatSummary to PlayerStatistics format
         const pagePlayerStats: PlayerStatistics[] = aggregatedData.playerStats.map((aggPlayer: AggPlayerStatSummary) => ({
             playerId: aggPlayer.playerId,
             playerName: aggPlayer.playerName,
@@ -193,11 +194,11 @@ const Statistics = () => {
             events: {
                 passes: { successful: aggPlayer.passesCompleted, attempted: aggPlayer.passesAttempted },
                 shots: { onTarget: aggPlayer.shotsOnTarget, offTarget: aggPlayer.shots - aggPlayer.shotsOnTarget },
+                tackles: { successful: aggPlayer.tackles, attempted: aggPlayer.tackles },
                 goals: aggPlayer.goals,
                 assists: aggPlayer.assists,
                 fouls: aggPlayer.foulsCommitted,
-                cards: { yellow: aggPlayer.yellowCards, red: aggPlayer.redCards },
-                tackles: { successful: aggPlayer.tackles, attempted: aggPlayer.tackles }
+                cards: { yellow: aggPlayer.yellowCards, red: aggPlayer.redCards }
             },
             totalXg: aggPlayer.totalXg,
             progressivePasses: aggPlayer.progressivePasses,
