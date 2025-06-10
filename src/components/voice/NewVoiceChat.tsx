@@ -4,36 +4,31 @@ import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
 import { toast } from '@/components/ui/sonner';
 
-// Compact styling
+// Enhanced styling
 const styles = {
   container: {
     fontFamily: 'Arial, sans-serif',
-    padding: '16px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
+    padding: '20px',
+    maxWidth: '700px',
+    margin: '20px auto',
+    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+    borderRadius: '8px',
     background: '#fff',
   },
   section: {
-    marginBottom: '16px',
-    padding: '12px',
+    marginBottom: '25px',
+    padding: '15px',
     border: '1px solid #e0e0e0',
-    borderRadius: '4px',
-    background: '#f9f9f9',
-  },
-  compactSection: {
-    marginBottom: '12px',
-    padding: '8px',
-    border: '1px solid #e0e0e0',
-    borderRadius: '4px',
+    borderRadius: '6px',
     background: '#f9f9f9',
   },
   sectionTitle: {
-    fontSize: '1em',
+    fontSize: '1.2em',
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: '8px',
+    marginBottom: '10px',
     borderBottom: '1px solid #eee',
-    paddingBottom: '4px',
+    paddingBottom: '5px',
   },
   roomList: {
     listStyle: 'none',
@@ -43,59 +38,56 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '8px',
+    padding: '10px',
     borderBottom: '1px solid #e8e8e8',
-    fontSize: '0.9em',
+    transition: 'background-color 0.2s ease',
+  },
+  roomItemHover: {
+    backgroundColor: '#f0f0f0',
   },
   participantList: {
     listStyle: 'none',
     padding: '0'
   },
   participantItem: {
-    padding: '6px 4px',
+    padding: '8px 5px',
     color: '#444',
     borderBottom: '1px dashed #eee',
     display: 'flex',
     alignItems: 'center',
-    fontSize: '0.85em',
   },
   participantName: {
     flexGrow: 1,
   },
   speakingIndicator: {
-    width: '8px',
-    height: '8px',
+    width: '10px',
+    height: '10px',
     borderRadius: '50%',
     backgroundColor: 'green',
-    marginLeft: '8px',
+    marginLeft: '10px',
     display: 'inline-block',
     animation: 'pulse 1s infinite',
   },
   mutedIndicator: {
-    marginLeft: '8px',
-    fontSize: '0.75em',
+    marginLeft: '10px',
+    fontSize: '0.8em',
     color: '#777',
   },
   localUserIndicator: {
-    fontSize: '0.75em',
+    fontSize: '0.8em',
     color: '#007bff',
-    marginLeft: '4px',
+    marginLeft: '5px',
   },
   button: {
-    padding: '6px 12px',
-    marginRight: '8px',
+    padding: '10px 15px',
+    marginRight: '10px',
     cursor: 'pointer',
     border: 'none',
     borderRadius: '4px',
     backgroundColor: '#007bff',
     color: 'white',
-    fontSize: '0.8em',
+    fontSize: '0.9em',
     transition: 'background-color 0.2s ease',
-  },
-  smallButton: {
-    padding: '4px 8px',
-    marginLeft: '8px',
-    fontSize: '0.75em',
   },
   buttonDisabled: {
     backgroundColor: '#cccccc',
@@ -105,36 +97,33 @@ const styles = {
     backgroundColor: '#dc3545',
   },
   statusMessage: {
-    padding: '8px',
-    margin: '8px 0',
+    padding: '10px',
+    margin: '10px 0',
     borderRadius: '4px',
     textAlign: 'center' as const,
-    fontSize: '0.85em',
   },
   error: {
     color: '#721c24',
     backgroundColor: '#f8d7da',
     borderColor: '#f5c6cb',
-    padding: '8px',
-    margin: '8px 0',
+    padding: '10px',
+    margin: '10px 0',
     borderRadius: '4px',
     textAlign: 'center' as const,
-    fontSize: '0.85em',
   },
   info: {
     color: '#004085',
     backgroundColor: '#cce5ff',
     borderColor: '#b8daff',
-    padding: '8px',
-    margin: '8px 0',
+    padding: '10px',
+    margin: '10px 0',
     borderRadius: '4px',
     textAlign: 'center' as const,
-    fontSize: '0.85em',
   },
   loadingText: {
     textAlign: 'center' as const,
-    padding: '16px',
-    fontSize: '0.9em',
+    padding: '20px',
+    fontSize: '1em',
     color: '#555',
   }
 };
@@ -199,12 +188,13 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
   };
 
   const renderConnectionState = () => {
-    if (isConnecting) return <p style={{...styles.statusMessage, ...styles.info}}>Connecting...</p>;
-    if (isConnected) return <p style={{...styles.statusMessage, ...styles.info}}>Connected: {currentRoomId}</p>;
+    if (isConnecting) return <p style={{...styles.statusMessage, ...styles.info}}>Connecting to room...</p>;
+    if (isConnected) return <p style={{...styles.statusMessage, ...styles.info}}>Connected to room: {currentRoomId}</p>;
     if (connectionState === ConnectionState.Disconnected && currentRoomId) {
-      return <p style={{...styles.statusMessage, ...styles.info}}>Disconnected from {currentRoomId}</p>;
+      return <p style={{...styles.statusMessage, ...styles.info}}>Disconnected from {currentRoomId}.</p>;
     }
-    return null;
+    if (connectionState === ConnectionState.Disconnected) return <p style={{...styles.statusMessage, ...styles.info}}>Disconnected</p>;
+    return <p style={{...styles.statusMessage, ...styles.info}}>Connection: {connectionState ?? 'Initializing...'}</p>;
   };
 
   const canModerate = userRole === 'admin' || userRole === 'coordinator';
@@ -214,13 +204,14 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
       const localP = localParticipant as LocalParticipant;
       return !localP.isMicrophoneEnabled;
     }
+    // For remote participants, check if they have audio tracks enabled
     const audioTrackPublications = Array.from(participant.audioTrackPublications.values());
     return audioTrackPublications.length === 0 || audioTrackPublications.some(pub => pub.isMuted);
   };
 
   const isParticipantSpeaking = (participant: Participant): boolean => {
     const audioLevel = getAudioLevel(participant.identity);
-    return audioLevel > 0.1 && !isParticipantMuted(participant);
+    return audioLevel > 0.1 && !isParticipantMuted(participant); // Threshold for speaking detection
   };
 
   return (
@@ -230,23 +221,26 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
         {renderConnectionState()}
 
         {!isConnected && !isConnecting && (
-          <div style={styles.compactSection}>
-            <h3 style={styles.sectionTitle}>Voice Rooms</h3>
-            {isLoadingRooms && <p style={styles.loadingText}>Loading...</p>}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>Available Rooms for Match: {matchId}</h2>
+            {isLoadingRooms && <p style={styles.loadingText}>Loading rooms...</p>}
             {!isLoadingRooms && availableRooms.length === 0 && (
-              <p style={{fontSize: '0.85em'}}>No rooms available.</p>
+              <p>No voice rooms currently available for this match.</p>
             )}
             {!isLoadingRooms && availableRooms.length > 0 && (
               <ul style={styles.roomList}>
                 {availableRooms.map(room => (
-                  <li key={room.id} style={styles.roomItem}>
-                    <span>{room.name}</span>
+                  <li key={room.id} style={styles.roomItem}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = styles.roomItemHover.backgroundColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <span>{room.name} <small>(ID: {room.id})</small></span>
                     <button
                       onClick={() => handleJoinRoom(room.id)}
                       style={isConnecting ? {...styles.button, ...styles.buttonDisabled} : styles.button}
                       disabled={isConnecting}
                     >
-                      Join
+                      Join Room
                     </button>
                   </li>
                 ))}
@@ -256,27 +250,23 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
         )}
 
         {isConnected && currentRoomId && (
-          <div style={styles.compactSection}>
-            <h3 style={styles.sectionTitle}>Room: {currentRoomId}</h3>
-            <div style={{marginBottom: '12px'}}>
-              <button
-                onClick={leaveRoom}
-                style={{...styles.button, ...styles.leaveButton}}
-              >
-                Leave
-              </button>
-              <button
-                onClick={toggleMuteSelf}
-                style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
-                disabled={!localParticipant}
-              >
-                {isParticipantMuted(localParticipant!) ? 'Unmute' : 'Mute'}
-              </button>
-            </div>
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>In Room: {currentRoomId}</h2>
+            <button
+              onClick={leaveRoom}
+              style={{...styles.button, ...styles.leaveButton}}
+            >
+              Leave Room
+            </button>
+            <button
+              onClick={toggleMuteSelf}
+              style={localParticipant ? styles.button : {...styles.button, ...styles.buttonDisabled}}
+              disabled={!localParticipant}
+            >
+              {isParticipantMuted(localParticipant!) ? 'Unmute Self' : 'Mute Self'}
+            </button>
 
-            <h4 style={{...styles.sectionTitle, marginTop: '12px', fontSize: '0.9em'}}>
-              Participants ({participants.length})
-            </h4>
+            <h3 style={{...styles.sectionTitle, marginTop: '20px'}}>Participants ({participants.length})</h3>
             <ul style={styles.participantList}>
               {participants.map(p => {
                 const isMuted = isParticipantMuted(p);
@@ -290,14 +280,14 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                     {isMuted && <span style={styles.mutedIndicator}>(Muted)</span>}
                     {isSpeaking && !isMuted && <span style={styles.speakingIndicator} title="Speaking"></span>}
                     
-                    {/* Compact audio level indicator */}
+                    {/* Audio level indicator */}
                     {!isMuted && (
                       <div style={{
-                        marginLeft: '8px',
-                        width: '20px',
-                        height: '3px',
+                        marginLeft: '10px',
+                        width: '30px',
+                        height: '4px',
                         backgroundColor: '#eee',
-                        borderRadius: '1px',
+                        borderRadius: '2px',
                         overflow: 'hidden'
                       }}>
                         <div style={{
@@ -314,10 +304,10 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                         onClick={async () => {
                           const success = await moderateMuteParticipant(p.identity, !isMuted);
                           if (!success) {
-                            toast.error('Failed to moderate participant.');
+                            toast.error('Failed to moderate participant. This feature may require server-side implementation.');
                           }
                         }}
-                        style={{...styles.button, ...styles.smallButton}}
+                        style={{...styles.button, marginLeft: '10px', fontSize: '0.8em', padding: '5px 8px'}}
                         title={isMuted ? `Unmute ${p.name || p.identity}` : `Mute ${p.name || p.identity}`}
                       >
                         {isMuted ? 'Unmute' : 'Mute'}
@@ -327,6 +317,16 @@ export const NewVoiceChat: React.FC<NewVoiceChatProps> = ({ matchId, userId, use
                 );
               })}
             </ul>
+
+            {/* Real-time audio levels debug info */}
+            <div style={{...styles.section, marginTop: '20px'}}>
+              <h4 style={styles.sectionTitle}>Audio Levels (Debug)</h4>
+              {Array.from(audioLevels.entries()).map(([participantId, level]) => (
+                <div key={participantId} style={{fontSize: '0.8em', color: '#666'}}>
+                  {participantId}: {(level * 100).toFixed(1)}%
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
