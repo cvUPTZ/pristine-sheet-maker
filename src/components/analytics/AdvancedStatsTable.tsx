@@ -2,10 +2,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Statistics } from '@/types';
+import { Statistics as StatisticsType, TeamDetailedStats } from '@/types'; // Use StatisticsType
 
 interface AdvancedStatsTableProps {
-  statistics: Statistics;
+  statistics: StatisticsType; // This now contains home: TeamDetailedStats, away: TeamDetailedStats
   homeTeamName: string;
   awayTeamName: string;
 }
@@ -15,70 +15,98 @@ const AdvancedStatsTable: React.FC<AdvancedStatsTableProps> = ({
   homeTeamName,
   awayTeamName,
 }) => {
-  const calculatePassAccuracy = (successful: number = 0, total: number = 0) => {
-    return total > 0 ? Math.round((successful / total) * 100) : 0;
-  };
+  if (!statistics || !statistics.home || !statistics.away) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Advanced Statistics Comparison</CardTitle></CardHeader>
+        <CardContent><p className="text-center text-muted-foreground">Not enough data for advanced table.</p></CardContent>
+      </Card>
+    );
+  }
 
-  const calculateShotAccuracy = (onTarget: number = 0, total: number = 0) => {
-    return total > 0 ? Math.round((onTarget / total) * 100) : 0;
+  const { home: homeStats, away: awayStats } = statistics;
+
+  const calculatePercentage = (value: number, total: number) => {
+    return total > 0 ? Math.round((value / total) * 100) : 0;
   };
 
   const advancedMetrics = [
-    {
-      metric: 'Duel Success Rate',
-      home: statistics.duels?.home?.total ? 
-        Math.round(((statistics.duels.home.won || 0) / statistics.duels.home.total) * 100) : 0,
-      away: statistics.duels?.away?.total ? 
-        Math.round(((statistics.duels.away.won || 0) / statistics.duels.away.total) * 100) : 0,
-      unit: '%'
-    },
-    {
-      metric: 'Cross Accuracy',
-      home: statistics.crosses?.home?.total ? 
-        Math.round(((statistics.crosses.home.successful || 0) / statistics.crosses.home.total) * 100) : 0,
-      away: statistics.crosses?.away?.total ? 
-        Math.round(((statistics.crosses.away.successful || 0) / statistics.crosses.away.total) * 100) : 0,
-      unit: '%'
-    },
+    // Passing
     {
       metric: 'Pass Accuracy',
-      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.successful || 0),
-      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.successful || 0),
+      home: calculatePercentage(homeStats.passesCompleted, homeStats.passesAttempted),
+      away: calculatePercentage(awayStats.passesCompleted, awayStats.passesAttempted),
+      unit: '%'
+    },
+    { metric: 'Passes Attempted', home: homeStats.passesAttempted || 0, away: awayStats.passesAttempted || 0, unit: '' },
+    { metric: 'Passes Completed', home: homeStats.passesCompleted || 0, away: awayStats.passesCompleted || 0, unit: '' },
+    { metric: 'Support Passes', home: homeStats.supportPasses || 0, away: awayStats.supportPasses || 0, unit: '' },
+    { metric: 'Offensive Passes', home: homeStats.offensivePasses || 0, away: awayStats.offensivePasses || 0, unit: '' },
+    { metric: 'Forward Passes', home: homeStats.forwardPasses || 0, away: awayStats.forwardPasses || 0, unit: '' },
+    { metric: 'Backward Passes', home: homeStats.backwardPasses || 0, away: awayStats.backwardPasses || 0, unit: '' },
+    { metric: 'Lateral Passes', home: homeStats.lateralPasses || 0, away: awayStats.lateralPasses || 0, unit: '' },
+    { metric: 'Long Passes', home: homeStats.longPasses || 0, away: awayStats.longPasses || 0, unit: '' },
+    { metric: 'Decisive Passes', home: homeStats.decisivePasses || 0, away: awayStats.decisivePasses || 0, unit: '' },
+    {
+      metric: 'Cross Accuracy',
+      home: calculatePercentage(homeStats.successfulCrosses, homeStats.crosses),
+      away: calculatePercentage(awayStats.successfulCrosses, awayStats.crosses),
+      unit: '%'
+    },
+    { metric: 'Attempted Crosses', home: homeStats.crosses || 0, away: awayStats.crosses || 0, unit: '' },
+    { metric: 'Successful Crosses', home: homeStats.successfulCrosses || 0, away: awayStats.successfulCrosses || 0, unit: '' },
+
+    // Shooting
+    {
+      metric: 'Shot Accuracy (On Target / Total)',
+      home: calculatePercentage(homeStats.shotsOnTarget, homeStats.shots),
+      away: calculatePercentage(awayStats.shotsOnTarget, awayStats.shots),
       unit: '%'
     },
     {
-      metric: 'Shot Accuracy',
-      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.onTarget || 0),
-      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.onTarget || 0),
+      metric: 'Goal Conversion (Goals / Total Shots)',
+      home: calculatePercentage(homeStats.goals, homeStats.shots),
+      away: calculatePercentage(awayStats.goals, awayStats.shots),
       unit: '%'
     },
+    { metric: 'Total Shots', home: homeStats.shots || 0, away: awayStats.shots || 0, unit: '' },
+    { metric: 'Shots On Target', home: homeStats.shotsOnTarget || 0, away: awayStats.shotsOnTarget || 0, unit: '' },
+    { metric: 'Total xG', home: parseFloat((homeStats.totalXg || 0).toFixed(2)), away: parseFloat((awayStats.totalXg || 0).toFixed(2)), unit: '' },
+    { metric: 'Goals', home: homeStats.goals || 0, away: awayStats.goals || 0, unit: '' },
+    // Detailed Shot Breakdowns (Counts)
+    { metric: 'Foot Shots On Target', home: homeStats.footShotsOnTarget || 0, away: awayStats.footShotsOnTarget || 0, unit: '' },
+    { metric: 'Header Shots On Target', home: homeStats.headerShotsOnTarget || 0, away: awayStats.headerShotsOnTarget || 0, unit: '' },
+    { metric: 'Shots Hit Post (Foot+Header)', home: (homeStats.footShotsPostHits || 0) + (homeStats.headerShotsPostHits || 0), away: (awayStats.footShotsPostHits || 0) + (awayStats.headerShotsPostHits || 0), unit: '' },
+    { metric: 'Shots Blocked (Foot+Header)', home: (homeStats.footShotsBlocked || 0) + (homeStats.headerShotsBlocked || 0), away: (awayStats.footShotsBlocked || 0) + (awayStats.headerShotsBlocked || 0), unit: '' },
+    { metric: 'Dangerous Foot Shots', home: homeStats.dangerousFootShots || 0, away: awayStats.dangerousFootShots || 0, unit: '' },
+    { metric: 'Dangerous Header Shots', home: homeStats.dangerousHeaderShots || 0, away: awayStats.dangerousHeaderShots || 0, unit: '' },
+
+    // Duels & Ball Control
     {
-      metric: 'Total Passes',
-      home: statistics.passes?.home?.successful || 0,
-      away: statistics.passes?.away?.successful || 0,
-      unit: ''
+      metric: 'Duel Success Rate',
+      home: calculatePercentage(homeStats.duelsWon, (homeStats.duelsWon || 0) + (homeStats.duelsLost || 0)),
+      away: calculatePercentage(awayStats.duelsWon, (awayStats.duelsWon || 0) + (awayStats.duelsLost || 0)),
+      unit: '%'
     },
-    {
-      metric: 'Total Shots',
-      home: statistics.shots?.home?.onTarget || 0,
-      away: statistics.shots?.away?.onTarget || 0,
-      unit: ''
-    },
-    {
-      metric: 'Fouls Committed',
-      home: statistics.fouls?.home || 0,
-      away: statistics.fouls?.away || 0,
-      unit: ''
-    },
-    {
-      metric: 'Corner Kicks',
-      home: statistics.corners?.home || 0,
-      away: statistics.corners?.away || 0,
-      unit: ''
-    }
+    { metric: 'Duels Won', home: homeStats.duelsWon || 0, away: awayStats.duelsWon || 0, unit: '' },
+    { metric: 'Aerial Duels Won', home: homeStats.aerialDuelsWon || 0, away: awayStats.aerialDuelsWon || 0, unit: '' },
+    { metric: 'Balls Played', home: homeStats.ballsPlayed || 0, away: awayStats.ballsPlayed || 0, unit: '' },
+    { metric: 'Balls Recovered', home: homeStats.ballsRecovered || 0, away: awayStats.ballsRecovered || 0, unit: '' },
+    { metric: 'Balls Lost (Turnovers)', home: homeStats.ballsLost || 0, away: awayStats.ballsLost || 0, unit: '' },
+    { metric: 'Contacts', home: homeStats.contacts || 0, away: awayStats.contacts || 0, unit: '' },
+    { metric: 'Successful Dribbles', home: homeStats.successfulDribbles || 0, away: awayStats.successfulDribbles || 0, unit: '' },
+
+    // Discipline & Set Pieces
+    { metric: 'Fouls Committed', home: homeStats.foulsCommitted || 0, away: awayStats.foulsCommitted || 0, unit: '' },
+    { metric: 'Yellow Cards', home: homeStats.yellowCards || 0, away: awayStats.yellowCards || 0, unit: '' },
+    { metric: 'Red Cards', home: homeStats.redCards || 0, away: awayStats.redCards || 0, unit: '' },
+    { metric: 'Corners', home: homeStats.corners || 0, away: awayStats.corners || 0, unit: '' },
+    { metric: 'Offsides', home: homeStats.offsides || 0, away: awayStats.offsides || 0, unit: '' },
+    { metric: 'Free Kicks Awarded', home: homeStats.freeKicks || 0, away: awayStats.freeKicks || 0, unit: '' },
+    { metric: '6-Meter Violations', home: homeStats.sixMeterViolations || 0, away: awayStats.sixMeterViolations || 0, unit: '' },
   ];
 
-  const getPerformanceBadge = (homeValue: number, awayValue: number, isHome: boolean) => {
+  const getPerformanceBadge = (homeValue: number, awayValue: number, isHome: boolean, lowerIsBetter: boolean = false) => {
     const value = isHome ? homeValue : awayValue;
     const opponent = isHome ? awayValue : homeValue;
     

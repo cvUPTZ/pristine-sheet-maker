@@ -5,6 +5,7 @@ import { ShotEventData } from '@/types/eventData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Target } from 'lucide-react'; // Import Target icon
 
 // Define pitch dimensions (can be props or constants)
 const DEFAULT_PITCH_LENGTH = 105;
@@ -60,6 +61,35 @@ const ShotMap: React.FC<ShotMapProps> = ({
   const goalHeight = 7.32 * (pitchWidth / 68); // Scale goal height to pitch width
   const goalYTop = 5 + (pitchWidth / 2) - (goalHeight / 2);
 
+  if (filteredShots.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Shot Map</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Select value={filterTeam} onValueChange={(value) => setFilterTeam(value as 'all' | 'home' | 'away')}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  <SelectItem value="home">{homeTeamName}</SelectItem>
+                  <SelectItem value="away">{awayTeamName}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-gray-500">
+            <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>No shots to display for the selected team or match.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

@@ -1,7 +1,16 @@
 import React from 'react';
 import { AggregatedStats } from '@/lib/analytics/eventAggregator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, TooltipProps } from 'recharts';
+import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+
 
 interface PossessionTimelineChartProps {
   statsSegments: AggregatedStats[];
@@ -23,42 +32,57 @@ const PossessionTimelineChart: React.FC<PossessionTimelineChartProps> = ({
   awayTeamName,
 }) => {
   if (!statsSegments || statsSegments.length === 0) {
-    return <Card><CardHeader><CardTitle>Possession Timeline</CardTitle></CardHeader><CardContent><p>No data.</p></CardContent></Card>;
+    return <Card><CardHeader><CardTitle>Possession Timeline</CardTitle></CardHeader><CardContent><p>No segmented data available.</p></CardContent></Card>;
   }
 
-  const possessionData: PossessionChartDataPoint[] = statsSegments.map((segment, index) => {
-    // Assuming possessionPercentage is available in TeamDetailedStats within AggregatedStats
-    // If not, a proxy calculation would be needed here based on event counts or other heuristics.
-    const homePossession = segment.homeTeamStats.possessionPercentage || 0;
-    const awayPossession = segment.awayTeamStats.possessionPercentage || 0;
+  const chartConfig = {
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+  };
 
-    // Ensure they sum to 100 if they are independent, or adjust logic if one is derived from other
-    // For simplicity, assuming they are provided and represent actual percentages for the segment.
-    // If only one is provided, e.g. homePossession, away can be 100 - homePossession.
-    // If segment.homeTeamStats.possession is event counts, then:
-    // const totalEvents = segment.homeTeamStats.possession + segment.awayTeamStats.possession;
-    // const homePct = totalEvents > 0 ? (segment.homeTeamStats.possession / totalEvents) * 100 : 50;
-    // const awayPct = totalEvents > 0 ? 100 - homePct : 50;
+  const possessionData: PossessionChartDataPoint[] = statsSegments.map((segment, index) => {
+    // Ensure possessionPercentage is used from TeamDetailedStats
+    let homePossession = segment.homeTeamStats.possessionPercentage || 0;
+    let awayPossession = segment.awayTeamStats.possessionPercentage || 0;
+
+    // If one is 0 and the other is also 0 (no events/data), default to 50/50 to avoid empty bar.
+    // Or, if one is populated and the other isn't, infer (e.g., if home is 60, away is 40).
+    // This assumes possessionPercentage is meant to sum to 100 for the two teams in a segment.
+    if (homePossession === 0 && awayPossession === 0 && segment.homeTeamStats.possession > 0 && segment.awayTeamStats.possession > 0) {
+        // Fallback to event counts if percentages are zero but event counts exist
+        const totalEvents = (segment.homeTeamStats.possession || 0) + (segment.awayTeamStats.possession || 0);
+        if (totalEvents > 0) {
+            homePossession = ((segment.homeTeamStats.possession || 0) / totalEvents) * 100;
+            awayPossession = 100 - homePossession;
+        } else { // No events at all
+            homePossession = 50; // Default to 50/50 if no data at all
+            awayPossession = 50;
+        }
+    } else if (homePossession > 0 && awayPossession === 0 && homePossession <= 100) {
+        awayPossession = 100 - homePossession;
+    } else if (awayPossession > 0 && homePossession === 0 && awayPossession <= 100) {
+        homePossession = 100 - awayPossession;
+    } else if (homePossession + awayPossession > 100 && homePossession > awayPossession) { // Normalize if sum > 100
+        homePossession = (homePossession / (homePossession + awayPossession)) * 100;
+        awayPossession = 100 - homePossession;
+    } else if (homePossession + awayPossession > 100 && awayPossession > homePossession) {
+        awayPossession = (awayPossession / (homePossession + awayPossession)) * 100;
+        homePossession = 100 - awayPossession;
+    } else if (homePossession + awayPossession < 100 && homePossession + awayPossession > 0) { // Normalize if sum < 100 but not both zero
+        const sum = homePossession + awayPossession;
+        homePossession = (homePossession / sum) * 100;
+        awayPossession = (awayPossession / sum) * 100;
+    }
+
 
     return {
       name: `${index * intervalMinutes}-${(index + 1) * intervalMinutes} min`,
-      [homeTeamName]: homePossession,
-      [awayTeamName]: awayPossession,
+      [homeTeamName]: parseFloat(homePossession.toFixed(1)),
+      [awayTeamName]: parseFloat(awayPossession.toFixed(1)),
     };
   });
 
-  // Simple Stacked Bar Chart Placeholder or Line Chart Placeholder
-  const SimpleTimelineLineChart = ({ data, yKeyHome, yKeyAway, title }: { data: PossessionChartDataPoint[], yKeyHome: string, yKeyAway: string, title: string }) => (
-    <div className="mb-4 p-2 border rounded">
-      <h5 className="text-sm font-semibold text-center mb-2">{title}</h5>
-      <div className="bg-gray-100 p-2 rounded h-48 overflow-x-auto">
-        <pre className="text-xs">{JSON.stringify(data, null, 2)}</pre>
-        <p className="text-xs text-muted-foreground mt-2">Data shown. Chart rendering (e.g., Line or Stacked Bar) would go here.</p>
-        <div className="text-xs"><span className="inline-block w-3 h-3 mr-1" style={{backgroundColor: 'lightblue'}}></span>{yKeyHome}</div>
-        <div className="text-xs"><span className="inline-block w-3 h-3 mr-1" style={{backgroundColor: 'lightcoral'}}></span>{yKeyAway}</div>
-      </div>
-    </div>
-  );
+  // Removed SimpleTimelineLineChart placeholder
 
   return (
     <Card>
@@ -67,34 +91,53 @@ const PossessionTimelineChart: React.FC<PossessionTimelineChartProps> = ({
         <CardDescription>Possession percentage per {intervalMinutes}-minute interval.</CardDescription>
       </CardHeader>
       <CardContent>
-        <SimpleTimelineLineChart data={possessionData} yKeyHome={homeTeamName} yKeyAway={awayTeamName} title="Possession % per Interval" />
-        {/*
-        Example with Recharts LineChart:
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={possessionData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis unit="%" domain={[0, 100]} />
-            <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
-            <Legend />
-            <Line type="monotone" dataKey={homeTeamName} stroke="lightblue" yAxisId={0} name={`${homeTeamName} %`} />
-            <Line type="monotone" dataKey={awayTeamName} stroke="lightcoral" yAxisId={0} name={`${awayTeamName} %`} />
-          </LineChart>
-        </ResponsiveContainer>
-
-        Example with Recharts StackedBarChart for 100% view:
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={possessionData} layout="vertical" stackOffset="expand"> // stackOffset="expand" for 100%
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" unit="%" domain={[0,100]} />
-            <YAxis type="category" dataKey="name" width={100} />
-            <Tooltip formatter={(value, name, props) => `${props.payload[name].toFixed(1)}%`} />
-            <Legend />
-            <Bar dataKey={homeTeamName} fill="lightblue" stackId="a" />
-            <Bar dataKey={awayTeamName} fill="lightcoral" stackId="a" />
-          </BarChart>
-        </ResponsiveContainer>
-        */}
+        <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-[3/1]">
+            <ResponsiveContainer width="100%" height={300}>
+            {/* Using a stacked bar chart for 100% representation */}
+            <BarChart
+                data={possessionData}
+                layout="horizontal"
+                stackOffset="expand" // Normalizes values to percentage for each bar
+                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+            >
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis
+                    type="number"
+                    tickFormatter={(value) => `${value * 100}%`} // Values are 0-1 due to stackOffset="expand"
+                    domain={[0, 1]}
+                    tick={{ fontSize: 10 }}
+                />
+                <ChartTooltip
+                    cursor={false}
+                    content={(props: TooltipProps<ValueType, NameType>) => {
+                        if (props.payload && props.payload.length) {
+                            const { name, payload } = props.payload[0]; // name is the dataKey (team name)
+                            const dataPoint = props.payload[0].payload as PossessionChartDataPoint;
+                            // The value from payload is already 0-1 due to stackOffset="expand"
+                            // We want to show the original percentage that was in possessionData for that team
+                            const originalValue = dataPoint[name as string];
+                            return (
+                                <ChartTooltipContent className="bg-background text-foreground border shadow-lg p-2 rounded-md text-xs">
+                                     <p className="font-semibold">{dataPoint.name}</p>
+                                     {props.payload.map((entry, i) => (
+                                        <p key={`tooltip-${i}`} style={{ color: entry.color }}>
+                                            {entry.name}: {dataPoint[entry.name as string].toFixed(1)}%
+                                            {/* Access original value from dataPoint for tooltip */}
+                                        </p>
+                                     ))}
+                                </ChartTooltipContent>
+                            );
+                        }
+                        return null;
+                    }}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey={homeTeamName} fill={chartConfig[homeTeamName].color} stackId="a" radius={[4,4,0,0]} />
+                <Bar dataKey={awayTeamName} fill={chartConfig[awayTeamName].color} stackId="a" radius={[4,4,0,0]} />
+            </BarChart>
+            </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

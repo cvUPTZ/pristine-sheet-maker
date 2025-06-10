@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MatchEvent } from '@/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MatchHeatMapProps {
   events: MatchEvent[];
@@ -79,14 +80,24 @@ const MatchHeatMap: React.FC<MatchHeatMapProps> = ({
                 if (data.home === 0) return null;
                 
                 return (
-                  <rect
-                    key={`home-${key}`}
-                    x={x}
-                    y={y}
-                    width="1"
-                    height="1"
-                    fill={getHeatColor(data.home, 'home')}
-                  />
+                  <TooltipProvider key={`home-tooltip-${key}`} delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <rect
+                          x={x}
+                          y={y}
+                          width="1"
+                          height="1"
+                          fill={getHeatColor(data.home, 'home')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-background text-foreground border shadow-lg p-2 rounded-md text-xs">
+                        <p>Zone: ({x}, {y})</p>
+                        <p>Events: {data.home}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
               })}
             </svg>
@@ -117,14 +128,24 @@ const MatchHeatMap: React.FC<MatchHeatMapProps> = ({
                 if (data.away === 0) return null;
                 
                 return (
-                  <rect
-                    key={`away-${key}`}
-                    x={x}
-                    y={y}
-                    width="1"
-                    height="1"
-                    fill={getHeatColor(data.away, 'away')}
-                  />
+                  <TooltipProvider key={`away-tooltip-${key}`} delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <rect
+                          x={x}
+                          y={y}
+                          width="1"
+                          height="1"
+                          fill={getHeatColor(data.away, 'away')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-background text-foreground border shadow-lg p-2 rounded-md text-xs">
+                        <p>Zone: ({x}, {y})</p>
+                        <p>Events: {data.away}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
               })}
             </svg>
