@@ -51,41 +51,60 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
   const homeBallLossRatio = calculateRatio(homeStats.ballsLost || 0, homeStats.ballsPlayed || 0) * 100; // as percentage
   const awayBallLossRatio = calculateRatio(awayStats.ballsLost || 0, awayStats.ballsPlayed || 0) * 100;
 
-  // Recovery Efficiency: Balls Recovered per 100 Opponent Balls Played (conceptual)
-  // This requires knowing opponent's balls played. For simplicity, just comparing raw recoveries.
-  // Or, if we consider balls played by opponent as total balls played minus own team's balls played (not accurate for all scenarios)
-  // For now, let's just show Balls Recovered directly or as a ratio against something simple if possible.
-  // Let's use Balls Recovered / (Balls Recovered + Opponent Balls Recovered) as a share of recoveries.
+  // Recovery Efficiency
   const totalRecoveries = (homeStats.ballsRecovered || 0) + (awayStats.ballsRecovered || 0);
   const homeRecoveryShare = totalRecoveries > 0 ? ((homeStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
   const awayRecoveryShare = totalRecoveries > 0 ? ((awayStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
 
+  const homeRecoveryRateVsOpponent = calculateRatio(homeStats.ballsRecovered || 0, awayStats.ballsPlayed || 0) * 100; // Recoveries per 100 opponent balls played
+  const awayRecoveryRateVsOpponent = calculateRatio(awayStats.ballsRecovered || 0, homeStats.ballsPlayed || 0) * 100;
 
-  // Possession Efficiency: Goals per 1% of Possession
-  const homePossessionEfficiency = calculateRatio(homeStats.goals || 0, homeStats.possessionPercentage || 1); // Per 1% possession
-  const awayPossessionEfficiency = calculateRatio(awayStats.goals || 0, awayStats.possessionPercentage || 1);
+  // Possession Efficiency (using possessionPercentage as a proxy for time/control)
+  // Note: homeStats.possessionMinutes is likely 0 or unreliable based on previous analysis.
+  const homeGoalsPerPossessionProxy = calculateRatio(homeStats.goals || 0, homeStats.possessionPercentage || 1); // Goals per 1% of possession
+  const awayGoalsPerPossessionProxy = calculateRatio(awayStats.goals || 0, awayStats.possessionPercentage || 1);
+  const homeShotsPerPossessionProxy = calculateRatio(homeStats.shots || 0, homeStats.possessionPercentage || 1); // Shots per 1% of possession
+  const awayShotsPerPossessionProxy = calculateRatio(awayStats.shots || 0, awayStats.possessionPercentage || 1);
 
-  // Pass Completion Rates for specific types
-  const homeLongPassCompletion = calculateRatio(homeStats.longPasses || 0, homeStats.passesAttempted > 0 ? homeStats.longPasses || 0 : 0); // This logic is flawed. Needs total long passes attempted.
-                                                                                                                                    // Assuming longPasses in TeamDetailedStats is successful long passes.
-                                                                                                                                    // We don't have "long passes attempted". So, cannot calculate this accurately.
-                                                                                                                                    // Displaying raw counts of successful long passes instead for now.
 
-  const ratios = [
-    { label: 'Ball Loss Ratio (%) (Lower is Better)', homeValue: homeBallLossRatio, awayValue: awayBallLossRatio, unit: '%' },
-    { label: 'Share of Total Recoveries (%)', homeValue: homeRecoveryShare, awayValue: awayRecoveryShare, unit: '%' },
-    { label: 'Goals per 1% Possession', homeValue: homePossessionEfficiency, awayValue: awayPossessionEfficiency },
-    // Add more as data allows, e.g., if total attempted long passes were available
+  const efficiencyMetrics = [
+    {
+      groupTitle: "Ball Retention & Loss",
+      metrics: [
+        { label: 'Ball Loss Ratio (%) (Lower is Better)', homeValue: homeBallLossRatio, awayValue: awayBallLossRatio, unit: '%' },
+      ]
+    },
+    {
+      groupTitle: "Recovery Efficiency",
+      metrics: [
+        { label: 'Total Balls Recovered', homeValue: homeStats.ballsRecovered || 0, awayValue: awayStats.ballsRecovered || 0 },
+        { label: 'Share of Total Recoveries (%)', homeValue: homeRecoveryShare, awayValue: awayRecoveryShare, unit: '%' },
+        { label: 'Recovery Rate (vs Opponent Balls Played %)', homeValue: homeRecoveryRateVsOpponent, awayValue: awayRecoveryRateVsOpponent, unit: '%' },
+      ]
+    },
+    {
+      groupTitle: "Possession Efficiency (Proxies based on Possession %)",
+      metrics: [
+        { label: 'Goals per 1% Possession', homeValue: homeGoalsPerPossessionProxy, awayValue: awayGoalsPerPossessionProxy },
+        { label: 'Shots per 1% Possession', homeValue: homeShotsPerPossessionProxy, awayValue: awayShotsPerPossessionProxy },
+      ]
+    }
   ];
 
-  // Data for Radar chart (example)
+  const successfulPassCounts = [
+    { label: "Long Passes", homeValue: homeStats.longPasses || 0, awayValue: awayStats.longPasses || 0 },
+    { label: "Forward Passes", homeValue: homeStats.forwardPasses || 0, awayValue: awayStats.forwardPasses || 0 },
+    { label: "Backward Passes", homeValue: homeStats.backwardPasses || 0, awayValue: awayStats.backwardPasses || 0 },
+    { label: "Lateral Passes", homeValue: homeStats.lateralPasses || 0, awayValue: awayStats.lateralPasses || 0 },
+  ];
+
+  // Data for Radar chart (example) - can be expanded
   const radarData = [
-    { subject: 'Ball Loss Ratio', A: awayBallLossRatio, B: homeBallLossRatio, fullMark: 100 }, // Inverted for radar "higher is better" view
+    { subject: 'Ball Loss Ratio (Higher=Worse)', A: homeBallLossRatio, B: awayBallLossRatio, fullMark: Math.max(homeBallLossRatio, awayBallLossRatio, 50) },
     { subject: 'Recovery Share', A: homeRecoveryShare, B: awayRecoveryShare, fullMark: 100 },
-    { subject: 'Poss. Efficiency', A: homePossessionEfficiency, B: awayPossessionEfficiency, fullMark: Math.max(homePossessionEfficiency, awayPossessionEfficiency, 1) },
-    // Add more normalized values here for radar
+    { subject: 'Goals/Poss%', A: homeGoalsPerPossessionProxy, B: awayGoalsPerPossessionProxy, fullMark: Math.max(homeGoalsPerPossessionProxy, awayGoalsPerPossessionProxy, 1) },
+    { subject: 'Shots/Poss%', A: homeShotsPerPossessionProxy, B: awayShotsPerPossessionProxy, fullMark: Math.max(homeShotsPerPossessionProxy, awayShotsPerPossessionProxy, 5) },
   ];
-
 
   return (
     <Card>
@@ -94,24 +113,37 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
         <CardDescription>Comparing {homeTeamName} and {awayTeamName} on advanced efficiency metrics.</CardDescription>
       </CardHeader>
       <CardContent>
-        {ratios.map(ratio => (
-          <SimpleRatioBar
-            key={ratio.label}
-            label={ratio.label}
-            homeValue={ratio.homeValue}
-            awayValue={ratio.awayValue}
-            unit={ratio.unit}
-          />
+        {efficiencyMetrics.map(group => (
+          <div key={group.groupTitle} className="mb-6">
+            <h4 className="text-md font-semibold mb-3 border-b pb-1">{group.groupTitle}</h4>
+            {group.metrics.map(metric => (
+              <SimpleRatioBar
+                key={metric.label}
+                label={metric.label}
+                homeValue={metric.homeValue}
+                awayValue={metric.awayValue}
+                unit={metric.unit}
+              />
+            ))}
+          </div>
         ))}
+
         <div className="mt-4 p-2 border rounded">
-           <h5 className="text-sm font-semibold text-center mb-2">Pass Type Counts (Successful)</h5>
-           <SimpleRatioBar label="Long Passes" homeValue={homeStats.longPasses || 0} awayValue={awayStats.longPasses || 0} />
-           <SimpleRatioBar label="Forward Passes" homeValue={homeStats.forwardPasses || 0} awayValue={awayStats.forwardPasses || 0} />
-           {/* Add other pass types if needed */}
+           <h4 className="text-md font-semibold text-center mb-3 border-b pb-1">Successful Pass Type Counts</h4>
+           <p className="text-xs text-muted-foreground text-center mb-2">Note: These are counts of successful passes, not success rates for each specific type.</p>
+           {successfulPassCounts.map(passStat => (
+             <SimpleRatioBar
+               key={passStat.label}
+               label={passStat.label}
+               homeValue={passStat.homeValue}
+               awayValue={passStat.awayValue}
+             />
+           ))}
         </div>
 
         {/* Placeholder for Radar Chart for overall comparison
-        <ResponsiveContainer width="100%" height={400}>
+        <h4 className="text-md font-semibold mt-6 mb-3 border-b pb-1">Overall Efficiency Profile (Radar)</h4>
+        <ResponsiveContainer width="100%" height={350}>
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
             <PolarGrid />
             <PolarAngleAxis dataKey="subject" />
