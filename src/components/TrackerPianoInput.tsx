@@ -15,7 +15,7 @@ import { Undo, Clock, Plus } from 'lucide-react';
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
-  onRecordEvent: ( 
+  onRecordEvent: (
     eventTypeKey: string,
     playerId?: number,
     teamContext?: 'home' | 'away',
@@ -255,48 +255,71 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     // If no player is selected, teamContext remains undefined.
 
     try {
-      const recordedEvent = await onRecordEvent( 
+      const recordedEvent = await onRecordEvent(
         eventType.key,
-        selectedPlayer?.id, 
-        teamContextForEvent, 
+        selectedPlayer?.id,
+        teamContextForEvent,
         {
           recorded_via: 'piano',
         }
       );
       
-      if (recordedEvent && recordedEvent.id) { 
+      if (recordedEvent && recordedEvent.id) {
         const newCancellableEvent: CancellableEventItem = {
-            id: recordedEvent.id, 
-            label: eventType.label, 
+            id: recordedEvent.id,
+            label: eventType.label,
             timerStartTime: Date.now(),
+            // player: selectedPlayer, // Player info can be added if CancellableEventItem supports it and it's useful
         };
         setCancellableEvents(prev => [newCancellableEvent, ...prev.slice(0, 4)]);
-        
-        // For local UI feedback (recent events list)
+
         const eventInfoForRecentList = {
           id: recordedEvent.id,
           eventType: { key: eventType.key, label: eventType.label },
           player: selectedPlayer,
-          timestamp: Date.now() // Or use recordedEvent.timestamp if available and preferred
+          timestamp: Date.now()
         };
         setLastRecordedEvent(eventInfoForRecentList);
         setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]);
 
       } else {
-        console.error("Event recording failed or did not return an event object with ID.");
-        toast({
-          title: "Recording Issue",
-          description: "The event was recorded but its details could not be immediately retrieved for cancellation.",
-          variant: "destructive",
-        });
+        // Event recording itself might have shown a success/warning toast via handleRecordEvent,
+        // but we didn't get a valid ID back for the cancellable feature.
+        console.error('[TrackerPianoInput] Event recording did not yield a valid event object with ID for cancellation feature.', { recordedEvent });
+
+        if (recordedEvent && !recordedEvent.id) {
+            // This case means handleRecordEvent thought it was a success but returned no ID or an invalid event
+            toast({
+                title: 'Event Recorded (ID Issue)',
+                description: `Event ${eventType.label} was logged, but there was an issue confirming its ID. Timed cancellation for this specific event instance might be unavailable.`,
+                variant: 'warning',
+            });
+            // Still update recentEvents for display, but it won't be cancellable from the timed list
+            const eventInfoForRecentList = {
+              id: `local-no-db-id-${Date.now()}`, // Use a local-only ID
+              eventType: { key: eventType.key, label: eventType.label },
+              player: selectedPlayer,
+              timestamp: Date.now(),
+              warning: "ID confirmation failed, not cancellable via timer."
+            };
+            setLastRecordedEvent(eventInfoForRecentList);
+            setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]);
+
+        } else if (!recordedEvent) {
+            // An error toast was already shown by handleRecordEvent (which returned null).
+            console.log('[TrackerPianoInput] Confirmed event recording failure from onRecordEvent. No action for cancellable/recent events here.');
+            // Potentially clear any optimistic local updates if they were made, though current structure doesn't do that before this point.
+        }
+        // Do NOT add to cancellableEvents if no valid ID.
       }
 
     } catch (error: any) {
-      console.error('Error calling onRecordEvent from PianoInput:', error);
-      // This toast might be redundant if onRecordEvent already shows one for DB errors
+      // This catch block is for errors *within* TrackerPianoInput's executeEventRecord,
+      // or if onRecordEvent itself throws an unhandled exception (though it's designed to return null on error).
+      console.error('[TrackerPianoInput] Error during executeEventRecord:', error);
       toast({
-        title: "Recording Error",
-        description: "Failed to record the event. Please try again.",
+        title: "PianoInput Error",
+        description: "An unexpected error occurred while trying to record the event.",
         variant: "destructive",
       });
     } finally {
@@ -318,17 +341,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
 
       setCancellableEvents(prev => prev.filter(event => event.id !== eventId));
-      toast({ 
-        title: "Event Cancelled", 
-        description: "The event was successfully removed." 
+      toast({
+        title: "Event Cancelled",
+        description: "The event was successfully removed."
       });
 
     } catch (error: any) {
       console.error('Error cancelling event:', error);
-      toast({ 
-        title: "Error Cancelling Event", 
-        description: error.message || "Could not remove the event.", 
-        variant: "destructive" 
+      toast({
+        title: "Error Cancelling Event",
+        description: error.message || "Could not remove the event.",
+        variant: "destructive"
       });
     }
   };
