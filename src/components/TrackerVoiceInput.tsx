@@ -42,6 +42,7 @@ export function TrackerVoiceInput({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isParsingCommand, setIsParsingCommand] = useState(false);
   const [eventQueue, setEventQueue] = useState<QueuedEvent[]>([]);
+  const [isMicEnabled, setIsMicEnabled] = useState(true); // New state for mic toggle
   
   // Performance monitoring
   const metricsRef = useRef({
@@ -115,15 +116,15 @@ export function TrackerVoiceInput({
         id: eventToProcess.id
       });
 
-      // Optimized parsing with timeout - removed signal property
+      // Optimized parsing with timeout
       const { data: parsedCommand, error: functionError } = await supabase.functions.invoke(
         'parse-voice-command',
         {
           body: {
             transcript: eventToProcess.transcript,
             assignedEventTypes,
-            priority: 'high', // Add priority flag
-            timeout: 2500 // Server-side timeout
+            priority: 'high',
+            timeout: 2500
           }
         }
       );
@@ -135,7 +136,7 @@ export function TrackerVoiceInput({
       const command = parsedCommand as ParsedCommand;
       const processingTime = performance.now() - startTime;
 
-      if (!command || !command.eventType || command.confidence < 0.35) { // Lowered threshold for speed
+      if (!command || !command.eventType || command.confidence < 0.35) {
         throw new Error(`Low confidence (${command?.confidence?.toFixed(2) || 0})`);
       }
 
@@ -145,7 +146,7 @@ export function TrackerVoiceInput({
         command.player?.id,
         command.teamContext || undefined,
         { 
-          recorded_via: 'voice_realtime',
+          recorded_via: 'voice_continuous',
           transcript: eventToProcess.transcript,
           confidence: command.confidence,
           processing_time_ms: Math.round(processingTime),
@@ -162,7 +163,7 @@ export function TrackerVoiceInput({
 
       const successMessage = `✅ ${command.eventType.label} (${Math.round(processingTime)}ms)`;
       setDebouncedFeedback({ status: 'success', message: successMessage });
-      setCommandHistory(prev => [successMessage, ...prev.slice(0, 3)]); // Reduced history
+      setCommandHistory(prev => [successMessage, ...prev.slice(0, 3)]);
       playSuccessSound();
 
       // Remove processed event from queue
@@ -173,7 +174,7 @@ export function TrackerVoiceInput({
       metricsRef.current.failedEvents++;
       
       // Retry logic
-      if (eventToProcess.retryCount < 2) { // Max 2 retries
+      if (eventToProcess.retryCount < 2) {
         setEventQueue(prev => [
           ...prev.slice(1),
           { ...eventToProcess, retryCount: eventToProcess.retryCount + 1 }
@@ -204,11 +205,7 @@ export function TrackerVoiceInput({
   // Optimized transcript handler
   const handleTranscriptCompleted = useCallback(async (newTranscript: string) => {
     if (!newTranscript.trim() || newTranscript.length < 3) {
-      setDebouncedFeedback({ 
-        status: 'info', 
-        message: "🎤 Speak clearly - say event type" 
-      });
-      return;
+      return; // Don't show feedback for short/empty transcripts in continuous mode
     }
 
     // Add to queue immediately for fast response
@@ -225,7 +222,7 @@ export function TrackerVoiceInput({
     // Immediate user feedback
     setDebouncedFeedback({ 
       status: 'processing', 
-      message: `⚡ Queued: "${newTranscript.substring(0, 25)}..."` 
+      message: `⚡ Processing: "${newTranscript.substring(0, 25)}..."` 
     });
 
   }, [setDebouncedFeedback]);
@@ -247,49 +244,77 @@ export function TrackerVoiceInput({
     }
   }, [whisperError, setDebouncedFeedback]);
 
-  const toggleListening = useCallback(() => {
-    if (isModelLoading) return;
-
-    if (isListening || isTranscribing) {
-      stopListening();
-      setDebouncedFeedback({ status: 'info', message: "⏹️ Stopped listening" });
-    } else {
-      const topEvents = assignedEventTypes.slice(0, 3).map(et => et.label).join(', ');
-      setDebouncedFeedback({ 
-        status: 'info', 
-        message: `🎤 Say an event: ${topEvents}...`
-      });
+  // Auto-start listening when component mounts and mic is enabled
+  useEffect(() => {
+    if (!isModelLoading && isMicEnabled && !isListening && !isTranscribing) {
       startListening(handleTranscriptCompleted);
     }
-  }, [isModelLoading, isListening, isTranscribing, stopListening, assignedEventTypes, setDebouncedFeedback, startListening, handleTranscriptCompleted]);
+  }, [isModelLoading, isMicEnabled, isListening, isTranscribing, startListening, handleTranscriptCompleted]);
+
+  // Handle mic toggle
+  const toggleMic = useCallback(() => {
+    if (isModelLoading) return;
+
+    const newMicState = !isMicEnabled;
+    setIsMicEnabled(newMicState);
+
+    if (newMicState) {
+      // Turn mic on - start listening
+      setDebouncedFeedback({ 
+        status: 'info', 
+        message: "🎤 Mic enabled - listening continuously..."
+      });
+      if (!isListening && !isTranscribing) {
+        startListening(handleTranscriptCompleted);
+      }
+    } else {
+      // Turn mic off - stop listening
+      setDebouncedFeedback({ 
+        status: 'info', 
+        message: "🔇 Mic disabled - not listening" 
+      });
+      if (isListening || isTranscribing) {
+        stopListening();
+      }
+    }
+  }, [isModelLoading, isMicEnabled, isListening, isTranscribing, startListening, stopListening, setDebouncedFeedback, handleTranscriptCompleted]);
+
+  // Restart listening when a transcription completes (for continuous mode)
+  useEffect(() => {
+    if (isMicEnabled && !isModelLoading && !isListening && !isTranscribing) {
+      // Small delay to avoid rapid restarts
+      const timeoutId = setTimeout(() => {
+        startListening(handleTranscriptCompleted);
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isMicEnabled, isModelLoading, isListening, isTranscribing, startListening, handleTranscriptCompleted]);
 
   // Memoized status and UI elements
   const statusInfo = useMemo(() => {
     if (isModelLoading) return { text: "🧠 Loading model...", icon: <Loader2 size={18} className="animate-spin" /> };
+    if (!isMicEnabled) return { text: "🔇 Microphone disabled", icon: <MicOff size={18} /> };
     if (eventQueue.length > 0) return { text: `⚡ Processing ${eventQueue.length} event(s)...`, icon: <CloudCog size={18} className="animate-spin" /> };
     if (isTranscribing) return { text: "🎤 Transcribing...", icon: <Zap size={18} className="animate-pulse" /> };
-    if (isListening) return { text: "🎤 Listening...", icon: <Mic size={18} className="animate-pulse" /> };
-    return { text: "⚡ Click to record event", icon: <Zap size={18} /> };
-  }, [isModelLoading, eventQueue.length, isTranscribing, isListening]);
+    if (isListening) return { text: "🎤 Listening continuously...", icon: <Mic size={18} className="animate-pulse" /> };
+    return { text: "⚡ Ready to listen", icon: <Zap size={18} /> };
+  }, [isModelLoading, isMicEnabled, eventQueue.length, isTranscribing, isListening]);
 
-  const buttonConfig = useMemo(() => {
+  const micButtonConfig = useMemo(() => {
     const isDisabled = isModelLoading;
-    const isActive = isListening || isTranscribing;
-    const isBusy = eventQueue.length > 0;
     
     return {
       disabled: isDisabled,
-      className: `flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all ${
-        isActive ? 'bg-green-500 border-green-600 text-white animate-pulse shadow-lg' :
+      className: `flex items-center justify-center w-16 h-16 rounded-full border-2 transition-all ${
         isDisabled ? 'bg-gray-400 border-gray-500 text-white cursor-not-allowed' :
-        isBusy ? 'bg-orange-500 border-orange-600 text-white shadow-md' :
-        'bg-blue-500 border-blue-600 text-white hover:bg-blue-600 shadow-md'
+        isMicEnabled ? 'bg-green-500 border-green-600 text-white shadow-lg hover:bg-green-600' :
+        'bg-red-500 border-red-600 text-white shadow-md hover:bg-red-600'
       }`,
-      icon: isDisabled ? <Loader2 size={32} className="animate-spin" /> :
-            (isTranscribing || eventQueue.length > 0) ? <Zap size={32} className="animate-pulse" /> :
-            isActive ? <MicOff size={32} /> : <Mic size={32} />
+      icon: isDisabled ? <Loader2 size={24} className="animate-spin" /> :
+            isMicEnabled ? <Mic size={24} /> : <MicOff size={24} />
     };
-  }, [isModelLoading, isListening, isTranscribing, eventQueue.length]);
+  }, [isModelLoading, isMicEnabled]);
 
   // Performance metrics display
   const performanceMetrics = useMemo(() => {
@@ -310,7 +335,7 @@ export function TrackerVoiceInput({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Zap className="h-5 w-5 text-blue-500" />
-          Quick Voice Events
+          Continuous Voice Events
         </h3>
         <div className="flex gap-2">
           <button 
@@ -325,18 +350,26 @@ export function TrackerVoiceInput({
       
       <div className="space-y-4">
         <div className="flex flex-col items-center space-y-4">
+          {/* Mic Toggle Button */}
           <button
-            onClick={toggleListening}
-            className={buttonConfig.className}
-            disabled={buttonConfig.disabled}
-            aria-label={isListening || isTranscribing ? "Stop recording" : "Start recording"}
+            onClick={toggleMic}
+            className={micButtonConfig.className}
+            disabled={micButtonConfig.disabled}
+            aria-label={isMicEnabled ? "Turn microphone off" : "Turn microphone on"}
           >
-            {buttonConfig.icon}
+            {micButtonConfig.icon}
           </button>
+          
           <div className="flex items-center gap-2">
             {statusInfo.icon}
             <p className="text-sm text-center text-gray-600 font-medium">{statusInfo.text}</p>
           </div>
+          
+          {isMicEnabled && !isModelLoading && (
+            <p className="text-xs text-center text-gray-500">
+              Mic is always listening. Just speak naturally!
+            </p>
+          )}
         </div>
 
         {/* Performance Metrics */}
@@ -367,7 +400,7 @@ export function TrackerVoiceInput({
         </div>
 
         {/* Current Transcript */}
-        {currentTranscriptFromHook && !isTranscribing && (
+        {currentTranscriptFromHook && isTranscribing && (
           <div className="bg-gray-50 p-3 rounded-lg border">
             <p className="text-sm text-gray-500 font-medium">Processing:</p>
             <p className="text-sm italic">"{currentTranscriptFromHook}"</p>
