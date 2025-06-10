@@ -9,7 +9,7 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import CancellableEventsDisplay, { CancellableEventItem } from '../match/CancellableEventsDisplay'; // Import new component and type
+import CancellableEventsDisplay, { CancellableEventItem } from '@/components/match/CancellableEventsDisplay'; // Import new component and type
 import { Undo, Clock, Plus } from 'lucide-react';
 
 
