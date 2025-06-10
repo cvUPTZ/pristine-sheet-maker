@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   LiveKitRoom,
@@ -7,7 +8,7 @@ import {
   useConnectionState,
   useTracks,
 } from '@livekit/components-react';
-import { ConnectionState, Track } from 'livekit-client';
+import { ConnectionState, Track, LocalParticipant, RemoteParticipant } from 'livekit-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // Mock hooks and services for demo
-const useVoiceCollaboration = ({ userId, userRole }) => ({
+const useVoiceCollaboration = ({ userId, userRole }: { userId: string; userRole: string }) => ({
   token: 'demo-token',
   serverUrl: 'wss://demo.livekit.cloud',
   isConnecting: false,
@@ -45,29 +46,33 @@ const useVoiceCollaboration = ({ userId, userRole }) => ({
   ],
   currentRoom: null,
   fetchAvailableRooms: () => {},
-  joinVoiceRoom: (room) => {},
+  joinVoiceRoom: (room: any) => {},
   leaveVoiceRoom: () => {}
 });
 
 const useIsMobile = () => window.innerWidth < 768;
 
-const AudioLevelMonitor = class {
-  constructor(callback) {
+class AudioLevelMonitor {
+  private callback: (level: number) => void;
+  private interval: NodeJS.Timeout | null = null;
+
+  constructor(callback: (level: number) => void) {
     this.callback = callback;
-    this.interval = null;
   }
+
   startMonitoring() {
     this.interval = setInterval(() => {
       this.callback(Math.random() * 0.8);
     }, 100);
   }
+
   stopMonitoring() {
     if (this.interval) clearInterval(this.interval);
   }
-};
+}
 
 // Compact Audio Level Indicator
-const CompactAudioLevel = ({ level, size = 'sm' }) => {
+const CompactAudioLevel = ({ level, size = 'sm' }: { level: number; size?: string }) => {
   const barCount = size === 'xs' ? 4 : 6;
   const barHeight = size === 'xs' ? 'h-1' : 'h-1.5';
   const barWidth = size === 'xs' ? 'w-0.5' : 'w-0.5';
@@ -89,7 +94,15 @@ const CompactAudioLevel = ({ level, size = 'sm' }) => {
 };
 
 // Modern participant avatar
-const ParticipantAvatar = ({ participant, userRole, isLocal, onMuteToggle }) => {
+const ParticipantAvatar = ({ 
+  participant, 
+  userRole, 
+  isLocal 
+}: { 
+  participant: LocalParticipant | RemoteParticipant; 
+  userRole?: string; 
+  isLocal: boolean;
+}) => {
   const initials = participant.name?.slice(0, 2).toUpperCase() || participant.identity?.slice(0, 2).toUpperCase() || 'U';
   const isMuted = participant.isMicrophoneEnabled === false;
   const isSpeaking = participant.isSpeaking && !isMuted;
@@ -137,11 +150,19 @@ const VoiceCollaborationUI = ({
   selectedAudioOutputDeviceId,
   onLeave,
   onSelectAudioOutputDevice,
+}: {
+  userRole: string;
+  currentRoom: { name: string } | null;
+  networkStatus: string;
+  audioOutputDevices: Array<{ deviceId: string; label: string }>;
+  selectedAudioOutputDeviceId: string | null;
+  onLeave: () => void;
+  onSelectAudioOutputDevice: (deviceId: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [localAudioLevel, setLocalAudioLevel] = useState(0);
-  const audioMonitor = useRef(null);
+  const audioMonitor = useRef<AudioLevelMonitor | null>(null);
 
   const connectionState = useConnectionState();
   const { localParticipant } = useLocalParticipant();
@@ -314,7 +335,7 @@ const VoiceCollaborationUI = ({
                     onChange={(e) => onSelectAudioOutputDevice(e.target.value)}
                     className="w-full text-xs p-2 border border-gray-200 rounded-md bg-white"
                   >
-                    {audioOutputDevices.map(device => (
+                    {audioOutputDevices.map((device: { deviceId: string; label: string }) => (
                       <option key={device.deviceId} value={device.deviceId}>
                         {device.label || `Speaker ${device.deviceId.slice(0, 8)}`}
                       </option>
@@ -331,10 +352,14 @@ const VoiceCollaborationUI = ({
 };
 
 // Main Component
-const VoiceCollaboration = ({ matchId = 'demo', userId = 'demo-user', className = '' }) => {
+const VoiceCollaboration = ({ matchId = 'demo', userId = 'demo-user', className = '' }: {
+  matchId?: string;
+  userId?: string;
+  className?: string;
+}) => {
   const [userRole, setUserRole] = useState('tracker');
   const [initialized, setInitialized] = useState(true); // Skip loading for demo
-  const [uiError, setUiError] = useState(null);
+  const [uiError, setUiError] = useState<string | null>(null);
   
   const { 
     token, 
@@ -356,7 +381,7 @@ const VoiceCollaboration = ({ matchId = 'demo', userId = 'demo-user', className 
   const [selectedAudioOutputDeviceId, setSelectedAudioOutputDeviceId] = useState('default');
   const [isConnected, setIsConnected] = useState(false); // Demo state
 
-  const getRoomGradient = (roomName) => {
+  const getRoomGradient = (roomName?: string) => {
     if (roomName?.includes('Main')) return 'from-blue-500 to-blue-600';
     if (roomName?.includes('Coordinators')) return 'from-purple-500 to-purple-600';
     if (roomName?.includes('Technical')) return 'from-gray-500 to-gray-600';
@@ -364,7 +389,7 @@ const VoiceCollaboration = ({ matchId = 'demo', userId = 'demo-user', className 
     return 'from-blue-500 to-blue-600';
   };
 
-  const handleJoinRoom = (room) => {
+  const handleJoinRoom = (room: any) => {
     setIsConnected(true);
     joinVoiceRoom(room);
   };
@@ -404,15 +429,24 @@ const VoiceCollaboration = ({ matchId = 'demo', userId = 'demo-user', className 
   return (
     <div className={className}>
       {isConnected ? (
-        <VoiceCollaborationUI
-          userRole={userRole}
-          currentRoom={{ name: 'Main Discussion' }}
-          onLeave={handleLeaveRoom}
-          networkStatus={networkStatus}
-          audioOutputDevices={audioOutputDevices}
-          selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
-          onSelectAudioOutputDevice={setSelectedAudioOutputDeviceId}
-        />
+        <LiveKitRoom
+          video={false}
+          audio={true}
+          token={token}
+          serverUrl={serverUrl}
+          data-lk-theme="default"
+          style={{ height: 'auto' }}
+        >
+          <VoiceCollaborationUI
+            userRole={userRole}
+            currentRoom={{ name: 'Main Discussion' }}
+            onLeave={handleLeaveRoom}
+            networkStatus={networkStatus}
+            audioOutputDevices={audioOutputDevices}
+            selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+            onSelectAudioOutputDevice={setSelectedAudioOutputDeviceId}
+          />
+        </LiveKitRoom>
       ) : (
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           {/* Compact Header */}
