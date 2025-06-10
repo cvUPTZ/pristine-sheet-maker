@@ -46,7 +46,6 @@ const Statistics = () => {
   const [loading, setLoading] = useState(true);
   const [allPlayersForMatch, setAllPlayersForMatch] = useState<Player[]>([]);
 
-
   useEffect(() => {
     fetchMatches();
   }, []);
@@ -105,8 +104,20 @@ const Statistics = () => {
         console.error('Error fetching events:', eventsError);
         setEvents([]);
       } else {
-        const homePlayersList: Player[] = matchDetailData.home_team_players || [];
-        const awayPlayersList: Player[] = matchDetailData.away_team_players || [];
+        // Safely parse player data
+        const parsePlayerData = (data: any): Player[] => {
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data);
+            } catch {
+              return [];
+            }
+          }
+          return Array.isArray(data) ? data : [];
+        };
+
+        const homePlayersList: Player[] = parsePlayerData(matchDetailData.home_team_players);
+        const awayPlayersList: Player[] = parsePlayerData(matchDetailData.away_team_players);
         const allPlayers = [...homePlayersList, ...awayPlayersList];
         setAllPlayersForMatch(allPlayers);
 
@@ -126,12 +137,15 @@ const Statistics = () => {
           if (!coordinates.x) coordinates.x = 0;
           if (!coordinates.y) coordinates.y = 0;
 
+          // Safely get event_data or default to empty object
+          const eventData = (event as any).event_data || {};
+
           return {
             id: event.id,
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             type: event.event_type as EventType,
-            event_data: event.event_data,
+            event_data: eventData,
             created_at: event.created_at,
             tracker_id: null,
             team_id: null,
@@ -139,7 +153,7 @@ const Statistics = () => {
             team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
             coordinates,
             created_by: event.created_by,
-            player: allPlayers.find((p: Player) => String(p.id) === String(event.player_id) || p.jersey_number === event.player_id) // Simplified lookup
+            player: allPlayers.find((p: Player) => String(p.id) === String(event.player_id) || p.jersey_number === event.player_id)
           };
         });
         setEvents(formattedEvents);
@@ -175,7 +189,7 @@ const Statistics = () => {
             playerName: aggPlayer.playerName,
             team: aggPlayer.team,
             teamId: aggPlayer.team,
-            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jersey_number),
+            player: allPlayersForMatch.find(p => String(p.id) === String(aggPlayer.playerId) || p.jersey_number === aggPlayer.jerseyNumber),
             events: {
                 passes: { successful: aggPlayer.passesCompleted, attempted: aggPlayer.passesAttempted },
                 shots: { onTarget: aggPlayer.shotsOnTarget, offTarget: aggPlayer.shots - aggPlayer.shotsOnTarget },

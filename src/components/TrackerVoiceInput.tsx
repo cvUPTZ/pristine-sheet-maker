@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition';
 import { ParsedCommand } from '../lib/ai-parser';
@@ -88,7 +87,7 @@ export function TrackerVoiceInput({
       await onRecordEvent(
         command.eventType.key,
         command.player?.id,
-        command.teamContext,
+        command.teamContext || undefined, // Convert null to undefined
         { 
           recorded_via: 'voice_whisper_js',
           transcript: newTranscript,
