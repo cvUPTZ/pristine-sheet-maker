@@ -64,15 +64,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Use the unified tracker connection system
   const { isConnected, broadcastStatus, cleanup } = useUnifiedTrackerConnection(matchId, trackerUserId);
 
-  console.log('TrackerInterface: Render state', {
-    isConnected,
-    trackerUserId,
-    matchId,
-    batteryLevel: batteryStatus.level,
-    loading,
-    error
-  });
-
   useEffect(() => {
     // Initialize push notifications
     PushNotificationService.initialize();
@@ -90,7 +81,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
       setError(null);
 
       try {
-        console.log('TrackerInterface: Fetching match info for:', matchId);
         const { data: matchData, error: matchError } = await supabase
           .from('matches')
           .select('*')
@@ -102,7 +92,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         }
 
         setMatchData(matchData);
-        console.log('TrackerInterface: Match info loaded:', matchData);
 
       } catch (e: any) {
         console.error('TrackerInterface: Error fetching match info:', e);
@@ -126,7 +115,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           filter: `id=eq.${matchId}`
         },
         (payload) => {
-          console.log('TrackerInterface: Timer update received:', payload.new);
+          // console.log('TrackerInterface: Timer update received:', payload.new);
           setMatchData(prev => prev ? { ...prev, ...payload.new } : null);
         }
       )
@@ -143,23 +132,22 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
-  ) => {
-    console.log("TrackerInterface: handleRecordEvent called with:", { eventTypeKey, playerId, teamContext, details });
-
+  ): Promise<any | null> => {
     const eventToInsert = {
       match_id: matchId,
-      event_type: eventTypeKey, // Fixed: using event_type instead of event_type_key
+      event_type: eventTypeKey,
       player_id: playerId,
       created_by: trackerUserId,
-      timestamp: Math.floor(Date.now() / 1000), // Fixed: using timestamp as number in seconds
-      team: teamContext, // Fixed: using team instead of team_context_from_input
+      timestamp: Math.floor(Date.now() / 1000),
+      team: teamContext,
       coordinates: details?.coordinates || null,
-      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext }, // Fixed: using event_data
+      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
     };
 
-    console.log("Inserting event via TrackerInterface:", eventToInsert);
-
-    const { error: dbError } = await supabase.from('match_events').insert([eventToInsert]);
+    const { data: insertedEvents, error: dbError } = await supabase
+      .from('match_events')
+      .insert([eventToInsert])
+      .select();
 
     if (dbError) {
       console.error('Error recording event in TrackerInterface:', dbError);
@@ -168,12 +156,14 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         description: dbError.message,
         variant: 'destructive',
       });
-      throw dbError;
+      return null;
     } else {
       toast({
         title: 'Event Recorded Successfully',
         description: `${eventTypeKey} event recorded.`,
       });
+      // console.log('Event recorded successfully, returning:', insertedEvents?.[0]);
+      return insertedEvents?.[0];
     }
   };
   // --- End Centralized Event Recording ---
@@ -271,11 +261,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
     if (!trackerUserId || !matchId || !isConnected) {
-      console.log('TrackerInterface: Skipping status broadcast', { 
-        trackerUserId, 
-        matchId, 
-        isConnected 
-      });
       return;
     }
     
@@ -289,9 +274,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     };
 
     // Set up periodic activity updates every 15 seconds
-    console.log('TrackerInterface: Setting up periodic status broadcasts');
     intervalRef.current = setInterval(() => {
-      console.log('TrackerInterface: Periodic status broadcast');
       broadcastStatus({
         status: 'active',
         timestamp: Date.now(),
@@ -301,7 +284,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     }, 15000);
 
     return () => {
-      console.log('TrackerInterface: Cleaning up status broadcasting');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -312,7 +294,6 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('TrackerInterface: Component unmounting, cleaning up');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
