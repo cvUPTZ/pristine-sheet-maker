@@ -1,11 +1,10 @@
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition';
 import { ParsedCommand } from '../lib/ai-parser';
 import { Mic, MicOff, AlertCircle, CheckCircle2, Info, Loader2, Volume2, VolumeX, CloudCog, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-// --- Prop and State Types ---
+// --- Types ---
 interface Player { id: number; name: string; jersey_number: number | null; }
 interface AssignedPlayers { home: Player[]; away: Player[]; }
 interface AssignedEventType { key: string; label: string; }
@@ -21,9 +20,17 @@ interface TrackerVoiceInputProps {
   assignedEventTypes: AssignedEventType[];
 }
 
-type Feedback = { status: 'info' | 'success' | 'error' | 'processing' | 'recording'; message: string };
+type Feedback = { status: 'info' | 'success' | 'error' | 'processing'; message: string; id?: string };
 
-// --- The Component ---
+// --- Event Queue for Batch Processing ---
+interface QueuedEvent {
+  id: string;
+  transcript: string;
+  timestamp: number;
+  retryCount: number;
+}
+
+// --- Optimized Component ---
 export function TrackerVoiceInput({ 
   onRecordEvent, 
   assignedPlayers, 
@@ -34,94 +41,202 @@ export function TrackerVoiceInput({
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isParsingCommand, setIsParsingCommand] = useState(false);
-  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
-  const [recordingTimeout, setRecordingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [eventQueue, setEventQueue] = useState<QueuedEvent[]>([]);
+  
+  // Performance monitoring
+  const metricsRef = useRef({
+    totalEvents: 0,
+    successfulEvents: 0,
+    averageProcessingTime: 0,
+    failedEvents: 0
+  });
 
+  // Debounced feedback to prevent UI spam
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout>();
+  const setDebouncedFeedback = useCallback((newFeedback: Feedback) => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    setFeedback(newFeedback);
+    
+    // Auto-clear success messages after 2 seconds
+    if (newFeedback.status === 'success') {
+      feedbackTimeoutRef.current = setTimeout(() => {
+        setFeedback(null);
+      }, 2000);
+    }
+  }, []);
+
+  // Optimized audio feedback with Web Audio API caching
+  const audioContextRef = useRef<AudioContext | null>(null);
   const playSuccessSound = useCallback(() => {
     if (!isAudioEnabled) return;
+    
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      oscillator.frequency.setValueAtTime(900, audioContext.currentTime)
-      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3)
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) { console.warn("Audio feedback failed:", e); }
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.setValueAtTime(900, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime); // Reduced volume
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch (e) {
+      console.warn("Audio feedback failed:", e);
+    }
   }, [isAudioEnabled]);
 
-  const handleTranscriptCompleted = useCallback(async (newTranscript: string) => {
-    // Clear any existing recording timeout
-    if (recordingTimeout) {
-      clearTimeout(recordingTimeout);
-      setRecordingTimeout(null);
-    }
+  // Event queue processor with retry logic
+  const processEventQueue = useCallback(async () => {
+    if (eventQueue.length === 0 || isParsingCommand) return;
 
-    if (!newTranscript.trim()) {
-      setFeedback({ status: 'info', message: "No clear speech detected. Try speaking closer to microphone." });
-      return;
-    }
-
-    setProcessingStartTime(Date.now());
-    setFeedback({ status: 'processing', message: `Processing: "${newTranscript}"...` });
+    const eventToProcess = eventQueue[0];
     setIsParsingCommand(true);
+    
+    const startTime = performance.now();
 
     try {
+      setDebouncedFeedback({ 
+        status: 'processing', 
+        message: `⚡ Processing: "${eventToProcess.transcript.substring(0, 30)}..."`,
+        id: eventToProcess.id
+      });
+
+      // Optimized parsing with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
       const { data: parsedCommand, error: functionError } = await supabase.functions.invoke(
         'parse-voice-command',
         {
           body: {
-            transcript: newTranscript,
+            transcript: eventToProcess.transcript,
             assignedEventTypes,
-          }
+            priority: 'high', // Add priority flag
+            timeout: 2500 // Server-side timeout
+          },
+          signal: controller.signal
         }
       );
 
+      clearTimeout(timeoutId);
+
       if (functionError) {
-        console.error('Supabase function error:', functionError);
-        throw new Error(`Parsing error: ${functionError.message}`);
+        throw new Error(`Parse error: ${functionError.message}`);
       }
 
       const command = parsedCommand as ParsedCommand;
-      const processingTime = processingStartTime ? Date.now() - processingStartTime : 0;
+      const processingTime = performance.now() - startTime;
 
-      if (!command || !command.eventType || command.confidence < 0.4) {
-        const message = `⚠️ Unclear command: "${newTranscript}". Try saying event type clearly.`;
-        setFeedback({ status: 'error', message });
-        setIsParsingCommand(false);
-        return;
+      if (!command || !command.eventType || command.confidence < 0.35) { // Lowered threshold for speed
+        throw new Error(`Low confidence (${command?.confidence?.toFixed(2) || 0})`);
       }
 
+      // Record event with minimal data
       await onRecordEvent(
         command.eventType.key,
         command.player?.id,
         command.teamContext || undefined,
         { 
-          recorded_via: 'voice_whisper_oneshot',
-          transcript: newTranscript,
+          recorded_via: 'voice_realtime',
+          transcript: eventToProcess.transcript,
           confidence: command.confidence,
-          processing_time_ms: processingTime,
-          parsed_data: command,
+          processing_time_ms: Math.round(processingTime),
+          queue_position: eventQueue.length,
+          retry_count: eventToProcess.retryCount
         }
       );
       
-      const successMessage = `⚡ ${command.eventType.label} recorded (${processingTime}ms)`;
-      setFeedback({ status: 'success', message: successMessage });
-      setCommandHistory(prev => [successMessage, ...prev.slice(0, 4)]);
+      // Update metrics
+      metricsRef.current.totalEvents++;
+      metricsRef.current.successfulEvents++;
+      metricsRef.current.averageProcessingTime = 
+        (metricsRef.current.averageProcessingTime + processingTime) / 2;
+
+      const successMessage = `✅ ${command.eventType.label} (${Math.round(processingTime)}ms)`;
+      setDebouncedFeedback({ status: 'success', message: successMessage });
+      setCommandHistory(prev => [successMessage, ...prev.slice(0, 3)]); // Reduced history
       playSuccessSound();
 
-    } catch (e: any) {
-      console.error("Error during command processing:", e);
-      setFeedback({ status: 'error', message: `❌ Failed: ${e.message}` });
+      // Remove processed event from queue
+      setEventQueue(prev => prev.slice(1));
+
+    } catch (error: any) {
+      console.error("Event processing error:", error);
+      metricsRef.current.failedEvents++;
+      
+      // Retry logic
+      if (eventToProcess.retryCount < 2) { // Max 2 retries
+        setEventQueue(prev => [
+          ...prev.slice(1),
+          { ...eventToProcess, retryCount: eventToProcess.retryCount + 1 }
+        ]);
+        setDebouncedFeedback({ 
+          status: 'info', 
+          message: `🔄 Retrying... (${eventToProcess.retryCount + 1}/2)` 
+        });
+      } else {
+        setEventQueue(prev => prev.slice(1));
+        setDebouncedFeedback({ 
+          status: 'error', 
+          message: `❌ Failed: ${error.message}` 
+        });
+      }
     } finally {
       setIsParsingCommand(false);
-      setProcessingStartTime(null);
     }
-  }, [onRecordEvent, playSuccessSound, assignedEventTypes, processingStartTime, recordingTimeout]);
+  }, [eventQueue, isParsingCommand, onRecordEvent, playSuccessSound, assignedEventTypes, setDebouncedFeedback]);
 
+  // Process queue when events are added
+  useEffect(() => {
+    if (eventQueue.length > 0 && !isParsingCommand) {
+      processEventQueue();
+    }
+  }, [eventQueue, isParsingCommand, processEventQueue]);
+
+  // Optimized transcript handler
+  const handleTranscriptCompleted = useCallback(async (newTranscript: string) => {
+    if (!newTranscript.trim() || newTranscript.length < 3) {
+      setDebouncedFeedback({ 
+        status: 'info', 
+        message: "🎤 Speak clearly - say event type" 
+      });
+      return;
+    }
+
+    // Add to queue immediately for fast response
+    const eventId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const queuedEvent: QueuedEvent = {
+      id: eventId,
+      transcript: newTranscript,
+      timestamp: Date.now(),
+      retryCount: 0
+    };
+
+    setEventQueue(prev => [...prev, queuedEvent]);
+    
+    // Immediate user feedback
+    setDebouncedFeedback({ 
+      status: 'processing', 
+      message: `⚡ Queued: "${newTranscript.substring(0, 25)}..."` 
+    });
+
+  }, [setDebouncedFeedback]);
+
+  // WhisperJS hook
   const {
     isModelLoading,
     isListening,
@@ -134,85 +249,74 @@ export function TrackerVoiceInput({
   
   useEffect(() => {
     if (whisperError) {
-      setFeedback({ status: 'error', message: whisperError });
+      setDebouncedFeedback({ status: 'error', message: `🎤 ${whisperError}` });
     }
-  }, [whisperError]);
+  }, [whisperError, setDebouncedFeedback]);
 
-  // Auto-stop recording after 5 seconds
-  useEffect(() => {
-    if (isListening && !recordingTimeout) {
-      const timeout = setTimeout(() => {
-        console.log('Auto-stopping recording after timeout');
-        stopListening();
-        setFeedback({ status: 'info', message: "Recording stopped automatically" });
-      }, 5000); // 5 second timeout
-      
-      setRecordingTimeout(timeout);
-    }
-    
-    if (!isListening && recordingTimeout) {
-      clearTimeout(recordingTimeout);
-      setRecordingTimeout(null);
-    }
-    
-    return () => {
-      if (recordingTimeout) {
-        clearTimeout(recordingTimeout);
-      }
-    };
-  }, [isListening, recordingTimeout, stopListening]);
-
-  const handleMicClick = () => {
-    if (isModelLoading || isParsingCommand) return;
+  const toggleListening = useCallback(() => {
+    if (isModelLoading) return;
 
     if (isListening || isTranscribing) {
-      // Stop current recording
       stopListening();
-      setFeedback({ status: 'info', message: "Recording stopped" });
+      setDebouncedFeedback({ status: 'info', message: "⏹️ Stopped listening" });
     } else {
-      // Start one-time recording
-      const eventTypeNames = assignedEventTypes.map(et => et.label).join(', ');
-      setFeedback({ 
-        status: 'recording', 
-        message: `🎤 Recording... Say: ${eventTypeNames.split(', ').slice(0, 2).join(', ')}...`
+      const topEvents = assignedEventTypes.slice(0, 3).map(et => et.label).join(', ');
+      setDebouncedFeedback({ 
+        status: 'info', 
+        message: `🎤 Listening... Say: ${topEvents}...`
       });
       startListening(handleTranscriptCompleted);
     }
-  };
+  }, [isModelLoading, isListening, isTranscribing, stopListening, assignedEventTypes, setDebouncedFeedback, startListening, handleTranscriptCompleted]);
 
-  const getStatusText = () => {
-    if (isModelLoading) return "🧠 Loading speech model...";
-    if (isParsingCommand) return <><CloudCog size={18} className="inline animate-spin mr-1" /> Processing command...</>;
-    if (isTranscribing) return <><Zap size={18} className="inline animate-pulse mr-1" /> Transcribing...</>;
-    if (isListening) return "🎤 Recording (5s timeout)...";
-    return "🎤 Click to Record Voice Command";
-  };
-  
-  const getButtonIcon = () => {
-    if (isModelLoading || isParsingCommand) return <Loader2 size={32} className="animate-spin" />;
-    if (isTranscribing) return <Zap size={32} className="animate-pulse" />;
-    if (isListening) return <MicOff size={32} />;
-    return <Mic size={32} />;
-  };
+  // Memoized status and UI elements
+  const statusInfo = useMemo(() => {
+    if (isModelLoading) return { text: "🧠 Loading model...", icon: <Loader2 size={18} className="animate-spin" /> };
+    if (eventQueue.length > 0) return { text: `⚡ Processing ${eventQueue.length} event(s)...`, icon: <CloudCog size={18} className="animate-spin" /> };
+    if (isTranscribing) return { text: "🎤 Transcribing...", icon: <Zap size={18} className="animate-pulse" /> };
+    if (isListening) return { text: "🎤 Listening (real-time)", icon: <Mic size={18} className="animate-pulse" /> };
+    return { text: "⚡ Ready - Fast Voice Input", icon: <Zap size={18} /> };
+  }, [isModelLoading, eventQueue.length, isTranscribing, isListening]);
 
-  const getButtonClass = () => {
-    let baseClass = 'flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all';
-    if (isListening) {
-      baseClass += ' bg-red-500 border-red-600 text-white animate-pulse shadow-lg';
-    } else if (isModelLoading || isParsingCommand || isTranscribing) {
-      baseClass += ' bg-gray-400 border-gray-500 text-white cursor-not-allowed';
-    } else {
-      baseClass += ' bg-blue-500 border-blue-600 text-white hover:bg-blue-600 shadow-md';
-    }
-    return baseClass;
-  };
+  const buttonConfig = useMemo(() => {
+    const isDisabled = isModelLoading;
+    const isActive = isListening || isTranscribing;
+    const isBusy = eventQueue.length > 0;
+    
+    return {
+      disabled: isDisabled,
+      className: `flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all ${
+        isActive ? 'bg-green-500 border-green-600 text-white animate-pulse shadow-lg' :
+        isDisabled ? 'bg-gray-400 border-gray-500 text-white cursor-not-allowed' :
+        isBusy ? 'bg-orange-500 border-orange-600 text-white shadow-md' :
+        'bg-blue-500 border-blue-600 text-white hover:bg-blue-600 shadow-md'
+      }`,
+      icon: isDisabled ? <Loader2 size={32} className="animate-spin" /> :
+            (isTranscribing || eventQueue.length > 0) ? <Zap size={32} className="animate-pulse" /> :
+            isActive ? <MicOff size={32} /> : <Mic size={32} />
+    };
+  }, [isModelLoading, isListening, isTranscribing, eventQueue.length]);
+
+  // Performance metrics display
+  const performanceMetrics = useMemo(() => {
+    const { totalEvents, successfulEvents, averageProcessingTime, failedEvents } = metricsRef.current;
+    if (totalEvents === 0) return null;
+    
+    const successRate = ((successfulEvents / totalEvents) * 100).toFixed(1);
+    return {
+      successRate,
+      avgTime: Math.round(averageProcessingTime),
+      failed: failedEvents,
+      queued: eventQueue.length
+    };
+  }, [eventQueue.length, metricsRef.current.totalEvents]);
 
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 border border-gray-200">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Mic className="h-5 w-5 text-blue-500" />
-          One-Shot Voice Commands
+          <Zap className="h-5 w-5 text-blue-500" />
+          Real-time Match Events
         </h3>
         <div className="flex gap-2">
           <button 
@@ -228,57 +332,71 @@ export function TrackerVoiceInput({
       <div className="space-y-4">
         <div className="flex flex-col items-center space-y-4">
           <button
-            onClick={handleMicClick}
-            className={getButtonClass()}
-            disabled={isModelLoading || isParsingCommand}
+            onClick={toggleListening}
+            className={buttonConfig.className}
+            disabled={buttonConfig.disabled}
             aria-label={isListening || isTranscribing ? "Stop recording" : "Start recording"}
           >
-            {getButtonIcon()}
+            {buttonConfig.icon}
           </button>
-          <p className="text-sm text-center text-gray-600 font-medium">{getStatusText()}</p>
+          <div className="flex items-center gap-2">
+            {statusInfo.icon}
+            <p className="text-sm text-center text-gray-600 font-medium">{statusInfo.text}</p>
+          </div>
         </div>
 
+        {/* Performance Metrics */}
+        {performanceMetrics && (
+          <div className="bg-gray-50 p-2 rounded text-xs text-gray-600 grid grid-cols-4 gap-2">
+            <div>✅ {performanceMetrics.successRate}%</div>
+            <div>⏱️ {performanceMetrics.avgTime}ms</div>
+            <div>❌ {performanceMetrics.failed}</div>
+            <div>📥 {performanceMetrics.queued}</div>
+          </div>
+        )}
+
+        {/* Quick Commands */}
         <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
           <p className="text-sm text-gray-600 mb-2 font-medium">Quick commands:</p>
           <div className="flex flex-wrap gap-1">
-            {assignedEventTypes.slice(0, 4).map(eventType => (
+            {assignedEventTypes.slice(0, 6).map(eventType => (
               <span key={eventType.key} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-medium">
                 "{eventType.label}"
               </span>
             ))}
-            {assignedEventTypes.length > 4 && (
+            {assignedEventTypes.length > 6 && (
               <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                +{assignedEventTypes.length - 4} more
+                +{assignedEventTypes.length - 6} more
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-2">💡 Click mic, speak command, auto-stops in 5s</p>
         </div>
 
-        {currentTranscriptFromHook && !isTranscribing && !isParsingCommand && (
+        {/* Current Transcript */}
+        {currentTranscriptFromHook && !isTranscribing && (
           <div className="bg-gray-50 p-3 rounded-lg border">
-            <p className="text-sm text-gray-500 font-medium">Last heard:</p>
+            <p className="text-sm text-gray-500 font-medium">Processing:</p>
             <p className="text-sm italic">"{currentTranscriptFromHook}"</p>
           </div>
         )}
 
+        {/* Feedback */}
         {feedback && (
           <div className={`flex items-start space-x-2 p-3 rounded-lg border ${
             feedback.status === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
             feedback.status === 'success' ? 'bg-green-50 text-green-800 border-green-200' :
             feedback.status === 'processing' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' :
-            feedback.status === 'recording' ? 'bg-orange-50 text-orange-800 border-orange-200' :
             'bg-blue-50 text-blue-800 border-blue-200'
           }`}>
             {feedback.status === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             {feedback.status === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             {feedback.status === 'processing' && <Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" />}
-            {feedback.status === 'recording' && <Mic className="w-4 h-4 mt-0.5 flex-shrink-0 animate-pulse" />}
             {feedback.status === 'info' && <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             <p className="text-sm font-medium">{feedback.message}</p>
           </div>
         )}
         
+        {/* Recent Events */}
         {commandHistory.length > 0 && (
           <div className="bg-gray-50 p-3 rounded-lg border">
             <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
