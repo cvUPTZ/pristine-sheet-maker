@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition';
 import { ParsedCommand } from '../lib/ai-parser';
@@ -142,21 +143,21 @@ export function TrackerVoiceInput({
 
   const getStatusText = () => {
     if (isModelLoading) return "🧠 Loading speech model...";
-    if (isParsingCommand) return <><CloudCog size={18} className="inline animate-spin mr-1" /> Parsing command...</>;
-    if (isTranscribing) return "✍️ Transcribing audio...";
+    if (isParsingCommand) return <><CloudCog size={14} className="inline animate-spin mr-1" /> Parsing...</>;
+    if (isTranscribing) return "✍️ Transcribing...";
     if (isListening) return "🎤 Listening...";
     return "🎯 Ready to Record";
   };
   
   const getButtonIcon = () => {
-    if (isModelLoading || isParsingCommand) return <Loader2 size={32} className="animate-spin" />;
-    if (isTranscribing) return <Loader2 size={32} className="animate-spin" />;
-    if (isListening) return <MicOff size={32} />;
-    return <Mic size={32} />;
+    if (isModelLoading || isParsingCommand) return <Loader2 size={24} className="animate-spin" />;
+    if (isTranscribing) return <Loader2 size={24} className="animate-spin" />;
+    if (isListening) return <MicOff size={24} />;
+    return <Mic size={24} />;
   };
 
   const getButtonClass = () => {
-    let baseClass = 'flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all';
+    let baseClass = 'flex items-center justify-center w-16 h-16 rounded-full border-2 transition-all';
     if (isListening) {
       baseClass += ' bg-red-500 border-red-600 text-white animate-pulse';
     } else if (isModelLoading || isParsingCommand || isTranscribing) {
@@ -168,22 +169,21 @@ export function TrackerVoiceInput({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">AI Voice Command (Whisper.js)</h3>
-        <div className="flex gap-2">
-          <button 
-            className="p-2 rounded-full hover:bg-gray-100" 
-            onClick={() => setIsAudioEnabled(p => !p)} 
-            aria-label="Toggle audio feedback"
-          >
-            {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-        </div>
+    <div className="w-full bg-white rounded-lg border shadow-sm p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-base font-semibold">AI Voice Command</h3>
+        <button 
+          className="p-1.5 rounded-full hover:bg-gray-100" 
+          onClick={() => setIsAudioEnabled(p => !p)} 
+          aria-label="Toggle audio feedback"
+        >
+          {isAudioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+        </button>
       </div>
       
-      <div className="space-y-4">
-        <div className="flex flex-col items-center space-y-4">
+      <div className="space-y-3">
+        {/* Main recording section - compact */}
+        <div className="flex items-center space-x-4">
           <button
             onClick={toggleListening}
             className={getButtonClass()}
@@ -192,46 +192,50 @@ export function TrackerVoiceInput({
           >
             {getButtonIcon()}
           </button>
-          <p className="text-sm text-center text-gray-600">{getStatusText()}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-700">{getStatusText()}</p>
+            {feedback && (
+              <div className={`flex items-start space-x-2 mt-1 text-xs ${
+                feedback.status === 'error' ? 'text-red-600' :
+                feedback.status === 'success' ? 'text-green-600' :
+                'text-blue-600'
+              }`}>
+                {feedback.status === 'error' && <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />}
+                {feedback.status === 'success' && <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" />}
+                {feedback.status === 'info' && <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />}
+                <p className="flex-1">{feedback.message}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <p className="text-sm text-gray-600 mb-2">Available events:</p>
+        {/* Available events - compact horizontal layout */}
+        <div className="bg-blue-50 p-2 rounded">
+          <p className="text-xs text-gray-600 mb-1">Available events:</p>
           <div className="flex flex-wrap gap-1">
             {assignedEventTypes.map(eventType => (
-              <span key={eventType.key} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+              <span key={eventType.key} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
                 {eventType.label}
               </span>
             ))}
           </div>
         </div>
 
+        {/* Last transcript - compact */}
         {currentTranscriptFromHook && !isTranscribing && !isParsingCommand && (
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <p className="text-sm text-gray-500">Last transcript:</p>
-            <p className="text-sm italic">"{currentTranscriptFromHook}"</p>
-          </div>
-        )}
-
-        {feedback && (
-          <div className={`flex items-start space-x-2 p-3 rounded-lg ${
-            feedback.status === 'error' ? 'bg-red-50 text-red-800' :
-            feedback.status === 'success' ? 'bg-green-50 text-green-800' :
-            'bg-blue-50 text-blue-800'
-          }`}>
-            {feedback.status === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-            {feedback.status === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-            {feedback.status === 'info' && <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-            <p className="text-sm">{feedback.message}</p>
+          <div className="bg-gray-50 p-2 rounded">
+            <p className="text-xs text-gray-500">Last transcript:</p>
+            <p className="text-xs italic">"{currentTranscriptFromHook}"</p>
           </div>
         )}
         
+        {/* Recent events - compact */}
         {commandHistory.length > 0 && (
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <h4 className="text-sm font-medium mb-2">Recent Events</h4>
-            <div className="space-y-1">
-              {commandHistory.map((cmd, idx) => (
-                <p key={idx} className="text-sm text-gray-700">{cmd}</p>
+          <div className="bg-gray-50 p-2 rounded">
+            <h4 className="text-xs font-medium mb-1">Recent Events</h4>
+            <div className="space-y-0.5">
+              {commandHistory.slice(0, 2).map((cmd, idx) => (
+                <p key={idx} className="text-xs text-gray-700">{cmd}</p>
               ))}
             </div>
           </div>
