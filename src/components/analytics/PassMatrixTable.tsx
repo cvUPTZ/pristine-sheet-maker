@@ -38,46 +38,23 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
   homeTeamPlayers,
   awayTeamPlayers
 }) => {
-  // Mock data for demonstration - structured to avoid circular references
-  const getMockPassConnections = (): PassConnection[] => {
-    return [
-      // Home team connections - linear flow to avoid cycles
-      { fromPlayerId: 5, toPlayerId: 4, fromPlayerName: "Piqué", toPlayerName: "Busquets", count: 9, team: 'home' },
-      { fromPlayerId: 4, toPlayerId: 1, fromPlayerName: "Busquets", toPlayerName: "Messi", count: 18, team: 'home' },
-      { fromPlayerId: 1, toPlayerId: 2, fromPlayerName: "Messi", toPlayerName: "Suárez", count: 12, team: 'home' },
-      { fromPlayerId: 1, toPlayerId: 3, fromPlayerName: "Messi", toPlayerName: "Neymar", count: 15, team: 'home' },
-      { fromPlayerId: 2, toPlayerId: 3, fromPlayerName: "Suárez", toPlayerName: "Neymar", count: 8, team: 'home' },
-      { fromPlayerId: 6, toPlayerId: 1, fromPlayerName: "Alba", toPlayerName: "Messi", count: 11, team: 'home' },
-      { fromPlayerId: 3, toPlayerId: 7, fromPlayerName: "Neymar", toPlayerName: "Pedro", count: 7, team: 'home' },
-      
-      // Away team connections - linear flow to avoid cycles
-      { fromPlayerId: 16, toPlayerId: 15, fromPlayerName: "Ramos", toPlayerName: "Kroos", count: 8, team: 'away' },
-      { fromPlayerId: 15, toPlayerId: 14, fromPlayerName: "Kroos", toPlayerName: "Modrić", count: 13, team: 'away' },
-      { fromPlayerId: 14, toPlayerId: 11, fromPlayerName: "Modrić", toPlayerName: "Ronaldo", count: 14, team: 'away' },
-      { fromPlayerId: 11, toPlayerId: 12, fromPlayerName: "Ronaldo", toPlayerName: "Benzema", count: 10, team: 'away' },
-      { fromPlayerId: 11, toPlayerId: 13, fromPlayerName: "Ronaldo", toPlayerName: "Bale", count: 5, team: 'away' },
-      { fromPlayerId: 12, toPlayerId: 13, fromPlayerName: "Benzema", toPlayerName: "Bale", count: 6, team: 'away' },
-      { fromPlayerId: 17, toPlayerId: 14, fromPlayerName: "Marcelo", toPlayerName: "Modrić", count: 7, team: 'away' },
-    ];
-  };
+  // Filter for actual pass events with necessary data at the beginning of the component
+  const actualPassEvents = React.useMemo(() => events.filter(event =>
+    event.type === 'pass' &&
+    event.player_id &&
+    event.relatedPlayerId
+  ), [events]);
 
   // Extract pass events and build connections
   const passConnections = React.useMemo(() => {
     const connections: { [key: string]: PassConnection } = {};
     
-    // Filter pass events that have related player info
-    const passEvents = events.filter(event => 
-      event.type === 'pass' && 
-      event.player_id && 
-      event.relatedPlayerId
-    );
-
-    if (passEvents.length === 0) {
-      // Return mock data if no real pass events
-      return getMockPassConnections().sort((a, b) => b.count - a.count);
+    // Use the pre-filtered actualPassEvents
+    if (actualPassEvents.length === 0) {
+      return []; // Return empty if no valid pass events
     }
 
-    passEvents.forEach(passEvent => {
+    actualPassEvents.forEach(passEvent => {
       const fromPlayerId = Number(passEvent.player_id);
       const toPlayerId = Number(passEvent.relatedPlayerId);
       const team = passEvent.team || 'home';
@@ -432,9 +409,9 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
         </CardTitle>
         <CardDescription>
           Matrice des passes entre joueurs - Analyse des connexions d'équipe
-          {events.filter(e => e.type === 'pass').length === 0 && (
+          {actualPassEvents.length === 0 && (
             <span className="block text-orange-600 text-sm mt-1">
-              📊 Données de démonstration affichées
+              📊 No actual pass events found in the data for this match.
             </span>
           )}
         </CardDescription>
