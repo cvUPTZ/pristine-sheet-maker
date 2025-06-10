@@ -1,4 +1,4 @@
-
+// TrackerBatteryMonitor.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,19 +16,20 @@ interface TrackerStatusDisplay {
   email?: string;
   full_name?: string;
   batteryLevel: number | null;
+  isCharging: boolean | null;
   lastUpdatedAt: string | null;
   chargingTimeInSeconds?: number | null;
   dischargingTimeInSeconds?: number | null;
 }
 
 const formatSecondsToTime = (seconds: number | null | undefined): string => {
-  if (seconds === null || seconds === undefined || seconds <= 0) return ''; // Or 'N/A'
+  if (seconds === null || seconds === undefined || seconds <= 0) return '';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   let parts = [];
   if (h > 0) parts.push(`${h}h`);
   if (m > 0) parts.push(`${m}m`);
-  if (parts.length === 0 && seconds > 0) return '<1m'; // Handle case where time is < 1 minute but > 0
+  if (parts.length === 0 && seconds > 0) return '<1m';
   return parts.join(' ');
 };
 
@@ -49,67 +50,27 @@ const TrackerBatteryMonitor: React.FC = () => {
 
   const fetchTrackerData = async () => {
     try {
-      // Get tracker profiles first
+      // **FIXED**: Fetch battery data directly from the profiles table.
       const { data: trackersData, error: trackersError } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, battery_level, is_charging, battery_charging_time, battery_discharging_time, battery_last_updated')
         .eq('role', 'tracker');
 
       if (trackersError) throw trackersError;
 
-      // Get battery status from notifications
-      const { data: batteryData, error: batteryError } = await supabase
-        .from('notifications')
-        .select('user_id, created_at, message')
-        .eq('type', 'battery_status')
-        .order('created_at', { ascending: false });
-
-      if (batteryError) {
-        console.error('Error fetching battery data:', batteryError);
-      }
-
-      // Combine the data
-      const trackersWithBattery = (trackersData || []).map(tracker => {
-        let batteryLevel: number | null = null;
-        let lastUpdatedAt: string | null = null;
-        let chargingTimeInSeconds: number | null = null;
-        let dischargingTimeInSeconds: number | null = null;
-
-        // Get latest battery info from notifications
-        const latestBatteryInfo = batteryData?.find(b => b.user_id === tracker.id);
-        if (latestBatteryInfo) {
-          // Try to extract battery level from message
-          const batteryMatch = latestBatteryInfo.message?.match(/Battery level: (\d+)%/);
-          if (batteryMatch) {
-            batteryLevel = parseInt(batteryMatch[1]);
-          }
-          lastUpdatedAt = latestBatteryInfo.created_at;
-
-          // Parse charging and discharging times
-          if (latestBatteryInfo.message) {
-            const chargingTimeMatch = latestBatteryInfo.message.match(/charging time: ([\d.]+|N\/A)s/);
-            if (chargingTimeMatch && chargingTimeMatch[1] !== 'N/A') {
-              chargingTimeInSeconds = parseFloat(chargingTimeMatch[1]);
-            }
-
-            const dischargingTimeMatch = latestBatteryInfo.message.match(/discharging time: ([\d.]+|N\/A)s/);
-            if (dischargingTimeMatch && dischargingTimeMatch[1] !== 'N/A') {
-              dischargingTimeInSeconds = parseFloat(dischargingTimeMatch[1]);
-            }
-          }
-        }
-
-        return {
+      // **FIXED**: No longer need to fetch from 'notifications' or parse strings.
+      // The data is already structured.
+      const trackersWithBattery = (trackersData || []).map(tracker => ({
           userId: tracker.id,
           identifier: tracker.full_name || tracker.email || tracker.id,
           email: tracker.email || undefined,
           full_name: tracker.full_name || undefined,
-          batteryLevel,
-          lastUpdatedAt,
-          chargingTimeInSeconds,
-          dischargingTimeInSeconds
-        };
-      });
+          batteryLevel: tracker.battery_level,
+          isCharging: tracker.is_charging,
+          lastUpdatedAt: tracker.battery_last_updated,
+          chargingTimeInSeconds: tracker.battery_charging_time,
+          dischargingTimeInSeconds: tracker.battery_discharging_time
+      }));
 
       setTrackers(trackersWithBattery);
     } catch (error) {
@@ -153,12 +114,12 @@ const TrackerBatteryMonitor: React.FC = () => {
 
   const markTrackerAbsent = (trackerId: string) => {
     setAbsentTrackerId(trackerId);
-    // For demo purposes, we'll use a sample match ID. In production, this should come from context or props
     setCurrentMatchId('sample-match-id');
     setShowAbsenceNotifier(true);
   };
 
-  const getBatteryIcon = (level: number | null) => {
+  const getBatteryIcon = (level: number | null, isCharging: boolean | null) => {
+    if (isCharging) return <Zap className="h-4 w-4 text-yellow-500" />;
     if (level === null) return <Battery className="h-4 w-4" />;
     if (level <= 20) return <BatteryLow className="h-4 w-4 text-red-500" />;
     return <Battery className="h-4 w-4 text-green-500" />;
@@ -240,17 +201,17 @@ const TrackerBatteryMonitor: React.FC = () => {
 
                 <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>
                   <div className="flex items-center gap-2">
-                    {getBatteryIcon(tracker.batteryLevel)}
+                    {getBatteryIcon(tracker.batteryLevel, tracker.isCharging)}
                     <div className="flex flex-col">
                       <Badge variant={getBatteryColor(tracker.batteryLevel) as any} className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
                         {tracker.batteryLevel !== null ? `${tracker.batteryLevel}%` : 'Unknown'}
                       </Badge>
                       {(tracker.chargingTimeInSeconds || tracker.dischargingTimeInSeconds) && (
                         <div className={`text-xs text-gray-500 ${isMobile ? 'mt-0.5' : 'mt-0.5'}`}>
-                          {tracker.chargingTimeInSeconds && tracker.chargingTimeInSeconds > 0 && (
+                          {tracker.isCharging && tracker.chargingTimeInSeconds && tracker.chargingTimeInSeconds > 0 && (
                             <span>Full: {formatSecondsToTime(tracker.chargingTimeInSeconds)}</span>
                           )}
-                          {tracker.dischargingTimeInSeconds && tracker.dischargingTimeInSeconds > 0 && (
+                          {!tracker.isCharging && tracker.dischargingTimeInSeconds && tracker.dischargingTimeInSeconds > 0 && (
                             <span>Left: {formatSecondsToTime(tracker.dischargingTimeInSeconds)}</span>
                           )}
                         </div>
@@ -259,7 +220,7 @@ const TrackerBatteryMonitor: React.FC = () => {
                   </div>
 
                   <div className={`flex gap-2 ${isMobile ? 'w-full' : 'flex-shrink-0'}`}>
-                    {tracker.batteryLevel !== null && tracker.batteryLevel <= 20 && (
+                    {tracker.batteryLevel !== null && tracker.batteryLevel <= 20 && !tracker.isCharging && (
                       <Button
                         size={isMobile ? "sm" : "sm"}
                         variant="outline"

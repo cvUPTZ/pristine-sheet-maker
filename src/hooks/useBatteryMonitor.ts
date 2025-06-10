@@ -1,7 +1,6 @@
-
+// src/hooks/useBatteryMonitor.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PushNotificationService } from '@/services/pushNotificationService';
 
 interface BatteryStatus {
   level: number | null;
@@ -40,30 +39,37 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
       if (!battery) return;
       
       const batteryLevel = Math.round(battery.level * 100);
+      const isCharging = battery.charging;
+      const chargeTime = battery.chargingTime === Infinity ? null : battery.chargingTime;
+      const dischargeTime = battery.dischargingTime === Infinity ? null : battery.dischargingTime;
+
       setLevel(batteryLevel);
-      setCharging(battery.charging);
-      setChargingTime(battery.chargingTime === Infinity ? null : battery.chargingTime);
-      setDischargingTime(battery.dischargingTime === Infinity ? null : battery.dischargingTime);
+      setCharging(isCharging);
+      setChargingTime(chargeTime);
+      setDischargingTime(dischargeTime);
 
-      // Store battery status in notifications table
+      // **FIXED**: Update the profile with live battery status instead of logging to notifications.
+      // This makes the 'profiles' table the single source of truth for current status.
       try {
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: userId,
-            title: 'Battery Status Update',
-            message: `Battery level: ${batteryLevel}%, charging: ${battery.charging}, charging time: ${battery.chargingTime === Infinity ? 'N/A' : battery.chargingTime + 's'}, discharging time: ${battery.dischargingTime === Infinity ? 'N/A' : battery.dischargingTime + 's'}`,
-            type: 'battery_status'
-          });
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            battery_level: batteryLevel,
+            is_charging: isCharging,
+            battery_charging_time: chargeTime,
+            battery_discharging_time: dischargeTime,
+            battery_last_updated: new Date().toISOString()
+          })
+          .eq('id', userId);
 
-        if (error) {
-          console.error('Error updating battery status:', error);
+        if (updateError) {
+          console.error('Error updating battery status in profile:', updateError);
         } else {
-          console.log('Battery status updated:', { level: batteryLevel, charging: battery.charging, chargingTime: battery.chargingTime, dischargingTime: battery.dischargingTime });
+          console.log('Updated profile with battery status:', { level: batteryLevel, charging: isCharging });
         }
 
         // Send local notification for low battery (only once per 10% threshold)
-        if (batteryLevel <= 20 && !battery.charging &&
+        if (batteryLevel <= 20 && !isCharging &&
             (lastNotificationLevel === null || batteryLevel < lastNotificationLevel - 10)) {
           
           if (notificationPermission === 'granted' && navigator.serviceWorker.controller) {
@@ -73,35 +79,21 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
               type: 'SHOW_LOW_BATTERY_NOTIFICATION',
               payload: {
                 level: batteryLevel,
-                charging: battery.charging,
+                charging: isCharging,
                 trackerName: simpleTrackerName,
-                chargingTime: battery.chargingTime === Infinity ? null : battery.chargingTime,
-                dischargingTime: battery.dischargingTime === Infinity ? null : battery.dischargingTime,
+                chargingTime: chargeTime,
+                dischargingTime: dischargeTime,
               }
             });
             console.log('Sent SHOW_LOW_BATTERY_NOTIFICATION to SW');
             setLastNotificationLevel(batteryLevel);
           } else {
             console.log('Notification permission not granted or SW not active, cannot send SW notification for low battery.');
-            // Optionally, fall back to an in-app toast notification here if SW notification isn't possible.
-            // For example, using a toast library if available:
-            // toast({ title: "Low Battery", description: `Your device battery is at ${batteryLevel}%. Please connect to a power source.` });
-            // For this subtask, we just log it.
-            // We still update lastNotificationLevel to prevent spamming logs/fallbacks.
             setLastNotificationLevel(batteryLevel);
           }
-          // Original PushNotificationService call removed/commented:
-          // const { data: profile } = await supabase
-          //   .from('profiles')
-          //   .select('full_name, email')
-          //   .eq('id', userId)
-          //   .single();
-          // const trackerName = profile?.full_name || profile?.email || 'Tracker';
-          // await PushNotificationService.sendLocalBatteryNotification(batteryLevel, trackerName);
         }
-
       } catch (error) {
-        console.error('Error updating battery status:', error);
+        console.error('Error in battery update logic:', error);
       }
     };
 
@@ -128,9 +120,9 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
         console.log('Battery monitor event listeners removed.');
       }
     };
-  }, [userId, lastNotificationLevel, notificationPermission]); // Added notificationPermission to dependencies
+  }, [userId, lastNotificationLevel, notificationPermission]);
 
-  return { level, charging, chargingTime, dischargingTime }; // notificationPermission is not returned as it's internal to the hook
+  return { level, charging, chargingTime, dischargingTime };
 };
 
 export default useBatteryMonitor;

@@ -1,3 +1,4 @@
+// MainTabContentV2.tsx
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -215,6 +216,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
                                 <span className="sm:hidden">{tracker.status === 'active' || tracker.status === 'recording' ? 'On' : 'Off'}</span>
                               </Badge>
                               
+                              {/* THIS CODE WILL NOW WORK */}
                               {tracker.battery_level !== undefined && (
                                 <Badge variant="outline" className={`text-xs ${tracker.battery_level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
                                   🔋 {tracker.battery_level}%
