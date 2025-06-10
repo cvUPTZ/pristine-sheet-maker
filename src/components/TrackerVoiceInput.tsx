@@ -21,7 +21,7 @@ interface TrackerVoiceInputProps {
   assignedEventTypes: AssignedEventType[];
 }
 
-type Feedback = { status: 'info' | 'success' | 'error' | 'processing'; message: string };
+type Feedback = { status: 'info' | 'success' | 'error' | 'processing' | 'recording'; message: string };
 
 // --- The Component ---
 export function TrackerVoiceInput({ 
@@ -35,6 +35,7 @@ export function TrackerVoiceInput({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isParsingCommand, setIsParsingCommand] = useState(false);
   const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [recordingTimeout, setRecordingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const playSuccessSound = useCallback(() => {
     if (!isAudioEnabled) return;
@@ -53,6 +54,12 @@ export function TrackerVoiceInput({
   }, [isAudioEnabled]);
 
   const handleTranscriptCompleted = useCallback(async (newTranscript: string) => {
+    // Clear any existing recording timeout
+    if (recordingTimeout) {
+      clearTimeout(recordingTimeout);
+      setRecordingTimeout(null);
+    }
+
     if (!newTranscript.trim()) {
       setFeedback({ status: 'info', message: "No clear speech detected. Try speaking closer to microphone." });
       return;
@@ -93,7 +100,7 @@ export function TrackerVoiceInput({
         command.player?.id,
         command.teamContext || undefined,
         { 
-          recorded_via: 'voice_whisper_fast',
+          recorded_via: 'voice_whisper_oneshot',
           transcript: newTranscript,
           confidence: command.confidence,
           processing_time_ms: processingTime,
@@ -113,7 +120,7 @@ export function TrackerVoiceInput({
       setIsParsingCommand(false);
       setProcessingStartTime(null);
     }
-  }, [onRecordEvent, playSuccessSound, assignedEventTypes, processingStartTime]);
+  }, [onRecordEvent, playSuccessSound, assignedEventTypes, processingStartTime, recordingTimeout]);
 
   const {
     isModelLoading,
@@ -131,28 +138,54 @@ export function TrackerVoiceInput({
     }
   }, [whisperError]);
 
-  const toggleListening = () => {
+  // Auto-stop recording after 5 seconds
+  useEffect(() => {
+    if (isListening && !recordingTimeout) {
+      const timeout = setTimeout(() => {
+        console.log('Auto-stopping recording after timeout');
+        stopListening();
+        setFeedback({ status: 'info', message: "Recording stopped automatically" });
+      }, 5000); // 5 second timeout
+      
+      setRecordingTimeout(timeout);
+    }
+    
+    if (!isListening && recordingTimeout) {
+      clearTimeout(recordingTimeout);
+      setRecordingTimeout(null);
+    }
+    
+    return () => {
+      if (recordingTimeout) {
+        clearTimeout(recordingTimeout);
+      }
+    };
+  }, [isListening, recordingTimeout, stopListening]);
+
+  const handleMicClick = () => {
     if (isModelLoading || isParsingCommand) return;
 
     if (isListening || isTranscribing) {
+      // Stop current recording
       stopListening();
-      setFeedback({ status: 'info', message: "Stopped listening" });
+      setFeedback({ status: 'info', message: "Recording stopped" });
     } else {
+      // Start one-time recording
       const eventTypeNames = assignedEventTypes.map(et => et.label).join(', ');
       setFeedback({ 
-        status: 'info', 
-        message: `🎤 Real-time listening... Say: ${eventTypeNames.split(', ').slice(0, 2).join(', ')}...`
+        status: 'recording', 
+        message: `🎤 Recording... Say: ${eventTypeNames.split(', ').slice(0, 2).join(', ')}...`
       });
       startListening(handleTranscriptCompleted);
     }
   };
 
   const getStatusText = () => {
-    if (isModelLoading) return "🧠 Loading fast speech model...";
+    if (isModelLoading) return "🧠 Loading speech model...";
     if (isParsingCommand) return <><CloudCog size={18} className="inline animate-spin mr-1" /> Processing command...</>;
-    if (isTranscribing) return <><Zap size={18} className="inline animate-pulse mr-1" /> Real-time transcription...</>;
-    if (isListening) return "🎤 Listening (real-time)...";
-    return "⚡ Ready for Fast Voice Commands";
+    if (isTranscribing) return <><Zap size={18} className="inline animate-pulse mr-1" /> Transcribing...</>;
+    if (isListening) return "🎤 Recording (5s timeout)...";
+    return "🎤 Click to Record Voice Command";
   };
   
   const getButtonIcon = () => {
@@ -165,7 +198,7 @@ export function TrackerVoiceInput({
   const getButtonClass = () => {
     let baseClass = 'flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all';
     if (isListening) {
-      baseClass += ' bg-green-500 border-green-600 text-white animate-pulse shadow-lg';
+      baseClass += ' bg-red-500 border-red-600 text-white animate-pulse shadow-lg';
     } else if (isModelLoading || isParsingCommand || isTranscribing) {
       baseClass += ' bg-gray-400 border-gray-500 text-white cursor-not-allowed';
     } else {
@@ -178,8 +211,8 @@ export function TrackerVoiceInput({
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 border border-gray-200">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Zap className="h-5 w-5 text-blue-500" />
-          Fast Voice Commands
+          <Mic className="h-5 w-5 text-blue-500" />
+          One-Shot Voice Commands
         </h3>
         <div className="flex gap-2">
           <button 
@@ -195,7 +228,7 @@ export function TrackerVoiceInput({
       <div className="space-y-4">
         <div className="flex flex-col items-center space-y-4">
           <button
-            onClick={toggleListening}
+            onClick={handleMicClick}
             className={getButtonClass()}
             disabled={isModelLoading || isParsingCommand}
             aria-label={isListening || isTranscribing ? "Stop recording" : "Start recording"}
@@ -219,6 +252,7 @@ export function TrackerVoiceInput({
               </span>
             )}
           </div>
+          <p className="text-xs text-gray-500 mt-2">💡 Click mic, speak command, auto-stops in 5s</p>
         </div>
 
         {currentTranscriptFromHook && !isTranscribing && !isParsingCommand && (
@@ -233,11 +267,13 @@ export function TrackerVoiceInput({
             feedback.status === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
             feedback.status === 'success' ? 'bg-green-50 text-green-800 border-green-200' :
             feedback.status === 'processing' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' :
+            feedback.status === 'recording' ? 'bg-orange-50 text-orange-800 border-orange-200' :
             'bg-blue-50 text-blue-800 border-blue-200'
           }`}>
             {feedback.status === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             {feedback.status === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             {feedback.status === 'processing' && <Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" />}
+            {feedback.status === 'recording' && <Mic className="w-4 h-4 mt-0.5 flex-shrink-0 animate-pulse" />}
             {feedback.status === 'info' && <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             <p className="text-sm font-medium">{feedback.message}</p>
           </div>
