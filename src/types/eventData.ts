@@ -12,6 +12,8 @@ export interface ShotEventData {
   situation?: 'open_play' | 'fast_break' | 'corner_related' | 'free_kick_related' | 'penalty' | string;
   shot_type?: 'normal' | 'volley' | 'half_volley' | 'lob' | 'header' | string;
   xg_value?: number; // Expected Goal value, can be populated later by a model
+  isHeader?: boolean;
+  hitPost?: boolean;
 }
 
 /**
@@ -119,4 +121,137 @@ export type MatchSpecificEventData =
   | PressureEventData      // New
   | DribbleAttemptEventData  // New
   | BallRecoveryEventData    // New
+  | SupportPassEventData
+  | OffensivePassEventData
+  | BallLostEventData
+  | ContactEventData
+  | FreeKickEventData
+  | SixMeterViolationEventData
+  | PostHitEventData
+  | AerialDuelWonEventData
+  | AerialDuelLostEventData
+  | DecisivePassEventData
+  | SuccessfulCrossEventData
+  | SuccessfulDribbleEventData
+  | LongPassEventData
+  | ForwardPassEventData
+  | BackwardPassEventData
+  | LateralPassEventData
   | GenericEventData; // GenericEventData should ideally be last or handled carefully
+
+// New interfaces for additional event types
+
+export interface SupportPassEventData {
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length?: number;
+  angle?: number;
+}
+
+export interface OffensivePassEventData {
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length?: number;
+  angle?: number;
+  is_progressive?: boolean;
+  to_final_third?: boolean;
+}
+
+export interface BallLostEventData {
+  lost_by_player_id?: number | string;
+  reason?: 'error' | 'tackle' | 'interception' | 'other' | string;
+  subsequent_event_type?: string; // e.g., 'opponent_shot', 'opponent_throw_in'
+}
+
+export interface ContactEventData {
+  opponent_player_id?: number | string;
+  outcome?: 'ball_retained' | 'ball_lost' | 'foul_won' | 'foul_committed' | string;
+  contact_type?: 'tackle_attempt' | 'shoulder_charge' | 'block' | 'other' | string;
+}
+
+export interface FreeKickEventData {
+  is_direct?: boolean;
+  shot_taken?: boolean; // If the free kick was a shot
+  shot_event_data?: ShotEventData; // If a shot was taken, link to its data
+  pass_event_data?: PassEventData; // If it was a pass
+  reason?: string; // Reason for the free kick
+}
+
+export interface SixMeterViolationEventData {
+  violating_player_id?: number | string; // Player who committed the violation
+  violation_type?: 'encroachment' | 'illegal_block' | 'other' | string; // Type of 6m violation
+}
+
+export interface PostHitEventData {
+  // Typically linked to a shot event, but can be standalone if needed for specific analysis
+  shot_event_id?: string; // ID of the ShotEvent that hit the post
+  player_id?: number | string; // Player who took the shot
+  team_id?: string;
+}
+
+export interface AerialDuelWonEventData {
+  opponent_player_id?: number | string;
+  outcome?: 'retained_possession' | 'headed_to_teammate' | 'clearance' | 'flick_on' | string;
+}
+
+export interface AerialDuelLostEventData {
+  opponent_player_id?: number | string;
+  reason?: 'outjumped' | 'mistimed_jump' | 'foul_committed' | string;
+}
+
+export interface DecisivePassEventData {
+  // Often a precursor to an assist or key pass leading to a shot
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  pass_type?: 'through_ball' | 'cross' | 'cut_back' | 'long_ball' | string;
+  creates_shot_opportunity?: boolean;
+}
+
+export interface SuccessfulCrossEventData {
+  recipient_player_id?: number | string; // Player who received the cross
+  cross_type?: 'whipped' | 'floated' | 'low' | 'ground' | string;
+  outcome?: 'shot' | 'header_shot' | 'goal_assist' | 'retained_possession' | string;
+  end_coordinates?: { x: number; y: number };
+}
+
+export interface SuccessfulDribbleEventData {
+  opponent_beaten_id?: number | string; // Player dribbled past
+  outcome?: 'shot_opportunity_created' | 'pass_opportunity_created' | 'advanced_play' | 'retained_possession' | string;
+  distance?: number; // Distance covered during the dribble
+}
+
+export interface LongPassEventData {
+  success: boolean;
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length: number; // Typically > 25-30 meters
+  is_progressive?: boolean;
+  to_final_third?: boolean;
+  pass_type?: 'switch' | 'direct_ball_forward' | 'clearance_pass' | string;
+}
+
+export interface ForwardPassEventData {
+  success: boolean;
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length?: number;
+  is_progressive: true; // By definition
+  pass_type?: 'ground_pass' | 'lobbed_pass' | string;
+}
+
+export interface BackwardPassEventData {
+  success: boolean;
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length?: number;
+  reason?: 'maintain_possession' | 'switch_play_via_back' | 'evade_pressure' | string;
+}
+
+export interface LateralPassEventData {
+  success: boolean;
+  recipient_player_id?: number | string;
+  end_coordinates?: { x: number; y: number };
+  length?: number;
+  direction: 'left_to_right' | 'right_to_left';
+  reason?: 'maintain_possession' | 'switch_play' | 'open_up_space' | string;
+}

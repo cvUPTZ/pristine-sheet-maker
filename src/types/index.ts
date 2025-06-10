@@ -35,7 +35,24 @@ export type EventType =
   | 'sub'
   | 'pressure'
   | 'dribble_attempt'
-  | 'ball_recovery';
+  | 'ball_recovery'
+  | 'supportPass'
+  | 'offensivePass'
+  | 'ballLost'
+  | 'ballRecovered'
+  | 'contact'
+  | 'freeKick'
+  | '6MeterViolation'
+  | 'postHit'
+  | 'aerialDuelWon'
+  | 'aerialDuelLost'
+  | 'decisivePass'
+  | 'successfulCross'
+  | 'successfulDribble'
+  | 'longPass'
+  | 'forwardPass'
+  | 'backwardPass'
+  | 'lateralPass';
 
 export type Formation = 
   | '4-4-2' | '4-3-3' | '3-5-2' | '4-5-1' | '4-2-3-1' | '3-4-3' | '5-3-2'
@@ -108,55 +125,172 @@ export interface CrossStats {
   successful?: number;
 }
 
+// New interface to hold all detailed team statistics, mirroring eventAggregator.TeamStats
+// Ensure PlayerStatSummary is defined/updated before TeamDetailedStats if it's referenced,
+// or define it after Player if Player is used within it.
+// For now, PlayerStatSummary (updated version of PlayerStatistics) will be defined below.
+
+export interface TeamDetailedStats {
+  shots: number;
+  shotsOnTarget: number;
+  goals: number;
+  assists: number;
+  passesAttempted: number;
+  passesCompleted: number;
+  foulsCommitted: number;
+  yellowCards: number;
+  redCards: number;
+  corners: number;
+  offsides: number;
+  tackles: number;
+  interceptions: number;
+  crosses: number; // Attempted crosses
+  clearances: number;
+  blocks: number; // Defensive blocks
+  possession: number; // Placeholder, might be calculated differently
+  totalXg: number;
+  supportPasses: number;
+  offensivePasses: number;
+  ballsRecovered: number;
+  ballsLost: number;
+  ballsPlayed: number;
+  contacts: number;
+  freeKicks: number;
+  sixMeterViolations: number;
+  possessionMinutes: number; // Placeholder
+  possessionPercentage: number; // Placeholder
+  dangerousFootShots: number;
+  nonDangerousFootShots: number;
+  footShotsOnTarget: number;
+  footShotsOffTarget: number;
+  footShotsPostHits: number;
+  footShotsBlocked: number;
+  dangerousHeaderShots: number;
+  nonDangerousHeaderShots: number;
+  headerShotsOnTarget: number;
+  headerShotsOffTarget: number;
+  headerShotsPostHits: number;
+  headerShotsBlocked: number;
+  duelsWon: number;
+  duelsLost: number;
+  aerialDuelsWon: number;
+  aerialDuelsLost: number;
+  decisivePasses: number;
+  successfulCrosses: number;
+  successfulDribbles: number;
+  longPasses: number;
+  forwardPasses: number;
+  backwardPasses: number;
+  lateralPasses: number;
+}
+
+// This interface is being updated to match PlayerStatSummary from eventAggregator
+export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerStatistics and update its content
+  playerId: string | number;
+  playerName: string;
+  jerseyNumber?: number;
+  team: 'home' | 'away';
+  player?: Player; // Keeping this as it's useful for direct access to full Player object
+
+  // Core stats
+  shots: number;
+  shotsOnTarget: number;
+  goals: number;
+  assists: number;
+  passesAttempted: number;
+  passesCompleted: number;
+  foulsCommitted: number;
+  yellowCards: number;
+  redCards: number;
+  tackles: number; // Consider if this is successful tackles or total attempts
+  interceptions: number;
+  crosses: number; // Attempted crosses
+  clearances: number;
+  blocks: number; // Defensive blocks by player
+  dribbles: number; // Could be successful or total - assume consistent with aggregator
+  totalXg: number;
+
+  // Advanced Passing
+  progressivePasses: number;
+  passesToFinalThird: number;
+  passNetworkSent: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
+  supportPasses: number;
+  decisivePasses: number;
+  longPasses: number;
+  forwardPasses: number;
+  backwardPasses: number;
+  lateralPasses: number;
+  successfulCrosses: number; // Successful crosses by player
+
+  // Ball Handling
+  ballsPlayed: number;
+  ballsGiven: number; // Equivalent to balls_lost by this player
+  ballsReceived: number;
+  ballsRecovered: number;
+  contacts: number;
+  possessionTime: number; // Individual possession time in seconds or appropriate unit
+
+  // Pressure
+  totalPressures: number;
+  successfulPressures: number;
+  pressureRegains: number;
+
+  // Detailed Shooting
+  dangerousFootShots: number;
+  nonDangerousFootShots: number;
+  footShotsOnTarget: number;
+  footShotsOffTarget: number;
+  footShotsPostHits: number;
+  footShotsBlocked: number;
+  dangerousHeaderShots: number;
+  nonDangerousHeaderShots: number;
+  headerShotsOnTarget: number;
+  headerShotsOffTarget: number;
+  headerShotsPostHits: number;
+  headerShotsBlocked: number;
+
+  // Duels
+  duelsWon: number;
+  duelsLost: number;
+  aerialDuelsWon: number;
+  aerialDuelsLost: number;
+
+  successfulDribbles: number; // Successful dribbles by player
+}
+
+// The existing PlayerStatistics can be replaced or aliased if other parts of the app use it.
+// For this subtask, we'll assume PlayerStatSummary is the new standard for aggregated player data.
+// If `IndividualPlayerCharts` and other new components import `PlayerStatSummary` from `@/types`, this definition is key.
+// If they import `PlayerStatistics`, then the `PlayerStatistics` interface should be updated with these fields.
+// Let's update PlayerStatistics directly to avoid breaking existing imports if they use that name.
+
+export interface PlayerStatistics extends PlayerStatSummary {} // Simple way to keep PlayerStatistics name with new fields
+// Or, redefine PlayerStatistics completely:
+/*
 export interface PlayerStatistics {
   playerId: string | number;
   playerName: string;
+  jerseyNumber?: number;
   team: 'home' | 'away';
-  teamId?: string;
   player?: Player;
-  ballsPlayed?: number;
-  ballsLost?: number;
-  ballsRecovered?: number;
-  passesCompleted?: number;
-  passesAttempted?: number;
-  possessionTime?: number;
-  contacts?: number;
-  lossRatio?: number;
-  goals?: number;
-  assists?: number;
-  passes?: number;
-  shots?: number;
-  fouls?: number;
-  events: {
-    passes: { successful: number; attempted: number };
-    shots: { onTarget: number; offTarget: number };
-    tackles: { successful: number; attempted: number };
-    fouls: number;
-    cards: { yellow: number; red: number };
-    goals: number;
-    assists: number;
-    [key: string]: any;
-  };
-  totalXg?: number; // Added for player xG
-  progressivePasses?: number;
-  passesToFinalThird?: number;
-  passNetworkSent?: Array<{ toPlayerId: string | number, count: number, successfulCount: number }>;
-  totalPressures?: number;
-  successfulPressures?: number;
-  pressureRegains?: number;
+
+  shots: number;
+  shotsOnTarget: number;
+  // ... all fields from PlayerStatSummary above
+  lateralPasses: number;
 }
+*/
+
 
 export interface Statistics {
-  possession: { home: number; away: number };
-  shots: { home: ShotStats; away: ShotStats };
-  corners: { home: number; away: number };
-  fouls: { home: number; away: number };
-  offsides: { home: number; away: number };
-  passes: { home: PassStats; away: PassStats };
-  ballsPlayed: { home: number; away: number };
-  ballsLost: { home: number; away: number };
-  duels: { home: DuelStats; away: DuelStats };
-  crosses: { home: CrossStats; away: CrossStats };
+  home: TeamDetailedStats;
+  away: TeamDetailedStats;
+  // Top-level possession can still exist if calculated separately,
+  // or be part of TeamDetailedStats (as it is now).
+  // For simplicity, if possession is in TeamDetailedStats, this can be removed.
+  // Let's assume TeamDetailedStats.possession and TeamDetailedStats.possessionPercentage are the source.
+  // So, the specific possession field below might be redundant.
+  // possession: { home: number; away: number }; // Can be removed if covered by TeamDetailedStats
 }
 
 export interface TimeSegmentStatistics {
