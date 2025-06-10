@@ -15,7 +15,7 @@ import { Undo, Clock, Plus } from 'lucide-react';
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
-  onRecordEvent: (
+  onRecordEvent: ( 
     eventTypeKey: string,
     playerId?: number,
     teamContext?: 'home' | 'away',
@@ -255,23 +255,23 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     // If no player is selected, teamContext remains undefined.
 
     try {
-      const recordedEvent = await onRecordEvent(
+      const recordedEvent = await onRecordEvent( 
         eventType.key,
-        selectedPlayer?.id,
-        teamContextForEvent,
+        selectedPlayer?.id, 
+        teamContextForEvent, 
         {
           recorded_via: 'piano',
         }
       );
       
-      if (recordedEvent && recordedEvent.id) {
+      if (recordedEvent && recordedEvent.id) { 
         const newCancellableEvent: CancellableEventItem = {
-            id: recordedEvent.id,
-            label: eventType.label,
+            id: recordedEvent.id, 
+            label: eventType.label, 
             timerStartTime: Date.now(),
         };
         setCancellableEvents(prev => [newCancellableEvent, ...prev.slice(0, 4)]);
-
+        
         // For local UI feedback (recent events list)
         const eventInfoForRecentList = {
           id: recordedEvent.id,
@@ -318,17 +318,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
 
       setCancellableEvents(prev => prev.filter(event => event.id !== eventId));
-      toast({
-        title: "Event Cancelled",
-        description: "The event was successfully removed."
+      toast({ 
+        title: "Event Cancelled", 
+        description: "The event was successfully removed." 
       });
 
     } catch (error: any) {
       console.error('Error cancelling event:', error);
-      toast({
-        title: "Error Cancelling Event",
-        description: error.message || "Could not remove the event.",
-        variant: "destructive"
+      toast({ 
+        title: "Error Cancelling Event", 
+        description: error.message || "Could not remove the event.", 
+        variant: "destructive" 
       });
     }
   };
