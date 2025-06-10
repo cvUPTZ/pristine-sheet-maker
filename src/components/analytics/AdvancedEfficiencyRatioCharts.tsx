@@ -1,7 +1,14 @@
 import React from 'react';
 import { TeamDetailedStats } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 interface AdvancedEfficiencyRatioChartsProps {
   homeStats: TeamDetailedStats;
@@ -99,12 +106,81 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
   ];
 
   // Data for Radar chart (example) - can be expanded
-  const radarData = [
-    { subject: 'Ball Loss Ratio (Higher=Worse)', A: homeBallLossRatio, B: awayBallLossRatio, fullMark: Math.max(homeBallLossRatio, awayBallLossRatio, 50) },
-    { subject: 'Recovery Share', A: homeRecoveryShare, B: awayRecoveryShare, fullMark: 100 },
-    { subject: 'Goals/Poss%', A: homeGoalsPerPossessionProxy, B: awayGoalsPerPossessionProxy, fullMark: Math.max(homeGoalsPerPossessionProxy, awayGoalsPerPossessionProxy, 1) },
-    { subject: 'Shots/Poss%', A: homeShotsPerPossessionProxy, B: awayShotsPerPossessionProxy, fullMark: Math.max(homeShotsPerPossessionProxy, awayShotsPerPossessionProxy, 5) },
+  homeTeamName,
+  awayTeamName,
+}) => {
+  const calculateRatio = (numerator: number, denominator: number): number => {
+    return denominator > 0 ? numerator / denominator : 0;
+  };
+
+  // Calculate all metrics first
+  const homePassAccuracy = calculateRatio(homeStats.passesCompleted || 0, homeStats.passesAttempted || 0) * 100;
+  const awayPassAccuracy = calculateRatio(awayStats.passesCompleted || 0, awayStats.passesAttempted || 0) * 100;
+
+  const homeShotConversion = calculateRatio(homeStats.goals || 0, homeStats.shots || 0) * 100;
+  const awayShotConversion = calculateRatio(awayStats.goals || 0, awayStats.shots || 0) * 100;
+
+  const homeDuelSuccessRate = calculateRatio(homeStats.duelsWon || 0, (homeStats.duelsWon || 0) + (homeStats.duelsLost || 0)) * 100;
+  const awayDuelSuccessRate = calculateRatio(awayStats.duelsWon || 0, (awayStats.duelsWon || 0) + (awayStats.duelsLost || 0)) * 100;
+
+  const homeBallLossRatio = calculateRatio(homeStats.ballsLost || 0, homeStats.ballsPlayed || 0) * 100;
+  const awayBallLossRatio = calculateRatio(awayStats.ballsLost || 0, awayStats.ballsPlayed || 0) * 100;
+  // For radar, higher is better. So, we might use (100 - BallLossRatio) for "Ball Retention"
+  const homeBallRetention = 100 - homeBallLossRatio;
+  const awayBallRetention = 100 - awayBallLossRatio;
+
+  const totalRecoveries = (homeStats.ballsRecovered || 0) + (awayStats.ballsRecovered || 0);
+  const homeRecoveryShare = totalRecoveries > 0 ? ((homeStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
+  const awayRecoveryShare = totalRecoveries > 0 ? ((awayStats.ballsRecovered || 0) / totalRecoveries) * 100 : 0;
+
+  const homeGoalsPerPossessionProxy = calculateRatio(homeStats.goals || 0, homeStats.possessionPercentage || 1);
+  const awayGoalsPerPossessionProxy = calculateRatio(awayStats.goals || 0, awayStats.possessionPercentage || 1);
+
+  const efficiencyMetrics = [
+    {
+      groupTitle: "Ball Retention & Loss",
+      metrics: [
+        { label: 'Ball Loss Ratio (%) (Lower is Better)', homeValue: homeBallLossRatio, awayValue: awayBallLossRatio, unit: '%' },
+      ]
+    },
+    {
+      groupTitle: "Recovery Efficiency",
+      metrics: [
+        { label: 'Total Balls Recovered', homeValue: homeStats.ballsRecovered || 0, awayValue: awayStats.ballsRecovered || 0 },
+        { label: 'Share of Total Recoveries (%)', homeValue: homeRecoveryShare, awayValue: awayRecoveryShare, unit: '%' },
+        // RecoveryRateVsOpponent might have very large % if opponent ballsPlayed is low, so using share for radar.
+      ]
+    },
+    {
+      groupTitle: "Possession Efficiency (Proxies based on Possession %)",
+      metrics: [
+        { label: 'Goals per 1% Possession', homeValue: homeGoalsPerPossessionProxy, awayValue: awayGoalsPerPossessionProxy },
+        { label: 'Shots per 1% Possession', homeValue: calculateRatio(homeStats.shots || 0, homeStats.possessionPercentage || 1), awayValue: calculateRatio(awayStats.shots || 0, awayStats.possessionPercentage || 1) },
+      ]
+    }
   ];
+
+  const successfulPassCounts = [
+    { label: "Long Passes", homeValue: homeStats.longPasses || 0, awayValue: awayStats.longPasses || 0 },
+    { label: "Forward Passes", homeValue: homeStats.forwardPasses || 0, awayValue: awayStats.forwardPasses || 0 },
+    { label: "Backward Passes", homeValue: homeStats.backwardPasses || 0, awayValue: awayStats.backwardPasses || 0 },
+    { label: "Lateral Passes", homeValue: homeStats.lateralPasses || 0, awayValue: awayStats.lateralPasses || 0 },
+  ];
+
+  const radarChartData = [
+    { subject: 'Pass Acc.', [homeTeamName]: homePassAccuracy, [awayTeamName]: awayPassAccuracy, fullMark: 100 },
+    { subject: 'Shot Conv.', [homeTeamName]: homeShotConversion, [awayTeamName]: awayShotConversion, fullMark: Math.max(25, homeShotConversion, awayShotConversion) }, // Max 25% or actual max
+    { subject: 'Duel Win %', [homeTeamName]: homeDuelSuccessRate, [awayTeamName]: awayDuelSuccessRate, fullMark: 100 },
+    { subject: 'Retention', [homeTeamName]: homeBallRetention, [awayTeamName]: awayBallRetention, fullMark: 100 }, // Higher is better
+    { subject: 'Rec. Share', [homeTeamName]: homeRecoveryShare, [awayTeamName]: awayRecoveryShare, fullMark: 100 },
+    { subject: 'Goals/Poss%', [homeTeamName]: homeGoalsPerPossessionProxy, [awayTeamName]: awayGoalsPerPossessionProxy, fullMark: Math.max(1, homeGoalsPerPossessionProxy, awayGoalsPerPossessionProxy)},
+  ];
+
+  const chartConfig = {
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+  };
+
 
   return (
     <Card>
@@ -141,20 +217,22 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
            ))}
         </div>
 
-        {/* Placeholder for Radar Chart for overall comparison
-        <h4 className="text-md font-semibold mt-6 mb-3 border-b pb-1">Overall Efficiency Profile (Radar)</h4>
-        <ResponsiveContainer width="100%" height={350}>
-          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="subject" />
-            <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} />
-            <Radar name={homeTeamName} dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-            <Radar name={awayTeamName} dataKey="B" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
-            <Legend />
-            <Tooltip />
-          </RadarChart>
-        </ResponsiveContainer>
-        */}
+        <div className="mt-6 pt-4 border-t">
+          <h4 className="text-md font-semibold text-center mb-3">Overall Efficiency Profile (Radar)</h4>
+          <ChartContainer config={chartConfig} className="min-h-[300px] w-full aspect-video">
+            <ResponsiveContainer width="100%" height={350}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarChartData}>
+                <PolarGrid strokeDasharray="3 3" />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} tickFormatter={(value) => `${value.toFixed(0)}`} /> {/* Adjust domain if not 0-100 */}
+                <Radar name={homeTeamName} dataKey={homeTeamName} stroke={chartConfig[homeTeamName].color} fill={chartConfig[homeTeamName].color} fillOpacity={0.5} />
+                <Radar name={awayTeamName} dataKey={awayTeamName} stroke={chartConfig[awayTeamName].color} fill={chartConfig[awayTeamName].color} fillOpacity={0.5} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        </div>
       </CardContent>
     </Card>
   );

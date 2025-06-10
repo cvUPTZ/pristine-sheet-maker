@@ -2,29 +2,29 @@ import React from 'react';
 import { TeamDetailedStats } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
+
 
 interface ShotDistributionAnalysisProps {
   teamStats: TeamDetailedStats;
   teamName: string;
 }
 
-// Simple Bar component for demonstration
-const SimpleBarDisplay = ({ value, maxValue, label, barColor }: { value: number; maxValue: number; label:string; barColor: string; }) => {
-  const widthPercentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
-  return (
-    <div className="mb-2">
-      <div className="flex justify-between text-xs mb-1">
-        <span>{label}</span>
-        <span>{value}</span>
-      </div>
-      <div className="w-full bg-gray-200 rounded h-4">
-        <div
-          className="h-4 rounded"
-          style={{ width: `${widthPercentage}%`, backgroundColor: barColor }}
-        />
-      </div>
-    </div>
-  );
+// Removed SimpleBarDisplay
+
+const chartColors = {
+  'Foot Shots': 'hsl(var(--chart-1))',
+  'Header Shots': 'hsl(var(--chart-2))',
+  'Other Shots': 'hsl(var(--chart-3))',
+  'On Target (All)': 'hsl(var(--chart-1))',
+  'Off Target (All)': 'hsl(var(--chart-2))',
+  'Hit Post (All)': 'hsl(var(--chart-3))',
+  'Blocked (All)': 'hsl(var(--chart-4))',
 };
 
 
@@ -32,29 +32,58 @@ const ShotDistributionAnalysis: React.FC<ShotDistributionAnalysisProps> = ({
   teamStats,
   teamName,
 }) => {
-  const totalFootShots = (teamStats.dangerousFootShots || 0) + (teamStats.nonDangerousFootShots || 0);
-  // Note: footShotsOnTarget + footShotsOffTarget + footShotsPostHits + footShotsBlocked should also sum to totalFootShots if data is consistent.
-  // Using dangerous + nonDangerous as the primary sum for total foot shots here.
+  const totalFootShots = (teamStats.footShotsOnTarget || 0) + (teamStats.footShotsOffTarget || 0) + (teamStats.footShotsPostHits || 0) + (teamStats.footShotsBlocked || 0);
+  const totalHeaderShots = (teamStats.headerShotsOnTarget || 0) + (teamStats.headerShotsOffTarget || 0) + (teamStats.headerShotsPostHits || 0) + (teamStats.headerShotsBlocked || 0);
+  const totalShots = teamStats.shots || 0;
+  const otherShots = Math.max(0, totalShots - totalFootShots - totalHeaderShots);
 
-  const totalHeaderShots = (teamStats.dangerousHeaderShots || 0) + (teamStats.nonDangerousHeaderShots || 0);
-  const totalShots = teamStats.shots || 0; // This should be the grand total
 
   const bodyPartData = [
-    { label: 'Foot Shots', value: totalFootShots, color: '#3b82f6' }, // blue
-    { label: 'Header Shots', value: totalHeaderShots, color: '#16a34a' }, // green
-    { label: 'Other Shots (if any)', value: totalShots - totalFootShots - totalHeaderShots, color: '#71717a'} // gray
-  ];
-  const maxBodyPartValue = Math.max(...bodyPartData.map(d => d.value), 1);
-
+    { name: 'Foot Shots', count: totalFootShots, fill: chartColors['Foot Shots'] },
+    { name: 'Header Shots', count: totalHeaderShots, fill: chartColors['Header Shots'] },
+    { name: 'Other Shots', count: otherShots, fill: chartColors['Other Shots'] },
+  ].filter(d => d.count > 0);
 
   const outcomeData = [
-    { label: 'On Target (All)', value: teamStats.shotsOnTarget || 0, color: '#16a34a' },
-    { label: 'Off Target (All)', value: (teamStats.footShotsOffTarget || 0) + (teamStats.headerShotsOffTarget || 0), color: '#ef4444' },
-    { label: 'Hit Post (All)', value: (teamStats.footShotsPostHits || 0) + (teamStats.headerShotsPostHits || 0), color: '#eab308' },
-    { label: 'Blocked (All)', value: (teamStats.footShotsBlocked || 0) + (teamStats.headerShotsBlocked || 0), color: '#71717a' },
-  ];
-   const maxOutcomeValue = Math.max(...outcomeData.map(d => d.value), 1);
+    { name: 'On Target', count: teamStats.shotsOnTarget || 0, fill: chartColors['On Target (All)'] },
+    { name: 'Off Target', count: (teamStats.footShotsOffTarget || 0) + (teamStats.headerShotsOffTarget || 0), fill: chartColors['Off Target (All)'] },
+    { name: 'Hit Post', count: (teamStats.footShotsPostHits || 0) + (teamStats.headerShotsPostHits || 0), fill: chartColors['Hit Post (All)'] },
+    { name: 'Blocked', count: (teamStats.footShotsBlocked || 0) + (teamStats.headerShotsBlocked || 0), fill: chartColors['Blocked (All)'] },
+  ].filter(d => d.count > 0);
 
+  const renderBarChart = (data: Array<{name: string; count: number; fill: string}>, title: string, totalForTitle: number) => {
+     if (data.length === 0) {
+      return (
+        <div className="text-center">
+          <h4 className="font-semibold text-md mb-3">{title} (Total: {totalForTitle})</h4>
+          <p className="text-xs text-muted-foreground">No data to display.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="mb-6">
+        <h4 className="font-semibold text-md mb-3 text-center">{title} (Total: {totalForTitle})</h4>
+        <ChartContainer config={{}} className="min-h-[200px] w-full aspect-[4/3]">
+          <ResponsiveContainer width="100%" height={Math.max(200, data.length * 40)}>
+            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 60, bottom: 5 }}>
+              <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis dataKey="name" type="category" interval={0} tick={{ fontSize: 10 }} width={80} />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="count" radius={4} barSize={25}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -63,33 +92,12 @@ const ShotDistributionAnalysis: React.FC<ShotDistributionAnalysisProps> = ({
         <CardDescription>Breakdown of shots by body part and outcome.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6">
-          <h4 className="font-semibold text-md mb-3">Shots by Body Part (Total: {totalShots})</h4>
-          {bodyPartData.map(item => (
-            <SimpleBarDisplay
-              key={item.label}
-              label={item.label}
-              value={item.value}
-              maxValue={maxBodyPartValue}
-              barColor={item.color}
-            />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {renderBarChart(bodyPartData, "Shots by Body Part", totalShots)}
+          {renderBarChart(outcomeData, "Shots by Overall Outcome", totalShots)}
         </div>
 
-        <div>
-          <h4 className="font-semibold text-md mb-3">Shots by Outcome (Total: {totalShots})</h4>
-           {outcomeData.map(item => (
-            <SimpleBarDisplay
-              key={item.label}
-              label={item.label}
-              value={item.value}
-              maxValue={maxOutcomeValue}
-              barColor={item.color}
-            />
-          ))}
-        </div>
-
-        <div className="mt-6">
+        <div className="mt-8"> {/* Increased margin-top for separation */}
             <h4 className="font-semibold text-md mb-3">Detailed Shot Counts Table</h4>
             <Table>
                 <TableHeader>

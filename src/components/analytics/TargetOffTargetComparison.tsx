@@ -1,7 +1,14 @@
 import React from 'react';
 import { TeamDetailedStats } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Example
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface TargetOffTargetComparisonProps {
   homeStats: TeamDetailedStats;
@@ -10,42 +17,7 @@ interface TargetOffTargetComparisonProps {
   awayTeamName: string;
 }
 
-// Simple Bar component for demonstration
-const SimpleComparisonBar = ({ homeValue, awayValue, maxValue, label, homeColor, awayColor }: {
-  homeValue: number; awayValue: number; maxValue: number; label: string; homeColor: string; awayColor: string;
-}) => {
-  const homeHeightPercentage = maxValue > 0 ? (homeValue / maxValue) * 100 : 0;
-  const awayHeightPercentage = maxValue > 0 ? (awayValue / maxValue) * 100 : 0;
-
-  return (
-    <div className="flex flex-col items-center mx-2 p-2 border rounded" style={{width: '150px'}}>
-      <div className="text-sm font-semibold mb-2 h-10 flex items-center justify-center text-center">{label}</div>
-      <div className="flex justify-around w-full items-end h-32">
-        <div className="flex flex-col items-center">
-          <div className="w-10 bg-gray-200 relative" style={{ height: '100%'}}>
-            <div
-              className="absolute bottom-0 w-full"
-              style={{ height: `${homeHeightPercentage}%`, backgroundColor: homeColor }}
-            />
-          </div>
-          <div className="text-xs mt-1">Home</div>
-          <div className="text-xs font-bold">{homeValue}</div>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="w-10 bg-gray-200 relative" style={{ height: '100%'}}>
-            <div
-              className="absolute bottom-0 w-full"
-              style={{ height: `${awayHeightPercentage}%`, backgroundColor: awayColor }}
-            />
-          </div>
-          <div className="text-xs mt-1">Away</div>
-          <div className="text-xs font-bold">{awayValue}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
+// Removed SimpleComparisonBar placeholder
 
 const TargetOffTargetComparison: React.FC<TargetOffTargetComparisonProps> = ({
   homeStats,
@@ -55,48 +27,51 @@ const TargetOffTargetComparison: React.FC<TargetOffTargetComparisonProps> = ({
 }) => {
   const comparisonData = [
     {
-      label: 'Foot Shots On Target',
-      homeValue: homeStats.footShotsOnTarget || 0,
-      awayValue: awayStats.footShotsOnTarget || 0,
+      metric: 'Foot On Target',
+      [homeTeamName]: homeStats.footShotsOnTarget || 0,
+      [awayTeamName]: awayStats.footShotsOnTarget || 0,
     },
     {
-      label: 'Foot Shots Off Target',
-      homeValue: homeStats.footShotsOffTarget || 0,
-      awayValue: awayStats.footShotsOffTarget || 0,
+      metric: 'Foot Off Target',
+      [homeTeamName]: homeStats.footShotsOffTarget || 0,
+      [awayTeamName]: awayStats.footShotsOffTarget || 0,
     },
     {
-      label: 'Header Shots On Target',
-      homeValue: homeStats.headerShotsOnTarget || 0,
-      awayValue: awayStats.headerShotsOnTarget || 0,
+      metric: 'Foot Hit Post',
+      [homeTeamName]: homeStats.footShotsPostHits || 0,
+      [awayTeamName]: awayStats.footShotsPostHits || 0,
     },
     {
-      label: 'Header Shots Off Target',
-      homeValue: homeStats.headerShotsOffTarget || 0,
-      awayValue: awayStats.headerShotsOffTarget || 0,
+      metric: 'Foot Blocked',
+      [homeTeamName]: homeStats.footShotsBlocked || 0,
+      [awayTeamName]: awayStats.footShotsBlocked || 0,
     },
     {
-      label: 'Foot Shots Hit Post',
-      homeValue: homeStats.footShotsPostHits || 0,
-      awayValue: awayStats.footShotsPostHits || 0,
+      metric: 'Header On Target',
+      [homeTeamName]: homeStats.headerShotsOnTarget || 0,
+      [awayTeamName]: awayStats.headerShotsOnTarget || 0,
     },
     {
-      label: 'Header Shots Hit Post',
-      homeValue: homeStats.headerShotsPostHits || 0,
-      awayValue: awayStats.headerShotsPostHits || 0,
+      metric: 'Header Off Target',
+      [homeTeamName]: homeStats.headerShotsOffTarget || 0,
+      [awayTeamName]: awayStats.headerShotsOffTarget || 0,
     },
     {
-      label: 'Foot Shots Blocked',
-      homeValue: homeStats.footShotsBlocked || 0,
-      awayValue: awayStats.footShotsBlocked || 0,
+      metric: 'Header Hit Post',
+      [homeTeamName]: homeStats.headerShotsPostHits || 0,
+      [awayTeamName]: awayStats.headerShotsPostHits || 0,
     },
     {
-      label: 'Header Shots Blocked',
-      homeValue: homeStats.headerShotsBlocked || 0,
-      awayValue: awayStats.headerShotsBlocked || 0,
+      metric: 'Header Blocked',
+      [homeTeamName]: homeStats.headerShotsBlocked || 0,
+      [awayTeamName]: awayStats.headerShotsBlocked || 0,
     },
   ];
 
-  const overallMaxValue = Math.max(...comparisonData.map(d => Math.max(d.homeValue, d.awayValue)), 1);
+  const chartConfig = {
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+  };
 
   return (
     <Card>
@@ -104,31 +79,29 @@ const TargetOffTargetComparison: React.FC<TargetOffTargetComparisonProps> = ({
         <CardTitle>Shot Outcome Comparison: {homeTeamName} vs {awayTeamName}</CardTitle>
         <CardDescription>Comparing shots on target, off target, post hits, and blocked shots for foot and header.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap justify-center">
-        {comparisonData.map(stat => (
-          <SimpleComparisonBar
-            key={stat.label}
-            label={stat.label}
-            homeValue={stat.homeValue}
-            awayValue={stat.awayValue}
-            maxValue={overallMaxValue}
-            homeColor="lightblue"
-            awayColor="lightcoral"
-          />
-        ))}
-        {/* Placeholder for actual grouped bar chart
-         <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={chartCompatibleData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="homeValue" name={homeTeamName} fill="#8884d8" />
-            <Bar dataKey="awayValue" name={awayTeamName} fill="#82ca9d" />
-          </BarChart>
-        </ResponsiveContainer>
-        */}
+      <CardContent>
+        <ChartContainer config={chartConfig} className="min-h-[300px] w-full aspect-[4/3]">
+          <ResponsiveContainer width="100%" height={Math.max(300, comparisonData.length * 60)}>
+            <BarChart data={comparisonData} layout="vertical" margin={{ top: 5, right: 30, left: 70, bottom: 5 }}>
+              <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis
+                dataKey="metric"
+                type="category"
+                width={120}
+                interval={0}
+                tick={{ fontSize: 10 }}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey={homeTeamName} name={homeTeamName} fill={chartConfig[homeTeamName].color} radius={4} barSize={15} />
+              <Bar dataKey={awayTeamName} name={awayTeamName} fill={chartConfig[awayTeamName].color} radius={4} barSize={15} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

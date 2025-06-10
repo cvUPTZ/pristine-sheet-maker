@@ -1,11 +1,12 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend } from 'recharts';
-import { Statistics } from '@/types';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
+import { Statistics as StatisticsType, TeamDetailedStats } from '@/types'; // Use StatisticsType for clarity
+import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'; // Optional: use Shadcn UI tooltip
 
 interface TeamPerformanceRadarProps {
-  statistics: Statistics;
+  statistics: StatisticsType; // This now contains home: TeamDetailedStats, away: TeamDetailedStats
   homeTeamName: string;
   awayTeamName: string;
 }
@@ -15,52 +16,65 @@ const TeamPerformanceRadar: React.FC<TeamPerformanceRadarProps> = ({
   homeTeamName,
   awayTeamName,
 }) => {
-  const calculatePassAccuracy = (successful: number = 0, total: number = 0) => {
-    return total > 0 ? Math.round((successful / total) * 100) : 0;
+  if (!statistics || !statistics.home || !statistics.away) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader><CardTitle>Team Performance Radar</CardTitle></CardHeader>
+        <CardContent><p className="text-center text-muted-foreground">Not enough data for radar chart.</p></CardContent>
+      </Card>
+    );
+  }
+
+  const { home: homeStats, away: awayStats } = statistics;
+
+  const calculatePercentage = (value: number, total: number) => {
+    return total > 0 ? Math.round((value / total) * 100) : 0;
   };
 
-  const calculateShotAccuracy = (onTarget: number = 0, total: number = 0) => {
-    return total > 0 ? Math.round((onTarget / total) * 100) : 0;
-  };
-
-  const calculateDuelSuccess = (won: number = 0, total: number = 0) => {
-    return total > 0 ? Math.round((won / total) * 100) : 0;
-  };
-
-  const data = [
+  // Metrics for Radar - ensure they are somewhat normalized (e.g., percentages or scaled)
+  const radarData = [
     {
-      metric: 'Pass Accuracy',
-      home: calculatePassAccuracy(statistics.passes?.home?.successful, statistics.passes?.home?.successful || 0),
-      away: calculatePassAccuracy(statistics.passes?.away?.successful, statistics.passes?.away?.successful || 0),
+      metric: 'Pass Acc.',
+      [homeTeamName]: calculatePercentage(homeStats.passesCompleted, homeStats.passesAttempted),
+      [awayTeamName]: calculatePercentage(awayStats.passesCompleted, awayStats.passesAttempted),
+      fullMark: 100,
     },
     {
-      metric: 'Shot Accuracy',
-      home: calculateShotAccuracy(statistics.shots?.home?.onTarget, statistics.shots?.home?.onTarget || 0),
-      away: calculateShotAccuracy(statistics.shots?.away?.onTarget, statistics.shots?.away?.onTarget || 0),
+      metric: 'Shot Acc. (on Target/Total)',
+      [homeTeamName]: calculatePercentage(homeStats.shotsOnTarget, homeStats.shots),
+      [awayTeamName]: calculatePercentage(awayStats.shotsOnTarget, awayStats.shots),
+      fullMark: 100,
     },
     {
-      metric: 'Duel Success',
-      home: statistics.duels?.home?.total ? 
-        calculateDuelSuccess(statistics.duels.home.won, statistics.duels.home.total) : 0,
-      away: statistics.duels?.away?.total ? 
-        calculateDuelSuccess(statistics.duels.away.won, statistics.duels.away.total) : 0,
+      metric: 'Goal Conv. (Goals/Shots)',
+      [homeTeamName]: calculatePercentage(homeStats.goals, homeStats.shots),
+      [awayTeamName]: calculatePercentage(awayStats.goals, awayStats.shots),
+      fullMark: Math.max(30, calculatePercentage(homeStats.goals, homeStats.shots), calculatePercentage(awayStats.goals, awayStats.shots)), // Max expected ~30-40%
     },
     {
-      metric: 'Possession',
-      home: statistics.possession?.home || 0,
-      away: statistics.possession?.away || 0,
+      metric: 'Duel Win %',
+      [homeTeamName]: calculatePercentage(homeStats.duelsWon, homeStats.duelsWon + homeStats.duelsLost),
+      [awayTeamName]: calculatePercentage(awayStats.duelsWon, awayStats.duelsWon + awayStats.duelsLost),
+      fullMark: 100,
     },
     {
-      metric: 'Attack Efficiency',
-      home: Math.min(((statistics.shots?.home?.onTarget || 0) / Math.max(statistics.passes?.home?.successful || 1, 1)) * 1000, 100),
-      away: Math.min(((statistics.shots?.away?.onTarget || 0) / Math.max(statistics.passes?.away?.successful || 1, 1)) * 1000, 100),
+      metric: 'Possession %',
+      [homeTeamName]: homeStats.possessionPercentage || 0,
+      [awayTeamName]: awayStats.possessionPercentage || 0,
+      fullMark: 100,
     },
-    {
-      metric: 'Discipline',
-      home: Math.max(100 - (statistics.fouls?.home || 0) * 5, 0),
-      away: Math.max(100 - (statistics.fouls?.away || 0) * 5, 0),
+    { // Higher is better for radar, so 100 - (fouls * scale factor)
+      metric: 'Discipline (Fouls based)',
+      [homeTeamName]: Math.max(0, 100 - (homeStats.foulsCommitted || 0) * 5), // Example scaling
+      [awayTeamName]: Math.max(0, 100 - (awayStats.foulsCommitted || 0) * 5),
+      fullMark: 100,
     },
   ];
+
+  const chartConfig = {
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+  };
 
   return (
     <Card className="col-span-full">
@@ -68,35 +82,34 @@ const TeamPerformanceRadar: React.FC<TeamPerformanceRadarProps> = ({
         <CardTitle>Team Performance Radar</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={data} margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="metric" />
-              <PolarRadiusAxis 
-                angle={90} 
-                domain={[0, 100]} 
-                tick={false}
-              />
-              <Radar
-                name={homeTeamName}
-                dataKey="home"
-                stroke="#8884d8"
-                fill="#8884d8"
-                fillOpacity={0.3}
-                strokeWidth={2}
-              />
-              <Radar
-                name={awayTeamName}
-                dataKey="away"
-                stroke="#82ca9d"
-                fill="#82ca9d"
-                fillOpacity={0.3}
-                strokeWidth={2}
-              />
-              <Legend />
-            </RadarChart>
-          </ResponsiveContainer>
+        <div className="h-96 aspect-video"> {/* Ensure aspect ratio or fixed height */}
+          <ChartContainer config={chartConfig} className="w-full h-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+                <PolarGrid strokeDasharray="3 3" />
+                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                <Radar
+                  name={homeTeamName}
+                  dataKey={homeTeamName}
+                  stroke={chartConfig[homeTeamName].color}
+                  fill={chartConfig[homeTeamName].color}
+                  fillOpacity={0.4}
+                  strokeWidth={2}
+                />
+                <Radar
+                  name={awayTeamName}
+                  dataKey={awayTeamName}
+                  stroke={chartConfig[awayTeamName].color}
+                  fill={chartConfig[awayTeamName].color}
+                  fillOpacity={0.4}
+                  strokeWidth={2}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </CardContent>
     </Card>

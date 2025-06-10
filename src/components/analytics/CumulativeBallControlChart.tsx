@@ -1,7 +1,14 @@
 import React from 'react';
-import { AggregatedStats } from '@/lib/analytics/eventAggregator'; // Or from @/types
+import { AggregatedStats } from '@/lib/analytics/eventAggregator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface CumulativeBallControlChartProps {
   statsSegments: AggregatedStats[];
@@ -12,25 +19,10 @@ interface CumulativeBallControlChartProps {
 
 interface CumulativeChartDataPoint {
   name: string; // Time interval end point, e.g., "5 min", "10 min"
-  [homeTeamNamePlayed: string]: number;
-  [awayTeamNamePlayed: string]: number;
-  [homeTeamNameLost: string]: number;
-  [awayTeamNameLost: string]: number;
-  differencePlayed?: number;
+  [teamKeyAndMetric: string]: number | string; // Allows dynamic keys like "Home Played", "Away Played", "Difference Played"
 }
 
-// Simple Line Chart Placeholder
-const SimpleLineChartPlaceholder = ({ data, yKeys, title, colors }: { data: any[], yKeys: string[], title: string, colors: string[] }) => (
-  <div className="mb-4 p-2 border rounded">
-    <h5 className="text-sm font-semibold text-center mb-2">{title}</h5>
-    <div className="bg-gray-100 p-2 rounded h-48 overflow-x-auto">
-      <pre className="text-xs">{JSON.stringify(data.map(d => ({name: d.name, ...yKeys.reduce((obj, key) => ({...obj, [key]: d[key]}), {})})), null, 2)}</pre>
-      <p className="text-xs text-muted-foreground mt-2">Data shown above. Chart rendering would go here.</p>
-      {yKeys.map((key, i) => <div key={key} className="text-xs"><span className="inline-block w-3 h-3 mr-1" style={{backgroundColor: colors[i]}}></span>{key}</div>)}
-    </div>
-  </div>
-);
-
+// Removed SimpleLineChartPlaceholder
 
 const CumulativeBallControlChart: React.FC<CumulativeBallControlChartProps> = ({
   statsSegments,
@@ -39,8 +31,17 @@ const CumulativeBallControlChart: React.FC<CumulativeBallControlChartProps> = ({
   awayTeamName,
 }) => {
   if (!statsSegments || statsSegments.length === 0) {
-    return <Card><CardHeader><CardTitle>Cumulative Ball Control</CardTitle></CardHeader><CardContent><p>No data.</p></CardContent></Card>;
+    return <Card><CardHeader><CardTitle>Cumulative Ball Control</CardTitle></CardHeader><CardContent><p>No segmented data available.</p></CardContent></Card>;
   }
+
+  const chartConfig = {
+    [`${homeTeamName} Played`]: { label: `${homeTeamName} Played`, color: "hsl(var(--chart-1))" },
+    [`${awayTeamName} Played`]: { label: `${awayTeamName} Played`, color: "hsl(var(--chart-2))" },
+    [`${homeTeamName} Lost`]: { label: `${homeTeamName} Lost`, color: "hsl(var(--chart-1)/0.7)" },
+    [`${awayTeamName} Lost`]: { label: `${awayTeamName} Lost`, color: "hsl(var(--chart-2)/0.7)" },
+    differencePlayed: { label: 'Difference (Home - Away Balls Played)', color: "hsl(var(--chart-3))" },
+  };
+
 
   let cumulativeHomePlayed = 0;
   let cumulativeAwayPlayed = 0;
@@ -63,46 +64,51 @@ const CumulativeBallControlChart: React.FC<CumulativeBallControlChartProps> = ({
     };
   });
 
+  const renderLineChart = (
+    data: CumulativeChartDataPoint[],
+    title: string,
+    yKeys: {key: string, name: string, color: string}[]
+  ) => (
+    <div className="mb-6">
+      <h4 className="text-md font-semibold text-center mb-3">{title}</h4>
+      <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-[3/1]">
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+            <ChartTooltip
+              cursor={true}
+              content={<ChartTooltipContent indicator="line" hideLabel />}
+            />
+            <ChartLegend content={<ChartLegendContent />} />
+            {yKeys.map(item => (
+              <Line key={item.key} type="monotone" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={2} dot={false} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartContainer>
+    </div>
+  );
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Cumulative Ball Control Over Time</CardTitle>
         <CardDescription>Tracking cumulative balls played and lost by each team.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <SimpleLineChartPlaceholder
-          data={cumulativeData}
-          yKeys={[`${homeTeamName} Played`, `${awayTeamName} Played`]}
-          title="Cumulative Balls Played"
-          colors={['lightblue', 'lightcoral']}
-        />
-        <SimpleLineChartPlaceholder
-          data={cumulativeData}
-          yKeys={[`${homeTeamName} Lost`, `${awayTeamName} Lost`]}
-          title="Cumulative Balls Lost"
-          colors={['skyblue', 'salmon']}
-        />
-        <SimpleLineChartPlaceholder
-          data={cumulativeData}
-          yKeys={['differencePlayed']}
-          title="Difference in Cumulative Balls Played (Home - Away)"
-          colors={['#71717a']}
-        />
-        {/*
-        Example with Recharts:
-        <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={cumulativeData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey={`${homeTeamName} Played`} stroke="lightblue" />
-            <Line type="monotone" dataKey={`${awayTeamName} Played`} stroke="lightcoral" />
-          </LineChart>
-        </ResponsiveContainer>
-        // ... similar charts for Lost and Difference ...
-        */}
+      <CardContent className="space-y-6">
+        {renderLineChart(cumulativeData, "Cumulative Balls Played", [
+          { key: `${homeTeamName} Played`, name: `${homeTeamName} Played`, color: chartConfig[`${homeTeamName} Played`].color },
+          { key: `${awayTeamName} Played`, name: `${awayTeamName} Played`, color: chartConfig[`${awayTeamName} Played`].color },
+        ])}
+        {renderLineChart(cumulativeData, "Cumulative Balls Lost", [
+          { key: `${homeTeamName} Lost`, name: `${homeTeamName} Lost`, color: chartConfig[`${homeTeamName} Lost`].color },
+          { key: `${awayTeamName} Lost`, name: `${awayTeamName} Lost`, color: chartConfig[`${awayTeamName} Lost`].color },
+        ])}
+        {renderLineChart(cumulativeData, "Difference in Cumulative Balls Played (Home - Away)", [
+          { key: 'differencePlayed', name: 'Difference (Played)', color: chartConfig.differencePlayed.color },
+        ])}
       </CardContent>
     </Card>
   );

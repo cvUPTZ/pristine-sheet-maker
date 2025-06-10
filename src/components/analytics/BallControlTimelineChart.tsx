@@ -1,8 +1,14 @@
 import React from 'react';
-import { AggregatedStats } from '@/lib/analytics/eventAggregator'; // Or from @/types if moved
+import { AggregatedStats } from '@/lib/analytics/eventAggregator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// Assuming a chart component is available, e.g., from Recharts
-// import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface BallControlTimelineChartProps {
   statsSegments: AggregatedStats[];
@@ -11,12 +17,11 @@ interface BallControlTimelineChartProps {
   awayTeamName: string;
 }
 
-// Placeholder for chart data structure
 interface ChartDataPoint {
   name: string; // e.g., "0-5 min", "5-10 min"
-  [homeTeamName: string]: number;
-  [awayTeamName: string]: number;
+  [teamKey: string]: number | string; // Allows for dynamic team name keys and the 'name' key
 }
+
 
 const BallControlTimelineChart: React.FC<BallControlTimelineChartProps> = ({
   statsSegments,
@@ -27,6 +32,11 @@ const BallControlTimelineChart: React.FC<BallControlTimelineChartProps> = ({
   if (!statsSegments || statsSegments.length === 0) {
     return <Card><CardHeader><CardTitle>Ball Control Timeline</CardTitle></CardHeader><CardContent><p>No segmented data available.</p></CardContent></Card>;
   }
+
+  const chartConfig = {
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+  };
 
   const playedData: ChartDataPoint[] = statsSegments.map((segment, index) => ({
     name: `${index * intervalMinutes}-${(index + 1) * intervalMinutes} min`,
@@ -40,30 +50,28 @@ const BallControlTimelineChart: React.FC<BallControlTimelineChartProps> = ({
     [awayTeamName]: segment.awayTeamStats.ballsLost || 0,
   }));
 
-  // Simple Bar Chart Placeholder
-  const SimpleTimelineBarChart = ({ data, yKeyHome, yKeyAway, title }: { data: ChartDataPoint[], yKeyHome: string, yKeyAway: string, title: string }) => (
-    <div className="mb-4 p-2 border rounded">
-      <h5 className="text-sm font-semibold text-center mb-2">{title}</h5>
-      <div className="overflow-x-auto pb-2">
-        <div className="flex" style={{width: `${data.length * 80}px`}}> {/* Adjust width as needed */}
-          {data.map(point => {
-            const homeVal = point[yKeyHome];
-            const awayVal = point[yKeyAway];
-            const maxVal = Math.max(homeVal, awayVal, 1);
-            return (
-              <div key={point.name} className="flex flex-col items-center mx-1 text-xs w-16">
-                <div className="h-24 bg-gray-100 w-full flex justify-around items-end">
-                  <div style={{ height: `${(homeVal / maxVal) * 100}%`, backgroundColor: 'lightblue', width: '40%' }} title={`${yKeyHome}: ${homeVal}`}></div>
-                  <div style={{ height: `${(awayVal / maxVal) * 100}%`, backgroundColor: 'lightcoral', width: '40%' }} title={`${yKeyAway}: ${awayVal}`}></div>
-                </div>
-                <span className="mt-1 whitespace-nowrap">{point.name}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+  const renderTimelineChart = (data: ChartDataPoint[], title: string) => (
+     <div className="mb-6">
+        <h4 className="text-md font-semibold text-center mb-3">{title}</h4>
+        <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-[3/1]">
+            <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="dot" hideLabel />}
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey={homeTeamName} fill={chartConfig[homeTeamName].color} radius={4} />
+                    <Bar dataKey={awayTeamName} fill={chartConfig[awayTeamName].color} radius={4} />
+                </BarChart>
+            </ResponsiveContainer>
+        </ChartContainer>
     </div>
   );
+
 
   return (
     <Card>
@@ -71,24 +79,9 @@ const BallControlTimelineChart: React.FC<BallControlTimelineChartProps> = ({
         <CardTitle>Ball Control Timeline</CardTitle>
         <CardDescription>Balls played and lost per {intervalMinutes}-minute interval.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <SimpleTimelineBarChart data={playedData} yKeyHome={homeTeamName} yKeyAway={awayTeamName} title="Balls Played per Interval" />
-        <SimpleTimelineBarChart data={lostData} yKeyHome={homeTeamName} yKeyAway={awayTeamName} title="Balls Lost per Interval" />
-        {/*
-        Example with Recharts:
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={playedData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey={homeTeamName} fill="lightblue" />
-            <Bar dataKey={awayTeamName} fill="lightcoral" />
-          </BarChart>
-        </ResponsiveContainer>
-        // Similar for lostData
-        */}
+      <CardContent className="space-y-4">
+        {renderTimelineChart(playedData, "Balls Played per Interval")}
+        {renderTimelineChart(lostData, "Balls Lost per Interval")}
       </CardContent>
     </Card>
   );
