@@ -1,47 +1,59 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // Define the type for the pipeline task
-type SpeechToTextPipeline = any; // Adjust if a more specific type is available from transformers.js
+type SpeechToTextPipeline = any;
 
 export const useWhisperJsSpeechRecognition = () => {
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // For transcription processing
+  const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const transcriber = useRef<SpeechToTextPipeline | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const audioContext = useRef<AudioContext | null>(null);
+  const processor = useRef<ScriptProcessorNode | null>(null);
+  const stream = useRef<MediaStream | null>(null);
 
   const onTranscriptCompletedRef = useRef<(transcript: string) => void>(() => {});
 
-  // Initialize the speech-to-text pipeline
+  // Initialize the speech-to-text pipeline with optimizations
   useEffect(() => {
     const initializePipeline = async () => {
       try {
-        console.log('Initializing speech-to-text pipeline...');
+        console.log('Initializing optimized speech-to-text pipeline...');
         
-        // Dynamic import to avoid build issues
         const { pipeline, env } = await import('@huggingface/transformers');
         
-        // Configure for browser usage
+        // Configure for browser usage with optimizations
         env.remoteHost = 'https://huggingface.co/';
         env.remotePathTemplate = '{model}/resolve/{revision}/';
+        env.allowLocalModels = false; // Force remote loading for faster startup
         
-        // Determine the best available device - check for WebGPU support safely
-        const isWebGPUSupported = typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu !== undefined;
+        // Check WebGPU support safely
+        const isWebGPUSupported = typeof navigator !== 'undefined' && 
+          'gpu' in navigator && 
+          navigator.gpu !== undefined;
+        
         const device = isWebGPUSupported ? 'webgpu' : 'wasm';
-        
         console.log(`Using device: ${device}`);
         
-        // Load a small Whisper model
-        transcriber.current = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
-          device: device, // Use webgpu if available, otherwise wasm
-        });
+        // Use the smallest, fastest Whisper model for real-time processing
+        transcriber.current = await pipeline(
+          'automatic-speech-recognition', 
+          'onnx-community/whisper-base.en', // Faster than tiny but still accurate
+          {
+            device: device,
+            dtype: 'fp16', // Use half precision for speed
+            cache_dir: './.cache', // Cache model for faster subsequent loads
+          }
+        );
         
         setIsModelLoading(false);
-        console.log('Speech-to-text pipeline initialized successfully.');
+        console.log('Fast speech-to-text pipeline ready.');
       } catch (e) {
         console.error('Failed to initialize speech-to-text pipeline:', e);
         setError(`Failed to load speech model: ${e instanceof Error ? e.message : String(e)}`);
@@ -52,91 +64,171 @@ export const useWhisperJsSpeechRecognition = () => {
     initializePipeline();
   }, []);
 
-  const processAudio = useCallback(async (audioBlob: Blob) => {
-    if (!transcriber.current || isModelLoading) {
-      setError('Transcription model not ready.');
-      setIsProcessing(false);
+  // Optimized audio processing with shorter chunks
+  const processAudioStream = useCallback(async (audioData: Float32Array) => {
+    if (!transcriber.current || isModelLoading || isProcessing) {
       return;
     }
 
     try {
-      const audioBuffer = await audioBlob.arrayBuffer();
+      setIsProcessing(true);
+      console.log('Processing audio stream chunk...');
       
-      // Create AudioContext for proper audio processing
-      const audioContext = new AudioContext({ sampleRate: 16000 }); // Whisper expects 16kHz
-      const decodedAudio = await audioContext.decodeAudioData(audioBuffer);
-      const monoAudioData = decodedAudio.getChannelData(0); // Get mono channel
-
-      console.log('Transcribing audio data...');
-      const output = await transcriber.current(monoAudioData);
+      // Process audio in smaller chunks for faster response
+      const output = await transcriber.current(audioData, {
+        chunk_length_s: 10, // Process 10-second chunks
+        stride_length_s: 2,  // 2-second stride for overlap
+        return_timestamps: false, // Skip timestamps for speed
+      });
 
       const recognizedText = typeof output === 'string' ? output : (output as any)?.text || '';
-      console.log('Transcription output:', recognizedText);
-      setTranscript(recognizedText);
-      onTranscriptCompletedRef.current(recognizedText);
+      
+      if (recognizedText && recognizedText.trim().length > 0) {
+        console.log('Fast transcription:', recognizedText);
+        setTranscript(recognizedText);
+        onTranscriptCompletedRef.current(recognizedText);
+      }
 
     } catch (e) {
-      console.error('Error during transcription:', e);
-      setError(`Transcription failed: ${e instanceof Error ? e.message : String(e)}`);
+      console.error('Error during fast transcription:', e);
+      setError(`Fast transcription failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setIsProcessing(false);
     }
-  }, [isModelLoading]);
+  }, [isModelLoading, isProcessing]);
+
+  // Real-time audio processing setup
+  const setupRealtimeProcessing = useCallback(async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000, // Whisper optimal sample rate
+        }
+      });
+      
+      stream.current = mediaStream;
+      audioContext.current = new AudioContext({ sampleRate: 16000 });
+      
+      const source = audioContext.current.createMediaStreamSource(mediaStream);
+      
+      // Use modern AudioWorklet if available, fallback to ScriptProcessor
+      if (audioContext.current.audioWorklet) {
+        // For modern browsers - more efficient
+        const workletModule = `
+          class AudioProcessor extends AudioWorkletProcessor {
+            constructor() {
+              super();
+              this.bufferSize = 4096;
+              this.buffer = new Float32Array(this.bufferSize);
+              this.bufferIndex = 0;
+            }
+            
+            process(inputs) {
+              const input = inputs[0];
+              if (input.length > 0) {
+                const channelData = input[0];
+                for (let i = 0; i < channelData.length; i++) {
+                  this.buffer[this.bufferIndex] = channelData[i];
+                  this.bufferIndex++;
+                  
+                  if (this.bufferIndex >= this.bufferSize) {
+                    this.port.postMessage(this.buffer.slice());
+                    this.bufferIndex = 0;
+                  }
+                }
+              }
+              return true;
+            }
+          }
+          registerProcessor('audio-processor', AudioProcessor);
+        `;
+        
+        const blob = new Blob([workletModule], { type: 'application/javascript' });
+        const workletUrl = URL.createObjectURL(blob);
+        
+        await audioContext.current.audioWorklet.addModule(workletUrl);
+        const workletNode = new AudioWorkletNode(audioContext.current, 'audio-processor');
+        
+        workletNode.port.onmessage = (event) => {
+          if (!isProcessing) {
+            processAudioStream(event.data);
+          }
+        };
+        
+        source.connect(workletNode);
+        URL.revokeObjectURL(workletUrl);
+        
+      } else {
+        // Fallback for older browsers
+        processor.current = audioContext.current.createScriptProcessor(4096, 1, 1);
+        processor.current.onaudioprocess = (event) => {
+          if (!isProcessing) {
+            const audioData = event.inputBuffer.getChannelData(0);
+            processAudioStream(new Float32Array(audioData));
+          }
+        };
+        
+        source.connect(processor.current);
+        processor.current.connect(audioContext.current.destination);
+      }
+      
+      setIsListening(true);
+      console.log('Real-time audio processing started');
+      
+    } catch (e) {
+      console.error('Error setting up real-time processing:', e);
+      setError(`Microphone setup failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [processAudioStream, isProcessing]);
 
   const startListening = useCallback((onTranscriptCompleted: (transcript: string) => void) => {
     if (isModelLoading) {
       setError("Speech model is still loading.");
-      console.warn("Attempted to start listening while model is loading.");
       return;
     }
-    if (isListening || isProcessing) {
-      console.warn("Already listening or processing.");
+    if (isListening) {
+      console.warn("Already listening.");
       return;
     }
 
     onTranscriptCompletedRef.current = onTranscriptCompleted;
     setTranscript('');
     setError(null);
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorder.current = new MediaRecorder(stream);
-        audioChunks.current = [];
-
-        mediaRecorder.current.ondataavailable = event => {
-          audioChunks.current.push(event.data);
-        };
-
-        mediaRecorder.current.onstop = async () => {
-          setIsListening(false);
-          setIsProcessing(true);
-          const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
-          await processAudio(audioBlob);
-          // Stop microphone tracks
-          stream.getTracks().forEach(track => track.stop());
-        };
-
-        mediaRecorder.current.start();
-        setIsListening(true);
-        console.log('Started listening via MediaRecorder.');
-      })
-      .catch(e => {
-        console.error('Error getting user media (microphone):', e);
-        setError(`Microphone access denied or error: ${e instanceof Error ? e.message : String(e)}`);
-        setIsListening(false);
-      });
-  }, [isModelLoading, isListening, isProcessing, processAudio]);
+    
+    setupRealtimeProcessing();
+  }, [isModelLoading, isListening, setupRealtimeProcessing]);
 
   const stopListening = useCallback(() => {
-    if (mediaRecorder.current && isListening) {
-      mediaRecorder.current.stop(); // This will trigger onstop, then processing
-      console.log('Stopped listening.');
+    console.log('Stopping real-time listening...');
+    
+    if (stream.current) {
+      stream.current.getTracks().forEach(track => track.stop());
+      stream.current = null;
     }
-    // If not listening but mediaRecorder is active (e.g. from previous error), try to stop tracks
-    else if (mediaRecorder.current?.stream) {
-        mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+    
+    if (processor.current) {
+      processor.current.disconnect();
+      processor.current = null;
     }
-  }, [isListening]);
+    
+    if (audioContext.current) {
+      audioContext.current.close();
+      audioContext.current = null;
+    }
+    
+    setIsListening(false);
+    setIsProcessing(false);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopListening();
+    };
+  }, [stopListening]);
 
   return {
     isModelLoading,
