@@ -12,6 +12,7 @@ import EventTypeSvg from '@/components/match/EventTypeSvg';
 import CancellableEventsDisplay, { CancellableEventItem } from '../match/CancellableEventsDisplay'; // Import new component and type
 import { Undo, Clock, Plus } from 'lucide-react';
 
+
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
