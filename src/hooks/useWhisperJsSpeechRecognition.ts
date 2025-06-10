@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // Define the type for the pipeline task
@@ -30,9 +29,15 @@ export const useWhisperJsSpeechRecognition = () => {
         env.remoteHost = 'https://huggingface.co/';
         env.remotePathTemplate = '{model}/resolve/{revision}/';
         
+        // Determine the best available device
+        const isWebGPUSupported = navigator.gpu !== undefined;
+        const device = isWebGPUSupported ? 'webgpu' : 'wasm';
+        
+        console.log(`Using device: ${device}`);
+        
         // Load a small Whisper model
         transcriber.current = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
-          device: 'cpu', // Use CPU for better compatibility
+          device: device, // Use webgpu if available, otherwise wasm
         });
         
         setIsModelLoading(false);
