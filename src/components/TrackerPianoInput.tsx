@@ -9,14 +9,13 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import CancellableEventsDisplay, { CancellableEventItem } from '@/components/match/CancellableEventsDisplay'; // Import new component and type
+import CancellableEventsDisplay, { CancellableEventItem } from '../match/CancellableEventsDisplay'; // Import new component and type
 import { Undo, Clock, Plus } from 'lucide-react';
-
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
-  onRecordEvent: (
+  onRecordEvent: ( 
     eventTypeKey: string,
     playerId?: number,
     teamContext?: 'home' | 'away',
@@ -256,29 +255,29 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     // If no player is selected, teamContext remains undefined.
 
     try {
-      const recordedEvent = await onRecordEvent(
+      const recordedEvent = await onRecordEvent( 
         eventType.key,
-        selectedPlayer?.id,
-        teamContextForEvent,
+        selectedPlayer?.id, 
+        teamContextForEvent, 
         {
           recorded_via: 'piano',
         }
       );
       
-      if (recordedEvent && recordedEvent.id) {
+      if (recordedEvent && recordedEvent.id) { 
         const newCancellableEvent: CancellableEventItem = {
-            id: recordedEvent.id,
-            label: eventType.label,
+            id: recordedEvent.id, 
+            label: eventType.label, 
             timerStartTime: Date.now(),
             // player: selectedPlayer, // Player info can be added if CancellableEventItem supports it and it's useful
         };
         setCancellableEvents(prev => [newCancellableEvent, ...prev.slice(0, 4)]);
-
+        
         const eventInfoForRecentList = {
-          id: recordedEvent.id,
+          id: recordedEvent.id, 
           eventType: { key: eventType.key, label: eventType.label },
           player: selectedPlayer,
-          timestamp: Date.now()
+          timestamp: Date.now() 
         };
         setLastRecordedEvent(eventInfoForRecentList);
         setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]);
@@ -287,13 +286,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         // Event recording itself might have shown a success/warning toast via handleRecordEvent,
         // but we didn't get a valid ID back for the cancellable feature.
         console.error('[TrackerPianoInput] Event recording did not yield a valid event object with ID for cancellation feature.', { recordedEvent });
-
+        
         if (recordedEvent && !recordedEvent.id) {
             // This case means handleRecordEvent thought it was a success but returned no ID or an invalid event
             toast({
                 title: 'Event Recorded (ID Issue)',
                 description: `Event ${eventType.label} was logged, but there was an issue confirming its ID. Timed cancellation for this specific event instance might be unavailable.`,
-                variant: 'warning',
+                variant: 'warning', 
             });
             // Still update recentEvents for display, but it won't be cancellable from the timed list
             const eventInfoForRecentList = {
@@ -342,17 +341,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
 
       setCancellableEvents(prev => prev.filter(event => event.id !== eventId));
-      toast({
-        title: "Event Cancelled",
-        description: "The event was successfully removed."
+      toast({ 
+        title: "Event Cancelled", 
+        description: "The event was successfully removed." 
       });
 
     } catch (error: any) {
       console.error('Error cancelling event:', error);
-      toast({
-        title: "Error Cancelling Event",
-        description: error.message || "Could not remove the event.",
-        variant: "destructive"
+      toast({ 
+        title: "Error Cancelling Event", 
+        description: error.message || "Could not remove the event.", 
+        variant: "destructive" 
       });
     }
   };
