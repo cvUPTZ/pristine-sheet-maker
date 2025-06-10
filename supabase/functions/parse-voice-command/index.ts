@@ -1,4 +1,6 @@
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 interface Player {
   id: number;
@@ -36,13 +38,22 @@ interface ParsedCommand {
 console.log('Initializing parse-voice-command function');
 
 serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight request');
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   console.log('Request received for parse-voice-command');
 
   if (req.method !== 'POST') {
     console.log('Invalid request method:', req.method);
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 
+        'Content-Type': 'application/json', 
+        ...corsHeaders 
+      },
     })
   }
 
@@ -54,7 +65,10 @@ serve(async (req: Request) => {
     console.error('Error parsing JSON payload:', e);
     return new Response(JSON.stringify({ error: 'Bad Request: Could not parse JSON' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 
+        'Content-Type': 'application/json', 
+        ...corsHeaders 
+      },
     })
   }
 
@@ -64,7 +78,10 @@ serve(async (req: Request) => {
     console.log('Missing required fields in payload:', { transcript, assignedEventTypes });
     return new Response(JSON.stringify({ error: 'Bad Request: Missing transcript or assignedEventTypes' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 
+        'Content-Type': 'application/json', 
+        ...corsHeaders 
+      },
     })
   }
 
@@ -101,24 +118,13 @@ serve(async (req: Request) => {
     console.log('No event type found for transcript:', transcript);
   }
 
-  // Add CORS headers to allow requests from your frontend domain
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*', // Or specify your frontend domain for better security
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  });
-
-  // Handle OPTIONS request for CORS preflight
-  if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS preflight request');
-    return new Response(null, { status: 204, headers });
-  }
-
   console.log('Sending response:', response);
   return new Response(JSON.stringify(response), {
     status: 200,
-    headers: headers,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
   })
 })
 
