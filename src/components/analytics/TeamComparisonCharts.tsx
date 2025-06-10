@@ -49,37 +49,11 @@ const TeamComparisonCharts: React.FC<TeamComparisonChartsProps> = ({
     { name: 'Aerial Duels Won', [homeTeamName]: homeStats.aerialDuelsWon || 0, [awayTeamName]: awayStats.aerialDuelsWon || 0 },
   ];
 
-  homeTeamName,
-  awayTeamName,
-}) => {
+  // chartConfig and renderComparisonChart should be defined here, once.
   const chartConfig = {
     [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" }, // Example blue
     [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" }, // Example red/pink
   };
-
-  const passData = [
-    { name: 'Total Attempted', [homeTeamName]: homeStats.passesAttempted || 0, [awayTeamName]: awayStats.passesAttempted || 0 },
-    { name: 'Completed', [homeTeamName]: homeStats.passesCompleted || 0, [awayTeamName]: awayStats.passesCompleted || 0 },
-    { name: 'Offensive', [homeTeamName]: homeStats.offensivePasses || 0, [awayTeamName]: awayStats.offensivePasses || 0 },
-    { name: 'Support', [homeTeamName]: homeStats.supportPasses || 0, [awayTeamName]: awayStats.supportPasses || 0 },
-  ];
-
-  const ballControlData = [
-    { name: 'Played', [homeTeamName]: homeStats.ballsPlayed || 0, [awayTeamName]: awayStats.ballsPlayed || 0 },
-    { name: 'Recovered', [homeTeamName]: homeStats.ballsRecovered || 0, [awayTeamName]: awayStats.ballsRecovered || 0 },
-    { name: 'Lost', [homeTeamName]: homeStats.ballsLost || 0, [awayTeamName]: awayStats.ballsLost || 0 },
-  ];
-
-  const shootingData = [
-    { name: 'Total Shots', [homeTeamName]: homeStats.shots || 0, [awayTeamName]: awayStats.shots || 0 },
-    { name: 'On Target', [homeTeamName]: homeStats.shotsOnTarget || 0, [awayTeamName]: awayStats.shotsOnTarget || 0 },
-    { name: 'xG', [homeTeamName]: parseFloat((homeStats.totalXg || 0).toFixed(2)), [awayTeamName]: parseFloat((awayStats.totalXg || 0).toFixed(2)) },
-  ];
-
-  const duelData = [
-    { name: 'Duels Won', [homeTeamName]: homeStats.duelsWon || 0, [awayTeamName]: awayStats.duelsWon || 0 },
-    { name: 'Aerial Duels Won', [homeTeamName]: homeStats.aerialDuelsWon || 0, [awayTeamName]: awayStats.aerialDuelsWon || 0 },
-  ];
 
   const renderComparisonChart = (title: string, data: Array<{[key: string]: string | number }>) => (
     <Card className="mb-6">
