@@ -285,25 +285,41 @@ const VoiceCollaborationManager: React.FC = () => {
     }
   };
 
-  const handleMuteParticipant = async (participantId: string) => {
+  const handleMuteToggleParticipant = async (participant: VoiceParticipant, shouldMute: boolean) => {
     if (!databaseConnected) {
-      toast.error('Database not connected');
+      toast.error('Database not connected. Cannot moderate participant.');
+      return;
+    }
+    if (!participant.room?.name || !participant.user_id) {
+      toast.error('Participant data is incomplete. Cannot moderate.');
+      console.error('Incomplete participant data for mute toggle:', participant);
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from('voice_room_participants' as any)
-        .update({ is_muted: true })
-        .eq('id', participantId);
+      const { error: funcError } = await supabase.functions.invoke('moderate-livekit-room', {
+        body: {
+          roomName: participant.room.name,
+          targetParticipantIdentity: participant.user_id, // Assuming user_id is the LiveKit identity
+          shouldMute,
+        },
+      });
 
-      if (error) throw error;
+      if (funcError) {
+        throw funcError;
+      }
 
-      toast.success('Participant muted');
-      fetchVoiceData(); // Refresh data
-    } catch (error) {
-      console.error('Error muting participant:', error);
-      toast.error('Failed to mute participant');
+      toast.success(`Participant ${participant.user_profile?.full_name || participant.user_id} ${shouldMute ? 'muted' : 'unmuted'}.`);
+      // Optimistically update UI or refetch
+      // For now, LiveKit events should ideally update the participant's state,
+      // but is_muted on VoiceParticipant might need manual update if not directly tied to LiveKit state.
+      // Let's update it manually for now for immediate feedback, then rely on fetchVoiceData for consistency.
+      setParticipants(prev => prev.map(p => p.id === participant.id ? {...p, is_muted: shouldMute} : p));
+      // Consider a more targeted refresh or rely on WebSocket updates if implemented
+      fetchVoiceData(); 
+    } catch (error: any) {
+      console.error('Error toggling mute for participant:', error);
+      toast.error(`Failed to ${shouldMute ? 'mute' : 'unmute'} participant: ${error.message}`);
     }
   };
 
@@ -736,6 +752,26 @@ const VoiceCollaborationManager: React.FC = () => {
                       {participants.filter(p => p.is_connected).length} Connected
                     </Badge>
                   </CardTitle>
+                  <div className="mt-2">
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      onClick={() => handleMuteAllParticipants(true)}
+                      disabled={participants.length === 0 || refreshing}
+                      className="bg-red-500 hover:bg-red-600"
+                    >
+                      <MicOff className="h-4 w-4 mr-2" /> Mute All Participants
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleMuteAllParticipants(false)}
+                      disabled={participants.length === 0 || refreshing}
+                      className="ml-2"
+                    >
+                      <Mic className="h-4 w-4 mr-2" /> Unmute All Participants
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {participants.length === 0 ? (
@@ -809,12 +845,12 @@ const VoiceCollaborationManager: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleMuteParticipant(participant.id)}
-                                disabled={participant.is_muted}
-                                className="hover:bg-red-50 hover:border-red-300"
+                                variant={participant.is_muted ? "destructive" : "outline"}
+                                onClick={() => handleMuteToggleParticipant(participant, !participant.is_muted)}
+                                className={participant.is_muted ? "hover:bg-red-700" : "hover:bg-gray-100"}
                               >
-                                <VolumeX className="h-3 w-3" />
+                                {participant.is_muted ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
+                                <span className="ml-1">{participant.is_muted ? "Unmute" : "Mute"}</span>
                               </Button>
                               <Button
                                 size="sm"
