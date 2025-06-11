@@ -443,7 +443,6 @@ export const useMatchState = () => {
         contacts: contacts,
         goals: goals,
         assists: assists,
-        passes: passesAttempted,
         shots: shots,
         fouls: fouls,
         // Updated to match new interface
