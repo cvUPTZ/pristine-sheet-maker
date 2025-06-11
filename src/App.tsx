@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +7,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { RequireAuth } from "./components/RequireAuth";
 import Dashboard from "./pages/Dashboard";
 import MatchAnalysisV2 from "./pages/MatchAnalysisV2";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
 import Auth from "./pages/Auth";
@@ -132,6 +132,7 @@ const AppContent = () => {
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
         <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
+        <Route path="/match/:matchId/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
         <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route path="/match/:matchId/timer" element={<RequireAuth requiredRoles={['admin']}><MatchTimerPage /></RequireAuth>} />
         <Route path="/video-analysis" element={<RequireAuth requiredRoles={['admin', 'manager']}><VideoAnalysis /></RequireAuth>} />
@@ -139,6 +140,7 @@ const AppContent = () => {
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin', 'manager']}><Matches /></RequireAuth>} />
         <Route path="/statistics" element={<RequireAuth requiredRoles={['admin', 'manager']}><Statistics /></RequireAuth>} />
+        <Route path="/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
         <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route 

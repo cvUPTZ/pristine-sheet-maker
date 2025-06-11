@@ -1,9 +1,9 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import TrackerPianoInput from '@/components/TrackerPianoInput';
-import VoiceCollaboration from '@/components/match/VoiceCollaboration';
+import { EnhancedVoiceChat } from '@/components/voice/EnhancedVoiceChat';
 import { useToast } from '@/components/ui/use-toast';
 import MatchTimer from '@/components/MatchTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationService } from '@/services/pushNotificationService';
 import useBatteryMonitor from '@/hooks/useBatteryMonitor';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
+import EnhancedPianoInput from './EnhancedPianoInput';
+import { EventType } from '@/types';
 
 interface TrackerInterfaceProps {
   trackerUserId: string;
@@ -27,36 +29,13 @@ interface MatchData {
   timer_last_started_at?: string | null;
 }
 
-// --- Types for Voice Input Assignments ---
-interface Player {
-  id: number;
-  name: string;
-  jersey_number: number | null;
-}
-
-interface AssignedPlayers {
-  home: Player[];
-  away: Player[];
-}
-
-interface AssignedEventType {
-  key: string;
-  label: string;
-}
-// --- End Types ---
-
 export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfaceProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const isMobile = useIsMobile();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { toast } = useToast(); // Added for handleRecordEvent
-
-  // State for voice input assignments
-  const [assignedPlayersForVoice, setAssignedPlayersForVoice] = useState<AssignedPlayers | null>(null);
-  const [assignedEventTypesForVoice, setAssignedEventTypesForVoice] = useState<AssignedEventType[]>([]);
-  const [isLoadingAssignmentsForVoice, setIsLoadingAssignmentsForVoice] = useState(true);
+  const { toast } = useToast();
   
   // Initialize battery monitoring for this tracker
   const batteryStatus = useBatteryMonitor(trackerUserId);
@@ -139,22 +118,22 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
   // --- Centralized Event Recording Function ---
   const handleRecordEvent = async (
-    eventTypeKey: string,
+    eventType: EventType,
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
   ) => {
-    console.log("TrackerInterface: handleRecordEvent called with:", { eventTypeKey, playerId, teamContext, details });
+    console.log("TrackerInterface: handleRecordEvent called with:", { eventType, playerId, teamContext, details });
 
     const eventToInsert = {
       match_id: matchId,
-      event_type: eventTypeKey, // Fixed: using event_type instead of event_type_key
+      event_type: eventType,
       player_id: playerId,
       created_by: trackerUserId,
-      timestamp: Math.floor(Date.now() / 1000), // Fixed: using timestamp as number in seconds
-      team: teamContext, // Fixed: using team instead of team_context_from_input
+      timestamp: Math.floor(Date.now() / 1000),
+      team: teamContext,
       coordinates: details?.coordinates || null,
-      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext }, // Fixed: using event_data
+      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
     };
 
     console.log("Inserting event via TrackerInterface:", eventToInsert);
@@ -172,101 +151,11 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     } else {
       toast({
         title: 'Event Recorded Successfully',
-        description: `${eventTypeKey} event recorded.`,
+        description: `${eventType} event recorded.`,
       });
     }
   };
   // --- End Centralized Event Recording ---
-
-  // --- Fetch Assignments for Voice Input ---
-  useEffect(() => {
-    if (!matchId || !trackerUserId) return;
-
-    const fetchAssignmentsForVoice = async () => {
-      setIsLoadingAssignmentsForVoice(true);
-      try {
-        // Simplified approach: Get event types from match_tracker_assignments for this user
-        const { data: assignmentsData, error: assignmentsError } = await supabase
-          .from('match_tracker_assignments')
-          .select('assigned_event_types, player_id, player_team_id')
-          .eq('match_id', matchId)
-          .eq('tracker_user_id', trackerUserId);
-
-        if (assignmentsError) throw assignmentsError;
-
-        // Extract unique event types
-        const allEventTypes = new Set<string>();
-        assignmentsData.forEach(assignment => {
-          if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
-            assignment.assigned_event_types.forEach(eventType => allEventTypes.add(eventType));
-          }
-        });
-
-        setAssignedEventTypesForVoice(Array.from(allEventTypes).map(key => ({
-          key,
-          label: key // Using key as label for simplicity, can be enhanced later
-        })));
-
-        // Get match data to determine team IDs
-        const { data: currentMatchData, error: matchDetailsError } = await supabase
-          .from('matches')
-          .select('home_team_players, away_team_players')
-          .eq('id', matchId)
-          .single();
-
-        if (matchDetailsError) throw matchDetailsError;
-        if (!currentMatchData) throw new Error("Match details not found for assignments.");
-
-        // Parse players from match data (simplified approach)
-        const parsePlayerData = (data: any): Player[] => {
-          if (typeof data === 'string') {
-            try {
-              return JSON.parse(data);
-            } catch {
-              return [];
-            }
-          }
-          return Array.isArray(data) ? data : [];
-        };
-
-        const homePlayers = parsePlayerData(currentMatchData.home_team_players);
-        const awayPlayers = parsePlayerData(currentMatchData.away_team_players);
-
-        // Filter players based on assignments
-        const assignedHomePlayers: Player[] = [];
-        const assignedAwayPlayers: Player[] = [];
-
-        assignmentsData.forEach(assignment => {
-          if (assignment.player_team_id === 'home') {
-            const player = homePlayers.find(p => p.id === assignment.player_id);
-            if (player && !assignedHomePlayers.some(ap => ap.id === player.id)) {
-              assignedHomePlayers.push(player);
-            }
-          } else if (assignment.player_team_id === 'away') {
-            const player = awayPlayers.find(p => p.id === assignment.player_id);
-            if (player && !assignedAwayPlayers.some(ap => ap.id === player.id)) {
-              assignedAwayPlayers.push(player);
-            }
-          }
-        });
-
-        setAssignedPlayersForVoice({ 
-          home: assignedHomePlayers, 
-          away: assignedAwayPlayers 
-        });
-
-      } catch (e: any) {
-        console.error("Error fetching assignments for voice input:", e);
-        toast({ title: 'Error Fetching Voice Assignments', description: e.message, variant: 'destructive' });
-        setAssignedPlayersForVoice(null);
-        setAssignedEventTypesForVoice([]);
-      } finally {
-        setIsLoadingAssignmentsForVoice(false);
-      }
-    };
-    fetchAssignmentsForVoice();
-  }, [matchId, trackerUserId, toast]);
-  // --- End Fetch Assignments ---
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
@@ -388,16 +277,18 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
       {/* Voice Collaboration */}
       <div className="mb-3 sm:mb-6">
-        <VoiceCollaboration
+        <EnhancedVoiceChat
           matchId={matchId}
           userId={trackerUserId}
+          userRole="tracker"
+          userName={`Tracker ${trackerUserId}`}
         />
       </div>
       
       <div className="w-full">
-        <TrackerPianoInput
+        <EnhancedPianoInput
           matchId={matchId}
-          onRecordEvent={handleRecordEvent}
+          onEventRecord={handleRecordEvent}
         />
       </div>
     </div>
