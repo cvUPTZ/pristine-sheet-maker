@@ -76,11 +76,48 @@ const VoiceCollaborationUI = ({
   }, [localParticipant]);
 
   const isMuted = localParticipant?.isMicrophoneEnabled === false;
-  const participants = [localParticipant, ...remoteParticipants].filter(p => !!p);
+
+  // Combine local and remote participants, ensuring uniqueness by identity
+  const allParticipantsRaw = [localParticipant, ...remoteParticipants].filter(p => !!p);
+  const uniqueIdentities = new Set<string>();
+  const participants = allParticipantsRaw.filter(p => {
+    if (!p || !p.identity) return false; 
+    if (uniqueIdentities.has(p.identity)) {
+      return false; 
+    }
+    uniqueIdentities.add(p.identity);
+    return true;
+  });
+
   const isRoomAdmin = userRole === 'admin' || userRole === 'coordinator';
 
-  const adminSetParticipantMute = (participantId: string, shouldMute: boolean) => {
-    console.warn(`Admin mute for ${participantId} to ${shouldMute} must be implemented via a secure server call.`);
+  const adminSetParticipantMute = async (participantId: string, shouldMute: boolean) => {
+    if (!currentRoom || !currentRoom.name) {
+      console.error('Cannot set participant mute: currentRoom or currentRoom.name is missing.');
+      alert('Error: Could not identify the current room to perform moderation.');
+      return;
+    }
+
+    try {
+      const { error: funcError } = await supabase.functions.invoke('moderate-livekit-room', {
+        body: {
+          roomName: currentRoom.name,
+          targetParticipantIdentity: participantId,
+          shouldMute,
+        },
+      });
+
+      if (funcError) {
+        throw funcError;
+      }
+
+      // Optionally, provide some feedback to the user upon success, though LiveKit should update UI automatically.
+      // console.log(`Successfully sent mute request for ${participantId} to ${shouldMute}`);
+
+    } catch (error: any) {
+      console.error('Error calling moderate-livekit-room function:', error);
+      alert(`Failed to update mute state for participant ${participantId.substring(0,6)}: ${error.message}`);
+    }
   };
 
   // --- Fully Implemented UI Helper Functions ---
