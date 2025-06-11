@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TeamDetailedStats } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'; // RechartsTooltip for default tooltip if needed
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'; 
 
 interface TeamComparisonChartsProps {
   homeStats: TeamDetailedStats;
@@ -16,8 +17,6 @@ interface TeamComparisonChartsProps {
   homeTeamName: string;
   awayTeamName: string;
 }
-
-// No longer need SimpleBar
 
 const TeamComparisonCharts: React.FC<TeamComparisonChartsProps> = ({
   homeStats,
@@ -49,10 +48,9 @@ const TeamComparisonCharts: React.FC<TeamComparisonChartsProps> = ({
     { name: 'Aerial Duels Won', [homeTeamName]: homeStats.aerialDuelsWon || 0, [awayTeamName]: awayStats.aerialDuelsWon || 0 },
   ];
 
-  // chartConfig and renderComparisonChart should be defined here, once.
   const chartConfig = {
-    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" }, // Example blue
-    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" }, // Example red/pink
+    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
   };
 
   const renderComparisonChart = (title: string, data: Array<{[key: string]: string | number }>) => (
@@ -62,7 +60,7 @@ const TeamComparisonCharts: React.FC<TeamComparisonChartsProps> = ({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-video">
-          <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}> {/* Adjust height based on data length */}
+          <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
             <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
               <CartesianGrid horizontal={false} strokeDasharray="3 3" />
               <XAxis type="number" />

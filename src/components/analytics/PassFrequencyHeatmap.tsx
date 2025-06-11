@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { PlayerStatSummary, Player } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,7 +38,6 @@ const HeatmapCell = (props: any) => {
   );
 };
 
-
 const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
   playerStats,
   allPlayers,
@@ -47,10 +47,9 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
       return { heatmapData: [], sortedPlayerNames: [], maxFrequency: 0 };
     }
 
-    const playerMap = new Map(allPlayers.map(p => [String(p.id), p.playerName || p.name || `ID: ${p.id}`]));
+    const playerMap = new Map(allPlayers.map(p => [String(p.id), p.player_name || p.name || `ID: ${p.id}`]));
     const tempSortedPlayers = [...allPlayers].sort((a, b) => (playerMap.get(String(a.id)) || '').localeCompare(playerMap.get(String(b.id)) || ''));
     const currentSortedPlayerNames = tempSortedPlayers.map(p => playerMap.get(String(p.id)) || '');
-
 
     const matrix: { [fromId: string]: { [toId: string]: number } } = {};
     let currentMaxFrequency = 0;
@@ -94,14 +93,12 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
     return { heatmapData: data, sortedPlayerNames: currentSortedPlayerNames, maxFrequency: currentMaxFrequency };
   }, [playerStats, allPlayers]);
 
-
   const getCellFillColor = (value: number) => {
     if (value === 0 || maxFrequency === 0) return 'rgba(200, 200, 200, 0.1)'; // Very light for zero or no max
     const intensity = Math.min(1, value / (maxFrequency * 0.85)); // Cap intensity
     const alpha = intensity * 0.7 + 0.3; // from 0.3 to 1.0
     return `rgba(79, 70, 229, ${alpha})`; // Indigo scale (Tailwind indigo-600 is approx this)
   };
-
 
   if (heatmapData.length === 0 || sortedPlayerNames.length === 0) {
     return (
@@ -124,31 +121,31 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
       <CardContent style={{ userSelect: 'none' }}>
         <ChartContainer config={{}} className="min-h-[200px] w-full">
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 80 }}> {/* Increased bottom/left margin for labels */}
+            <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 80 }}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3}/>
               <XAxis
                 type="category"
                 dataKey="toPlayerName"
                 name="To Player"
                 allowDuplicatedCategory={false}
-                domain={sortedPlayerNames} // Ensure axis includes all players for consistent ordering
-                ticks={sortedPlayerNames} // Explicitly set ticks
+                domain={sortedPlayerNames}
+                ticks={sortedPlayerNames}
                 interval={0}
-                tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }}
-                height={50} // Allocate space for rotated labels
+                tick={{ fontSize: 10, transform: "rotate(-45)" }}
+                height={50}
               />
               <YAxis
                 type="category"
                 dataKey="fromPlayerName"
                 name="From Player"
                 allowDuplicatedCategory={false}
-                domain={sortedPlayerNames} // Ensure axis includes all players
-                ticks={sortedPlayerNames} // Explicitly set ticks
+                domain={sortedPlayerNames}
+                ticks={sortedPlayerNames}
                 interval={0}
-                width={80} // Allocate space for labels
+                width={80}
                 tick={{ fontSize: 10 }}
               />
-              <ZAxis type="number" dataKey="count" range={[0, maxFrequency]} /> {/* For potential use by Recharts features, not directly for cell fill here */}
+              <ZAxis type="number" dataKey="count" range={[0, maxFrequency]} />
               <ChartTooltip
                 cursor={{ strokeDasharray: '3 3' }}
                 content={({ active, payload }) => {
@@ -167,8 +164,8 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
               <Scatter
                 name="Pass Frequency"
                 data={heatmapData}
-                shape={(props) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} /> } // Dynamically size cell
-                fill={(props: HeatmapDataPoint) => getCellFillColor(props.count)} // Apply color based on count
+                shape={(props) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} />}
+                fill={getCellFillColor}
               />
             </ScatterChart>
           </ResponsiveContainer>
