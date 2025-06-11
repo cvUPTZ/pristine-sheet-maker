@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, BarChart3, TrendingUp, Zap, Target } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Statistics, MatchEvent, PlayerStatSummary } from '@/types';
+import { Statistics, MatchEvent, PlayerStatSummary, EventType } from '@/types';
 import { aggregateMatchEvents } from '@/lib/analytics/eventAggregator';
 import AdvancedAnalyticsDashboard from '@/components/analytics/AdvancedAnalyticsDashboard';
 import InteractiveMetricsGrid from '@/components/analytics/InteractiveMetricsGrid';
@@ -103,7 +102,7 @@ const AnalyticsDashboard = () => {
         id: event.id,
         match_id: event.match_id,
         timestamp: event.timestamp || 0,
-        type: event.event_type, // Map event_type to type
+        type: (event.event_type as EventType) || 'pass', // Cast to EventType with fallback
         event_data: {}, // Initialize as empty object since event_data doesn't exist in DB
         created_at: event.created_at,
         tracker_id: null,
