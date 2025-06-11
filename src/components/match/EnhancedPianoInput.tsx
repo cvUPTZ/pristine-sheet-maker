@@ -81,14 +81,14 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
     setRecentEvents(prev => prev.filter(event => event.id !== eventId));
   }, []);
 
-  const eventTypes: EventType[] = ['pass', 'shot', 'foul', 'goal', 'assist', 'tackle', 'save', 'corner', 'freekick'];
+  const eventTypes: EventType[] = ['pass', 'shot', 'foul', 'goal', 'assist', 'tackle', 'save', 'corner', 'freeKick'];
 
   const renderEventButton = (eventType: EventType) => {
     return (
       <button
         key={eventType}
         onClick={() => handleEventRecord(eventType)}
-        className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 min-h-[60px] sm:min-h-[80px]"
+        className="flex flex-col items-center justify-center p-1 sm:p-2 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 min-h-[50px] sm:min-h-[60px] md:min-h-[70px] text-xs sm:text-sm"
       >
         <EnhancedEventTypeIcon
           eventType={eventType}
@@ -109,7 +109,7 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Responsive grid for event buttons */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2 md:gap-3">
             {eventTypes.map(renderEventButton)}
           </div>
         </CardContent>
