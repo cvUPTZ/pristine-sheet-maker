@@ -575,7 +575,12 @@ const Statistics = () => {
                       <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                       <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                       <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                      <PossessionTimelineChart homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                      <PossessionTimelineChart 
+                        events={events}
+                        playerStats={playerStats}
+                        homeTeamName={selectedMatchFullData.home_team_name} 
+                        awayTeamName={selectedMatchFullData.away_team_name} 
+                      />
                       <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                     </>
                   )}
