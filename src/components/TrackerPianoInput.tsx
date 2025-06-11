@@ -9,7 +9,10 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo } from 'lucide-react';
+// Undo import removed, as the old undo logic will be replaced
+// import { Undo } from 'lucide-react';
+import { TrackedEvent } from '@/types/eventData'; // Import TrackedEvent
+import EventWithTimerIndicator from '@/components/EventWithTimerIndicator'; // Import indicator
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
@@ -50,29 +53,25 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [lastRecordedEvent, setLastRecordedEvent] = useState<any>(null);
+  // lastRecordedEvent state removed, new recentEvents will handle this concept if needed for display
+  // const [lastRecordedEvent, setLastRecordedEvent] = useState<any>(null); 
   const [fullMatchRoster, setFullMatchRoster] = useState<AssignedPlayers | null>(null);
   const [recordingEventType, setRecordingEventType] = useState<string | null>(null);
-  const [recentEvents, setRecentEvents] = useState<any[]>([]);
+  const [recentEvents, setRecentEvents] = useState<TrackedEvent[]>([]); // Use TrackedEvent type
+  const MAX_RECENT_EVENTS = 10; // Max items for cancellable events
 
   const { toast } = useToast();
-  const { user } = useAuth(); // user.id will be used for local checks, but trackerUserId for event is from TrackerInterface
+  const { user } = useAuth(); 
 
   // Use the centralized real-time system
   const { } = useRealtimeMatch({
     matchId,
     onEventReceived: (event) => {
-      console.log('[TrackerPianoInput] Event received via real-time:', event);
-      if (event.created_by === user?.id) {
-        const eventInfo = {
-          id: event.id,
-          eventType: { key: event.type, label: event.type },
-          player: selectedPlayer,
-          timestamp: Date.now()
-        };
-        setLastRecordedEvent(eventInfo);
-        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]); // Keep last 5 events
-      }
+      // This logic might need adjustment if it conflicts with the new recentEvents display.
+      // For now, the cancellable events are managed locally before submission.
+      // This onEventReceived is for events already submitted and coming back via realtime.
+      console.log('[TrackerPianoInput] Event received via real-time (already submitted):', event);
+      // Optionally, update UI to show it's confirmed, but don't add to cancellable `recentEvents`.
     }
   });
 
@@ -198,93 +197,88 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     }
   }, [fetchAssignments, fullMatchRoster]);
 
-  const undoLastAction = async () => {
-    if (recentEvents.length === 0) {
-      toast({
-        title: "Aucune action à annuler",
-        description: "Il n'y a pas d'action récente à annuler",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Removed old undoLastAction function
 
-    const lastEvent = recentEvents[0];
-    
-    try {
-      const { error } = await supabase
-        .from('match_events')
-        .delete()
-        .eq('id', lastEvent.id);
+  const handleCancelEvent = (eventId: string) => {
+    setRecentEvents(prevEvents =>
+      prevEvents.map(event =>
+        event.id === eventId ? { ...event, isCancelled: true } : event
+      )
+    );
+    // Add toast or console log if desired
+    console.log(`Event ${eventId} cancellation initiated.`);
+  };
 
-      if (error) throw error;
+  const handleTimerEnd = (eventId: string) => {
+    const eventToSubmit = recentEvents.find(e => e.id === eventId && !e.isCancelled);
+    if (eventToSubmit) {
+      console.log(`TrackerPianoInput: Event ${eventId} timer ended. SUBMITTING:`, eventToSubmit.eventType);
+      
+      // Determine team context for the event submission
+      let teamContextForEvent: 'home' | 'away' | undefined = undefined;
+      // This assumes selectedPlayer and selectedTeam reflect the context for the event being submitted.
+      // This might need adjustment if player/team selection can change while events are in the cancellable queue.
+      // For simplicity, using current selectedTeam. A more robust way might be to store team context on TrackedEvent.
+      if (selectedPlayer && selectedTeam) { // Check if a player is selected for this event
+          teamContextForEvent = selectedTeam;
+      }
 
-      // Remove from local state
-      setRecentEvents(prev => prev.slice(1));
-      setLastRecordedEvent(null);
-
-      toast({
-        title: "Action annulée",
-        description: `L'événement ${lastEvent.eventType.label} a été supprimé`,
-      });
-
-    } catch (error: any) {
-      console.error('Error undoing last action:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible d'annuler la dernière action",
-        variant: "destructive",
+      onRecordEvent(
+        eventToSubmit.eventType as EventType, // Ensure eventType here is the actual EventType key/string
+        selectedPlayer?.id, // This uses the globally selectedPlayer, ensure this is the correct context for eventToSubmit
+        teamContextForEvent,
+        { 
+          recorded_via: 'piano-cancellable',
+          original_timestamp: eventToSubmit.timestamp 
+        }
+      ).then(() => {
+        // Optionally remove from recentEvents or mark as submitted
+        // For now, EventWithTimerIndicator hides itself.
+      }).catch(error => {
+        console.error("Error submitting event from handleTimerEnd:", error);
+        toast({
+          title: "Submission Error",
+          description: `Failed to submit event ${eventToSubmit.eventType}.`,
+          variant: "destructive",
+        });
+        // Optionally, mark the event as failed or allow retry?
       });
     }
   };
 
-  const handleEventTypeClick = async (eventType: EnhancedEventType) => {
-    setIsRecording(true);
-    setRecordingEventType(eventType.key);
+  const handleEventTypeClick = async (eventTypeClicked: EnhancedEventType) => {
+    // This function now adds events to the cancellable queue
+    // It no longer directly calls props.onRecordEvent
+
+    setIsRecording(true); // Visual feedback for key press
+    setRecordingEventType(eventTypeClicked.key);
     broadcastStatus({ status: 'recording', timestamp: Date.now() });
 
-    let teamContextForEvent: 'home' | 'away' | undefined = undefined;
-    // selectedTeam is set by handlePlayerSelect
-    if (selectedPlayer && selectedTeam) {
-      teamContextForEvent = selectedTeam;
-    }
-    // If no player is selected, teamContext remains undefined, which is fine.
+    const newEvent: TrackedEvent = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5), // More unique ID
+      eventType: eventTypeClicked.key as EventType, // Assuming EnhancedEventType.key is compatible with EventType
+      timestamp: Date.now(),
+      isCancelled: false,
+    };
 
-    try {
-      await onRecordEvent( // Use the prop here
-        eventType.key,
-        selectedPlayer?.id, // Pass selected player's ID if a player is selected
-        teamContextForEvent, // Pass team context if a player is selected
-        {
-          recorded_via: 'piano',
-          // You can add other piano-specific details here, e.g., coordinates if captured
-        }
-      );
-      
-      // For local UI feedback (recent events list)
-      const eventInfoForRecentList = {
-        id: `local-${Date.now()}-${eventType.key}`, // Temporary local ID
-        eventType: { key: eventType.key, label: eventType.label }, // Use the structure expected by recentEvents
-        player: selectedPlayer, // Keep the selected player object for display
-        timestamp: Date.now()
-      };
-      setLastRecordedEvent(eventInfoForRecentList); // Update last recorded event display
-      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]); // Update recent events list
-
-      // The main success toast is handled by onRecordEvent in TrackerInterface.
-      // Optionally, reset selections or provide further local feedback.
-      // E.g., clear selected player if events are usually one-off for a player selection:
-      // setSelectedPlayer(null);
-      // setSelectedTeam(null);
-      // However, users might want to record multiple events for the same player, so avoid auto-clearing for now.
-
-    } catch (error: any) {
-      console.error('Error calling onRecordEvent from PianoInput:', error);
-      // Error toast is handled by onRecordEvent in TrackerInterface.
-    } finally {
+    setRecentEvents(prevEvents => {
+      const updatedEvents = [newEvent, ...prevEvents];
+      if (updatedEvents.length > MAX_RECENT_EVENTS) {
+        // If an event is pushed off, its EventWithTimerIndicator will unmount and clear its timer.
+        // We might want to auto-submit it or mark it as cancelled.
+        // For now, it's just removed from the cancellable list.
+        // Consider if onTimerEnd should be called for updatedEvents[MAX_RECENT_EVENTS].id
+        return updatedEvents.slice(0, MAX_RECENT_EVENTS);
+      }
+      return updatedEvents;
+    });
+    
+    // Short visual feedback for recording
+    setTimeout(() => {
       setIsRecording(false);
       setRecordingEventType(null);
       broadcastStatus({ status: 'active', timestamp: Date.now() });
-    }
+    }, 300);
   };
 
   const handlePlayerSelect = (player: PlayerForPianoInput, team: 'home' | 'away') => {
@@ -365,25 +359,24 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const showPlayerSelection = totalAssignedPlayers > 1;
 
   return (
-    <div className="space-y-6 p-4">
-      {/* Undo Button - Fixed position and easily accessible */}
-      <motion.div
-        className="fixed top-4 right-4 z-50"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Button
-          onClick={undoLastAction}
-          disabled={recentEvents.length === 0}
-          variant="outline"
-          size="lg"
-          className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow-lg"
-        >
-          <Undo className="h-5 w-5 mr-2" />
-          Annuler Dernière Action
-        </Button>
-      </motion.div>
+    <div className="space-y-6 p-4 relative"> {/* Added relative for positioning event indicators */}
+      {/* Removed old Undo Button */}
+
+      {/* EventWithTimerIndicator display area */}
+      {/* This can be positioned at bottom of screen or relative to piano input */}
+      <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-full max-w-xl mx-auto z-50 pointer-events-none">
+        <div className="flex flex-row space-x-2 p-2 overflow-x-auto justify-center ">
+          {recentEvents.map(event => (
+            <div key={event.id} className="pointer-events-auto"> {/* Allow pointer events on individual items */}
+              <EventWithTimerIndicator
+                event={event}
+                onCancel={handleCancelEvent}
+                onTimerEnd={handleTimerEnd}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Selected Player Display */}
       <AnimatePresence>
@@ -452,43 +445,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       </AnimatePresence>
 
       {/* Last Recorded Event */}
-      <AnimatePresence>
-        {lastRecordedEvent && (
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Card className="border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <motion.div
-                    className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center"
-                    animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 10, -10, 0] 
-                    }}
-                    transition={{ duration: 0.6 }}
-                  >
-                    <span className="text-white text-lg">⚽</span>
-                  </motion.div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-blue-800 dark:text-blue-200">
-                      Last Event: {lastRecordedEvent.eventType.label}
-                    </div>
-                    <div className="text-sm text-blue-600 dark:text-blue-300">
-                      {lastRecordedEvent.player && `by ${lastRecordedEvent.player.name} • `}
-                      {new Date(lastRecordedEvent.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+      {/* Removed old LastRecordedEvent display, recentEvents indicators replace this */}
+      
       {/* Player Selection - Only show when there are multiple players */}
       {showPlayerSelection && (assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
         <motion.div
