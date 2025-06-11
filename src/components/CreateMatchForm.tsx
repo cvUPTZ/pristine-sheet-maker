@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { AIProcessingService, FormationImageAIResponse, AIPlayerInfo, AITeamData } from '@/services/aiProcessingService'; // Added AIProcessingService and types
 import { Plus, Trash2, ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
 
 interface CreateMatchFormProps {
@@ -126,6 +127,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [selectedTeamForAssignment, setSelectedTeamForAssignment] = useState<{[key: number]: 'home' | 'away' | 'both'}>({});
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -522,6 +525,206 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     return team === 'home' ? homeTeamPlayers : awayTeamPlayers;
   };
 
+  // Placeholder for processing AI-extracted player data
+  // const processAIData = (aiOutput: any) => {
+  //   // Example structure for aiOutput (replace with actual structure)
+  //   // const exampleAiOutput = {
+  //   //   home_team: {
+  //   //     players: [
+  //   //       { name: "Player A", number: 10, position: "Forward", is_substitute: false },
+  //   //       { name: "Player B", number: 7, position: "Midfielder", is_substitute: false },
+  //   //       { name: "Sub 1", number: 12, position: "Defender", is_substitute: true },
+  //   //     ]
+  //   //   },
+  //   //   away_team: { /* ... similar structure ... */ }
+  //   // };
+  //   // console.log("AI Output received:", aiOutput);
+
+  //   // 1. Map AI players to existing formation slots for homeTeamPlayers
+  //   //    - Identify players that fit the current formation.
+  //   //    - Update their names/numbers if provided by AI.
+  //   // 2. Remaining AI players for home team become substitutes
+  //   //    - Filter out players from AI data that are marked as substitutes or don't fit the formation.
+  //   //    - Generate unique IDs for these new substitute players.
+  //   //    - Create new Player objects with position: "Substitute".
+  //   //    - Add them to a new list for homeTeamPlayers (potentially concat with existing players or replace).
+  //   // 3. Repeat for awayTeamPlayers.
+  //   // 4. Update state using setHomeTeamPlayers and setAwayTeamPlayers.
+  //   //    - Make sure to handle player IDs carefully to avoid conflicts if existing players are kept.
+  //   //
+  //   // Example (very basic, needs more robust logic):
+  //   // const newHomePlayers = [...homeTeamPlayers]; // Or start fresh based on AI data
+  //   // const newAwayPlayers = [...awayTeamPlayers];
+  //   //
+  //   // if (aiOutput.home_team && aiOutput.home_team.players) {
+  //   //   aiOutput.home_team.players.forEach((aiPlayer: any) => {
+  //   //     if (aiPlayer.is_substitute) {
+  //   //       newHomePlayers.push({
+  //   //         id: Date.now() + Math.random(), // Ensure unique ID
+  //   //         name: aiPlayer.name,
+  //   //         number: aiPlayer.number,
+  //   //         position: "Substitute"
+  //   //       });
+  //   //     } // else: logic to map to existing formation players
+  //   //   });
+  //   // }
+  //   // setHomeTeamPlayers(newHomePlayers);
+  //   // Similar logic for away team...
+  //   // setAwayTeamPlayers(newAwayPlayers);
+  //   //
+  //   // toast({ title: "AI Data Processed", description: "Player lists updated." });
+  // };
+
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedImageFile(event.target.files[0]);
+    } else {
+      setSelectedImageFile(null);
+    }
+  };
+
+  const handleProcessImage = async () => {
+    if (!selectedImageFile) {
+      toast({
+        title: "No Image Selected",
+        description: "Please select an image file first.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    console.log("Processing image:", selectedImageFile.name);
+    setIsProcessingImage(true);
+
+    const reader = new FileReader();
+    reader.readAsDataURL(selectedImageFile);
+    reader.onloadend = async () => {
+      try {
+        const base64String = reader.result as string;
+        if (!base64String) {
+          throw new Error("Failed to read image file.");
+        }
+
+        console.log("Image converted to base64 string (first 100 chars):", base64String.substring(0, 100));
+        const aiResponse = await AIProcessingService.extractPlayersFromImage(base64String);
+        console.log("AI Response:", aiResponse);
+
+        if (aiResponse.error) {
+          // Specific error from AI Function (e.g. Gemini couldn't process, or returned an error structure)
+          toast({
+            title: "AI Processing Error",
+            description: aiResponse.error,
+            variant: "destructive",
+          });
+          // No further player processing if AI itself reported an error
+          return;
+        }
+
+        // --- Player Mapping Logic ---
+        const formationPlayerCount = (formation: Formation): number => {
+          const positionMap: Record<Formation, string[]> = {
+            '4-4-2': ['GK', 'D', 'D', 'D', 'D', 'M', 'M', 'M', 'M', 'F', 'F'],
+            '4-3-3': ['GK', 'D', 'D', 'D', 'D', 'M', 'M', 'M', 'F', 'F', 'F'],
+            '3-5-2': ['GK', 'D', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'F', 'F'],
+            '4-2-3-1': ['GK', 'D', 'D', 'D', 'D', 'DM', 'DM', 'AM', 'AM', 'AM', 'F'],
+            '5-3-2': ['GK', 'D', 'D', 'D', 'D', 'D', 'M', 'M', 'M', 'F', 'F'],
+            '3-4-3': ['GK', 'D', 'D', 'D', 'M', 'M', 'M', 'M', 'F', 'F', 'F']
+          };
+          return positionMap[formation]?.length || 11; // Default to 11 if somehow undefined
+        };
+
+        const mapAndUpdatePlayers = (
+          currentPlayers: Player[],
+          aiTeamData: AITeamData | undefined,
+          teamFormation: Formation
+        ): Player[] => {
+          if (!aiTeamData || !aiTeamData.players || aiTeamData.players.length === 0) {
+            return currentPlayers; // No AI players, return original list
+          }
+
+          const numFormationSlots = formationPlayerCount(teamFormation);
+          const updatedPlayers = [...currentPlayers]; // Start with existing players (who have positions)
+
+          // Update existing formation players
+          aiTeamData.players.slice(0, numFormationSlots).forEach((aiPlayer, index) => {
+            if (updatedPlayers[index]) {
+              updatedPlayers[index].name = aiPlayer.name || `Player ${index + 1}`;
+              updatedPlayers[index].number = aiPlayer.number ?? (updatedPlayers[index].number || (index + 1));
+              // position_guess could be logged or stored if Player interface is extended
+            }
+          });
+
+          // Add substitutes
+          const substitutes = aiTeamData.players.slice(numFormationSlots);
+          substitutes.forEach((aiSub, subIndex) => {
+            updatedPlayers.push({
+              id: Date.now() + Math.random() * 1000 + subIndex, // Unique ID
+              name: aiSub.name || `Substitute ${subIndex + 1}`,
+              number: aiSub.number ?? 100 + subIndex, // Assign some default numbers for subs
+              position: aiSub.position_guess || "Substitute", // Use AI guess or default to "Substitute"
+            });
+          });
+          return updatedPlayers;
+        };
+
+        let homePlayersUpdated = false;
+        let awayPlayersUpdated = false;
+
+        if (aiResponse.team_alpha_players && aiResponse.team_alpha_players.players.length > 0) {
+          const updatedHomePlayers = mapAndUpdatePlayers(homeTeamPlayers, aiResponse.team_alpha_players, formData.homeTeamFormation);
+          setHomeTeamPlayers(updatedHomePlayers);
+          homePlayersUpdated = true;
+        } else {
+           console.log("No team_alpha_players found or player list empty in AI response for Home Team.");
+        }
+
+        if (aiResponse.team_beta_players && aiResponse.team_beta_players.players.length > 0) {
+          const updatedAwayPlayers = mapAndUpdatePlayers(awayTeamPlayers, aiResponse.team_beta_players, formData.awayTeamFormation);
+          setAwayTeamPlayers(updatedAwayPlayers);
+          awayPlayersUpdated = true;
+        } else {
+          console.log("No team_beta_players found or player list empty in AI response for Away Team.");
+        }
+        // --- End Player Mapping Logic ---
+
+        if (homePlayersUpdated || awayPlayersUpdated) {
+          toast({
+            title: "AI Processing Successful",
+            description: "Player information has been updated based on the image." +
+                         (!homePlayersUpdated && aiResponse.team_alpha_players ? " Could not identify Home Team players." : "") +
+                         (!awayPlayersUpdated && aiResponse.team_beta_players ? " Could not identify Away Team players." : ""),
+          });
+        } else {
+          toast({
+            title: "AI Processing Note",
+            description: "AI did not identify any new player information for either team from the image.",
+            variant: "default",
+          });
+        }
+
+      } catch (error: any) // Catches errors from AIProcessingService.extractPlayersFromImage or base64 conversion
+      {
+        console.error("Error in handleProcessImage:", error);
+        toast({
+          title: "Processing Failed", // More generic title for service/network errors
+          description: error.message || "An unknown error occurred during image processing.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessingImage(false);
+      }
+    };
+    reader.onerror = (error) => {
+        console.error("FileReader error:", error);
+        toast({
+            title: "File Reading Error",
+            description: "Could not read the selected image file.",
+            variant: "destructive",
+        });
+        setIsProcessingImage(false);
+    };
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <form onSubmit={handleSubmit}>
@@ -661,13 +864,49 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           </TabsContent>
 
           <TabsContent value="teams" className="space-y-4">
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Upload Formation Image</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="formation-image-upload">Formation Image</Label>
+                  <Input
+                    id="formation-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="mt-1"
+                  />
+                  {selectedImageFile && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Selected: {selectedImageFile.name}
+                    </p>
+                  )}
+                </div>
+                <Button type="button" onClick={handleProcessImage} disabled={isProcessingImage || !selectedImageFile} className="flex items-center">
+                  {isProcessingImage && (
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  {isProcessingImage ? 'Processing...' : 'Process Image with AI'}
+                </Button>
+                {/* The loading span below button is removed as spinner is now part of the button text area */}
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Home Team</CardTitle>
                   <div>
                     <Label>Formation</Label>
-                    <Select value={formData.homeTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, homeTeamFormation: value })}>
+                    <Select value={formData.homeTeamFormation} onValueChange={(value: Formation) => {
+                      setFormData({ ...formData, homeTeamFormation: value });
+                      // generatePlayersForFormation('home', value); // This line was causing issues, players generated by useEffect
+                    }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -709,7 +948,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                   <CardTitle>Away Team</CardTitle>
                   <div>
                     <Label>Formation</Label>
-                    <Select value={formData.awayTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, awayTeamFormation: value })}>
+                    <Select value={formData.awayTeamFormation} onValueChange={(value: Formation) => {
+                      setFormData({ ...formData, awayTeamFormation: value });
+                      // generatePlayersForFormation('away', value); // This line was causing issues, players generated by useEffect
+                    }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
