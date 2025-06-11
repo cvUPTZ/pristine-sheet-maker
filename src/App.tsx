@@ -1,3 +1,4 @@
+// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,9 +20,10 @@ import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
 import LandingPage from "./pages/LandingPage";
 import MatchTimerPage from "./pages/MatchTimerPage";
-import VideoAnalysis from "./pages/VideoAnalysis";
+import VideoAnalysis from "./pages/VideoAnalysis"; // The job-based one
+import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer'; // New Direct Analyzer
 import Settings from "./pages/Settings";
-import NewVoiceChatPage from '@/pages/NewVoiceChatPage'; // Adjust path as needed
+import NewVoiceChatPage from '@/pages/NewVoiceChatPage';
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -29,7 +31,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
-import { useNetworkStatus } from './hooks/useNetworkStatus'; // Adjusted path
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 
 const queryClient = new QueryClient();
 
@@ -64,7 +66,6 @@ const AppContent = () => {
         }
       };
       
-      // Register after the window has loaded to avoid contention for resources
       if (document.readyState === 'complete') {
         registerServiceWorker();
       } else {
@@ -72,7 +73,7 @@ const AppContent = () => {
         return () => window.removeEventListener('load', registerServiceWorker);
       }
     }
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []);
 
   useEffect(() => {
     if (user && user.app_metadata?.role === 'tracker') {
@@ -135,7 +136,12 @@ const AppContent = () => {
         <Route path="/match/:matchId/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
         <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route path="/match/:matchId/timer" element={<RequireAuth requiredRoles={['admin']}><MatchTimerPage /></RequireAuth>} />
+
+        {/* Original Video Analysis (Job-based) - kept for now */}
         <Route path="/video-analysis" element={<RequireAuth requiredRoles={['admin', 'manager']}><VideoAnalysis /></RequireAuth>} />
+        {/* New Direct Video Analyzer */}
+        <Route path="/direct-analyzer" element={<RequireAuth><DirectVideoAnalyzer /></RequireAuth>} />
+
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin', 'manager']}><Matches /></RequireAuth>} />
