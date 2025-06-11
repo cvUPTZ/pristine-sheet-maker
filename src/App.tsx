@@ -23,7 +23,7 @@ import MatchTimerPage from "./pages/MatchTimerPage";
 import VideoAnalysis from "./pages/VideoAnalysis"; // The job-based one
 import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer'; // New Direct Analyzer
 import Settings from "./pages/Settings";
-import NewVoiceChatPage from '@/pages/NewVoiceChatPage';
+import NewVoiceChatPage from '@/pages/NewVoiceChatPage'; 
 import Header from "./components/Header";
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -31,7 +31,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
-import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { useNetworkStatus } from './hooks/useNetworkStatus'; 
 
 const queryClient = new QueryClient();
 
@@ -73,7 +73,7 @@ const AppContent = () => {
         return () => window.removeEventListener('load', registerServiceWorker);
       }
     }
-  }, []);
+  }, []); 
 
   useEffect(() => {
     if (user && user.app_metadata?.role === 'tracker') {
@@ -136,11 +136,11 @@ const AppContent = () => {
         <Route path="/match/:matchId/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
         <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
         <Route path="/match/:matchId/timer" element={<RequireAuth requiredRoles={['admin']}><MatchTimerPage /></RequireAuth>} />
-
+        
         {/* Original Video Analysis (Job-based) - kept for now */}
         <Route path="/video-analysis" element={<RequireAuth requiredRoles={['admin', 'manager']}><VideoAnalysis /></RequireAuth>} />
         {/* New Direct Video Analyzer */}
-        <Route path="/direct-analyzer" element={<RequireAuth><DirectVideoAnalyzer /></RequireAuth>} />
+        <Route path="/direct-analyzer" element={<RequireAuth><DirectVideoAnalyzer /></RequireAuth>} /> 
 
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
