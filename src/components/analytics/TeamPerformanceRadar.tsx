@@ -3,7 +3,13 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { Statistics as StatisticsType, TeamDetailedStats } from '@/types'; // Use StatisticsType for clarity
-import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'; // Optional: use Shadcn UI tooltip
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent
+} from '@/components/ui/chart'; // Import missing chart components
 
 interface TeamPerformanceRadarProps {
   statistics: StatisticsType; // This now contains home: TeamDetailedStats, away: TeamDetailedStats

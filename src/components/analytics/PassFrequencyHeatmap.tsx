@@ -19,7 +19,14 @@ interface HeatmapDataPoint {
 }
 
 // Custom shape for ScatterChart to render rectangles (cells)
-const HeatmapCell = (props: any) => {
+const HeatmapCell = (props: {
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  fill: string;
+  payload: HeatmapDataPoint;
+}) => {
   const { cx, cy, width, height, fill, payload } = props;
   // cx, cy are center of the cell, width/height are cell dimensions
   // We want to draw a rect from (cx - width/2, cy - height/2)

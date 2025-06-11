@@ -9,6 +9,13 @@ interface DetailedStatsTableProps {
   awayTeamName: string;
 }
 
+interface StatsDataItem {
+  label: string;
+  home: string;
+  away: string;
+  unit?: string; // Added optional unit property
+}
+
 const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
   statistics,
   homeTeamName,
@@ -21,7 +28,7 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
     return `${Math.round((completed / attempted) * 100)}%`;
   };
 
-  const statsData = [
+  const statsData: StatsDataItem[] = [
     // General & Possession
     { label: 'Possession', home: `${home?.possessionPercentage || 0}%`, away: `${away?.possessionPercentage || 0}%` },
     { label: 'Possession (Minutes)', home: (home?.possessionMinutes || 0).toString(), away: (away?.possessionMinutes || 0).toString() },
@@ -96,13 +103,13 @@ const DetailedStatsTable: React.FC<DetailedStatsTableProps> = ({
         {statsData.map((stat, index) => (
           <TableRow key={index}>
             <TableCell className="text-center font-semibold">
-              {stat.home}{stat.unit}
+              {stat.home}{stat.unit || ''}
             </TableCell>
             <TableCell className="text-center text-gray-600">
               {stat.label}
             </TableCell>
             <TableCell className="text-center font-semibold">
-              {stat.away}{stat.unit}
+              {stat.away}{stat.unit || ''}
             </TableCell>
           </TableRow>
         ))}

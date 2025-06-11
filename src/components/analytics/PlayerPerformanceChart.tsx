@@ -10,23 +10,45 @@ interface PlayerPerformanceChartProps {
   awayTeamName: string;
 }
 
+// Extended PlayerStatistics to include events we need
+interface ExtendedPlayerStatistics extends PlayerStatistics {
+  passes?: {
+    attempted: number;
+    successful: number;
+  };
+  shots?: {
+    onTarget: number;
+    offTarget: number;
+  };
+  goals?: number;
+  fouls?: number;
+}
+
 const PlayerPerformanceChart: React.FC<PlayerPerformanceChartProps> = ({
   playerStats,
   homeTeamName,
   awayTeamName,
 }) => {
-  const chartData = playerStats.map(player => ({
-    name: player.playerName,
-    team: player.team,
-    passes: player.events.passes.attempted,
-    passAccuracy: player.events.passes.attempted > 0 
-      ? Math.round((player.events.passes.successful / player.events.passes.attempted) * 100) 
-      : 0,
-    shots: player.events.shots.onTarget + player.events.shots.offTarget,
-    goals: player.events.goals,
-    fouls: player.events.fouls,
-    performance: (player.events.goals * 10) + (player.events.passes.successful * 0.5) + (player.events.shots.onTarget * 2) - (player.events.fouls * 1)
-  }));
+  const chartData = playerStats.map(player => {
+    // Cast to our extended interface
+    const extendedPlayer = player as ExtendedPlayerStatistics;
+    
+    return {
+      name: player.playerName,
+      team: player.team,
+      passes: extendedPlayer.passes?.attempted || 0,
+      passAccuracy: extendedPlayer.passes?.attempted && extendedPlayer.passes.attempted > 0 
+        ? Math.round((extendedPlayer.passes.successful / extendedPlayer.passes.attempted) * 100) 
+        : 0,
+      shots: (extendedPlayer.shots?.onTarget || 0) + (extendedPlayer.shots?.offTarget || 0),
+      goals: extendedPlayer.goals || 0,
+      fouls: extendedPlayer.fouls || 0,
+      performance: ((extendedPlayer.goals || 0) * 10) + 
+                  ((extendedPlayer.passes?.successful || 0) * 0.5) + 
+                  ((extendedPlayer.shots?.onTarget || 0) * 2) - 
+                  ((extendedPlayer.fouls || 0) * 1)
+    };
+  });
 
   const homeTeamData = chartData.filter(p => p.team === 'home');
   const awayTeamData = chartData.filter(p => p.team === 'away');

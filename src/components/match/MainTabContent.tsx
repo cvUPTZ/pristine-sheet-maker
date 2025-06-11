@@ -39,6 +39,9 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
     return 0;
   };
 
+  // Safely access values from both home and away teams
+  const { home, away } = statistics;
+
   return (
     <div className="space-y-6">
       {/* Match Statistics Overview */}
@@ -60,56 +63,56 @@ const MainTabContent: React.FC<MainTabContentProps> = ({
             
             {/* Possession */}
             <div className="text-2xl font-bold">
-              {statistics.possession?.home || 0}%
+              {home?.possessionPercentage || 0}%
             </div>
             <div className="text-sm text-gray-600">Possession</div>
             <div className="text-2xl font-bold">
-              {statistics.possession?.away || 0}%
+              {away?.possessionPercentage || 0}%
             </div>
             
             {/* Shots */}
             <div className="text-2xl font-bold">
-              {renderStatValue(statistics.shots?.home)}
+              {home?.shots || 0}
             </div>
             <div className="text-sm text-gray-600">Shots</div>
             <div className="text-2xl font-bold">
-              {renderStatValue(statistics.shots?.away)}
+              {away?.shots || 0}
             </div>
             
             {/* Shots on Target */}
             <div className="text-2xl font-bold">
-              {statistics.shots?.home?.onTarget || 0}
+              {home?.shotsOnTarget || 0}
             </div>
             <div className="text-sm text-gray-600">Shots on Target</div>
             <div className="text-2xl font-bold">
-              {statistics.shots?.away?.onTarget || 0}
+              {away?.shotsOnTarget || 0}
             </div>
             
             {/* Passes */}
             <div className="text-2xl font-bold">
-              {renderStatValue(statistics.passes?.home)}
+              {home?.passesCompleted || 0}/{home?.passesAttempted || 0}
             </div>
             <div className="text-sm text-gray-600">Passes</div>
             <div className="text-2xl font-bold">
-              {renderStatValue(statistics.passes?.away)}
+              {away?.passesCompleted || 0}/{away?.passesAttempted || 0}
             </div>
             
             {/* Balls Played */}
             <div className="text-2xl font-bold">
-              {statistics.ballsPlayed?.home || 0}
+              {home?.ballsPlayed || 0}
             </div>
             <div className="text-sm text-gray-600">Balls Played</div>
             <div className="text-2xl font-bold">
-              {statistics.ballsPlayed?.away || 0}
+              {away?.ballsPlayed || 0}
             </div>
             
             {/* Balls Lost */}
             <div className="text-2xl font-bold">
-              {statistics.ballsLost?.home || 0}
+              {home?.ballsLost || 0}
             </div>
             <div className="text-sm text-gray-600">Balls Lost</div>
             <div className="text-2xl font-bold">
-              {statistics.ballsLost?.away || 0}
+              {away?.ballsLost || 0}
             </div>
           </div>
         </CardContent>

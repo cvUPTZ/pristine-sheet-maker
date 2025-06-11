@@ -1,4 +1,3 @@
-
 // TrackerBatteryMonitor.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,30 +51,30 @@ const TrackerBatteryMonitor: React.FC = () => {
   const fetchTrackerData = async () => {
     try {
       // Handle potential error from the profiles table query
-      const { data: trackersData, error: trackersError } = await supabase
+      const { data, error: trackersError } = await supabase
         .from('profiles')
         .select('id, email, full_name, battery_level, is_charging, battery_charging_time, battery_discharging_time, battery_last_updated')
         .eq('role', 'tracker');
 
       if (trackersError) {
         console.error('Error fetching tracker profiles:', trackersError);
-        // Create empty trackersData if there's an error
-        const trackersWithBattery: TrackerStatusDisplay[] = [];
-        setTrackers(trackersWithBattery);
+        // Create empty array if there's an error
+        setTrackers([]);
+        setLoading(false);
         return;
       }
 
-      // Process the data if available
-      const trackersWithBattery = (trackersData || []).map(tracker => ({
-          userId: tracker.id || '',
-          identifier: tracker.full_name || tracker.email || tracker.id || '',
-          email: tracker.email || undefined,
-          full_name: tracker.full_name || undefined,
-          batteryLevel: tracker.battery_level || null,
-          isCharging: tracker.is_charging || null,
-          lastUpdatedAt: tracker.battery_last_updated || null,
-          chargingTimeInSeconds: tracker.battery_charging_time || null,
-          dischargingTimeInSeconds: tracker.battery_discharging_time || null
+      // Process the data if available (using optional chaining to safely handle errors)
+      const trackersWithBattery = (data || []).map(tracker => ({
+          userId: tracker?.id || '',
+          identifier: tracker?.full_name || tracker?.email || tracker?.id || '',
+          email: tracker?.email || undefined,
+          full_name: tracker?.full_name || undefined,
+          batteryLevel: tracker?.battery_level || null,
+          isCharging: tracker?.is_charging || null,
+          lastUpdatedAt: tracker?.battery_last_updated || null,
+          chargingTimeInSeconds: tracker?.battery_charging_time || null,
+          dischargingTimeInSeconds: tracker?.battery_discharging_time || null
       }));
 
       setTrackers(trackersWithBattery);

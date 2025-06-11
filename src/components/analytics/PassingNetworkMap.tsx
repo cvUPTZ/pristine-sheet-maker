@@ -1,364 +1,324 @@
 
-// src/components/analytics/PassingNetworkMap.tsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import * as d3 from 'd3';
-import { Player, Team } from '@/types';
-import { PlayerStatSummary } from '@/types'; // Update this import path if needed
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-const DEFAULT_PITCH_LENGTH = 105; // Should match SVG_VIEWBOX_WIDTH if pitch takes full viewbox
-const DEFAULT_PITCH_WIDTH = 68;  // Should match SVG_VIEWBOX_HEIGHT
-const SVG_MARGIN = { top: 5, right: 5, bottom: 5, left: 5 }; // Margin for elements within SVG
-const SVG_VIEWBOX_WIDTH = DEFAULT_PITCH_LENGTH + SVG_MARGIN.left + SVG_MARGIN.right;
-const SVG_VIEWBOX_HEIGHT = DEFAULT_PITCH_WIDTH + SVG_MARGIN.top + SVG_MARGIN.bottom;
-
+import * as d3 from 'd3';
+import { TeamDetailedStats, PlayerStatSummary } from '@/types';
 
 interface PassingNetworkMapProps {
   playerStats: PlayerStatSummary[];
-  allPlayers: Player[]; // Used to ensure all potential nodes are considered
-  homeTeam?: Team;
-  awayTeam?: Team;
-  pitchLength?: number;
-  pitchWidth?: number;
+  homeTeam: { name: string; players: any[] }; 
+  awayTeam: { name: string; players: any[] };
+  period?: number;
+  width?: number;
+  height?: number;
+  homeTeamColor?: string;
+  awayTeamColor?: string;
+  minPassesThreshold?: number;
 }
 
-// D3 Node type - PlayerStatSummary can be extended or used as part of it
+// Define needed D3 types
 interface D3Node extends d3.SimulationNodeDatum {
-  id: string; // Player ID
+  id: string;
   name: string;
-  jerseyNumber?: number;
-  teamId?: 'home' | 'away';
-  playerData: PlayerStatSummary; // Original player stat data
-  initialX?: number; // Store initial position from formation
-  initialY?: number;
+  team: 'home' | 'away';
   radius: number;
+  jerseyNumber?: string;
+  x?: number;
+  y?: number;
 }
 
-// D3 Link type
 interface D3Link extends d3.SimulationLinkDatum<D3Node> {
-  source: string; // ID of source node
-  target: string; // ID of target node
-  count: number;
-  successfulCount: number;
-  successRate: number;
+  source: string | D3Node;
+  target: string | D3Node;
+  value: number;
+  team: 'home' | 'away';
 }
-
 
 const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
   playerStats,
-  allPlayers,
   homeTeam,
   awayTeam,
-  pitchLength = DEFAULT_PITCH_LENGTH,
-  pitchWidth = DEFAULT_PITCH_WIDTH,
+  period = 0, // 0 means all periods
+  width = 800,
+  height = 600,
+  homeTeamColor = '#1d4ed8', // blue-700
+  awayTeamColor = '#b91c1c', // red-700
+  minPassesThreshold = 1
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [filterTeamId, setFilterTeamId] = useState<'all' | 'home' | 'away'>('all');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | number | 'all'>('all');
+  const [selectedTeam, setSelectedTeam] = useState<'both' | 'home' | 'away'>('both');
+  const homeTeamName = homeTeam.name;
+  const awayTeamName = awayTeam.name;
 
-  // Function to get player's initial position based on a simple formation layout
-  const getPlayerInitialPosition = (player: Player, teamId: 'home' | 'away' | undefined, playerIndex: number, teamPlayerCount: number) => {
-    let x = SVG_MARGIN.left;
-    let y = SVG_MARGIN.top;
-    const lines = [pitchLength * 0.15, pitchLength * 0.4, pitchLength * 0.65, pitchLength * 0.85];
+  useEffect(() => {
+    if (!svgRef.current || !playerStats?.length) return;
 
-    const jerseyNumber = player.number || player.jersey_number || 0;
+    // Clear any existing SVG content
+    d3.select(svgRef.current).selectAll('*').remove();
 
-    if (jerseyNumber === 1) { // GK
-      x = lines[0] * 0.5; y = pitchWidth / 2;
-    } else if (jerseyNumber >= 2 && jerseyNumber <= 5) { // DEF
-      x = lines[0]; y = (( (playerIndex % 4) + 1) * pitchWidth / 5);
-    } else if (jerseyNumber >= 6 && jerseyNumber <= 8 || jerseyNumber === 10) { // MID
-      x = lines[1] + (playerIndex % 2 === 0 ? 0 : (lines[2]-lines[1])/2); y = ( ( (playerIndex % 4) + 1) * pitchWidth / 5);
-    } else { // FWD
-      x = lines[3]; y = ( ( (playerIndex % 2) + 1) * pitchWidth / 3);
-    }
-    if (teamId === 'away') x = pitchLength - x;
+    // Constants for layout
+    const PADDING = 50; // Padding around the visualization
+    const NODE_MIN_RADIUS = 15; // Minimum radius for player nodes
+    const NODE_MAX_RADIUS = 35; // Maximum radius for player nodes
+    const LINK_MIN_STROKE = 1; // Minimum stroke width for links
+    const LINK_MAX_STROKE = 10; // Maximum stroke width for links
 
-    return { x: SVG_MARGIN.left + x, y: SVG_MARGIN.top + y };
-  };
-
-
-  const { d3Nodes, d3Links } = useMemo((): { d3Nodes: D3Node[], d3Links: D3Link[] } => {
-    const currentPlayersInStats = playerStats.filter(ps => {
-      if (filterTeamId === 'all') return true;
-      return ps.team === filterTeamId;
-    });
-
-    // If a player is selected, filter to show only that player and those they interacted with directly.
-    let relevantPlayerIds = new Set<string>();
-    if (selectedPlayerId !== 'all') {
-      relevantPlayerIds.add(String(selectedPlayerId));
-      playerStats.forEach(ps => {
-        if (String(ps.playerId) === String(selectedPlayerId)) {
-          ps.passNetworkSent?.forEach(link => relevantPlayerIds.add(String(link.toPlayerId)));
-        }
-        ps.passNetworkSent?.forEach(link => {
-          if (String(link.toPlayerId) === String(selectedPlayerId)) {
-            relevantPlayerIds.add(String(ps.playerId));
-          }
-        });
-      });
-    }
-
-    const nodes: D3Node[] = currentPlayersInStats
-      .filter(ps => selectedPlayerId === 'all' || relevantPlayerIds.has(String(ps.playerId)))
-      .map((ps, index) => {
-        const playerInfo = allPlayers.find(p => String(p.id) === String(ps.playerId)) ||
-                           { id: ps.playerId, name: ps.playerName, jersey_number: ps.jerseyNumber, position: 'Unknown' } as Player; // Fallback
-        const initialPos = getPlayerInitialPosition(playerInfo, ps.team, index, currentPlayersInStats.length);
-        const totalPasses = (ps.passesAttempted || 0);
+    // Create nodes for each player
+    const playerNodes: D3Node[] = [...homeTeam.players, ...awayTeam.players]
+      .map(player => {
+        // Handle both string and object types by casting
+        const playerName = typeof player === 'string' ? player : (player.name || player.player_name || 'Unknown');
+        const playerNumber = typeof player === 'string' ? '' : (player.jerseyNumber || player.number || '');
+        const playerId = typeof player === 'string' ? player : (player.id || playerName);
+        
         return {
-          id: String(ps.playerId),
-          name: ps.playerName,
-          jerseyNumber: ps.jerseyNumber,
-          teamId: ps.team,
-          playerData: ps,
-          initialX: initialPos.x,
-          initialY: initialPos.y,
-          radius: 3 + Math.min(7, Math.sqrt(totalPasses) * 0.5), // Radius based on pass involvement
-          // D3 simulation will add x, y, vx, vy etc.
+          id: String(playerId),
+          name: playerName,
+          team: homeTeam.players.includes(player) ? 'home' : 'away',
+          radius: NODE_MIN_RADIUS,
+          jerseyNumber: String(playerNumber)
         };
       });
 
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const links: D3Link[] = [];
+    // Process pass data to create links
+    const passLinks: D3Link[] = [];
+    playerStats.forEach(player => {
+      if (!player.passNetworkSent) return;
 
-    currentPlayersInStats.forEach(ps => {
-      if (!nodeIds.has(String(ps.playerId))) return; // Source player not in filtered nodes
+      player.passNetworkSent.forEach(pass => {
+        // Skip if below threshold
+        if (pass.count < minPassesThreshold) return;
 
-      ps.passNetworkSent?.forEach(link => {
-        if (!nodeIds.has(String(link.toPlayerId))) return; // Target player not in filtered nodes
-
-        // If a specific player selected, only show links from/to them
-        if (selectedPlayerId !== 'all' && String(ps.playerId) !== String(selectedPlayerId) && String(link.toPlayerId) !== String(selectedPlayerId)) {
-            return;
-        }
-
-        links.push({
-          source: String(ps.playerId),
-          target: String(link.toPlayerId),
-          count: link.count,
-          successfulCount: link.successfulCount,
-          successRate: link.count > 0 ? link.successfulCount / link.count : 0,
+        // Create a link for this pass
+        passLinks.push({
+          source: String(player.playerId),
+          target: String(pass.toPlayerId),
+          value: pass.count,
+          team: player.team as 'home' | 'away'
         });
       });
     });
-    return { d3Nodes: nodes, d3Links: links };
-  }, [playerStats, allPlayers, filterTeamId, selectedPlayerId, pitchLength, pitchWidth]);
 
-
-  useEffect(() => {
-    if (!svgRef.current || d3Nodes.length === 0) {
-        // Clear SVG if no nodes
-        if (svgRef.current) d3.select(svgRef.current).selectAll("*").remove();
-        return;
-    }
-
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove(); // Clear previous elements
-
-    // Add pitch markings (can be done once if static, or here if dynamic aspects)
-    const pitchGroup = svg.append("g").attr("id", "pitch-markings");
-    pitchGroup.append("rect")
-        .attr("x", SVG_MARGIN.left)
-        .attr("y", SVG_MARGIN.top)
-        .attr("width", pitchLength)
-        .attr("height", pitchWidth)
-        .attr("fill", "none")
-        .attr("stroke", "rgba(255,255,255,0.3)")
-        .attr("stroke-width", "0.5");
-    // Add other pitch lines as needed, similar to the original SVG
-
-    // Arrowhead definition
-    svg.append("defs").append("marker")
-        .attr("id", "arrowhead-d3")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 19) // Adjusted for link stroke width and node radius
-        .attr("refY", 0)
-        .attr("markerWidth", 5)
-        .attr("markerHeight", 5)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#777");
-
-    const linkGroup = svg.append("g").attr("class", "links");
-    const nodeGroup = svg.append("g").attr("class", "nodes");
-
-    // Initialize nodes with starting positions (fx, fy to fix, or x, y for initial)
-    d3Nodes.forEach(node => {
-      node.x = node.initialX;
-      node.y = node.initialY;
+    // Filter based on selected team
+    const filteredLinks = passLinks.filter(link => {
+      if (selectedTeam === 'both') return true;
+      return link.team === selectedTeam;
     });
 
-    const simulation = d3.forceSimulation(d3Nodes)
-        .force("link", d3.forceLink<D3Node, D3Link>(d3Links)
-            .id(d => d.id)
-            .distance(link => 70 + Math.max(0, 20 - link.count)) // Shorter distance for more passes
-            .strength(link => 0.1 + (link.count / 10) * 0.2) // Stronger links for more passes
-        )
-        .force("charge", d3.forceManyBody().strength(-150))
-        .force("center", d3.forceCenter((pitchLength / 2) + SVG_MARGIN.left, (pitchWidth / 2) + SVG_MARGIN.top))
-        .force("collide", d3.forceCollide<D3Node>().radius(d => d.radius + 3).iterations(2));
-
-
-    const linkElements = linkGroup
-        .selectAll("line")
-        .data(d3Links)
-        .join("line")
-        .attr("stroke-width", d => Math.min(0.5 + (d.count * 0.3), 5)) // Max stroke width 5
-        .attr("stroke", "#777")
-        .attr("opacity", d => 0.4 + d.successRate * 0.6)
-        .attr("marker-end", "url(#arrowhead-d3)");
-
-    const nodeElements = nodeGroup
-        .selectAll<SVGGElement, D3Node>("g")
-        .data(d3Nodes, d => d.id)
-        .join("g")
-        .call(d3.drag<SVGGElement, D3Node>()
-            .on("start", (event, d) => {
-                if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-            })
-            .on("drag", (event, d) => {
-                d.fx = event.x;
-                d.fy = event.y;
-            })
-            .on("end", (event, d) => {
-                if (!event.active) simulation.alphaTarget(0);
-                d.fx = null; // Set to null to unfix, or keep fx,fy to fix after drag
-                d.fy = null;
-            })
-        );
-
-    nodeElements.append("circle")
-        .attr("r", d => d.radius)
-        .attr("fill", d => d.teamId === 'home' ? 'blue' : (d.teamId === 'away' ? 'red' : 'grey'))
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 0.5);
-
-    nodeElements.append("text")
-        .text(d => d.jerseyNumber || d.name.substring(0,1))
-        .attr("text-anchor", "middle")
-        .attr("dy", ".3em")
-        .attr("font-size", d => Math.max(3, d.radius * 0.7) + "px")
-        .attr("fill", "white");
-
-    // Add simple title tooltips (SVG native)
-    linkElements.append("title")
-      .text(d => {
-        const sourceNode = d.source as D3Node;
-        const targetNode = d.target as D3Node;
-        return `From: ${sourceNode.name} (#${sourceNode.jerseyNumber})\nTo: ${targetNode.name} (#${targetNode.jerseyNumber})\nPasses: ${d.count} (${d.successfulCount} succ.)`;
-      });
-
-    nodeElements.append("title")
-      .text(d => `${d.name} (#${d.jerseyNumber})\nTeam: ${d.teamId}\nPasses Attempted: ${d.playerData.passesAttempted || 0}`);
-
-    simulation.on("tick", () => {
-        linkElements
-            .attr("x1", d => (d.source as D3Node).x!)
-            .attr("y1", d => (d.source as D3Node).y!)
-            .attr("x2", d => (d.target as D3Node).x!)
-            .attr("y2", d => (d.target as D3Node).y!);
-        nodeElements
-            .attr("transform", d => `translate(${d.x},${d.y})`);
+    // Get all node IDs that are part of the filtered links
+    const activeNodeIds = new Set<string>();
+    filteredLinks.forEach(link => {
+      activeNodeIds.add(String(link.source));
+      activeNodeIds.add(String(link.target));
     });
 
-    // Cleanup simulation on component unmount
+    // Filter nodes to only include those in the active network
+    const filteredNodes = playerNodes.filter(node => {
+      if (selectedTeam === 'both') {
+        return activeNodeIds.has(node.id);
+      }
+      return node.team === selectedTeam && activeNodeIds.has(node.id);
+    });
+
+    // Scale node sizes based on number of outgoing passes
+    const nodeSizeScale = d3.scaleLinear()
+      .domain([0, d3.max(filteredNodes, n => {
+        const nodeId = n.id;
+        let passCount = 0;
+        filteredLinks.forEach(link => {
+          if (String(link.source) === nodeId) passCount += link.value;
+        });
+        return passCount;
+      }) || 1])
+      .range([NODE_MIN_RADIUS, NODE_MAX_RADIUS]);
+
+    // Scale link sizes based on pass counts
+    const linkWidthScale = d3.scaleLinear()
+      .domain([minPassesThreshold, d3.max(filteredLinks, d => d.value) || minPassesThreshold])
+      .range([LINK_MIN_STROKE, LINK_MAX_STROKE]);
+
+    // Create the SVG container
+    const svg = d3.select(svgRef.current)
+      .attr('width', width)
+      .attr('height', height)
+      .append('g')
+      .attr('transform', `translate(${PADDING}, ${PADDING})`);
+
+    // Set up the simulation
+    const simulation = d3.forceSimulation<D3Node>(filteredNodes)
+      .force('charge', d3.forceManyBody().strength(-100))
+      .force('center', d3.forceCenter(width / 2 - PADDING, height / 2 - PADDING))
+      .force('x', d3.forceX(width / 2 - PADDING).strength(0.1))
+      .force('y', d3.forceY(height / 2 - PADDING).strength(0.1))
+      .force('link', d3.forceLink<D3Node, D3Link>(filteredLinks)
+        .id(d => d.id)
+        .distance(100)
+        .strength(0.2));
+
+    // Create links
+    const link = svg.append('g')
+      .selectAll('line')
+      .data(filteredLinks)
+      .join('line')
+      .attr('stroke', d => d.team === 'home' ? homeTeamColor : awayTeamColor)
+      .attr('stroke-opacity', 0.6)
+      .attr('stroke-width', d => linkWidthScale(d.value))
+      .attr('marker-end', 'url(#arrow)');
+
+    // Add arrow markers for links
+    svg.append('defs').selectAll('marker')
+      .data(['home', 'away'])
+      .enter().append('marker')
+      .attr('id', d => `arrow-${d}`)
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 20) // Position adjusted based on node radius
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('fill', d => d === 'home' ? homeTeamColor : awayTeamColor)
+      .attr('d', 'M0,-5L10,0L0,5');
+
+    // Create nodes
+    const node = svg.append('g')
+      .selectAll('g')
+      .data(filteredNodes)
+      .join('g');
+
+    // Add circles for the nodes
+    node.append('circle')
+      .attr('r', d => {
+        // Calculate total outgoing passes for this node
+        const outgoingPasses = filteredLinks
+          .filter(link => String(link.source) === d.id)
+          .reduce((sum, link) => sum + link.value, 0);
+        
+        // Update node radius based on passes
+        d.radius = nodeSizeScale(outgoingPasses);
+        return d.radius;
+      })
+      .attr('fill', d => d.team === 'home' ? homeTeamColor : awayTeamColor)
+      .attr('fill-opacity', 0.7)
+      .attr('stroke', d => d.team === 'home' ? homeTeamColor : awayTeamColor)
+      .attr('stroke-width', 2);
+
+    // Add text labels for player names
+    node.append('text')
+      .text(d => `${d.name}`)
+      .attr('text-anchor', 'middle')
+      .attr('dy', -10)
+      .attr('font-size', '10px')
+      .attr('fill', 'black');
+
+    // Add jersey numbers
+    node.append('text')
+      .text(d => d.jerseyNumber || '')
+      .attr('text-anchor', 'middle')
+      .attr('dy', 5)
+      .attr('font-size', '12px')
+      .attr('font-weight', 'bold')
+      .attr('fill', 'white');
+
+    // Set up simulation ticks
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => (d.source as D3Node).x!)
+        .attr('y1', d => (d.source as D3Node).y!)
+        .attr('x2', d => (d.target as D3Node).x!)
+        .attr('y2', d => (d.target as D3Node).y!);
+
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // Add drag behavior
+    node.call(d3.drag<SVGGElement, D3Node>()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }));
+
+    // Initial legend for teams
+    const legend = svg.append('g')
+      .attr('transform', `translate(10, ${height - 80})`);
+
+    // Home team legend item
+    legend.append('circle')
+      .attr('r', 6)
+      .attr('fill', homeTeamColor)
+      .attr('cx', 10)
+      .attr('cy', 10);
+
+    legend.append('text')
+      .text(homeTeamName)
+      .attr('x', 20)
+      .attr('y', 15)
+      .attr('font-size', '12px');
+
+    // Away team legend item
+    legend.append('circle')
+      .attr('r', 6)
+      .attr('fill', awayTeamColor)
+      .attr('cx', 10)
+      .attr('cy', 30);
+
+    legend.append('text')
+      .text(awayTeamName)
+      .attr('x', 20)
+      .attr('y', 35)
+      .attr('font-size', '12px');
+
     return () => {
-        simulation.stop();
+      simulation.stop();
     };
-
-  }, [d3Nodes, d3Links, pitchLength, pitchWidth]); // Dependencies for D3 rendering
-
-
-  const handleTeamFilterChange = (value: string) => {
-    setFilterTeamId(value as 'all' | 'home' | 'away');
-    setSelectedPlayerId('all');
-  };
-
-  const handlePlayerFilterChange = (value: string) => {
-    setSelectedPlayerId(value === 'all' ? 'all' : value); // Player ID is string or number
-  };
-
-  const getTeamPlayersForFilter = (): Player[] => {
-    if (filterTeamId === 'home') {
-      return homeTeam?.players || allPlayers.filter(p => 
-        d3Nodes.find(node => node.id === String(p.id) && node.teamId === 'home')
-      );
-    }
-    if (filterTeamId === 'away') {
-      return awayTeam?.players || allPlayers.filter(p => 
-        d3Nodes.find(node => node.id === String(p.id) && node.teamId === 'away')
-      );
-    }
-    return allPlayers;
-  };
-
-  // Extract values from homeTeam and awayTeam for display
-  const homeTeamName = homeTeam?.name || 'Home';
-  const awayTeamName = awayTeam?.name || 'Away';
+  }, [playerStats, homeTeam, awayTeam, selectedTeam, period, minPassesThreshold, homeTeamName, awayTeamName, homeTeamColor, awayTeamColor, width, height]);
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Passing Network</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Select value={filterTeamId} onValueChange={handleTeamFilterChange}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                <SelectItem value="home">{homeTeamName}</SelectItem>
-                <SelectItem value="away">{awayTeamName}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={String(selectedPlayerId)} onValueChange={handlePlayerFilterChange}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Player (involved)" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Players (Network)</SelectItem>
-                    {getTeamPlayersForFilter().map(p => (
-                        <SelectItem key={p.id} value={String(p.id)}>{p.name || `Player ${p.id}`}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <CardTitle className="flex justify-between items-center">
+          <span>Team Passing Network</span>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setSelectedTeam('both')}
+              className={`px-3 py-1 text-xs rounded ${selectedTeam === 'both' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`}
+            >
+              Both Teams
+            </button>
+            <button
+              onClick={() => setSelectedTeam('home')}
+              className={`px-3 py-1 text-xs rounded ${selectedTeam === 'home' ? 'bg-blue-700 text-white' : 'bg-blue-100'}`}
+              style={{ backgroundColor: selectedTeam === 'home' ? homeTeamColor : undefined }}
+            >
+              {homeTeamName}
+            </button>
+            <button
+              onClick={() => setSelectedTeam('away')}
+              className={`px-3 py-1 text-xs rounded ${selectedTeam === 'away' ? 'bg-red-700 text-white' : 'bg-red-100'}`}
+              style={{ backgroundColor: selectedTeam === 'away' ? awayTeamColor : undefined }}
+            >
+              {awayTeamName}
+            </button>
           </div>
-        </div>
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <TooltipProvider>
-          <div style={{ width: '100%', aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}` }}>
-            <svg
-              ref={svgRef}
-              viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
-              preserveAspectRatio="xMidYMid meet"
-              style={{ border: '1px solid #e2e8f0', backgroundColor: '#38A169' }}
-            >
-              <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="3.5" refY="1.75" orient="auto" markerUnits="strokeWidth">
-                      <polygon points="0 0, 5 1.75, 0 3.5" fill="#fff" />
-                  </marker>
-              </defs>
-              {/* Pitch Markings */}
-              <rect x={SVG_MARGIN.left} y={SVG_MARGIN.top} width={pitchLength} height={pitchWidth} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-              <line x1={SVG_MARGIN.left + pitchLength / 2} y1={SVG_MARGIN.top} x2={SVG_MARGIN.left + pitchLength / 2} y2={SVG_MARGIN.top + pitchWidth} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-              <circle cx={SVG_MARGIN.left + pitchLength / 2} cy={SVG_MARGIN.top + pitchWidth / 2} r={pitchWidth / 7} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-              <rect x={SVG_MARGIN.left} y={SVG_MARGIN.top + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-              <rect x={SVG_MARGIN.left + pitchLength - 16.5} y={SVG_MARGIN.top + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-              
-              {/* D3 visualization will be appended via the useEffect hook */}
-            </svg>
-          </div>
-        </TooltipProvider>
+        <div className="border rounded overflow-hidden">
+          <svg ref={svgRef} width={width} height={height} className="mx-auto"></svg>
+        </div>
+        <div className="text-xs text-gray-500 mt-2 text-center">
+          * Node size represents number of outgoing passes, line thickness represents pass frequency
+        </div>
       </CardContent>
     </Card>
   );

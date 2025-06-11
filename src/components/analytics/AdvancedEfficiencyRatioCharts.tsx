@@ -9,7 +9,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 
 interface AdvancedEfficiencyRatioChartsProps {
   homeStats: TeamDetailedStats;
@@ -75,7 +75,6 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
   const awayRecoveryRateVsOpponent = calculateRatio(awayStats.ballsRecovered || 0, homeStats.ballsPlayed || 0) * 100;
 
   // Possession Efficiency (using possessionPercentage as a proxy for time/control)
-  // Note: homeStats.possessionMinutes is likely 0 or unreliable based on previous analysis.
   const homeGoalsPerPossessionProxy = calculateRatio(homeStats.goals || 0, homeStats.possessionPercentage || 1); // Goals per 1% of possession
   const awayGoalsPerPossessionProxy = calculateRatio(awayStats.goals || 0, awayStats.possessionPercentage || 1);
   const homeShotsPerPossessionProxy = calculateRatio(homeStats.shots || 0, homeStats.possessionPercentage || 1); // Shots per 1% of possession
@@ -112,12 +111,6 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
     { label: "Backward Passes", homeValue: homeStats.backwardPasses || 0, awayValue: awayStats.backwardPasses || 0 },
     { label: "Lateral Passes", homeValue: homeStats.lateralPasses || 0, awayValue: awayStats.lateralPasses || 0 },
   ];
-
-  // Data for Radar chart (example) - can be expanded
-  // This section was duplicated and is now removed.
-  // The correct definitions for radarChartData, chartConfig, and metrics
-  // are already present above in the main component scope.
-  // The JSX rendering code below this (now removed) duplicated block was also identical.
 
   // Calculate all metrics first for the Radar Chart
   const homePassAccuracy = calculateRatio(homeStats.passesCompleted || 0, homeStats.passesAttempted || 0) * 100;

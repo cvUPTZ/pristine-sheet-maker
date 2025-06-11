@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Play, Upload, Download } from 'lucide-react';
-import { Statistics } from '@/types';
+import { Statistics, TeamDetailedStats } from '@/types';
 
 interface VideoAnalyzerProps {
   onAnalysisComplete?: (analysis: any) => void;
@@ -45,7 +45,24 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({
       // Simulate video analysis - in real implementation, this would call an AI service
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Mock analysis results
+      // Create proper Statistics structure with home and away as TeamDetailedStats
+      const homeStats: TeamDetailedStats = {
+        possessionPercentage: 55,
+        shotsOnTarget: 5,
+        shots: 8,
+        passesAttempted: 400,
+        passesCompleted: 350,
+      };
+      
+      const awayStats: TeamDetailedStats = {
+        possessionPercentage: 45,
+        shotsOnTarget: 4,
+        shots: 6,
+        passesAttempted: 350,
+        passesCompleted: 280,
+      };
+      
+      // Mock analysis results with correct Statistics structure
       const mockResults = {
         duration: '90:00',
         events: [
@@ -54,15 +71,8 @@ const VideoAnalyzer: React.FC<VideoAnalyzerProps> = ({
           { type: 'goal', timestamp: 4800, team: 'away', player: 'Player 11' }
         ],
         statistics: {
-          possession: { home: 55, away: 45 },
-          shots: { 
-            home: { onTarget: 5, offTarget: 3, total: 8 }, 
-            away: { onTarget: 4, offTarget: 2, total: 6 } 
-          },
-          passes: { 
-            home: { successful: 350, attempted: 400 }, 
-            away: { successful: 280, attempted: 350 } 
-          }
+          home: homeStats,
+          away: awayStats
         } as Statistics,
         ballTracking: [
           { x: 50, y: 50, timestamp: 0, team: 'home' },
