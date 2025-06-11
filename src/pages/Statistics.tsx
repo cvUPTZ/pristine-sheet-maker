@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -497,7 +498,7 @@ const Statistics = () => {
                         homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
                         awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
                       />
-                      <PassFrequencyHeatmap playerStats={playerStats} allPlayers={allPlayersForMatch} />
+                      <PassFrequencyHeatmap playerStats={playerStats} />
                     </>
                   )}
                 </CardContent>
@@ -590,5 +591,3 @@ const Statistics = () => {
 };
 
 export default Statistics;
-
-</edits_to_apply>
