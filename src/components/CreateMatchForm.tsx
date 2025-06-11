@@ -15,7 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { AIProcessingService, FormationImageAIResponse, AIPlayerInfo, AITeamData } from '@/services/aiProcessingService'; // Added AIProcessingService and types
 import { Plus, Trash2, ChevronDown, ChevronRight, Users, Target } from 'lucide-react';
 
-
 interface CreateMatchFormProps {
   matchId?: string;
   onMatchSubmit: (match: any) => void;
