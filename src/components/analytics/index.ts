@@ -1,3 +1,9 @@
+// Main analytics components
+export { default as AdvancedAnalyticsDashboard } from './AdvancedAnalyticsDashboard';
+export { default as InteractiveMetricsGrid } from './InteractiveMetricsGrid';
+export { default as RealTimeStatsWidget } from './RealTimeStatsWidget';
+
+// Existing analytics components
 export { default as TeamComparisonCharts } from './TeamComparisonCharts';
 export { default as PerformanceDifferenceAnalysis } from './PerformanceDifferenceAnalysis';
 export { default as EfficiencyMetricsRatios } from './EfficiencyMetricsRatios';
