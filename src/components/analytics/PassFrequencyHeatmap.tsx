@@ -18,44 +18,10 @@ interface HeatmapDataPoint {
   count: number;
 }
 
-// Custom shape for ScatterChart to render rectangles (cells)
-const HeatmapCell = (props: {
-  cx: number;
-  cy: number;
-  width: number;
-  height: number;
-  fill: string;
 const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
   playerStats,
   allPlayers,
 }) => {
-  // Custom shape for ScatterChart to render rectangles (cells)
-  // Moved HeatmapCell inside PassFrequencyHeatmap to access getCellFillColor
-  const HeatmapCell = (props: {
-    cx: number;
-    cy: number;
-    width: number;
-    height: number;
-    payload: HeatmapDataPoint;
-  }) => {
-    const { cx, cy, width, height, payload } = props;
-    // cx, cy are center of the cell, width/height are cell dimensions
-    // We want to draw a rect from (cx - width/2, cy - height/2)
-    if (payload.count === 0) return null; // Don't render for zero count
-
-    return (
-      <rect
-        x={cx - width / 2}
-        y={cy - height / 2}
-        width={width}
-        height={height}
-        fill={getCellFillColor(payload.count)} // Use getCellFillColor directly
-        stroke="#fff" // Optional: add a border to cells
-        strokeWidth={0.5}
-      />
-    );
-  };
-
   const { heatmapData, sortedPlayerNames, maxFrequency } = useMemo(() => {
     if (!playerStats || playerStats.length === 0 || !allPlayers || allPlayers.length === 0) {
       return { heatmapData: [], sortedPlayerNames: [], maxFrequency: 0 };
@@ -93,7 +59,7 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
         const fromIdStr = String(fromPlayer.id);
         const toIdStr = String(toPlayer.id);
         const count = matrix[fromIdStr]?.[toIdStr] || 0;
-        if (count > 0) { // Only add points if there's a pass count
+        if (count > 0) {
              data.push({
                 fromPlayerId: fromIdStr,
                 toPlayerId: toIdStr,
@@ -108,10 +74,34 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
   }, [playerStats, allPlayers]);
 
   const getCellFillColor = (value: number) => {
-    if (value === 0 || maxFrequency === 0) return 'rgba(200, 200, 200, 0.1)'; // Very light for zero or no max
-    const intensity = Math.min(1, value / (maxFrequency * 0.85)); // Cap intensity
-    const alpha = intensity * 0.7 + 0.3; // from 0.3 to 1.0
-    return `rgba(79, 70, 229, ${alpha})`; // Indigo scale (Tailwind indigo-600 is approx this)
+    if (value === 0 || maxFrequency === 0) return 'rgba(200, 200, 200, 0.1)';
+    const intensity = Math.min(1, value / (maxFrequency * 0.85));
+    const alpha = intensity * 0.7 + 0.3;
+    return `rgba(79, 70, 229, ${alpha})`;
+  };
+
+  // Custom shape for ScatterChart to render rectangles (cells)
+  const HeatmapCell = (props: {
+    cx: number;
+    cy: number;
+    width: number;
+    height: number;
+    payload: HeatmapDataPoint;
+  }) => {
+    const { cx, cy, width, height, payload } = props;
+    if (payload.count === 0) return null;
+
+    return (
+      <rect
+        x={cx - width / 2}
+        y={cy - height / 2}
+        width={width}
+        height={height}
+        fill={getCellFillColor(payload.count)}
+        stroke="#fff"
+        strokeWidth={0.5}
+      />
+    );
   };
 
   if (heatmapData.length === 0 || sortedPlayerNames.length === 0) {
@@ -123,8 +113,8 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
     );
   }
 
-  const chartHeight = Math.max(300, sortedPlayerNames.length * 30 + 50); // Dynamic height
-  const cellWidth = sortedPlayerNames.length > 0 ? Math.max(20, 600 / sortedPlayerNames.length) : 20; // Dynamic cell width
+  const chartHeight = Math.max(300, sortedPlayerNames.length * 30 + 50);
+  const cellWidth = sortedPlayerNames.length > 0 ? Math.max(20, 600 / sortedPlayerNames.length) : 20;
 
   return (
     <Card>
@@ -178,8 +168,7 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
               <Scatter
                 name="Pass Frequency"
                 data={heatmapData}
-                shape={(props) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} />}
-                // fill prop removed
+                shape={(props: any) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} />}
               />
             </ScatterChart>
           </ResponsiveContainer>
