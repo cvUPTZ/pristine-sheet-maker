@@ -498,7 +498,10 @@ const Statistics = () => {
                         homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
                         awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
                       />
-                      <PassFrequencyHeatmap playerStats={playerStats} />
+                      <PassFrequencyHeatmap 
+                        playerStats={playerStats} 
+                        allPlayers={allPlayersForMatch} 
+                      />
                     </>
                   )}
                 </CardContent>
@@ -572,7 +575,7 @@ const Statistics = () => {
                       <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                       <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                       <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                      <PossessionTimelineChart intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                      <PossessionTimelineChart homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                       <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                     </>
                   )}

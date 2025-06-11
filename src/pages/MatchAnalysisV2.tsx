@@ -384,7 +384,6 @@ const MatchAnalysisV2: React.FC = () => {
                     Voice Input
                   </h2>
                   <TrackerVoiceInput
-                    trackerUserId={user?.id || ''}
                     assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
                     assignedEventTypes={assignedEventTypes}
                     onRecordEvent={handleRecordEvent}

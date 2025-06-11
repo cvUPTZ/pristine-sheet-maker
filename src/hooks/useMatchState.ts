@@ -425,7 +425,7 @@ export const useMatchState = () => {
       const goals = playerEvents.filter(event => event.type === 'goal').length;
       const assists = playerEvents.filter(event => event.type === 'assist').length;
       const shots = playerEvents.filter(event => event.type === 'shot').length;
-      const fouls = playerEvents.filter(event => event.type === 'foul').length;
+      const foulsCount = playerEvents.filter(event => event.type === 'foul').length;
 
       const isHomePlayer = homeTeam.players.find(p => p.id === player.id);
       const team = isHomePlayer ? 'home' : 'away';
@@ -444,10 +444,9 @@ export const useMatchState = () => {
         goals: goals,
         assists: assists,
         shots: shots,
-        fouls: fouls,
+        foulsCommitted: foulsCount,
         // Updated to match new interface
         shotsOnTarget: 0,
-        foulsCommitted: fouls,
         yellowCards: 0,
         redCards: 0,
         tackles: ballsRecovered,
