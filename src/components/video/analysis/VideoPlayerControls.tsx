@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button'; // Assuming Button is from shadcn/ui
+// src/components/video/analysis/VideoPlayerControls.tsx
+import React, { useState, useEffect } from 'react'; // Corrected import
+import { Button } from '@/components/ui/button';
 import { SkipBack, SkipForward } from 'lucide-react';
 
 const ASSUMED_FPS = 30;
 
 interface VideoPlayerControlsProps {
   videoPlayerRef: React.RefObject<HTMLVideoElement>;
-  isPlayingPlaylist: boolean; // To disable controls during playlist playback
+  isPlayingPlaylist: boolean;
 }
 
 export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({ videoPlayerRef, isPlayingPlaylist }) => {
@@ -30,7 +31,6 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({ videoP
     }
   };
 
-  // Effect to set initial playback rate on the video element if it changes or mounts
   useEffect(() => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.playbackRate = currentPlaybackRate;
@@ -55,7 +55,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({ videoP
             value={currentPlaybackRate}
             onChange={handlePlaybackRateChange}
             disabled={isPlayingPlaylist}
-            className="p-1 border rounded-md text-sm bg-white dark:bg-gray-800 focus:ring-1 focus:ring-blue-500" // Added focus style
+            className="p-1 border rounded-md text-sm bg-white dark:bg-gray-800 focus:ring-1 focus:ring-blue-500"
           >
             {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
               <option key={rate} value={rate}>{rate}x</option>
