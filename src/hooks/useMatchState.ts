@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
@@ -423,7 +422,6 @@ export const useMatchState = () => {
       const passesAttempted = playerEvents.filter(event => event.type === 'pass').length;
       const possessionTime = ballsPlayed * 2;
       const contacts = ballsPlayed + ballsLost + ballsRecovered;
-      const lossRatio = ballsPlayed > 0 ? ballsLost / ballsPlayed : 0;
       const goals = playerEvents.filter(event => event.type === 'goal').length;
       const assists = playerEvents.filter(event => event.type === 'assist').length;
       const shots = playerEvents.filter(event => event.type === 'shot').length;
@@ -443,7 +441,6 @@ export const useMatchState = () => {
         passesAttempted: passesAttempted,
         possessionTime: possessionTime,
         contacts: contacts,
-        lossRatio: lossRatio,
         goals: goals,
         assists: assists,
         passes: passesAttempted,

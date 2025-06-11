@@ -36,7 +36,6 @@ import { aggregateMatchEvents, AggregatedStats } from '@/lib/analytics/eventAggr
 import { segmentEventsByTime } from '@/lib/analytics/timeSegmenter';
 import { aggregateStatsForSegments } from '@/lib/analytics/timeSegmentedStatsAggregator';
 
-
 const Statistics = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -56,7 +55,6 @@ const Statistics = () => {
   const [selectedInterval, setSelectedInterval] = useState<number>(15); // Default interval
   const [matchDuration, setMatchDuration] = useState<number>(90); // Default match duration
 
-
   // No longer needed if PlayerStatSummary is used directly by new components
   // and PlayerPerformanceChart is updated or replaced.
   // const convertToPlayerStatistics = (playerStats: AggPlayerStatSummary[]): PlayerStatistics[] => { ... }
@@ -75,7 +73,6 @@ const Statistics = () => {
     setSelectedInterval(Number(value));
     // Re-fetching is handled by useEffect dependency on selectedInterval
   };
-
 
   const fetchMatches = async () => {
     try {
@@ -198,9 +195,6 @@ const Statistics = () => {
         setStatistics({
             home: aggregatedData.homeTeamStats,
             away: aggregatedData.awayTeamStats,
-            // Other top-level stats if StatisticsType requires them and they are not in TeamDetailedStats
-            // Example: if possession was still a top-level field in StatisticsType:
-            // possession: { home: aggregatedData.homeTeamStats.possessionPercentage || 0, away: aggregatedData.awayTeamStats.possessionPercentage || 0 }
         });
 
         setPlayerStats(aggregatedData.playerStats); // This is already PlayerStatSummary[]
@@ -222,7 +216,6 @@ const Statistics = () => {
         }
         // --- End Time Segmentation ---
       }
-
 
       if (matchDetailData?.ball_tracking_data) {
         const ballTrackingArray = Array.isArray(matchDetailData.ball_tracking_data)
@@ -325,10 +318,10 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {(statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0)}
+                  {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Home: {statistics.passes?.home?.attempted || 0} • Away: {statistics.passes?.away?.attempted || 0}
+                  Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
                 </p>
               </CardContent>
             </Card>
@@ -339,10 +332,10 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0))}
+                  {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Home: {statistics.shots?.home?.total || 0} • Away: {statistics.shots?.away?.total || 0}
+                  Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
                 </p>
               </CardContent>
             </Card>
@@ -361,12 +354,12 @@ const Statistics = () => {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-11"> {/* Increased grid columns for new tabs */}
+            <TabsList className="grid w-full grid-cols-11">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed</TabsTrigger>
               <TabsTrigger value="teamAnalysis">Team Analysis</TabsTrigger>
               <TabsTrigger value="shootingActions">Shooting & Actions</TabsTrigger>
-              <TabsTrigger value="timeAnalysis">Time Analysis</TabsTrigger> {/* New */}
+              <TabsTrigger value="timeAnalysis">Time Analysis</TabsTrigger>
               <TabsTrigger value="players">Players</TabsTrigger>
               <TabsTrigger value="passingNetwork">Passing Network</TabsTrigger>
               <TabsTrigger value="passMatrix">Pass Matrix</TabsTrigger>
@@ -486,30 +479,28 @@ const Statistics = () => {
                         <PlayerPassingStatsTable playerStats={playerStats} />
                         <PlayerBallLossRatioTable playerStats={playerStats} />
                         <PlayerBallRecoveryStats playerStats={playerStats} />
-
-                        {/* Old Player Table - can be removed or kept for different view */}
-                        {/* <div className="overflow-x-auto mt-6"> ... existing table ... </div> */}
                     </CardContent>
                 </Card>
-                 {/* PlayerPerformanceChart might need update if its prop 'playerStats' expects old structure */}
-                 {/* For now, assuming it's either updated or we rely on new player components. */}
-                 {/* <PlayerPerformanceChart playerStats={convertToPlayerStatistics(playerStats)} ... /> */}
             </TabsContent>
 
             {/* Passing Network Tab (Enhanced) */}
-            <TabsContent value="passingnetwork" className="space-y-6">
+            <TabsContent value="passingNetwork" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" />Passing Network Analysis</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PassingNetworkMap
-                    playerStats={playerStats}
-                    allPlayers={allPlayersForMatch}
-                    homeTeam={selectedMatchFullData ? { id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team : undefined}
-                    awayTeam={selectedMatchFullData ? { id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team : undefined}
-                  />
-                  <PassFrequencyHeatmap playerStats={playerStats} allPlayers={allPlayersForMatch} />
+                  {selectedMatchFullData && (
+                    <>
+                      <PassingNetworkMap
+                        playerStats={playerStats}
+                        allPlayers={allPlayersForMatch}
+                        homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
+                        awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
+                      />
+                      <PassFrequencyHeatmap playerStats={playerStats} allPlayers={allPlayersForMatch} />
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -533,7 +524,7 @@ const Statistics = () => {
                   <CardDescription>Visualization of ball movement and flow patterns</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {ballData.length > 0 ? (
+                  {ballData.length > 0 && selectedMatchFullData ? (
                     <BallFlowVisualization
                       ballTrackingPoints={ballData}
                       homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
@@ -573,11 +564,6 @@ const Statistics = () => {
                         <SelectItem value="45">Half-time (45 min)</SelectItem>
                       </SelectContent>
                     </Select>
-                     {/* Optional: Match Duration input - can be added if dynamic duration is needed often */}
-                    {/* <div>
-                      <label htmlFor="duration-input" className="text-sm font-medium">Match Duration (minutes):</label>
-                      <Input id="duration-input" type="number" value={matchDuration} onChange={(e) => setMatchDuration(Number(e.target.value))} className="w-[100px]" />
-                    </div> */}
                   </div>
 
                   {loading && <p>Loading segmented data...</p>}
