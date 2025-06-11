@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
@@ -430,13 +429,12 @@ export const useMatchState = () => {
       const fouls = playerEvents.filter(event => event.type === 'foul').length;
 
       const isHomePlayer = homeTeam.players.find(p => p.id === player.id);
-      const teamId = isHomePlayer ? 'home' : 'away';
+      const team = isHomePlayer ? 'home' : 'away';
 
       playerStats.push({
         playerId: player.id,
         playerName: player.name,
-        teamId: teamId,
-        team: teamId,
+        team: team,
         player: player,
         ballsPlayed: ballsPlayed,
         ballsLost: ballsLost,
