@@ -14,6 +14,7 @@ interface RecordedEvent {
   eventType: EventType;
   timestamp: number;
   dbEventId?: string;
+  isSubmitted: boolean;
 }
 
 interface EnhancedPianoInputProps {
@@ -39,12 +40,47 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
       return;
     }
 
+    // Create local event first (not submitted to DB yet)
+    const eventId = `temp_${Date.now()}_${Math.random()}`;
+    const newEvent: RecordedEvent = {
+      id: eventId,
+      eventType,
+      timestamp: Date.now(),
+      isSubmitted: false
+    };
+    
+    setRecentEvents(prev => [newEvent, ...prev.slice(0, 9)]);
+    
+    onEventRecord(eventType);
+    
+    toast({
+      title: "Event Recorded",
+      description: `${eventType} event recorded. You have 10 seconds to cancel.`,
+    });
+
+    // Schedule submission to Supabase after 10 seconds
+    setTimeout(async () => {
+      setRecentEvents(prev => {
+        const event = prev.find(e => e.id === eventId);
+        if (!event) return prev; // Event was already cancelled
+
+        // Submit to Supabase
+        submitEventToSupabase(event, eventType);
+        
+        // Remove from recent events (timer expired)
+        return prev.filter(e => e.id !== eventId);
+      });
+    }, 10000);
+
+  }, [onEventRecord, toast, matchId, user?.id]);
+
+  const submitEventToSupabase = async (event: RecordedEvent, eventType: EventType) => {
     try {
       const eventToInsert = {
         match_id: matchId,
         event_type: eventType,
-        created_by: user.id,
-        timestamp: Math.floor(Date.now() / 1000),
+        created_by: user!.id,
+        timestamp: Math.floor(event.timestamp / 1000),
       };
 
       const { data, error } = await supabase
@@ -54,64 +90,57 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         .single();
 
       if (error) {
-        console.error('Error recording event:', error);
+        console.error('Error submitting event to Supabase:', error);
         toast({
           title: "Error",
-          description: "Failed to record event",
+          description: "Failed to submit event to database",
           variant: "destructive"
         });
         return;
       }
 
-      const eventId = `temp_${Date.now()}_${Math.random()}`;
-      const newEvent: RecordedEvent = {
-        id: eventId,
-        eventType,
-        timestamp: Date.now(),
-        dbEventId: data.id
-      };
-      
-      setRecentEvents(prev => [newEvent, ...prev.slice(0, 9)]);
-      
-      onEventRecord(eventType);
-      
-      toast({
-        title: "Event Recorded",
-        description: `${eventType} event recorded. You have 10 seconds to cancel.`,
-      });
+      // Update local state to mark as submitted
+      setRecentEvents(prev => 
+        prev.map(e => 
+          e.id === event.id 
+            ? { ...e, dbEventId: data.id, isSubmitted: true }
+            : e
+        )
+      );
+
+      console.log('Event successfully submitted to Supabase:', data.id);
     } catch (error) {
-      console.error('Error recording event:', error);
-      toast({
-        title: "Error",
-        description: "Failed to record event",
-        variant: "destructive"
-      });
+      console.error('Error submitting event:', error);
     }
-  }, [onEventRecord, toast, matchId, user?.id]);
+  };
 
   const handleCancelEvent = useCallback(async (eventId: string, eventType: EventType) => {
     try {
       const eventToCancel = recentEvents.find(event => event.id === eventId);
-      if (!eventToCancel || !eventToCancel.dbEventId) {
-        console.error('Event not found or no database ID available');
+      if (!eventToCancel) {
+        console.error('Event not found');
         return;
       }
 
-      const { error } = await supabase
-        .from('match_events')
-        .delete()
-        .eq('id', eventToCancel.dbEventId);
+      // If event was already submitted to DB, delete it
+      if (eventToCancel.isSubmitted && eventToCancel.dbEventId) {
+        const { error } = await supabase
+          .from('match_events')
+          .delete()
+          .eq('id', eventToCancel.dbEventId);
 
-      if (error) {
-        console.error('Error cancelling event:', error);
-        toast({
-          title: "Error",
-          description: "Failed to cancel event",
-          variant: "destructive"
-        });
-        return;
+        if (error) {
+          console.error('Error cancelling event from database:', error);
+          toast({
+            title: "Error",
+            description: "Failed to cancel event from database",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
+      // Remove from local state
       setRecentEvents(prev => prev.filter(event => event.id !== eventId));
       
       toast({
