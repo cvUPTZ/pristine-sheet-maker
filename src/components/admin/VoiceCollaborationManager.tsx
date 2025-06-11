@@ -1034,5 +1034,3 @@ const VoiceCollaborationManager: React.FC = () => {
 };
 
 export default VoiceCollaborationManager;
-
-}
