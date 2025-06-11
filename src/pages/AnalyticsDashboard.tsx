@@ -98,19 +98,20 @@ const AnalyticsDashboard = () => {
       const homePlayersList = parsePlayerData(matchData.home_team_players);
       const awayPlayersList = parsePlayerData(matchData.away_team_players);
 
-      // Format events
+      // Format events with proper type mapping
       const formattedEvents: MatchEvent[] = (eventsData || []).map(event => ({
         id: event.id,
         match_id: event.match_id,
         timestamp: event.timestamp || 0,
-        type: event.event_type,
-        event_data: event.event_data || {},
+        type: event.event_type, // Map event_type to type
+        event_data: {}, // Initialize as empty object since event_data doesn't exist in DB
         created_at: event.created_at,
         tracker_id: null,
         team_id: null,
         player_id: event.player_id,
-        team: event.team,
-        coordinates: event.coordinates || { x: 0, y: 0 },
+        team: event.team === 'home' || event.team === 'away' ? event.team : undefined, // Type-safe team mapping
+        coordinates: typeof event.coordinates === 'object' && event.coordinates !== null ? 
+          event.coordinates as { x: number; y: number } : { x: 0, y: 0 },
         created_by: event.created_by,
       }));
 
