@@ -21,99 +21,58 @@ interface MatchRadarChartProps {
 }
 
 const MatchRadarChart: React.FC<MatchRadarChartProps> = ({ statistics, homeTeamName, awayTeamName }) => {
-  // Helper functions to safely get stats with default values
-  const getShotStats = (shots?: ShotStats): ShotStats => {
-    if (!shots) return { onTarget: 0, offTarget: 0, total: 0 };
-    return {
-      onTarget: shots.onTarget || 0,
-      offTarget: shots.offTarget || 0,
-      total: shots.total || (shots.onTarget || 0) + (shots.offTarget || 0)
-    };
-  };
-
-  const getPassStats = (passes?: PassStats): PassStats => {
-    if (!passes) return { successful: 0, attempted: 0 };
-    return {
-      successful: passes.successful || 0,
-      attempted: passes.attempted || 0
-    };
-  };
-
-  const getDuelStats = (duels?: DuelStats): DuelStats => {
-    if (!duels) return { won: 0, total: 0 };
-    return {
-      won: duels.won || 0,
-      total: duels.total || 0
-    };
-  };
-
-  const getCrossStats = (crosses?: CrossStats): CrossStats => {
-    if (!crosses) return { total: 0, successful: 0 };
-    return {
-      total: crosses.total || 0,
-      successful: crosses.successful || 0
-    };
-  };
-
-  // Prepare data for radar chart with safe property access
+  // Prepare data for radar chart using direct property access from TeamDetailedStats
   const prepareRadarData = () => {
-    // Safely access nested properties with fallbacks
-    const homeShots = getShotStats(statistics?.shots?.home);
-    const awayShots = getShotStats(statistics?.shots?.away);
-    const homePasses = getPassStats(statistics?.passes?.home);
-    const awayPasses = getPassStats(statistics?.passes?.away);
-    const homeDuels = getDuelStats(statistics?.duels?.home);
-    const awayDuels = getDuelStats(statistics?.duels?.away);
-    const homeCrosses = getCrossStats(statistics?.crosses?.home);
-    const awayCrosses = getCrossStats(statistics?.crosses?.away);
-    
+    const homeTeamStats = statistics.home;
+    const awayTeamStats = statistics.away;
+
     return [
       {
         stat: 'Goals',
-        [homeTeamName]: homeShots.onTarget,
-        [awayTeamName]: awayShots.onTarget,
-        fullMark: 10,
+        [homeTeamName]: homeTeamStats.goals || 0,
+        [awayTeamName]: awayTeamStats.goals || 0,
+        fullMark: 10, // Adjust as necessary
       },
       {
-        stat: 'Shots',
-        [homeTeamName]: homeShots.onTarget + homeShots.offTarget,
-        [awayTeamName]: awayShots.onTarget + awayShots.offTarget,
+        stat: 'Shots', // Total shots
+        [homeTeamName]: homeTeamStats.shots || 0,
+        [awayTeamName]: awayTeamStats.shots || 0,
         fullMark: 20,
       },
       {
-        stat: 'On-Target',
-        [homeTeamName]: homeShots.onTarget,
-        [awayTeamName]: awayShots.onTarget,
+        stat: 'On-Target', // Shots on Target
+        [homeTeamName]: homeTeamStats.shotsOnTarget || 0,
+        [awayTeamName]: awayTeamStats.shotsOnTarget || 0,
         fullMark: 10,
       },
       {
-        stat: 'Passes',
-        [homeTeamName]: homePasses.attempted,
-        [awayTeamName]: awayPasses.attempted,
-        fullMark: 100,
+        stat: 'Passes', // Attempted Passes
+        [homeTeamName]: homeTeamStats.passesAttempted || 0,
+        [awayTeamName]: awayTeamStats.passesAttempted || 0,
+        fullMark: 100, // Assuming a higher fullMark for passes
       },
       {
-        stat: 'Possession',
-        [homeTeamName]: statistics?.possession?.home || 50,
-        [awayTeamName]: statistics?.possession?.away || 50,
+        stat: 'Possession', // Possession Percentage
+        [homeTeamName]: homeTeamStats.possessionPercentage || 0,
+        [awayTeamName]: awayTeamStats.possessionPercentage || 0,
         fullMark: 100,
       },
       {
         stat: 'Fouls',
-        [homeTeamName]: statistics?.fouls?.home || 0,
-        [awayTeamName]: statistics?.fouls?.away || 0,
+        [homeTeamName]: homeTeamStats.foulsCommitted || 0,
+        [awayTeamName]: awayTeamStats.foulsCommitted || 0,
         fullMark: 10,
       },
       {
         stat: 'Duels Won',
-        [homeTeamName]: homeDuels.won,
-        [awayTeamName]: awayDuels.won,
+        [homeTeamName]: homeTeamStats.duelsWon || 0,
+        [awayTeamName]: awayTeamStats.duelsWon || 0,
         fullMark: 20,
       },
       {
-        stat: 'Crosses',
-        [homeTeamName]: homeCrosses.total,
-        [awayTeamName]: awayCrosses.total,
+        stat: 'Crosses', // Attempted Crosses
+        [homeTeamName]: homeTeamStats.crosses || 0,
+        [awayTeamName]: awayTeamStats.crosses || 0,
         fullMark: 15,
       },
     ];

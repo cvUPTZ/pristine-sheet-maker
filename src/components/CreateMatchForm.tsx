@@ -232,7 +232,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
       // Process tracker assignments
       const assignments: TrackerAssignment[] = [];
-      if (matchData.match_tracker_assignments) {
+      if (Array.isArray(matchData.match_tracker_assignments)) {
         const assignmentsMap = new Map<string, TrackerAssignment>();
         matchData.match_tracker_assignments.forEach((assign: any) => {
           if (!assignmentsMap.has(assign.tracker_user_id)) {
@@ -403,7 +403,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
         // Send notifications (consider if this should only be for new assignments or changes)
         const { error: notificationError } = await supabase
-          .rpc('notify_assigned_trackers', {
+          .rpc('notify_assigned_trackers' as any, {
             p_match_id: match.id,
             p_tracker_assignments: trackerAssignments.map(assignment => ({
               tracker_user_id: assignment.tracker_user_id,
