@@ -285,78 +285,25 @@ const VoiceCollaborationManager: React.FC = () => {
     }
   };
 
-  const handleMuteToggleParticipant = async (participant: VoiceParticipant, shouldMute: boolean) => {
+  const handleMuteParticipant = async (participantId: string) => {
     if (!databaseConnected) {
-      toast.error('Database not connected. Cannot moderate participant.');
-      return;
-    }
-    if (!participant.room?.name || !participant.user_id) {
-      toast.error('Participant data is incomplete. Cannot moderate.');
-      console.error('Incomplete participant data for mute toggle:', participant);
+      toast.error('Database not connected');
       return;
     }
 
     try {
-      const { error: funcError } = await supabase.functions.invoke('moderate-livekit-room', {
-        body: {
-          roomName: participant.room.name,
-          targetParticipantIdentity: participant.user_id,
-          shouldMute,
-        },
-      });
+      const { error } = await supabase
+        .from('voice_room_participants' as any)
+        .update({ is_muted: true })
+        .eq('id', participantId);
 
-      if (funcError) {
-        throw funcError;
-      }
+      if (error) throw error;
 
-      toast.success(`Participant ${participant.user_profile?.full_name || participant.user_id} ${shouldMute ? 'muted' : 'unmuted'}.`);
-      setParticipants(prev => prev.map(p => p.id === participant.id ? {...p, is_muted: shouldMute} : p));
-      fetchVoiceData(); 
-    } catch (error: any) {
-      console.error('Error toggling mute for participant:', error);
-      toast.error(`Failed to ${shouldMute ? 'mute' : 'unmute'} participant: ${error.message}`);
-    }
-  };
-
-  const handleMuteAllParticipants = async (shouldMute: boolean) => {
-    if (!databaseConnected) {
-      toast.error('Database not connected. Cannot moderate participants.');
-      return;
-    }
-
-    if (participants.length === 0) {
-      toast.error('No participants to moderate.');
-      return;
-    }
-
-    try {
-      const promises = participants
-        .filter(p => p.is_connected && p.room?.name && p.user_id)
-        .map(participant => 
-          supabase.functions.invoke('moderate-livekit-room', {
-            body: {
-              roomName: participant.room!.name,
-              targetParticipantIdentity: participant.user_id,
-              shouldMute,
-            },
-          })
-        );
-
-      const results = await Promise.allSettled(promises);
-      const failures = results.filter(result => result.status === 'rejected');
-
-      if (failures.length === 0) {
-        toast.success(`All participants ${shouldMute ? 'muted' : 'unmuted'} successfully.`);
-      } else {
-        toast.error(`${failures.length} participants failed to ${shouldMute ? 'mute' : 'unmute'}.`);
-      }
-
-      // Update local state optimistically
-      setParticipants(prev => prev.map(p => ({ ...p, is_muted: shouldMute })));
-      fetchVoiceData(); // Refresh to get accurate state
-    } catch (error: any) {
-      console.error('Error muting all participants:', error);
-      toast.error(`Failed to ${shouldMute ? 'mute' : 'unmute'} all participants: ${error.message}`);
+      toast.success('Participant muted');
+      fetchVoiceData(); // Refresh data
+    } catch (error) {
+      console.error('Error muting participant:', error);
+      toast.error('Failed to mute participant');
     }
   };
 
@@ -789,26 +736,6 @@ const VoiceCollaborationManager: React.FC = () => {
                       {participants.filter(p => p.is_connected).length} Connected
                     </Badge>
                   </CardTitle>
-                  <div className="mt-2">
-                    <Button 
-                      size="sm" 
-                      variant="destructive" 
-                      onClick={() => handleMuteAllParticipants(true)}
-                      disabled={participants.length === 0 || refreshing}
-                      className="bg-red-500 hover:bg-red-600"
-                    >
-                      <MicOff className="h-4 w-4 mr-2" /> Mute All Participants
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => handleMuteAllParticipants(false)}
-                      disabled={participants.length === 0 || refreshing}
-                      className="ml-2"
-                    >
-                      <Mic className="h-4 w-4 mr-2" /> Unmute All Participants
-                    </Button>
-                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {participants.length === 0 ? (
@@ -882,12 +809,12 @@ const VoiceCollaborationManager: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
-                                variant={participant.is_muted ? "destructive" : "outline"}
-                                onClick={() => handleMuteToggleParticipant(participant, !participant.is_muted)}
-                                className={participant.is_muted ? "hover:bg-red-700" : "hover:bg-gray-100"}
+                                variant="outline"
+                                onClick={() => handleMuteParticipant(participant.id)}
+                                disabled={participant.is_muted}
+                                className="hover:bg-red-50 hover:border-red-300"
                               >
-                                {participant.is_muted ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
-                                <span className="ml-1">{participant.is_muted ? "Unmute" : "Mute"}</span>
+                                <VolumeX className="h-3 w-3" />
                               </Button>
                               <Button
                                 size="sm"

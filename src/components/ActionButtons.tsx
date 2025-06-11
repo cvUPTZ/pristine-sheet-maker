@@ -24,7 +24,7 @@ const ACTIONS: { type: EventType; label: string }[] = [
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({ onSelectAction, disabled }) => {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-2">
       {ACTIONS.map((action) => (
         <Button
           key={action.type}
