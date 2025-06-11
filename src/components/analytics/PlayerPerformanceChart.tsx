@@ -10,43 +10,26 @@ interface PlayerPerformanceChartProps {
   awayTeamName: string;
 }
 
-// Extended PlayerStatistics to include events we need
-interface ExtendedPlayerStatistics extends PlayerStatistics {
-  passes?: {
-    attempted: number;
-    successful: number;
-  };
-  shots?: {
-    onTarget: number;
-    offTarget: number;
-  };
-  goals?: number;
-  fouls?: number;
-}
-
 const PlayerPerformanceChart: React.FC<PlayerPerformanceChartProps> = ({
   playerStats,
   homeTeamName,
   awayTeamName,
 }) => {
   const chartData = playerStats.map(player => {
-    // Cast to our extended interface
-    const extendedPlayer = player as ExtendedPlayerStatistics;
-    
     return {
       name: player.playerName,
       team: player.team,
-      passes: extendedPlayer.passes?.attempted || 0,
-      passAccuracy: extendedPlayer.passes?.attempted && extendedPlayer.passes.attempted > 0 
-        ? Math.round((extendedPlayer.passes.successful / extendedPlayer.passes.attempted) * 100) 
+      passes: player.passesAttempted || 0,
+      passAccuracy: player.passesAttempted && player.passesAttempted > 0 
+        ? Math.round((player.passesCompleted / player.passesAttempted) * 100) 
         : 0,
-      shots: (extendedPlayer.shots?.onTarget || 0) + (extendedPlayer.shots?.offTarget || 0),
-      goals: extendedPlayer.goals || 0,
-      fouls: extendedPlayer.fouls || 0,
-      performance: ((extendedPlayer.goals || 0) * 10) + 
-                  ((extendedPlayer.passes?.successful || 0) * 0.5) + 
-                  ((extendedPlayer.shots?.onTarget || 0) * 2) - 
-                  ((extendedPlayer.fouls || 0) * 1)
+      shots: player.shots || 0,
+      goals: player.goals || 0,
+      fouls: player.foulsCommitted || 0,
+      performance: ((player.goals || 0) * 10) + 
+                  ((player.passesCompleted || 0) * 0.5) + 
+                  ((player.shotsOnTarget || 0) * 2) - 
+                  ((player.foulsCommitted || 0) * 1)
     };
   });
 

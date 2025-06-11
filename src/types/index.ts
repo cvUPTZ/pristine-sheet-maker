@@ -106,7 +106,7 @@ export interface ShotStats {
   onTarget: number;
   offTarget: number;
   total?: number;
-  totalXg?: number; // Added for team xG
+  totalXg?: number;
 }
 
 export interface PassStats {
@@ -125,11 +125,6 @@ export interface CrossStats {
   successful?: number;
 }
 
-// New interface to hold all detailed team statistics, mirroring eventAggregator.TeamStats
-// Ensure PlayerStatSummary is defined/updated before TeamDetailedStats if it's referenced,
-// or define it after Player if Player is used within it.
-// For now, PlayerStatSummary (updated version of PlayerStatistics) will be defined below.
-
 export interface TeamDetailedStats {
   shots: number;
   shotsOnTarget: number;
@@ -144,10 +139,10 @@ export interface TeamDetailedStats {
   offsides: number;
   tackles: number;
   interceptions: number;
-  crosses: number; // Attempted crosses
+  crosses: number;
   clearances: number;
-  blocks: number; // Defensive blocks
-  possession: number; // Placeholder, might be calculated differently
+  blocks: number;
+  possession: number;
   totalXg: number;
   supportPasses: number;
   offensivePasses: number;
@@ -157,8 +152,8 @@ export interface TeamDetailedStats {
   contacts: number;
   freeKicks: number;
   sixMeterViolations: number;
-  possessionMinutes: number; // Placeholder
-  possessionPercentage: number; // Placeholder
+  possessionMinutes: number;
+  possessionPercentage: number;
   dangerousFootShots: number;
   nonDangerousFootShots: number;
   footShotsOnTarget: number;
@@ -184,23 +179,16 @@ export interface TeamDetailedStats {
   lateralPasses: number;
 }
 
-// This interface is being updated to match PlayerStatSummary from eventAggregator
-export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerStatistics and update its content
+export interface PlayerStatSummary {
   playerId: string | number;
   playerName: string;
   jerseyNumber?: number;
   team: 'home' | 'away';
-  player?: Player; // Keeping this as it's useful for direct access to full Player object
+  player?: Player;
 
-  // Core stats
-  shots?: { // MODIFIED: was number, now optional object
-    onTarget: number;
-    offTarget: number;
-    total?: number; // Optional total, can be derived
-    blocked?: number; // Optional
-    postHits?: number; // Optional
-  };
-  shotsOnTarget: number; // Keep for now, assuming it might be populated independently.
+  // Core stats - keeping simple number types for compatibility
+  shots: number;
+  shotsOnTarget: number;
   goals: number;
   assists: number;
   passesAttempted: number;
@@ -208,12 +196,12 @@ export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerS
   foulsCommitted: number;
   yellowCards: number;
   redCards: number;
-  tackles: number; // Consider if this is successful tackles or total attempts
+  tackles: number;
   interceptions: number;
-  crosses: number; // Attempted crosses
+  crosses: number;
   clearances: number;
-  blocks: number; // Defensive blocks by player
-  dribbles: number; // Could be successful or total - assume consistent with aggregator
+  blocks: number;
+  dribbles: number;
   totalXg: number;
 
   // Advanced Passing
@@ -226,15 +214,15 @@ export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerS
   forwardPasses: number;
   backwardPasses: number;
   lateralPasses: number;
-  successfulCrosses: number; // Successful crosses by player
+  successfulCrosses: number;
 
   // Ball Handling
   ballsPlayed: number;
-  ballsGiven: number; // Equivalent to balls_lost by this player
+  ballsGiven: number;
   ballsReceived: number;
   ballsRecovered: number;
   contacts: number;
-  possessionTime: number; // Individual possession time in seconds or appropriate unit
+  possessionTime: number;
 
   // Pressure
   totalPressures: number;
@@ -261,42 +249,24 @@ export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerS
   aerialDuelsWon: number;
   aerialDuelsLost: number;
 
-  successfulDribbles: number; // Successful dribbles by player
+  successfulDribbles: number;
 }
 
-// The existing PlayerStatistics can be replaced or aliased if other parts of the app use it.
-// For this subtask, we'll assume PlayerStatSummary is the new standard for aggregated player data.
-// If `IndividualPlayerCharts` and other new components import `PlayerStatSummary` from `@/types`, this definition is key.
-// If they import `PlayerStatistics`, then the `PlayerStatistics` interface should be updated with these fields.
-// Let's update PlayerStatistics directly to avoid breaking existing imports if they use that name.
-
-export interface PlayerStatistics extends PlayerStatSummary {} // Simple way to keep PlayerStatistics name with new fields
-// Or, redefine PlayerStatistics completely:
-/*
-export interface PlayerStatistics {
-  playerId: string | number;
-  playerName: string;
-  jerseyNumber?: number;
-  team: 'home' | 'away';
-  player?: Player;
-
-  shots: number;
-  shotsOnTarget: number;
-  // ... all fields from PlayerStatSummary above
-  lateralPasses: number;
-}
-*/
-
+export interface PlayerStatistics extends PlayerStatSummary {}
 
 export interface Statistics {
   home: TeamDetailedStats;
   away: TeamDetailedStats;
-  // Top-level possession can still exist if calculated separately,
-  // or be part of TeamDetailedStats (as it is now).
-  // For simplicity, if possession is in TeamDetailedStats, this can be removed.
-  // Let's assume TeamDetailedStats.possession and TeamDetailedStats.possessionPercentage are the source.
-  // So, the specific possession field below might be redundant.
-  // possession: { home: number; away: number }; // Can be removed if covered by TeamDetailedStats
+  possession?: { home: number; away: number };
+  shots?: { home: ShotStats; away: ShotStats };
+  passes?: { home: PassStats; away: PassStats };
+  ballsPlayed?: { home: number; away: number };
+  ballsLost?: { home: number; away: number };
+  duels?: { home: DuelStats; away: DuelStats };
+  crosses?: { home: CrossStats; away: CrossStats };
+  corners?: { home: number; away: number };
+  offsides?: { home: number; away: number };
+  fouls?: { home: number; away: number };
 }
 
 export interface TimeSegmentStatistics {
@@ -323,7 +293,7 @@ export interface MatchEvent {
   id: string;
   match_id: string;
   timestamp: number;
-  event_data?: MatchSpecificEventData | null; // Updated line
+  event_data?: MatchSpecificEventData | null;
   created_at?: string;
   tracker_id?: string | null;
   team_id?: string | null;
@@ -397,35 +367,35 @@ export interface AssignedPlayerForMatch {
 export interface VideoFormat {
   quality: string;
   format: string;
-  size?: string; // Made optional as backend might not always provide it precisely
-  url?: string; // URL for direct download if backend provides it
+  size?: string;
+  url?: string;
 }
 
 export interface VideoInfo {
   videoId: string;
   title: string;
-  duration: number; // Duration in SECONDS
+  duration: number;
   thumbnail: string;
   formats: VideoFormat[];
 }
 
 export interface VideoSegment {
   id: string;
-  startTime: number; // in seconds
-  endTime: number;   // in seconds
-  duration: number;  // in seconds
+  startTime: number;
+  endTime: number;
+  duration: number;
   status: 'pending' | 'processing' | 'completed' | 'error';
-  file?: File; // This would likely be a URL or identifier if segments are backend-managed
-  fileName?: string; // If file is not on client
-  size?: number;     // Estimated or actual size in bytes
-  segmentUrl?: string; // URL to the processed segment on the backend/CDN
+  file?: File;
+  fileName?: string;
+  size?: number;
+  segmentUrl?: string;
 }
 
 export interface AnalysisEvent {
   type: string;
   timestamp: number;
   confidence: number;
-  [key: string]: any; // For other event-specific data
+  [key: string]: any;
 }
 
 export interface BallPossessionStats {
@@ -437,29 +407,28 @@ export interface VideoStatistics {
   ballPossession?: BallPossessionStats;
   passes?: PassStats;
   shots?: number;
-  [key: string]: any; // For other stats
+  [key: string]: any;
 }
 
 export interface AnalysisResults {
-  segmentId: string; // To link back to the original segment
+  segmentId: string;
   events: AnalysisEvent[];
   statistics: VideoStatistics;
-  heatmapUrl?: string; // URL to the heatmap image
-  playerTrackingDataUrl?: string; // URL to player tracking data
+  heatmapUrl?: string;
+  playerTrackingDataUrl?: string;
 }
 
 export interface ApiKeyInfo {
   hasYouTubeApiKey: boolean;
-  hasGoogleColabApiKey: boolean; // Or whatever AI service key
+  hasGoogleColabApiKey: boolean;
 }
 
-// For ColabIntegration component's job tracking
 export interface AnalysisJob {
-  id: string; // Corresponds to VideoSegment.id
+  id: string;
   segmentId: string;
   status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
   progress: number;
-  results?: AnalysisResults; // Store results here
+  results?: AnalysisResults;
   error?: string;
-  colabLogUrl?: string; // Link to a specific Colab output/log if applicable
+  colabLogUrl?: string;
 }

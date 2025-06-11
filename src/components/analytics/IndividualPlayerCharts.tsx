@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { PlayerStatSummary } from '@/types'; // Assuming PlayerStatSummary is available in @/types
+import { PlayerStatSummary } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -13,8 +14,6 @@ interface IndividualPlayerChartsProps {
   selectedPlayerId: string | number | null;
 }
 
-// Removed SimplePlayerStatBar
-
 const chartColors = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
@@ -24,7 +23,6 @@ const chartColors = [
     "hsl(var(--chart-1)/0.8)",
     "hsl(var(--chart-2)/0.8)",
 ];
-
 
 const IndividualPlayerCharts: React.FC<IndividualPlayerChartsProps> = ({
   playerStats,
@@ -54,7 +52,7 @@ const IndividualPlayerCharts: React.FC<IndividualPlayerChartsProps> = ({
     { name: 'Foot Shots', value: (selectedStat.footShotsOnTarget || 0) + (selectedStat.footShotsOffTarget || 0) + (selectedStat.footShotsPostHits || 0) + (selectedStat.footShotsBlocked || 0) },
     { name: 'Header Shots', value: (selectedStat.headerShotsOnTarget || 0) + (selectedStat.headerShotsOffTarget || 0) + (selectedStat.headerShotsPostHits || 0) + (selectedStat.headerShotsBlocked || 0) },
     { name: 'Goals', value: selectedStat.goals || 0 },
-  ].filter(d => d.value > 0 || d.name === 'xG'); // Keep xG even if 0
+  ].filter(d => d.value > 0 || d.name === 'xG');
 
   const passingData = [
     { name: 'Attempted', value: selectedStat.passesAttempted || 0 },
@@ -77,7 +75,7 @@ const IndividualPlayerCharts: React.FC<IndividualPlayerChartsProps> = ({
   ].filter(d => d.value > 0);
 
   const generalActivityData = [
-     { name: 'Dribbles', value: selectedStat.dribbles || 0 }, // This uses 'dribbles' which might be total attempts or successful
+     { name: 'Dribbles', value: selectedStat.dribbles || 0 },
      { name: 'Succ. Dribbles', value: selectedStat.successfulDribbles || 0 },
      { name: 'Contacts', value: selectedStat.contacts || 0 },
      { name: 'Balls Played', value: selectedStat.ballsPlayed || 0 },
