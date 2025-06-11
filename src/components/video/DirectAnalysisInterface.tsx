@@ -447,7 +447,13 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                 disabled={duration === 0 || eventTypeDefs.length === 0}>
                 <SelectTrigger className="w-full md:w-[200px] h-8 text-xs"><SelectValue placeholder="Select Event Type" /></SelectTrigger>
                 <SelectContent>
-                  {eventTypeDefs.length === 0 && <SelectItem value="" disabled>Define types first via Manager</SelectItem>}
+                  {/* === FIX START === */}
+                  {eventTypeDefs.length === 0 && (
+                    <p className="p-2 text-xs text-muted-foreground">
+                      Define types first via Manager
+                    </p>
+                  )}
+                  {/* === FIX END === */}
                   {eventTypeDefs.map(et => (<SelectItem key={et.id} value={et.id} style={{ color: et.color }} className="text-xs">{et.name}</SelectItem>))}
                 </SelectContent>
               </Select>
