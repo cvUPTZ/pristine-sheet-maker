@@ -1,3 +1,4 @@
+
 // TrackerBatteryMonitor.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,26 +51,31 @@ const TrackerBatteryMonitor: React.FC = () => {
 
   const fetchTrackerData = async () => {
     try {
-      // **FIXED**: Fetch battery data directly from the profiles table.
+      // Handle potential error from the profiles table query
       const { data: trackersData, error: trackersError } = await supabase
         .from('profiles')
         .select('id, email, full_name, battery_level, is_charging, battery_charging_time, battery_discharging_time, battery_last_updated')
         .eq('role', 'tracker');
 
-      if (trackersError) throw trackersError;
+      if (trackersError) {
+        console.error('Error fetching tracker profiles:', trackersError);
+        // Create empty trackersData if there's an error
+        const trackersWithBattery: TrackerStatusDisplay[] = [];
+        setTrackers(trackersWithBattery);
+        return;
+      }
 
-      // **FIXED**: No longer need to fetch from 'notifications' or parse strings.
-      // The data is already structured.
+      // Process the data if available
       const trackersWithBattery = (trackersData || []).map(tracker => ({
-          userId: tracker.id,
-          identifier: tracker.full_name || tracker.email || tracker.id,
+          userId: tracker.id || '',
+          identifier: tracker.full_name || tracker.email || tracker.id || '',
           email: tracker.email || undefined,
           full_name: tracker.full_name || undefined,
-          batteryLevel: tracker.battery_level,
-          isCharging: tracker.is_charging,
-          lastUpdatedAt: tracker.battery_last_updated,
-          chargingTimeInSeconds: tracker.battery_charging_time,
-          dischargingTimeInSeconds: tracker.battery_discharging_time
+          batteryLevel: tracker.battery_level || null,
+          isCharging: tracker.is_charging || null,
+          lastUpdatedAt: tracker.battery_last_updated || null,
+          chargingTimeInSeconds: tracker.battery_charging_time || null,
+          dischargingTimeInSeconds: tracker.battery_discharging_time || null
       }));
 
       setTrackers(trackersWithBattery);

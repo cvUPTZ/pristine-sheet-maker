@@ -1,8 +1,9 @@
+
 // src/components/analytics/PassingNetworkMap.tsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { Player, Team } from '@/types';
-import { PlayerStatSummary } from '@/lib/analytics/eventAggregator'; // Ensure this type is correctly imported or defined if not from types/index
+import { PlayerStatSummary } from '@/types'; // Update this import path if needed
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -249,10 +250,14 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
 
     // Add simple title tooltips (SVG native)
     linkElements.append("title")
-      .text(d => `From: ${d.source.name} (#${d.source.jerseyNumber})\nTo: ${d.target.name} (#${d.target.jerseyNumber})\nPasses: ${d.count} (${d.successfulCount} succ.)`);
+      .text(d => {
+        const sourceNode = d.source as D3Node;
+        const targetNode = d.target as D3Node;
+        return `From: ${sourceNode.name} (#${sourceNode.jerseyNumber})\nTo: ${targetNode.name} (#${targetNode.jerseyNumber})\nPasses: ${d.count} (${d.successfulCount} succ.)`;
+      });
+
     nodeElements.append("title")
       .text(d => `${d.name} (#${d.jerseyNumber})\nTeam: ${d.teamId}\nPasses Attempted: ${d.playerData.passesAttempted || 0}`);
-
 
     simulation.on("tick", () => {
         linkElements
@@ -269,7 +274,7 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
         simulation.stop();
     };
 
-  }, [d3Nodes, d3Links, pitchLength, pitchWidth, homeTeamName, awayTeamName]); // Dependencies for D3 rendering
+  }, [d3Nodes, d3Links, pitchLength, pitchWidth]); // Dependencies for D3 rendering
 
 
   const handleTeamFilterChange = (value: string) => {
@@ -282,10 +287,22 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
   };
 
   const getTeamPlayersForFilter = (): Player[] => {
-    if (filterTeamId === 'home') return homeTeam?.players || allPlayers.filter(p => playerNodes.find(pn => pn.id === p.id)?.teamId === 'home');
-    if (filterTeamId === 'away') return awayTeam?.players || allPlayers.filter(p => playerNodes.find(pn => pn.id === p.id)?.teamId === 'away');
+    if (filterTeamId === 'home') {
+      return homeTeam?.players || allPlayers.filter(p => 
+        d3Nodes.find(node => node.id === String(p.id) && node.teamId === 'home')
+      );
+    }
+    if (filterTeamId === 'away') {
+      return awayTeam?.players || allPlayers.filter(p => 
+        d3Nodes.find(node => node.id === String(p.id) && node.teamId === 'away')
+      );
+    }
     return allPlayers;
   };
+
+  // Extract values from homeTeam and awayTeam for display
+  const homeTeamName = homeTeam?.name || 'Home';
+  const awayTeamName = awayTeam?.name || 'Away';
 
   return (
     <Card>
@@ -299,8 +316,8 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Teams</SelectItem>
-                <SelectItem value="home">{homeTeam?.name || 'Home'}</SelectItem>
-                <SelectItem value="away">{awayTeam?.name || 'Away'}</SelectItem>
+                <SelectItem value="home">{homeTeamName}</SelectItem>
+                <SelectItem value="away">{awayTeamName}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={String(selectedPlayerId)} onValueChange={handlePlayerFilterChange}>
@@ -321,6 +338,7 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
         <TooltipProvider>
           <div style={{ width: '100%', aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}` }}>
             <svg
+              ref={svgRef}
               viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
               preserveAspectRatio="xMidYMid meet"
               style={{ border: '1px solid #e2e8f0', backgroundColor: '#38A169' }}
@@ -331,75 +349,13 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
                   </marker>
               </defs>
               {/* Pitch Markings */}
-              <rect x={PADDING} y={PADDING} width={pitchLength} height={pitchWidth} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-              <line x1={PADDING + pitchLength / 2} y1={PADDING} x2={PADDING + pitchLength / 2} y2={PADDING + pitchWidth} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-              <circle cx={PADDING + pitchLength / 2} cy={PADDING + pitchWidth / 2} r={pitchWidth / 7} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-              <rect x={PADDING} y={PADDING + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-              <rect x={PADDING + pitchLength - 16.5} y={PADDING + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
-
-
-              {passLinks.map((link, index) => {
-                const maxPassCount = Math.max(...passLinks.map(l => l.count), 0);
-                const strokeWidth = 0.5 + Math.min(4, (link.count / Math.max(maxPassCount,1)) * 4 );
-                const successRate = link.count > 0 ? link.successfulCount / link.count : 0;
-                const opacity = 0.3 + (successRate * 0.6); // Higher success rate = more opaque
-                const fromNode = playerNodes.find(p => p.id === link.fromPlayerId);
-
-                return (
-                  <Tooltip key={`link-${link.fromPlayerId}-${link.toPlayerId}-${index}`}>
-                    <TooltipTrigger asChild>
-                      <line
-                        x1={link.startX}
-                        y1={link.startY}
-                        x2={link.endX}
-                        y2={link.endY}
-                        stroke={fromNode?.teamId === 'home' ? "rgba(100,100,255,0.9)" : "rgba(255,100,100,0.9)"} // Blue for home, Red for away
-                        strokeWidth={strokeWidth}
-                        opacity={opacity}
-                        markerEnd="url(#arrowhead)"
-                        style={{ cursor: 'pointer' }}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-background border shadow-lg p-2 rounded-md text-xs">
-                      <p>From: {playerNodes.find(p=>p.id === link.fromPlayerId)?.name}</p>
-                      <p>To: {playerNodes.find(p=>p.id === link.toPlayerId)?.name}</p>
-                      <p>Passes: {link.count} ({link.successfulCount} successful)</p>
-                      <p>Success Rate: {(successRate * 100).toFixed(0)}%</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-
-              {playerNodes.map(node => {
-                 const maxPassesInvolved = Math.max(...playerNodes.map(n => (n.passesSentCount || 0) + (n.passesReceivedCount || 0)), 1);
-                 const nodeRadius = 2 + Math.min(5, ((node.passesSentCount || 0) / Math.max(maxPassesInvolved,1)) * 5);
-                 return (
-                    <Tooltip key={`node-${node.id}`}>
-                      <TooltipTrigger asChild>
-                        <g>
-                          <circle
-                            cx={node.x}
-                            cy={node.y}
-                            r={nodeRadius}
-                            fill={node.teamId === 'home' ? 'blue' : (node.teamId === 'away' ? 'red' : 'grey')}
-                            stroke="#fff"
-                            strokeWidth="0.5"
-                            opacity="0.9"
-                            style={{ cursor: 'pointer' }}
-                          />
-                           <text x={node.x} y={node.y + nodeRadius + 3} fill="white" fontSize="3" textAnchor="middle" dy=".3em">
-                              {node.jersey_number || node.name?.substring(0,3)}
-                          </text>
-                        </g>
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-background border shadow-lg p-2 rounded-md text-xs">
-                        <p>{node.name || `Player ${node.id}`} (#{node.jersey_number})</p>
-                        <p>Passes Sent: {node.passesSentCount || 0}</p>
-                        {/* <p>Passes Received: {node.passesReceivedCount || 0}</p> */}
-                      </TooltipContent>
-                    </Tooltip>
-                 );
-              })}
+              <rect x={SVG_MARGIN.left} y={SVG_MARGIN.top} width={pitchLength} height={pitchWidth} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+              <line x1={SVG_MARGIN.left + pitchLength / 2} y1={SVG_MARGIN.top} x2={SVG_MARGIN.left + pitchLength / 2} y2={SVG_MARGIN.top + pitchWidth} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+              <circle cx={SVG_MARGIN.left + pitchLength / 2} cy={SVG_MARGIN.top + pitchWidth / 2} r={pitchWidth / 7} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
+              <rect x={SVG_MARGIN.left} y={SVG_MARGIN.top + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
+              <rect x={SVG_MARGIN.left + pitchLength - 16.5} y={SVG_MARGIN.top + (pitchWidth - 40.32) / 2} width="16.5" height="40.32" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none" />
+              
+              {/* D3 visualization will be appended via the useEffect hook */}
             </svg>
           </div>
         </TooltipProvider>

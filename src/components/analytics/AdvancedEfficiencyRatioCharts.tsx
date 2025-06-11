@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TeamDetailedStats } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,7 +19,14 @@ interface AdvancedEfficiencyRatioChartsProps {
 }
 
 // Simple Bar component for demonstration
-const SimpleRatioBar = ({ label, homeValue, awayValue, unit = '' }: { label: string; homeValue: number; awayValue: number; unit?: string }) => {
+const SimpleRatioBar = ({ label, homeValue, awayValue, unit = '', homeTeamName, awayTeamName }: { 
+  label: string; 
+  homeValue: number; 
+  awayValue: number; 
+  unit?: string;
+  homeTeamName: string;
+  awayTeamName: string;
+}) => {
   const maxValue = Math.max(homeValue, awayValue, 1); // Ensure max is at least 1 for scaling
   const homePercentage = (homeValue / maxValue) * 100;
   const awayPercentage = (awayValue / maxValue) * 100;
@@ -160,6 +168,8 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
                 homeValue={metric.homeValue}
                 awayValue={metric.awayValue}
                 unit={metric.unit}
+                homeTeamName={homeTeamName}
+                awayTeamName={awayTeamName}
               />
             ))}
           </div>
@@ -174,6 +184,8 @@ const AdvancedEfficiencyRatioCharts: React.FC<AdvancedEfficiencyRatioChartsProps
                label={passStat.label}
                homeValue={passStat.homeValue}
                awayValue={passStat.awayValue}
+               homeTeamName={homeTeamName}
+               awayTeamName={awayTeamName}
              />
            ))}
         </div>

@@ -165,7 +165,7 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
                 name="Pass Frequency"
                 data={heatmapData}
                 shape={(props) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} />}
-                fill={getCellFillColor}
+                fill={(entry: HeatmapDataPoint) => getCellFillColor(entry.count)}
               />
             </ScatterChart>
           </ResponsiveContainer>
