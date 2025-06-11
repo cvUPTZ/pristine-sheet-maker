@@ -188,7 +188,21 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'sub': 'Sub',
   'pressure': 'Pressure Applied',
   'dribble_attempt': 'Dribble Attempt',
-  'ball_recovery': 'Ball Recovery'
+  'ball_recovery': 'Ball Recovery',
+  'supportPass': 'Support Pass',
+  'offensivePass': 'Offensive Pass',
+  'contact': 'Contact',
+  '6MeterViolation': '6 Meter Violation',
+  'postHit': 'Post Hit',
+  'aerialDuelWon': 'Aerial Duel Won',
+  'aerialDuelLost': 'Aerial Duel Lost',
+  'decisivePass': 'Decisive Pass',
+  'successfulCross': 'Successful Cross',
+  'successfulDribble': 'Successful Dribble',
+  'longPass': 'Long Pass',
+  'forwardPass': 'Forward Pass',
+  'backwardPass': 'Backward Pass',
+  'lateralPass': 'Lateral Pass',
 };
 
 export const EVENT_STYLES: Record<EventType, { color: string; description: string; icon?: string }> = {
@@ -226,7 +240,21 @@ export const EVENT_STYLES: Record<EventType, { color: string; description: strin
   'sub': { color: '#6B7280', description: 'Substitution', icon: '🔄' },
   'pressure': { color: '#4ADE80', description: 'Defensive pressure action', icon: '💨' },
   'dribble_attempt': { color: '#2DD4BF', description: 'Attempt to dribble past opponent', icon: '⚡' },
-  'ball_recovery': { color: '#A78BFA', description: 'Recovering a loose ball', icon: '🖐️' }
+  'ball_recovery': { color: '#A78BFA', description: 'Recovering a loose ball', icon: '🖐️' },
+  'supportPass': { color: '#4A90E2', description: 'Supportive pass', icon: '🤝' },
+  'offensivePass': { color: '#50E3C2', description: 'Offensive pass', icon: '🚀' },
+  'contact': { color: '#F5A623', description: 'Player contact event', icon: '💥' },
+  '6MeterViolation': { color: '#BD10E0', description: '6 Meter Violation', icon: '📏' },
+  'postHit': { color: '#9013FE', description: 'Ball hit the post', icon: '🥅' },
+  'aerialDuelWon': { color: '#417505', description: 'Aerial duel won', icon: '🏆' },
+  'aerialDuelLost': { color: '#D0021B', description: 'Aerial duel lost', icon: '👎' },
+  'decisivePass': { color: '#F8E71C', description: 'Decisive pass (e.g., key pass)', icon: '🔑' },
+  'successfulCross': { color: '#7ED321', description: 'Successful cross', icon: '✅' },
+  'successfulDribble': { color: '#E350A9', description: 'Successful dribble', icon: '🏃‍♂️💨' },
+  'longPass': { color: '#0E8A9C', description: 'Long pass', icon: '📏➡️' },
+  'forwardPass': { color: '#2CA02C', description: 'Forward pass', icon: '⬆️' },
+  'backwardPass': { color: '#D32F2F', description: 'Backward pass', icon: '⬇️' },
+  'lateralPass': { color: '#FF9800', description: 'Lateral pass', icon: '↔️' },
 };
 
 export type EventCategory = keyof typeof EVENT_CATEGORIES;

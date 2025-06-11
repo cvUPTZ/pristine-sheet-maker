@@ -246,7 +246,7 @@ const PassingNetworkMap: React.FC<PassingNetworkMapProps> = ({
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
-      }));
+      }) as any); // <--- Added 'as any' here
 
     // Initial legend for teams
     const legend = svg.append('g')

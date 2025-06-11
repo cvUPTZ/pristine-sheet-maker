@@ -25,30 +25,37 @@ const HeatmapCell = (props: {
   width: number;
   height: number;
   fill: string;
-  payload: HeatmapDataPoint;
-}) => {
-  const { cx, cy, width, height, fill, payload } = props;
-  // cx, cy are center of the cell, width/height are cell dimensions
-  // We want to draw a rect from (cx - width/2, cy - height/2)
-  if (payload.count === 0) return null; // Don't render for zero count
-
-  return (
-    <rect
-      x={cx - width / 2}
-      y={cy - height / 2}
-      width={width}
-      height={height}
-      fill={fill}
-      stroke="#fff" // Optional: add a border to cells
-      strokeWidth={0.5}
-    />
-  );
-};
-
 const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
   playerStats,
   allPlayers,
 }) => {
+  // Custom shape for ScatterChart to render rectangles (cells)
+  // Moved HeatmapCell inside PassFrequencyHeatmap to access getCellFillColor
+  const HeatmapCell = (props: {
+    cx: number;
+    cy: number;
+    width: number;
+    height: number;
+    payload: HeatmapDataPoint;
+  }) => {
+    const { cx, cy, width, height, payload } = props;
+    // cx, cy are center of the cell, width/height are cell dimensions
+    // We want to draw a rect from (cx - width/2, cy - height/2)
+    if (payload.count === 0) return null; // Don't render for zero count
+
+    return (
+      <rect
+        x={cx - width / 2}
+        y={cy - height / 2}
+        width={width}
+        height={height}
+        fill={getCellFillColor(payload.count)} // Use getCellFillColor directly
+        stroke="#fff" // Optional: add a border to cells
+        strokeWidth={0.5}
+      />
+    );
+  };
+
   const { heatmapData, sortedPlayerNames, maxFrequency } = useMemo(() => {
     if (!playerStats || playerStats.length === 0 || !allPlayers || allPlayers.length === 0) {
       return { heatmapData: [], sortedPlayerNames: [], maxFrequency: 0 };
@@ -172,7 +179,7 @@ const PassFrequencyHeatmap: React.FC<PassFrequencyHeatmapProps> = ({
                 name="Pass Frequency"
                 data={heatmapData}
                 shape={(props) => <HeatmapCell {...props} width={cellWidth} height={chartHeight / (sortedPlayerNames.length + 2)} />}
-                fill={(entry: HeatmapDataPoint) => getCellFillColor(entry.count)}
+                // fill prop removed
               />
             </ScatterChart>
           </ResponsiveContainer>

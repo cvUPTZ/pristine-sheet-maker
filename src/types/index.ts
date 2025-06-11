@@ -193,8 +193,14 @@ export interface PlayerStatSummary { // Renaming for clarity or stick to PlayerS
   player?: Player; // Keeping this as it's useful for direct access to full Player object
 
   // Core stats
-  shots: number;
-  shotsOnTarget: number;
+  shots?: { // MODIFIED: was number, now optional object
+    onTarget: number;
+    offTarget: number;
+    total?: number; // Optional total, can be derived
+    blocked?: number; // Optional
+    postHits?: number; // Optional
+  };
+  shotsOnTarget: number; // Keep for now, assuming it might be populated independently.
   goals: number;
   assists: number;
   passesAttempted: number;

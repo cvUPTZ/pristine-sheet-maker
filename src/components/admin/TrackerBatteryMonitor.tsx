@@ -53,7 +53,7 @@ const TrackerBatteryMonitor: React.FC = () => {
       // Handle potential error from the profiles table query
       const { data, error: trackersError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, battery_level, is_charging, battery_charging_time, battery_discharging_time, battery_last_updated')
+        .select('id, email, full_name, role') // Corrected columns
         .eq('role', 'tracker');
 
       if (trackersError) {
@@ -65,19 +65,19 @@ const TrackerBatteryMonitor: React.FC = () => {
       }
 
       // Process the data if available (using optional chaining to safely handle errors)
-      const trackersWithBattery = (data || []).map(tracker => ({
-          userId: tracker?.id || '',
-          identifier: tracker?.full_name || tracker?.email || tracker?.id || '',
-          email: tracker?.email || undefined,
-          full_name: tracker?.full_name || undefined,
-          batteryLevel: tracker?.battery_level || null,
-          isCharging: tracker?.is_charging || null,
-          lastUpdatedAt: tracker?.battery_last_updated || null,
-          chargingTimeInSeconds: tracker?.battery_charging_time || null,
-          dischargingTimeInSeconds: tracker?.battery_discharging_time || null
+      const trackersWithDefaults = (data || []).map(profile => ({
+          userId: profile.id || '',
+          identifier: profile.full_name || profile.email || profile.id || '',
+          email: profile.email || undefined,
+          full_name: profile.full_name || undefined,
+          batteryLevel: null, // Default value
+          isCharging: null,   // Default value
+          lastUpdatedAt: null, // Default value
+          chargingTimeInSeconds: null, // Default value
+          dischargingTimeInSeconds: null // Default value
       }));
 
-      setTrackers(trackersWithBattery);
+      setTrackers(trackersWithDefaults);
     } catch (error) {
       console.error('Error fetching tracker data:', error);
       toast({
