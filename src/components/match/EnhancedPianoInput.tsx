@@ -13,7 +13,7 @@ interface RecordedEvent {
   id: string;
   eventType: EventType;
   timestamp: number;
-  dbEventId?: string; // Store the actual database ID for cancellation
+  dbEventId?: string;
 }
 
 interface EnhancedPianoInputProps {
@@ -30,19 +30,26 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   const { user } = useAuth();
 
   const handleEventRecord = useCallback(async (eventType: EventType) => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // Record the event IMMEDIATELY to the database
       const eventToInsert = {
         match_id: matchId,
         event_type: eventType,
-        created_by: user?.id,
+        created_by: user.id,
         timestamp: Math.floor(Date.now() / 1000),
-        event_data: { recorded_via: 'piano-input-immediate' }
       };
 
       const { data, error } = await supabase
         .from('match_events')
-        .insert([eventToInsert])
+        .insert(eventToInsert)
         .select()
         .single();
 
@@ -56,18 +63,16 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         return;
       }
 
-      // Create local tracking event for cancellation
       const eventId = `temp_${Date.now()}_${Math.random()}`;
       const newEvent: RecordedEvent = {
         id: eventId,
         eventType,
         timestamp: Date.now(),
-        dbEventId: data.id // Store the database ID for potential cancellation
+        dbEventId: data.id
       };
       
       setRecentEvents(prev => [newEvent, ...prev.slice(0, 9)]);
       
-      // Call the parent callback
       onEventRecord(eventType);
       
       toast({
@@ -86,14 +91,12 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
 
   const handleCancelEvent = useCallback(async (eventId: string, eventType: EventType) => {
     try {
-      // Find the event to cancel
       const eventToCancel = recentEvents.find(event => event.id === eventId);
       if (!eventToCancel || !eventToCancel.dbEventId) {
         console.error('Event not found or no database ID available');
         return;
       }
 
-      // Delete the event from the database
       const { error } = await supabase
         .from('match_events')
         .delete()
@@ -109,7 +112,6 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         return;
       }
 
-      // Remove from recent events
       setRecentEvents(prev => prev.filter(event => event.id !== eventId));
       
       toast({
@@ -127,7 +129,6 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   }, [toast, recentEvents]);
 
   const handleEventExpire = useCallback((eventId: string) => {
-    // Just remove from recent events - the event stays in the database
     setRecentEvents(prev => prev.filter(event => event.id !== eventId));
     toast({
       title: "Cancellation Expired",
@@ -142,7 +143,7 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
       <button
         key={eventType}
         onClick={() => handleEventRecord(eventType)}
-        className="flex flex-col items-center justify-center p-1 sm:p-2 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 aspect-square text-xs sm:text-sm"
+        className="flex flex-col items-center justify-center p-1 sm:p-2 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 aspect-square text-xs sm:text-sm min-h-[60px] sm:min-h-[80px]"
       >
         <EnhancedEventTypeIcon
           eventType={eventType}
@@ -162,14 +163,12 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
           <CardTitle className="text-lg">Event Recording</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Responsive grid for event buttons */}
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
             {eventTypes.map(renderEventButton)}
           </div>
         </CardContent>
       </Card>
 
-      {/* Cancel action indicators */}
       {recentEvents.length > 0 && (
         <Card>
           <CardHeader className="pb-2">

@@ -300,7 +300,7 @@ const VoiceCollaborationManager: React.FC = () => {
       const { error: funcError } = await supabase.functions.invoke('moderate-livekit-room', {
         body: {
           roomName: participant.room.name,
-          targetParticipantIdentity: participant.user_id, // Assuming user_id is the LiveKit identity
+          targetParticipantIdentity: participant.user_id,
           shouldMute,
         },
       });
@@ -310,16 +310,53 @@ const VoiceCollaborationManager: React.FC = () => {
       }
 
       toast.success(`Participant ${participant.user_profile?.full_name || participant.user_id} ${shouldMute ? 'muted' : 'unmuted'}.`);
-      // Optimistically update UI or refetch
-      // For now, LiveKit events should ideally update the participant's state,
-      // but is_muted on VoiceParticipant might need manual update if not directly tied to LiveKit state.
-      // Let's update it manually for now for immediate feedback, then rely on fetchVoiceData for consistency.
       setParticipants(prev => prev.map(p => p.id === participant.id ? {...p, is_muted: shouldMute} : p));
-      // Consider a more targeted refresh or rely on WebSocket updates if implemented
       fetchVoiceData(); 
     } catch (error: any) {
       console.error('Error toggling mute for participant:', error);
       toast.error(`Failed to ${shouldMute ? 'mute' : 'unmute'} participant: ${error.message}`);
+    }
+  };
+
+  const handleMuteAllParticipants = async (shouldMute: boolean) => {
+    if (!databaseConnected) {
+      toast.error('Database not connected. Cannot moderate participants.');
+      return;
+    }
+
+    if (participants.length === 0) {
+      toast.error('No participants to moderate.');
+      return;
+    }
+
+    try {
+      const promises = participants
+        .filter(p => p.is_connected && p.room?.name && p.user_id)
+        .map(participant => 
+          supabase.functions.invoke('moderate-livekit-room', {
+            body: {
+              roomName: participant.room!.name,
+              targetParticipantIdentity: participant.user_id,
+              shouldMute,
+            },
+          })
+        );
+
+      const results = await Promise.allSettled(promises);
+      const failures = results.filter(result => result.status === 'rejected');
+
+      if (failures.length === 0) {
+        toast.success(`All participants ${shouldMute ? 'muted' : 'unmuted'} successfully.`);
+      } else {
+        toast.error(`${failures.length} participants failed to ${shouldMute ? 'mute' : 'unmute'}.`);
+      }
+
+      // Update local state optimistically
+      setParticipants(prev => prev.map(p => ({ ...p, is_muted: shouldMute })));
+      fetchVoiceData(); // Refresh to get accurate state
+    } catch (error: any) {
+      console.error('Error muting all participants:', error);
+      toast.error(`Failed to ${shouldMute ? 'mute' : 'unmute'} all participants: ${error.message}`);
     }
   };
 
@@ -997,3 +1034,5 @@ const VoiceCollaborationManager: React.FC = () => {
 };
 
 export default VoiceCollaborationManager;
+
+}
