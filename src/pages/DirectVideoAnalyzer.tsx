@@ -17,7 +17,7 @@ const DirectVideoAnalyzer: React.FC = () => {
       return;
     }
     try {
-      new URL(videoUrl);
+      new URL(videoUrl); 
       setError('');
       setSubmittedUrl(videoUrl);
     } catch (_) {

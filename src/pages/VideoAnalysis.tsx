@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client'; // Import supabase cl
 
 // Define a local VideoJob type for the page that includes videoUrl for VideoJobMonitor
 interface PageVideoJob extends VideoJob {
-  videoUrl?: string;
+  videoUrl?: string; 
 }
 
 const VideoAnalysis: React.FC = () => {
@@ -57,7 +57,7 @@ const VideoAnalysis: React.FC = () => {
       toast.error("You must be logged in to create a job.");
       return;
     }
-
+    
     const videoUrlPrompt = prompt("Enter video URL (e.g., YouTube link):");
     if (!videoUrlPrompt) return;
 
@@ -143,7 +143,7 @@ const VideoAnalysis: React.FC = () => {
           <p className="mt-2 text-sm text-gray-500">Loading video jobs...</p>
         </div>
       )}
-
+      
       {error && (
         <div className="text-center text-red-500 bg-red-100 p-4 rounded-md my-4">
           <p className="font-semibold">Error:</p>

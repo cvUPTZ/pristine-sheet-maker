@@ -1,7 +1,7 @@
 // src/components/video/DirectAnalysisInterface.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ReactSketchCanvasRef, CanvasPath } from 'react-sketch-canvas';
+import { ReactSketchCanvasRef } from 'react-sketch-canvas'; // CanvasPath removed
 import { VideoPlayerControls } from './analysis/VideoPlayerControls';
 import { AnnotationToolbox } from './analysis/AnnotationToolbox';
 import { toast } from 'sonner';
@@ -13,14 +13,50 @@ import { Download, Settings as SettingsIcon, XSquare } from 'lucide-react';
 import { EventTypeManager, LocalEventType as EventTypeDefinition, PropertyDefinition } from './analysis/EventTypeManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+// New Annotation Interfaces
+interface BaseAnnotation {
+  id: string;
+  type: 'freehand' | 'rectangle' | 'circle' | 'line' | 'arrow' | 'text';
+  color: string;
+  strokeWidth?: number;
+}
+
+interface FreehandAnnotation extends BaseAnnotation {
+  type: 'freehand';
+  paths: Array<{ x: number; y: number }>; // Compatible with react-sketch-canvas Point
+}
+
+interface ShapeAnnotation extends BaseAnnotation {
+  type: 'rectangle' | 'circle' | 'line' | 'arrow';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  endX?: number;
+  endY?: number;
+  fillColor?: string;
+}
+
+interface TextAnnotation extends BaseAnnotation {
+  type: 'text';
+  x: number;
+  y: number;
+  text: string;
+  fontFamily?: string;
+  fontSize?: number;
+}
+
+type AnnotationObject = FreehandAnnotation | ShapeAnnotation | TextAnnotation;
+
 // Updated LocalTaggedEvent Interface
 export interface LocalTaggedEvent {
   id: string;
   timestamp: number;
-  typeId: string;
-  typeName: string;
+  typeId: string; 
+  typeName: string; 
   notes?: string;
-  annotationPaths?: CanvasPath[] | null;
+  annotations?: AnnotationObject[] | null; // Updated field
   customPropertyValues?: {
     [propertyDefinitionId: string]: string | number | boolean | null;
   };
@@ -32,7 +68,7 @@ interface DirectAnalysisInterfaceProps {
 
 export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = ({ videoUrl }) => {
   const videoPlayerRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<ReactSketchCanvasRef>(null);
+  const canvasRef = useRef<ReactSketchCanvasRef>(null); // Still needed for AnnotationToolbox interaction
 
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [isPlaying, setIsPlaying] = useState(false);
@@ -80,7 +116,6 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
       videoPlayerRef.current.load();
     }
     if (canvasRef.current) canvasRef.current.resetCanvas();
-    // Reset filters when video changes
     setFilterEventTypeId('');
     setFilterPropertyId('');
     setFilterPropertyValue('');
@@ -96,7 +131,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
       });
     }
   };
-
+  
   const handlePlayPause = () => {
     if (videoPlayerRef.current) {
       if (isPlaying) videoPlayerRef.current.pause();
@@ -108,17 +143,17 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
   const handleTimeUpdate = () => {
     if (videoPlayerRef.current) setCurrentTime(videoPlayerRef.current.currentTime);
   };
-
-  const handleSaveAnnotationToEvent = useCallback(async (paths: CanvasPath[]) => {
+  
+  const handleSaveAnnotationToEvent = useCallback(async (newAnnotations: AnnotationObject[]) => {
     if (selectedEventForAnnotation) {
       setTaggedEvents(prevEvents =>
         prevEvents.map(event =>
           event.id === selectedEventForAnnotation.id
-            ? { ...event, annotationPaths: paths }
+            ? { ...event, annotations: newAnnotations } 
             : event
         )
       );
-      setSelectedEventForAnnotation(prev => prev ? {...prev, annotationPaths: paths} : null);
+      setSelectedEventForAnnotation(prev => prev ? {...prev, annotations: newAnnotations} : null);
       toast.success(`Annotations saved for event "${selectedEventForAnnotation.typeName}" at ${formatTime(selectedEventForAnnotation.timestamp)}`);
     } else {
       toast.info("No event selected to save annotations to. Click an event to select it for annotation.");
@@ -137,21 +172,20 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
         setEventTypeDefinitions(prev => prev.filter(et => et.id !== typeIdToDelete));
         setTaggedEvents(prevTagged => prevTagged.filter(te => te.typeId !== typeIdToDelete));
         if (selectedEventTypeIdForTagging === typeIdToDelete) setSelectedEventTypeIdForTagging('');
-        if (filterEventTypeId === typeIdToDelete) handleClearFilter(); // Clear filter if the type was part of it
+        if (filterEventTypeId === typeIdToDelete) handleClearFilter();
         toast.info(`Event type "${typeToDelete?.name}" and its tags deleted.`);
     }
   };
-
+  
   const handleUpdateEventTypeDefinition = (updatedType: EventTypeDefinition) => {
     setEventTypeDefinitions(prev => prev.map(et => et.id === updatedType.id ? updatedType : et));
-    // If the updated type was part of an active filter, reflect potential name changes
     if (filterEventTypeId === updatedType.id && activeFiltersDescription) {
         const propName = availableFilterProperties.find(p => p.id === filterPropertyId)?.name || 'Unknown Property';
         setActiveFiltersDescription(`Type: ${updatedType.name}, ${propName} = "${filterPropertyValue}"`);
     }
     toast.info(`Event type "${updatedType.name}" updated.`);
   };
-
+  
   useEffect(() => {
     if (!selectedEventTypeIdForTagging) {
       setCurrentCustomPropValues({});
@@ -184,12 +218,12 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     const timestamp = videoPlayerRef.current.currentTime;
     const newEvent: LocalTaggedEvent = {
       id: crypto.randomUUID(), timestamp, typeId: eventType.id, typeName: eventType.name,
-      notes: '', annotationPaths: null, customPropertyValues: { ...currentCustomPropValues },
+      notes: '', annotations: null, customPropertyValues: { ...currentCustomPropValues }, // Initialize annotations as null
     };
     setTaggedEvents(prev => [...prev, newEvent].sort((a,b) => a.timestamp - b.timestamp));
-    setSelectedEventForAnnotation(newEvent);
+    setSelectedEventForAnnotation(newEvent); 
     toast.success(`Event "${eventType.name}" tagged at ${formatTime(timestamp)}. Selected for annotation.`);
-
+    
     if (eventType.properties.length > 0) {
       const initialValues: { [propId: string]: string | number | boolean | null } = {};
       eventType.properties.forEach(prop => {
@@ -202,8 +236,8 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
       setCurrentCustomPropValues({});
     }
   };
-
-  const handleSelectEventForAnnotation = (event: LocalTaggedEvent) => {
+  
+  const handleSelectEventForAnnotation = (event: LocalTaggedEvent) => { 
     if (selectedEventForAnnotation?.id === event.id) {
       setSelectedEventForAnnotation(null);
       if(canvasRef.current) canvasRef.current.resetCanvas();
@@ -212,7 +246,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     }
   };
 
-  const handleDeleteTaggedEvent = (eventId: string) => {
+  const handleDeleteTaggedEvent = (eventId: string) => { 
     setTaggedEvents(prev => prev.filter(e => e.id !== eventId));
     if (selectedEventForAnnotation?.id === eventId) {
       setSelectedEventForAnnotation(null);
@@ -234,7 +268,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     link.href = url;
     let filename = "video_analysis_data.json";
     try {
-      const urlObject = new URL(videoUrl);
+      const urlObject = new URL(videoUrl); 
       const pathnameParts = urlObject.pathname.split('/');
       const lastPart = pathnameParts[pathnameParts.length - 1];
       if (lastPart && lastPart.includes('.')) filename = `${lastPart.split('.')[0]}_analysis.json`;
@@ -252,7 +286,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     if (filterEventTypeId) {
       const eventType = eventTypeDefs.find(et => et.id === filterEventTypeId);
       setAvailableFilterProperties(eventType?.properties || []);
-      setFilterPropertyId('');
+      setFilterPropertyId(''); 
       setFilterPropertyValue('');
     } else {
       setAvailableFilterProperties([]);
@@ -280,7 +314,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     setActiveFiltersDescription(null);
     toast.success("Filters cleared.");
   };
-
+  
   const filteredTaggedEvents = useMemo(() => {
     if (!activeFiltersDescription || !filterEventTypeId || !filterPropertyId || filterPropertyValue.trim() === '') {
       return taggedEvents;
@@ -366,12 +400,12 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
             Your browser does not support the video tag.
           </video>
           <AnnotationToolbox canvasRef={canvasRef} videoDimensions={videoDimensions}
-            initialPaths={selectedEventForAnnotation?.annotationPaths || null}
-            onSaveAnnotations={handleSaveAnnotationToEvent}
+            initialAnnotations={selectedEventForAnnotation?.annotations || null} // Changed prop
+            onSaveAnnotations={handleSaveAnnotationToEvent} // Signature updated
             canSave={!!selectedEventForAnnotation && videoDimensions.width > 0}
             disabled={videoDimensions.width === 0} />
         </div>
-
+        
         <VideoPlayerControls videoPlayerRef={videoPlayerRef} isPlayingPlaylist={false} />
 
       {/* Filter Section */}
@@ -409,7 +443,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
             <h4 className="font-medium text-sm">Tag Event</h4>
           </div>
           <div className="flex items-center gap-2 mb-2">
-              <Select value={selectedEventTypeIdForTagging} onValueChange={setSelectedEventTypeIdForTagging}
+              <Select value={selectedEventTypeIdForTagging} onValueChange={setSelectedEventTypeIdForTagging} 
                 disabled={duration === 0 || eventTypeDefs.length === 0}>
                 <SelectTrigger className="w-full md:w-[200px] h-8 text-xs"><SelectValue placeholder="Select Event Type" /></SelectTrigger>
                 <SelectContent>
@@ -419,7 +453,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
               </Select>
               <Button size="sm" onClick={handleAddTaggedEvent} disabled={duration === 0 || !selectedEventTypeIdForTagging}>Tag Event</Button>
             </div>
-
+            
           {renderCustomPropertyFields()}
 
           <div className="max-h-60 overflow-y-auto space-y-1 mt-2">
@@ -432,7 +466,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-semibold" style={eventType?.color ? {color: eventType.color} : {}}>{event.typeName}</span> @ {formatTime(event.timestamp)}
-                      {event.annotationPaths && event.annotationPaths.length > 0 && <span className="ml-1 text-blue-500">(A)</span>}
+                      {event.annotations && event.annotations.length > 0 && <span className="ml-1 text-blue-500">(A)</span>}
                     </div>
                     <Button variant="ghost" size="xs" onClick={(e) => { e.stopPropagation(); handleDeleteTaggedEvent(event.id);}} title="Delete Event">X</Button>
                   </div>
@@ -455,13 +489,13 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
           </div>
            <p className="text-xs text-gray-500 mt-1">{filteredTaggedEvents.length} of {taggedEvents.length} events shown.</p>
         </div>
-
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
            <Card>
               <CardHeader className="pb-2 pt-3"><CardTitle className="text-base">Quick Stats</CardTitle></CardHeader>
               <CardContent className="text-sm">
                 <p>Total Events: {taggedEvents.length}</p>
-                <p>Events with Annotations: {taggedEvents.filter(e => e.annotationPaths && e.annotationPaths.length > 0).length}</p>
+                <p>Events with Annotations: {taggedEvents.filter(e => e.annotations && e.annotations.length > 0).length}</p>
                 <p>Event Types Defined: {eventTypeDefs.length}</p>
               </CardContent>
             </Card>

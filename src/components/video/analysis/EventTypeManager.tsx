@@ -38,7 +38,7 @@ export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
 }) => {
   const [newEventTypeName, setNewEventTypeName] = useState('');
   const [newEventTypeColor, setNewEventTypeColor] = useState('#FFFFFF');
-
+  
   const [selectedEventType, setSelectedEventType] = useState<LocalEventType | null>(null);
   // State for new property form
   const [newPropName, setNewPropName] = useState('');
@@ -103,7 +103,7 @@ export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
   };
 
   const colorPalette = [
-    '#FFADAD', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF',
+    '#FFADAD', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', 
     '#A0C4FF', '#BDB2FF', '#FFC6FF', '#E0E0E0', '#FFFFFF', '#000000'
   ];
 
@@ -206,10 +206,10 @@ export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
                     <span className="font-medium">{et.name}</span>
                     <span className="text-xs text-gray-500 ml-2">({et.properties.length} properties)</span>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => handleSelectEventTypeForEditing(et)}
+                  <Button 
+                    variant="outline" 
+                    size="xs" 
+                    onClick={() => handleSelectEventTypeForEditing(et)} 
                     className="mr-2 py-1 px-2 h-auto text-xs"
                     title="Edit Properties"
                   >

@@ -1,13 +1,13 @@
 // src/components/video/analysis/VideoPlayerControls.tsx
 import React, { useState, useEffect } from 'react'; // Corrected import
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button'; 
 import { SkipBack, SkipForward } from 'lucide-react';
 
 const ASSUMED_FPS = 30;
 
 interface VideoPlayerControlsProps {
   videoPlayerRef: React.RefObject<HTMLVideoElement>;
-  isPlayingPlaylist: boolean;
+  isPlayingPlaylist: boolean; 
 }
 
 export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({ videoPlayerRef, isPlayingPlaylist }) => {
