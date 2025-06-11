@@ -447,7 +447,11 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                 disabled={duration === 0 || eventTypeDefs.length === 0}>
                 <SelectTrigger className="w-full md:w-[200px] h-8 text-xs"><SelectValue placeholder="Select Event Type" /></SelectTrigger>
                 <SelectContent>
-                  {eventTypeDefs.length === 0 && <SelectItem value="" disabled>Define types first via Manager</SelectItem>}
+                  {/* The problematic SelectItem is now removed. */}
+                  {/* If eventTypeDefs is empty, no items will be rendered, and the placeholder will be shown. */}
+                  {/* If eventTypeDefs.length === 0, we could render a non-interactive message if desired, but not an SelectItem with value="". */}
+                  {/* For example: eventTypeDefs.length === 0 && <p className="p-2 text-xs text-gray-500">Define types via Manager.</p> */}
+                  {/* For now, just rendering the map is cleanest and relies on the placeholder. */}
                   {eventTypeDefs.map(et => (<SelectItem key={et.id} value={et.id} style={{ color: et.color }} className="text-xs">{et.name}</SelectItem>))}
                 </SelectContent>
               </Select>
