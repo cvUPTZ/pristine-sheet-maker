@@ -2,6 +2,12 @@
 import React, { memo, useMemo, useEffect, useRef, useState, CSSProperties } from 'react';
 import * as AllTypes from 'src/types/index';
 import { getEventTypeIcon } from './getEventTypeIcon';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipTrigger, 
+  TooltipProvider 
+} from '@/components/ui/tooltip';
 
 // --- Helper: Intersection Observer Hook ---
 interface IntersectionObserverHookOptions extends IntersectionObserverInit {
@@ -129,6 +135,8 @@ export interface EnhancedEventTypeIconProps {
   onClick?: () => void;
   disabled?: boolean;
   'data-testid'?: string;
+  showTooltip?: boolean;
+  tooltipContent?: React.ReactNode;
 }
 
 // --- Main Component ---
@@ -142,6 +150,8 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
   onClick,
   disabled = false,
   'data-testid': testId,
+  showTooltip = false,
+  tooltipContent,
 }) => {
   const [setRef, isVisible] = useIntersectionObserver({ 
     threshold: 0.1, 
@@ -194,7 +204,7 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
     }
   };
 
-  return (
+  const iconElement = (
     <span
       ref={setRef}
       className={computedClassName}
@@ -210,6 +220,23 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
       {isVisible && <IconComponent />}
     </span>
   );
+
+  if (showTooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {iconElement}
+          </TooltipTrigger>
+          <TooltipContent>
+            {tooltipContent || eventType}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return iconElement;
 });
 
 EnhancedEventTypeIcon.displayName = 'EnhancedEventTypeIcon';
