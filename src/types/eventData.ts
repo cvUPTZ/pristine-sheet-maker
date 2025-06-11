@@ -255,3 +255,16 @@ export interface LateralPassEventData {
   direction: 'left_to_right' | 'right_to_left';
   reason?: 'maintain_possession' | 'switch_play' | 'open_up_space' | string;
 }
+
+// Added for "Cancel Last Action" feature
+// Needs EventType from './index.ts' or wherever it's defined.
+// Assuming EventType is in './' which means 'src/types/index.ts'
+import { EventType } from '.'; 
+
+export interface TrackedEvent {
+  id: string;
+  eventType: EventType;
+  timestamp: number;
+  isCancelled?: boolean;
+  timerId?: NodeJS.Timeout; 
+}
