@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoJob, VideoJobService } from '@/services/videoJobService';
 import { toast } from 'sonner';
+import { VideoProcessingPipeline, ProcessingPipelineConfig } from '../services/videoProcessingPipeline';
 
 export const useVideoJobs = () => {
   const [jobs, setJobs] = useState<VideoJob[]>([]);
@@ -34,57 +35,30 @@ export const useVideoJobs = () => {
     config: { title: string, duration?: number, segmentDuration?: number }
   ): Promise<VideoJob | null> => {
     setSubmitting(true);
+    toast.info("Submitting job to processing pipeline...");
     try {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error('You must be logged in to submit a job.');
 
-      let videoPath: string;
-      if (source.type === 'upload') {
-        toast.info("Uploading video file...");
-        videoPath = await VideoJobService.uploadVideo(source.file);
-      } else {
-        // For YouTube, the path is the URL itself. The worker will download it.
-        videoPath = source.url;
-      }
-      toast.success("Video source ready. Creating analysis job...");
-
-      const jobData = {
-        input_video_path: videoPath,
-        video_title: config.title,
-        video_duration: config.duration,
-        user_id: user.user.id,
-        job_config: {
-          source_type: source.type,
-          should_segment: (config.segmentDuration || 0) > 0 && (config.segmentDuration || 0) < (config.duration || Infinity),
-          segment_duration: config.segmentDuration
-        }
+      const pipelineConfig: ProcessingPipelineConfig = {
+        enableAIAnalysis: true,
+        enableYouTubeDownload: true, // Assumed true, VPP handles based on source type
+        enableSegmentation: (config.segmentDuration || 0) > 0,
+        segmentDuration: config.segmentDuration,
+        // aiProcessingFocus: 'all', // Optional: Add if you want to specify focus
       };
 
-      const { data: newJob, error } = await supabase.from('video_jobs').insert(jobData).select().single();
-      if (error) throw new Error(`Failed to create job: ${error.message}`);
+      // The source object is passed directly.
+      // If it's a YouTube URL, VPP handles download.
+      // If it's a file upload, VPP handles upload.
+      const returnedJob = await VideoProcessingPipeline.processVideoComplete(source, pipelineConfig);
       
-      // Ensure the returned job matches VideoJob interface by handling null/undefined conversions
-      const videoJob: VideoJob = {
-        id: newJob.id,
-        created_at: newJob.created_at,
-        updated_at: newJob.updated_at,
-        status: newJob.status,
-        input_video_path: newJob.input_video_path,
-        video_title: newJob.video_title || undefined,
-        video_duration: newJob.video_duration || undefined,
-        result_data: newJob.result_data || undefined,
-        error_message: newJob.error_message || undefined,
-        progress: newJob.progress || 0,
-        user_id: newJob.user_id || user.user.id, // Handle null case by using the current user ID
-        job_config: (newJob as any).job_config || {} // Type assertion to access job_config
-      };
-      
-      toast.success(`Job "${videoJob.video_title}" submitted successfully!`);
-      setJobs(prevJobs => [videoJob, ...prevJobs]);
-      return videoJob;
+      toast.success(`Job "${returnedJob.video_title}" submitted successfully!`);
+      setJobs(prevJobs => [returnedJob, ...prevJobs]);
+      return returnedJob;
 
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(`Failed to submit job: ${error.message}`);
       return null;
     } finally {
       setSubmitting(false);
