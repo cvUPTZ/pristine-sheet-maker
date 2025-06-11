@@ -48,26 +48,10 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
       setChargingTime(chargeTime);
       setDischargingTime(dischargeTime);
 
-      // **FIXED**: Update the profile with live battery status instead of logging to notifications.
-      // This makes the 'profiles' table the single source of truth for current status.
+      // The Supabase update call to 'profiles' has been removed as it was causing errors
+      // due to attempting to write to non-existent fields.
+      // The hook will now only handle client-side battery monitoring and local notifications.
       try {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            battery_level: batteryLevel,
-            is_charging: isCharging,
-            battery_charging_time: chargeTime,
-            battery_discharging_time: dischargeTime,
-            battery_last_updated: new Date().toISOString()
-          })
-          .eq('id', userId);
-
-        if (updateError) {
-          console.error('Error updating battery status in profile:', updateError);
-        } else {
-          console.log('Updated profile with battery status:', { level: batteryLevel, charging: isCharging });
-        }
-
         // Send local notification for low battery (only once per 10% threshold)
         if (batteryLevel <= 20 && !isCharging &&
             (lastNotificationLevel === null || batteryLevel < lastNotificationLevel - 10)) {
@@ -89,11 +73,12 @@ const useBatteryMonitor = (userId?: string): BatteryStatus => {
             setLastNotificationLevel(batteryLevel);
           } else {
             console.log('Notification permission not granted or SW not active, cannot send SW notification for low battery.');
+            // Still set lastNotificationLevel to prevent repeated checks even if notification not sent
             setLastNotificationLevel(batteryLevel);
           }
         }
       } catch (error) {
-        console.error('Error in battery update logic:', error);
+        console.error('Error in battery update logic (local notifications):', error);
       }
     };
 
