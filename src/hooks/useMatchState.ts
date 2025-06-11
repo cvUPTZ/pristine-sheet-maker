@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { MatchEvent, Player, Team, Statistics, BallTrackingPoint, TimeSegmentStatistics, PlayerStatistics, EventType } from '@/types';
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
@@ -437,7 +438,6 @@ export const useMatchState = () => {
         team: team,
         player: player,
         ballsPlayed: ballsPlayed,
-        ballsLost: ballsLost,
         ballsRecovered: ballsRecovered,
         passesCompleted: passesCompleted,
         passesAttempted: passesAttempted,
