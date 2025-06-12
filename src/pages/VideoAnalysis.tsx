@@ -38,7 +38,10 @@ const VideoAnalysis: React.FC = () => {
             // Keep original path, VideoJobMonitor might have a fallback or show error
           }
         }
-        return { ...job, videoUrl: videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" }; // Fallback if undefined
+        return { 
+          ...job, 
+          videoUrl: videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" 
+        }; // Fallback if undefined
       }));
       setJobs(processedJobs || []);
     } catch (e: any) {
@@ -82,18 +85,17 @@ const VideoAnalysis: React.FC = () => {
       const { data: newJob, error: insertError } = await supabase
         .from('video_jobs')
         .insert(newJobData)
-        .select()
+        .select('*, job_config')
         .single();
 
       if (insertError) throw insertError;
 
       if (newJob) {
-        toast.success(`Job created successfully for ${newJob.video_title}`);
+        toast.success(`Job created successfully for ${newJob.video_title || 'Unknown Title'}`);
         // Add to list and poll for status
         const processedNewJob: PageVideoJob = { 
           ...newJob, 
-          videoUrl: newJob.input_video_path,
-          job_config: newJob.job_config || {} // Ensure job_config is present
+          videoUrl: newJob.input_video_path
         };
         setJobs(prevJobs => [processedNewJob, ...prevJobs]);
         // Start polling for this new job

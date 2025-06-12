@@ -8,13 +8,13 @@ export interface VideoJob {
   updated_at: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   input_video_path: string;
-  video_title?: string;
-  video_duration?: number;
+  video_title?: string | null; // Match database schema
+  video_duration?: number | null; // Match database schema
   result_data?: any;
-  error_message?: string;
+  error_message?: string | null; // Match database schema
   progress: number;
   user_id: string;
-  job_config?: any; // Make job_config optional to handle missing cases
+  job_config?: any; // Make optional to handle missing cases
 }
 
 /**
@@ -38,14 +38,14 @@ export class VideoJobService {
 
   static async getJob(jobId: string): Promise<VideoJob | null> {
     const { data, error } = await supabase
-      .from('video_jobs').select('*').eq('id', jobId).single();
+      .from('video_jobs').select('*, job_config').eq('id', jobId).single();
     if (error && error.code !== 'PGRST116') throw new Error(`Failed to fetch job: ${error.message}`);
     return data as VideoJob | null;
   }
 
   static async getUserJobs(): Promise<VideoJob[]> {
     const { data, error } = await supabase
-      .from('video_jobs').select('*').order('created_at', { ascending: false });
+      .from('video_jobs').select('*, job_config').order('created_at', { ascending: false });
     if (error) throw new Error(`Failed to fetch jobs: ${error.message}`);
     return data as VideoJob[];
   }

@@ -1,5 +1,3 @@
-
-
 import { supabase } from '@/integrations/supabase/client';
 import { YouTubeService } from './youtubeService';
 import { AIProcessingService } from './aiProcessingService';
@@ -79,7 +77,7 @@ export class VideoProcessingPipeline {
           segmentDuration: config.segmentDuration
         }
       })
-      .select()
+      .select('*, job_config')
       .single();
 
     if (jobError) {
@@ -91,39 +89,30 @@ export class VideoProcessingPipeline {
       .from('video_jobs')
       .update({ status: 'processing' as const })
       .eq('id', job.id)
-      .select()
+      .select('*, job_config')
       .single();
 
     if (updateErrorInitial) {
       console.error(`Failed to update job status to 'processing' for job ${job.id}:`, updateErrorInitial.message);
-      // Potentially throw error or handle as critical failure depending on requirements
-      // For now, we'll proceed with the original job object, but this is a point of failure.
     }
 
-    // Use the updated job object if the update was successful, ensuring job_config is present
-    let currentJobState: VideoJob = {
-      ...(updatedJobInitial || job),
-      job_config: (updatedJobInitial || job).job_config || {}
-    };
+    // Use the updated job object if the update was successful
+    let currentJobState: VideoJob = (updatedJobInitial || job) as VideoJob;
 
     // Step 3: AI Processing with fallback
     if (config.enableAIAnalysis) {
       try {
         console.log(`Attempting primary AI processing for job ${currentJobState.id}...`);
         await AIProcessingService.submitToColabWorker(currentJobState.id);
-        // If submitToColabWorker doesn't throw, it means the function was invoked (even if missing and just warned)
-        // Update status to reflect submission attempt - using 'processing' instead of invalid status
+        
         const { data: updatedJobAfterPrimaryAttempt, error: updateErrorPrimary } = await supabase
           .from('video_jobs')
-          .update({ status: 'processing' as const }) // Use valid status
+          .update({ status: 'processing' as const })
           .eq('id', currentJobState.id)
-          .select()
+          .select('*, job_config')
           .single();
-        if (updateErrorPrimary) throw updateErrorPrimary; // Propagate error to catch block
-        currentJobState = {
-          ...(updatedJobAfterPrimaryAttempt || currentJobState),
-          job_config: (updatedJobAfterPrimaryAttempt || currentJobState).job_config || {}
-        };
+        if (updateErrorPrimary) throw updateErrorPrimary;
+        currentJobState = updatedJobAfterPrimaryAttempt as VideoJob;
         console.log(`Job ${currentJobState.id} status updated to 'processing'.`);
 
       } catch (primaryError: any) {
@@ -144,13 +133,19 @@ export class VideoProcessingPipeline {
             if (apiKeyError || !apiKeyData || !apiKeyData.apiKey) {
               const errorMsg = apiKeyError?.message || "Gemini API key not found or function invocation failed.";
               console.error(`Failed to retrieve Gemini API key for fallback analysis (job ${currentJobState.id}):`, errorMsg);
-              await supabase.from('video_jobs').update({ 
-                status: 'failed' as const, 
-                error_message: errorMsg 
-              }).eq('id', currentJobState.id);
-              currentJobState.status = 'failed';
-              currentJobState.error_message = errorMsg;
-              return currentJobState; // Return with error status
+              const { data: updatedJobAfterFallbackFail, error: updateErrorFallbackFail } = await supabase
+                .from('video_jobs')
+                .update({ 
+                  status: 'failed' as const, 
+                  error_message: errorMsg 
+                })
+                .eq('id', currentJobState.id)
+                .select('*, job_config')
+                .single();
+              if (updatedJobAfterFallbackFail) {
+                currentJobState = updatedJobAfterFallbackFail as VideoJob;
+              }
+              return currentJobState;
             }
             const retrievedApiKey = apiKeyData.apiKey;
             console.log(`Gemini API key retrieved successfully for job ${currentJobState.id}.`);
@@ -161,7 +156,7 @@ export class VideoProcessingPipeline {
             });
 
             if (fallbackError) {
-              throw fallbackError; // Let the outer catch handle this
+              throw fallbackError;
             }
 
             // Fallback succeeded
@@ -174,13 +169,10 @@ export class VideoProcessingPipeline {
                 error_message: null 
               })
               .eq('id', currentJobState.id)
-              .select()
+              .select('*, job_config')
               .single();
             if (updateErrorFallback) throw updateErrorFallback;
-            currentJobState = {
-              ...(updatedJobAfterFallback || currentJobState),
-              job_config: (updatedJobAfterFallback || currentJobState).job_config || {}
-            };
+            currentJobState = updatedJobAfterFallback as VideoJob;
 
           } catch (fallbackCatchError: any) {
             console.error(`Fallback AI analysis failed for job ${currentJobState.id}:`, fallbackCatchError.message);
@@ -191,21 +183,17 @@ export class VideoProcessingPipeline {
                 error_message: fallbackCatchError.message 
               })
               .eq('id', currentJobState.id)
-              .select()
+              .select('*, job_config')
               .single();
-            // Even if this update fails, currentJobState will retain the error message from before
              if (updatedJobAfterFallbackFail) {
-               currentJobState = {
-                 ...updatedJobAfterFallbackFail,
-                 job_config: updatedJobAfterFallbackFail.job_config || {}
-               };
+               currentJobState = updatedJobAfterFallbackFail as VideoJob;
              } else {
                 currentJobState.status = 'failed';
                 currentJobState.error_message = fallbackCatchError.message;
              }
           }
         } else {
-          // No fallback applicable (not YouTube or AI not enabled)
+          // No fallback applicable
           console.log(`No fallback AI analysis applicable for job ${currentJobState.id}. Final status: 'failed'.`);
            const { data: updatedJobNoFallback, error: updateErrorNoFallback } = await supabase
             .from('video_jobs')
@@ -214,15 +202,11 @@ export class VideoProcessingPipeline {
               error_message: primaryError.message 
             })
             .eq('id', currentJobState.id)
-            .select()
+            .select('*, job_config')
             .single();
           if (updatedJobNoFallback) {
-            currentJobState = {
-              ...updatedJobNoFallback,
-              job_config: updatedJobNoFallback.job_config || {}
-            };
+            currentJobState = updatedJobNoFallback as VideoJob;
           }
-           // If the update fails, currentJobState already has 'failed' and the primaryError message.
         }
       }
     } else {
@@ -230,20 +214,17 @@ export class VideoProcessingPipeline {
       console.log(`AI analysis not enabled for job ${currentJobState.id}.`);
       const { data: updatedJobNoAI, error: updateErrorNoAI } = await supabase
         .from('video_jobs')
-        .update({ status: 'completed' as const }) // Use valid status
+        .update({ status: 'completed' as const })
         .eq('id', currentJobState.id)
-        .select()
+        .select('*, job_config')
         .single();
       if (updateErrorNoAI) {
          console.error(`Failed to update job status for no AI analysis (job ${currentJobState.id}):`, updateErrorNoAI.message);
       } else if (updatedJobNoAI) {
-        currentJobState = {
-          ...updatedJobNoAI,
-          job_config: updatedJobNoAI.job_config || {}
-        };
+        currentJobState = updatedJobNoAI as VideoJob;
       }
     }
-    return currentJobState as VideoJob;
+    return currentJobState;
   }
 
   // Split video into segments for processing
