@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { YouTubeService } from './youtubeService';
 import { AIProcessingService } from './aiProcessingService';
@@ -62,14 +63,19 @@ export class VideoProcessingPipeline {
       throw new Error('User must be authenticated');
     }
 
-    const { data: job, error: jobError } = await supabase
+    const jobData = {
+      input_video_path: videoPath,
+      video_title: videoInfo.title,
+      video_duration: videoInfo.duration,
+      user_id: user.user.id,
+      status: 'pending' as const
+    };
+
+    // Try to insert with job_config, fallback without it if column doesn't exist
+    let insertResult = await supabase
       .from('video_jobs')
       .insert({
-        input_video_path: videoPath,
-        video_title: videoInfo.title,
-        video_duration: videoInfo.duration,
-        user_id: user.user.id,
-        status: 'pending' as const,
+        ...jobData,
         job_config: {
           source_type: source.type,
           enableAIAnalysis: config.enableAIAnalysis,
@@ -77,27 +83,48 @@ export class VideoProcessingPipeline {
           segmentDuration: config.segmentDuration
         }
       })
-      .select('*, job_config')
+      .select('*')
       .single();
 
-    if (jobError) {
-      throw new Error(`Failed to create job: ${jobError.message}`);
+    if (insertResult.error && insertResult.error.message.includes('job_config')) {
+      // Fallback: insert without job_config if column doesn't exist
+      insertResult = await supabase
+        .from('video_jobs')
+        .insert(jobData)
+        .select('*')
+        .single();
     }
+
+    if (insertResult.error) {
+      throw new Error(`Failed to create job: ${insertResult.error.message}`);
+    }
+
+    let currentJobState: VideoJob = {
+      ...insertResult.data,
+      job_config: insertResult.data.job_config || {
+        source_type: source.type,
+        enableAIAnalysis: config.enableAIAnalysis,
+        enableSegmentation: config.enableSegmentation,
+        segmentDuration: config.segmentDuration
+      }
+    } as VideoJob;
 
     // Immediately update job status to 'processing' after creation
-    const { data: updatedJobInitial, error: updateErrorInitial } = await supabase
+    const updateResult = await supabase
       .from('video_jobs')
       .update({ status: 'processing' as const })
-      .eq('id', job.id)
-      .select('*, job_config')
+      .eq('id', currentJobState.id)
+      .select('*')
       .single();
 
-    if (updateErrorInitial) {
-      console.error(`Failed to update job status to 'processing' for job ${job.id}:`, updateErrorInitial.message);
+    if (updateResult.error) {
+      console.error(`Failed to update job status to 'processing' for job ${currentJobState.id}:`, updateResult.error.message);
+    } else if (updateResult.data) {
+      currentJobState = {
+        ...updateResult.data,
+        job_config: currentJobState.job_config
+      } as VideoJob;
     }
-
-    // Use the updated job object if the update was successful
-    let currentJobState: VideoJob = (updatedJobInitial || job) as VideoJob;
 
     // Step 3: AI Processing with fallback
     if (config.enableAIAnalysis) {
@@ -105,24 +132,39 @@ export class VideoProcessingPipeline {
         console.log(`Attempting primary AI processing for job ${currentJobState.id}...`);
         await AIProcessingService.submitToColabWorker(currentJobState.id);
         
-        const { data: updatedJobAfterPrimaryAttempt, error: updateErrorPrimary } = await supabase
+        const updateAfterPrimary = await supabase
           .from('video_jobs')
           .update({ status: 'processing' as const })
           .eq('id', currentJobState.id)
-          .select('*, job_config')
+          .select('*')
           .single();
-        if (updateErrorPrimary) throw updateErrorPrimary;
-        currentJobState = updatedJobAfterPrimaryAttempt as VideoJob;
+        
+        if (updateAfterPrimary.error) throw updateAfterPrimary.error;
+        if (updateAfterPrimary.data) {
+          currentJobState = {
+            ...updateAfterPrimary.data,
+            job_config: currentJobState.job_config
+          } as VideoJob;
+        }
         console.log(`Job ${currentJobState.id} status updated to 'processing'.`);
 
       } catch (primaryError: any) {
         console.error(`Primary AI processing failed for job ${currentJobState.id}:`, primaryError.message);
-        await supabase.from('video_jobs').update({ 
+        
+        const updateAfterPrimaryFail = await supabase.from('video_jobs').update({ 
           status: 'failed' as const, 
           error_message: primaryError.message 
-        }).eq('id', currentJobState.id);
-        currentJobState.status = 'failed';
-        currentJobState.error_message = primaryError.message;
+        }).eq('id', currentJobState.id).select('*').single();
+        
+        if (updateAfterPrimaryFail.data) {
+          currentJobState = {
+            ...updateAfterPrimaryFail.data,
+            job_config: currentJobState.job_config
+          } as VideoJob;
+        } else {
+          currentJobState.status = 'failed';
+          currentJobState.error_message = primaryError.message;
+        }
 
         // Fallback logic for YouTube videos
         if (source.type === 'youtube' && config.enableAIAnalysis) {
@@ -133,17 +175,22 @@ export class VideoProcessingPipeline {
             if (apiKeyError || !apiKeyData || !apiKeyData.apiKey) {
               const errorMsg = apiKeyError?.message || "Gemini API key not found or function invocation failed.";
               console.error(`Failed to retrieve Gemini API key for fallback analysis (job ${currentJobState.id}):`, errorMsg);
-              const { data: updatedJobAfterFallbackFail, error: updateErrorFallbackFail } = await supabase
+              
+              const updateAfterFallbackFail = await supabase
                 .from('video_jobs')
                 .update({ 
                   status: 'failed' as const, 
                   error_message: errorMsg 
                 })
                 .eq('id', currentJobState.id)
-                .select('*, job_config')
+                .select('*')
                 .single();
-              if (updatedJobAfterFallbackFail) {
-                currentJobState = updatedJobAfterFallbackFail as VideoJob;
+              
+              if (updateAfterFallbackFail.data) {
+                currentJobState = {
+                  ...updateAfterFallbackFail.data,
+                  job_config: currentJobState.job_config
+                } as VideoJob;
               }
               return currentJobState;
             }
@@ -161,7 +208,7 @@ export class VideoProcessingPipeline {
 
             // Fallback succeeded
             console.log(`Fallback AI analysis successful for job ${currentJobState.id}.`);
-            const { data: updatedJobAfterFallback, error: updateErrorFallback } = await supabase
+            const updateAfterFallback = await supabase
               .from('video_jobs')
               .update({ 
                 status: 'completed' as const, 
@@ -169,59 +216,77 @@ export class VideoProcessingPipeline {
                 error_message: null 
               })
               .eq('id', currentJobState.id)
-              .select('*, job_config')
+              .select('*')
               .single();
-            if (updateErrorFallback) throw updateErrorFallback;
-            currentJobState = updatedJobAfterFallback as VideoJob;
+            
+            if (updateAfterFallback.error) throw updateAfterFallback.error;
+            if (updateAfterFallback.data) {
+              currentJobState = {
+                ...updateAfterFallback.data,
+                job_config: currentJobState.job_config
+              } as VideoJob;
+            }
 
           } catch (fallbackCatchError: any) {
             console.error(`Fallback AI analysis failed for job ${currentJobState.id}:`, fallbackCatchError.message);
-            const { data: updatedJobAfterFallbackFail, error: updateErrorFallbackFail } = await supabase
+            const updateAfterFallbackCatch = await supabase
               .from('video_jobs')
               .update({ 
                 status: 'failed' as const, 
                 error_message: fallbackCatchError.message 
               })
               .eq('id', currentJobState.id)
-              .select('*, job_config')
+              .select('*')
               .single();
-             if (updatedJobAfterFallbackFail) {
-               currentJobState = updatedJobAfterFallbackFail as VideoJob;
-             } else {
-                currentJobState.status = 'failed';
-                currentJobState.error_message = fallbackCatchError.message;
-             }
+            
+            if (updateAfterFallbackCatch.data) {
+              currentJobState = {
+                ...updateAfterFallbackCatch.data,
+                job_config: currentJobState.job_config
+              } as VideoJob;
+            } else {
+              currentJobState.status = 'failed';
+              currentJobState.error_message = fallbackCatchError.message;
+            }
           }
         } else {
           // No fallback applicable
           console.log(`No fallback AI analysis applicable for job ${currentJobState.id}. Final status: 'failed'.`);
-           const { data: updatedJobNoFallback, error: updateErrorNoFallback } = await supabase
+          const updateNoFallback = await supabase
             .from('video_jobs')
             .update({ 
               status: 'failed' as const, 
               error_message: primaryError.message 
             })
             .eq('id', currentJobState.id)
-            .select('*, job_config')
+            .select('*')
             .single();
-          if (updatedJobNoFallback) {
-            currentJobState = updatedJobNoFallback as VideoJob;
+          
+          if (updateNoFallback.data) {
+            currentJobState = {
+              ...updateNoFallback.data,
+              job_config: currentJobState.job_config
+            } as VideoJob;
           }
         }
       }
     } else {
       // AI analysis not enabled, update status accordingly
       console.log(`AI analysis not enabled for job ${currentJobState.id}.`);
-      const { data: updatedJobNoAI, error: updateErrorNoAI } = await supabase
+      const updateNoAI = await supabase
         .from('video_jobs')
         .update({ status: 'completed' as const })
         .eq('id', currentJobState.id)
-        .select('*, job_config')
+        .select('*')
         .single();
-      if (updateErrorNoAI) {
-         console.error(`Failed to update job status for no AI analysis (job ${currentJobState.id}):`, updateErrorNoAI.message);
-      } else if (updatedJobNoAI) {
-        currentJobState = updatedJobNoAI as VideoJob;
+      
+      if (updateNoAI.error) {
+        console.error(`Failed to update job status for no AI analysis (job ${currentJobState.id}):`, updateNoAI.error.message);
+      } else if (updateNoAI.data) {
+        currentJobState = {
+          ...updateNoAI.data,
+          job_config: currentJobState.job_config
+        } as VideoJob;
       }
     }
     return currentJobState;

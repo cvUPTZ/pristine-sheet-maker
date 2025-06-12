@@ -1,4 +1,3 @@
-
 // src/pages/VideoAnalysis.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { VideoJobMonitor } from '@/components/video/VideoJobMonitor';
@@ -77,20 +76,37 @@ const VideoAnalysis: React.FC = () => {
         status: 'pending' as const, // Use const assertion for proper typing
         input_video_path: videoUrlPrompt,
         video_title: jobTitle,
-        job_config: { source_type: 'youtube', original_url: videoUrlPrompt }, // Add job_config
         progress: 0,
         // video_duration might be set later by a backend process
       };
 
-      const { data: newJob, error: insertError } = await supabase
+      // Try to insert with job_config, fallback without it if column doesn't exist
+      let insertResult = await supabase
         .from('video_jobs')
-        .insert(newJobData)
-        .select('*, job_config')
+        .insert({
+          ...newJobData,
+          job_config: { source_type: 'youtube', original_url: videoUrlPrompt }
+        })
+        .select('*')
         .single();
 
-      if (insertError) throw insertError;
+      if (insertResult.error && insertResult.error.message.includes('job_config')) {
+        // Fallback: insert without job_config if column doesn't exist
+        insertResult = await supabase
+          .from('video_jobs')
+          .insert(newJobData)
+          .select('*')
+          .single();
+      }
 
-      if (newJob) {
+      if (insertResult.error) throw insertResult.error;
+
+      if (insertResult.data) {
+        const newJob = {
+          ...insertResult.data,
+          job_config: insertResult.data.job_config || { source_type: 'youtube', original_url: videoUrlPrompt }
+        } as VideoJob;
+
         toast.success(`Job created successfully for ${newJob.video_title || 'Unknown Title'}`);
         // Add to list and poll for status
         const processedNewJob: PageVideoJob = { 

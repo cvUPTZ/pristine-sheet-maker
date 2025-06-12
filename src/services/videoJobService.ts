@@ -37,17 +37,40 @@ export class VideoJobService {
   }
 
   static async getJob(jobId: string): Promise<VideoJob | null> {
-    const { data, error } = await supabase
+    // First try with job_config, fallback without it if column doesn't exist
+    let { data, error } = await supabase
       .from('video_jobs').select('*, job_config').eq('id', jobId).single();
+    
+    if (error && error.message.includes('job_config')) {
+      // Fallback: select without job_config if column doesn't exist
+      const fallback = await supabase
+        .from('video_jobs').select('*').eq('id', jobId).single();
+      data = fallback.data;
+      error = fallback.error;
+    }
+    
     if (error && error.code !== 'PGRST116') throw new Error(`Failed to fetch job: ${error.message}`);
     return data as VideoJob | null;
   }
 
   static async getUserJobs(): Promise<VideoJob[]> {
-    const { data, error } = await supabase
+    // First try with job_config, fallback without it if column doesn't exist
+    let { data, error } = await supabase
       .from('video_jobs').select('*, job_config').order('created_at', { ascending: false });
+    
+    if (error && error.message.includes('job_config')) {
+      // Fallback: select without job_config if column doesn't exist
+      const fallback = await supabase
+        .from('video_jobs').select('*').order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+    
     if (error) throw new Error(`Failed to fetch jobs: ${error.message}`);
-    return data as VideoJob[];
+    return (data || []).map(job => ({
+      ...job,
+      job_config: job.job_config || {} // Ensure job_config exists
+    })) as VideoJob[];
   }
 
   static async pollJobStatus(jobId: string, onUpdate: (job: VideoJob) => void, intervalMs = 3000): Promise<() => void> {
