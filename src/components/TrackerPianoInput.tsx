@@ -669,46 +669,48 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               </div>
             ) : (
               <div>
-                <h3 className="text-xl font-semibold mb-4 text-center text-purple-700 dark:text-purple-300"> {/* Reduced mb-6 to mb-4 */}
+                <h3 className="text-xl font-semibold mb-3 text-center text-purple-700 dark:text-purple-300"> {/* mb-4 to mb-3 */}
                   Record Events by Player
                 </h3>
-                <div className="space-y-4"> {/* Reduced space-y-6 to space-y-4 */}
-                  {assignedPlayers && [...assignedPlayers.home, ...assignedPlayers.away].map(player => (
+                {(() => {
+                  const allPlayersList = assignedPlayers ? [...assignedPlayers.home, ...assignedPlayers.away] : [];
+                  const playerSections = allPlayersList.map(player => (
                     <div
                       key={player.id}
-                      className={`p-3 border rounded-lg shadow-md transition-all duration-300 ease-in-out ${ /* Reduced p-4 to p-3 */
+                      className={`border rounded-lg transition-all duration-300 ease-in-out ${ /* base classes for player section */
+                        totalAssignedPlayers === 2 ? 'flex-1 min-w-0 p-2' : 'p-2' /* p-3 to p-2 */
+                      } ${
                         selectedPlayer?.id === player.id
-                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-2 ring-green-500'
-                          : 'bg-white dark:bg-slate-800 hover:shadow-lg'
+                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' // Reduced ring, added shadow-sm
+                          : 'bg-white dark:bg-slate-800 hover:shadow-md'
                       }`}
                     >
                       <CardTitle
-                        className={`mb-3 cursor-pointer flex items-center justify-between p-2 rounded-md ${ /* Reduced mb-4 to mb-3, p-3 to p-2 */
+                        className={`mb-1.5 cursor-pointer flex items-center justify-between px-2 py-1 rounded ${ /* mb-3 to mb-1.5, p-2 to px-2 py-1, rounded-md to rounded */
                           selectedPlayer?.id === player.id
                             ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800'
-                            : 'text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                         onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
                       >
-                        <div>
-                          {player.jersey_number && <span className="font-bold text-sm">#{player.jersey_number} </span>} {/* Added text-sm for jersey */}
-                          <span className="text-base">{player.name}</span> {/* Ensured name is base size */}
-                          <span className={`text-xs ml-2 px-1.5 py-0.5 rounded-full ${ /* Adjusted padding for team badge */
+                        <div className="truncate"> {/* Added truncate for player name */}
+                          {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>} {/* text-sm to text-xs, font-bold to font-semibold */}
+                          <span className="text-sm font-medium">{player.name}</span> {/* text-base to text-sm, added font-medium */}
+                          <span className={`text-xs ml-1.5 px-1 py-0 rounded-full ${ /* ml-2 to ml-1.5, px-1.5 to px-1 */
                             assignedPlayers.home.includes(player)
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
-                              : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200'
+                              : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'
                           }`}>
-                            {assignedPlayers.home.includes(player) ? 'Home' : 'Away'}
+                            {assignedPlayers.home.includes(player) ? 'H' : 'A'} {/* Home/Away to H/A */}
                           </span>
                         </div>
                         {selectedPlayer?.id === player.id && (
-                          <span className="text-xs font-semibold px-1.5 py-0.5 bg-green-500 text-white rounded-full shadow">SELECTED</span> /* Adjusted padding */
+                          <span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span> {/* Adjusted padding, text, shadow */}
                         )}
                       </CardTitle>
 
-                      {/* Event types are now always displayed for each player in the multi-player view */}
                       <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 justify-items-center pt-2"> {/* Reduced gap-4 to gap-3, pt-3 to pt-2, added md:grid-cols-4 */}
+                        <div className={`grid ${totalAssignedPlayers === 2 ? 'grid-cols-3 gap-1.5' : 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5'} justify-items-center pt-1`}> {/* gap-3 to gap-1.5, pt-2 to pt-1, more cols */}
                           {assignedEventTypes.map((eventType, index) => (
                             <motion.div
                               key={`${player.id}-${eventType.key}`}
@@ -734,25 +736,22 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                                   // For now, only disable if isRecording. The handleEventTypeClick will set the player.
                                   disabled={isRecording}
                                   onClick={() => {
-                                    // Explicitly select the player for whom this event button is rendered
                                     const teamForThisPlayer = assignedPlayers.home.includes(player) ? 'home' : 'away';
                                     handlePlayerSelect(player, teamForThisPlayer);
-                                    // Then call the event click handler
                                     handleEventTypeClick(eventType);
                                   }}
                                 />
-                                <motion.div
-                                  className="mt-1 px-1.5 py-0.5 bg-white dark:bg-gray-700 rounded-full shadow-sm border border-purple-100 dark:border-purple-600 text-center" /* Reduced mt, px, py, shadow */
-                                  whileHover={{ scale: 1.05 }}
+                                <div /* Using div instead of motion.div for simpler label */
+                                  className="mt-0.5 text-center" // Reduced mt, removed padding, shadow, border from label wrapper
                                 >
-                                  <span className="text-xs font-medium text-purple-600 dark:text-purple-200 block truncate w-full leading-tight"> {/* Added leading-tight */}
+                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}> {/* Custom smaller font, adjusted color */}
                                     {eventType.label}
                                   </span>
-                                </motion.div>
+                                </div>
                               </div>
                               {recordingEventType === eventType.key && selectedPlayer?.id === player.id && (
                                 <motion.div
-                                  className="absolute -inset-2 rounded-full border-2 border-green-500" /* Reduced inset */
+                                  className="absolute -inset-1 rounded-full border border-green-600" /* Reduced inset, thinner border */
                                   animate={{
                                     scale: [1, 1.15, 1],
                                     opacity: [0.6, 0.9, 0.6]
@@ -765,8 +764,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                         </div>
                       </motion.div>
                     </div>
-                  ))}
-                </div>
+                  ));
+
+                  if (totalAssignedPlayers === 2) {
+                    return <div className="flex flex-row gap-2 items-start">{playerSections}</div>;
+                  } else {
+                    return <div className="space-y-2">{playerSections}</div>; // Reduced space-y-4 to space-y-2
+                  }
+                })()}
               </div>
             )}
 
