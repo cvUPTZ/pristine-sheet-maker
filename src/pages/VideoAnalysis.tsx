@@ -1,3 +1,4 @@
+
 // src/pages/VideoAnalysis.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { VideoJobMonitor } from '@/components/video/VideoJobMonitor';
@@ -70,7 +71,7 @@ const VideoAnalysis: React.FC = () => {
       // This emulates what useVideoJobs hook might do for a 'youtube' source type
       const newJobData = {
         user_id: user.id,
-        status: 'pending', // Initial status
+        status: 'pending' as const, // Use const assertion for proper typing
         input_video_path: videoUrlPrompt,
         video_title: jobTitle,
         job_config: { source_type: 'youtube', original_url: videoUrlPrompt }, // Add job_config
@@ -89,7 +90,11 @@ const VideoAnalysis: React.FC = () => {
       if (newJob) {
         toast.success(`Job created successfully for ${newJob.video_title}`);
         // Add to list and poll for status
-        const processedNewJob: PageVideoJob = { ...newJob, videoUrl: newJob.input_video_path };
+        const processedNewJob: PageVideoJob = { 
+          ...newJob, 
+          videoUrl: newJob.input_video_path,
+          job_config: newJob.job_config || {} // Ensure job_config is present
+        };
         setJobs(prevJobs => [processedNewJob, ...prevJobs]);
         // Start polling for this new job
         VideoJobService.pollJobStatus(newJob.id, handleJobUpdate);

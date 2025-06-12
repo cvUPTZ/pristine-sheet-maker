@@ -1,3 +1,4 @@
+
 // src/services/videoJobService.ts
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,7 +14,7 @@ export interface VideoJob {
   error_message?: string;
   progress: number;
   user_id: string;
-  job_config: any;
+  job_config?: any; // Make job_config optional to handle missing cases
 }
 
 /**
