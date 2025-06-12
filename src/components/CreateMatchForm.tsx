@@ -37,8 +37,9 @@ interface TrackerAssignment {
 interface Player {
   id: number;
   name: string;
-  number: number;
+  number: number | null; // Allow null for unassigned numbers
   position: string;
+  isSubstitute: boolean; // Flag to identify subs
 }
 
 type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2' | '3-4-3';
@@ -53,6 +54,24 @@ const EVENT_TYPE_CATEGORIES = [
 ];
 
 const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2', '3-4-3'];
+const TOTAL_PLAYERS = 23;
+const STARTERS_COUNT = 11;
+const SUBS_COUNT = TOTAL_PLAYERS - STARTERS_COUNT;
+
+const initializeBlankPlayers = (teamIdentifier: string): Player[] => {
+  const players: Player[] = [];
+  const timestamp = Date.now();
+  for (let i = 0; i < TOTAL_PLAYERS; i++) {
+    players.push({
+      id: timestamp + i + (teamIdentifier === 'home' ? 1000 : 2000), 
+      name: '',
+      number: null,
+      position: '',
+      isSubstitute: i >= STARTERS_COUNT,
+    });
+  }
+  return players;
+};
 
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmit }) => {
   const { toast } = useToast();
@@ -60,8 +79,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const [isEditMode, setIsEditMode] = useState(!!matchId);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
   const [trackerAssignments, setTrackerAssignments] = useState<TrackerAssignment[]>([]);
-  const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
-  const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
+  
+  const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>(() => initializeBlankPlayers('home'));
+  const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>(() => initializeBlankPlayers('away'));
+  
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [selectedTeamForAssignment, setSelectedTeamForAssignment] = useState<{[key: number]: 'home' | 'away' | 'both'}>({});
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -86,18 +107,22 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     fetchTrackers();
     if (matchId) {
       fetchMatchData(matchId);
+    } else {
+        // Apply default formation positions on initial load for a new match
+        applyPositionsToStarters('home', formData.homeTeamFormation);
+        applyPositionsToStarters('away', formData.awayTeamFormation);
     }
   }, [matchId]);
 
   useEffect(() => {
-    generatePlayersForFormation('home', formData.homeTeamFormation);
+    applyPositionsToStarters('home', formData.homeTeamFormation);
   }, [formData.homeTeamFormation]);
 
   useEffect(() => {
-    generatePlayersForFormation('away', formData.awayTeamFormation);
+    applyPositionsToStarters('away', formData.awayTeamFormation);
   }, [formData.awayTeamFormation]);
 
-  const generatePlayersForFormation = (team: 'home' | 'away', formation: Formation) => {
+  const applyPositionsToStarters = (team: 'home' | 'away', formation: Formation) => {
     const positionMap: Record<Formation, string[]> = {
       '4-4-2': ['Goalkeeper', 'Defender', 'Defender', 'Defender', 'Defender', 'Midfielder', 'Midfielder', 'Midfielder', 'Midfielder', 'Forward', 'Forward'],
       '4-3-3': ['Goalkeeper', 'Defender', 'Defender', 'Defender', 'Defender', 'Midfielder', 'Midfielder', 'Midfielder', 'Forward', 'Forward', 'Forward'],
@@ -108,19 +133,20 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     };
 
     const positions = positionMap[formation];
-    const timestamp = Date.now();
-    const teamMultiplier = team === 'home' ? 1 : 2;
-    const players: Player[] = positions.map((position, index) => ({
-      id: timestamp + (teamMultiplier * 1000000) + index,
-      name: '',
-      number: index + 1,
-      position
-    }));
-
+    const updatePlayers = (prevPlayers: Player[]) => {
+      const newPlayers = [...prevPlayers];
+      for (let i = 0; i < STARTERS_COUNT; i++) {
+        if (newPlayers[i] && !newPlayers[i].isSubstitute) {
+          newPlayers[i].position = positions[i] || 'Starter';
+        }
+      }
+      return newPlayers;
+    };
+    
     if (team === 'home') {
-      setHomeTeamPlayers(players);
+      setHomeTeamPlayers(updatePlayers);
     } else {
-      setAwayTeamPlayers(players);
+      setAwayTeamPlayers(updatePlayers);
     }
   };
 
@@ -146,10 +172,39 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      const homePlayers = Array.isArray(matchData.home_team_players) ? matchData.home_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' })) : [];
-      const awayPlayers = Array.isArray(matchData.away_team_players) ? matchData.away_team_players.map((p: any) => ({ id: p.id || Date.now() + Math.random(), name: p.player_name || p.name || '', number: p.jersey_number || p.number || 0, position: p.position || '' })) : [];
-      setHomeTeamPlayers(homePlayers);
-      setAwayTeamPlayers(awayPlayers);
+      const parseAndPadPlayers = (savedPlayers: any[] | null, teamIdentifier: string): Player[] => {
+          const fullSquad = initializeBlankPlayers(teamIdentifier);
+          const loaded = Array.isArray(savedPlayers) ? savedPlayers.map((p: any) => ({ 
+              id: p.id || Date.now() + Math.random(), 
+              name: p.player_name || p.name || '', 
+              number: p.jersey_number !== undefined ? p.jersey_number : (p.number !== undefined ? p.number : null), 
+              position: p.position || '',
+              isSubstitute: p.is_substitute || false
+          })) : [];
+          
+          const loadedStarters = loaded.filter(p => !p.isSubstitute);
+          const loadedSubs = loaded.filter(p => p.isSubstitute);
+
+          // Overwrite blank starters with loaded data
+          loadedStarters.forEach((player, i) => {
+            if(i < STARTERS_COUNT) {
+              fullSquad[i] = { ...fullSquad[i], ...player };
+            }
+          });
+
+          // Overwrite blank subs with loaded data
+          loadedSubs.forEach((player, i) => {
+            const subIndex = STARTERS_COUNT + i;
+            if(subIndex < TOTAL_PLAYERS) {
+              fullSquad[subIndex] = { ...fullSquad[subIndex], ...player };
+            }
+          });
+          
+          return fullSquad;
+      };
+
+      setHomeTeamPlayers(parseAndPadPlayers(matchData.home_team_players, 'home'));
+      setAwayTeamPlayers(parseAndPadPlayers(matchData.away_team_players, 'away'));
 
       const assignments: TrackerAssignment[] = [];
       if (Array.isArray(matchData.match_tracker_assignments)) {
@@ -192,8 +247,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     e.preventDefault();
     setLoading(true);
     try {
-      const homePlayersJson = homeTeamPlayers.map(player => ({ id: player.id, name: player.name || '', player_name: player.name || '', number: player.number, jersey_number: player.number, position: player.position }));
-      const awayPlayersJson = awayTeamPlayers.map(player => ({ id: player.id, name: player.name || '', player_name: player.name || '', number: player.number, jersey_number: player.number, position: player.position }));
+      const toPlayerJson = (player: Player) => ({ 
+        id: player.id, 
+        name: player.name || '', 
+        player_name: player.name || '', 
+        number: player.number, 
+        jersey_number: player.number, 
+        position: player.position,
+        is_substitute: player.isSubstitute
+      });
+      const homePlayersJson = homeTeamPlayers.map(toPlayerJson);
+      const awayPlayersJson = awayTeamPlayers.map(toPlayerJson);
+
       const matchData = {
         name: formData.name || `${formData.homeTeamName} vs ${formData.awayTeamName}`,
         description: formData.description,
@@ -249,7 +314,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const addTrackerAssignment = () => setTrackerAssignments([...trackerAssignments, { tracker_user_id: '', assigned_event_types: [], player_ids: [] }]);
   const removeTrackerAssignment = (index: number) => setTrackerAssignments(trackerAssignments.filter((_, i) => i !== index));
   const updateTrackerAssignment = (index: number, field: keyof TrackerAssignment, value: any) => { const u = [...trackerAssignments]; u[index] = { ...u[index], [field]: value }; setTrackerAssignments(u); };
-  const updatePlayer = (team: 'home' | 'away', index: number, field: keyof Player, value: any) => { if (team === 'home') { const u = [...homeTeamPlayers]; u[index] = { ...u[index], [field]: value }; setHomeTeamPlayers(u); } else { const u = [...awayTeamPlayers]; u[index] = { ...u[index], [field]: value }; setAwayTeamPlayers(u); } };
+  
+  const updatePlayer = (team: 'home' | 'away', playerId: number, field: keyof Player, value: any) => {
+      const updater = (prevPlayers: Player[]) => {
+          return prevPlayers.map(p => p.id === playerId ? { ...p, [field]: value } : p);
+      };
+      if (team === 'home') {
+          setHomeTeamPlayers(updater);
+      } else {
+          setAwayTeamPlayers(updater);
+      }
+  };
+
   const toggleCategory = (categoryKey: string) => setOpenCategories(p => p.includes(categoryKey) ? p.filter(k => k !== categoryKey) : [...p, categoryKey]);
   const handleEventTypeChange = (key: string, checked: boolean, index: number) => { const a = trackerAssignments[index]; updateTrackerAssignment(index, 'assigned_event_types', checked ? [...a.assigned_event_types, key] : a.assigned_event_types.filter(k => k !== key)); };
   const handleCategoryToggle = (category: any, checked: boolean, index: number) => { const keys = category.events.map((e: any) => e.key); const a = trackerAssignments[index]; updateTrackerAssignment(index, 'assigned_event_types', checked ? [...new Set([...a.assigned_event_types, ...keys])] : a.assigned_event_types.filter((k: string) => !keys.includes(k))); };
@@ -285,48 +361,47 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 return;
             }
 
-            const updateTeamPlayers = (currentPlayers: Player[], aiPlayers: AIPlayerInfo[]): { updatedPlayers: Player[]; wasUpdated: boolean } => {
-                let wasUpdated = false;
-                const updatedPlayersList = [...currentPlayers];
-                const aiPlayerMap = new Map<number, AIPlayerInfo>();
+            const aiStarters = aiResponse.players.filter(p => !p.is_substitute);
+            const aiSubs = aiResponse.players.filter(p => p.is_substitute);
 
-                aiPlayers.forEach(p => {
-                    if (p.jersey_number) aiPlayerMap.set(p.jersey_number, p);
-                });
-
-                updatedPlayersList.forEach((player, index) => {
-                    if (aiPlayerMap.has(player.number)) {
-                        const aiMatch = aiPlayerMap.get(player.number)!;
-                        if (player.name !== aiMatch.player_name && aiMatch.player_name) {
-                            updatedPlayersList[index] = { ...player, name: aiMatch.player_name };
-                            wasUpdated = true;
-                        }
+            const updateTeamPlayers = (currentPlayers: Player[]): Player[] => {
+                const newPlayers = [...currentPlayers];
+    
+                // Populate starters from AI data into the first 11 slots
+                aiStarters.forEach((aiPlayer, index) => {
+                    if (index < STARTERS_COUNT) {
+                        newPlayers[index] = {
+                            ...newPlayers[index],
+                            name: aiPlayer.player_name || newPlayers[index].name,
+                            number: aiPlayer.jersey_number !== null ? aiPlayer.jersey_number : newPlayers[index].number,
+                        };
                     }
                 });
-
-                return { updatedPlayers: updatedPlayersList, wasUpdated };
+                
+                // Populate substitutes from AI data into the remaining slots
+                aiSubs.forEach((aiPlayer, index) => {
+                    const playerIndex = STARTERS_COUNT + index;
+                    if (playerIndex < TOTAL_PLAYERS) {
+                        newPlayers[playerIndex] = {
+                            ...newPlayers[playerIndex],
+                            name: aiPlayer.player_name || newPlayers[playerIndex].name,
+                            number: aiPlayer.jersey_number !== null ? aiPlayer.jersey_number : newPlayers[playerIndex].number,
+                        };
+                    }
+                });
+                return newPlayers;
             };
 
-            const teamToUpdate = team === 'home' ? homeTeamPlayers : awayTeamPlayers;
-            const { updatedPlayers, wasUpdated } = updateTeamPlayers(teamToUpdate, aiResponse.players);
-
-            if (wasUpdated) {
-                if (team === 'home') {
-                    setHomeTeamPlayers(updatedPlayers);
-                } else {
-                    setAwayTeamPlayers(updatedPlayers);
-                }
-                toast({
-                    title: "Processing Successful",
-                    description: `The ${team === 'home' ? 'Home' : 'Away'} Team player list has been updated.`,
-                });
+            if (team === 'home') {
+                setHomeTeamPlayers(current => updateTeamPlayers(current));
             } else {
-                toast({
-                    title: "No Changes Detected",
-                    description: `The AI did not find new player names to update for the ${team === 'home' ? 'Home' : 'Away'} Team.`,
-                    variant: "default",
-                });
+                setAwayTeamPlayers(current => updateTeamPlayers(current));
             }
+
+            toast({
+                title: "Processing Successful",
+                description: `The ${team === 'home' ? 'Home' : 'Away'} Team player list has been populated.`,
+            });
 
         } catch (error: any) {
             console.error("Error processing image:", error);
@@ -342,6 +417,37 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         setIsProcessingImage(false);
     };
   };
+  
+  const renderPlayerInputs = (players: Player[], team: 'home' | 'away') => (
+    <div className="space-y-2">
+      <div className="grid grid-cols-4 gap-2 items-center text-sm font-medium px-2 text-muted-foreground">
+        <div className="col-span-1">Number</div>
+        <div className="col-span-2">Name</div>
+        <div className="col-span-1">Position</div>
+      </div>
+      {players.map((p) => (
+        <div key={p.id} className="grid grid-cols-4 gap-2 items-center text-sm">
+          <Input
+            type="number"
+            value={p.number ?? ''}
+            onChange={(e) => updatePlayer(team, p.id, 'number', e.target.value ? parseInt(e.target.value) : null)}
+            className="h-8 w-16"
+            min="1" max="99"
+            placeholder="#"
+          />
+          <Input
+            value={p.name}
+            onChange={(e) => updatePlayer(team, p.id, 'name', e.target.value)}
+            placeholder="Player name"
+            className="h-8 col-span-2"
+          />
+          <div className="text-xs text-muted-foreground truncate" title={p.position}>
+            {p.position || (p.isSubstitute ? 'Substitute' : 'Starter')}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -374,7 +480,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           </TabsContent>
           <TabsContent value="teams" className="space-y-4">
             <Card className="mb-6">
-              <CardHeader><CardTitle>Upload Formation Image</CardTitle><p className="text-sm text-muted-foreground">Select an image containing the lineup for a single team. Then, choose whether to apply it to the Home or Away team.</p></CardHeader>
+              <CardHeader><CardTitle>Upload Formation Image</CardTitle><p className="text-sm text-muted-foreground">Select an image containing the lineup for a single team. The AI will populate names and numbers for starters and subs.</p></CardHeader>
               <CardContent className="space-y-4">
                 <div><Label htmlFor="formation-image-upload">Team Lineup Image</Label><Input id="formation-image-upload" type="file" accept="image/*" onChange={handleImageFileChange} className="mt-1"/>{selectedImageFile && (<p className="text-sm text-muted-foreground mt-1">Selected: {selectedImageFile.name}</p>)}</div>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -384,8 +490,58 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               </CardContent>
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card><CardHeader><CardTitle>Home Team</CardTitle><div><Label>Formation</Label><Select value={formData.homeTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, homeTeamFormation: value })}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{FORMATIONS.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}</SelectContent></Select></div></CardHeader><CardContent className="space-y-2">{homeTeamPlayers.map((p, i) => (<div key={p.id} className="grid grid-cols-3 gap-2 items-center text-sm"><Input type="number" value={p.number} onChange={(e) => updatePlayer('home', i, 'number', parseInt(e.target.value) || 1)} className="h-8" min="1" max="99"/><Input value={p.name} onChange={(e) => updatePlayer('home', i, 'name', e.target.value)} placeholder="Player name" className="h-8"/><div className="text-xs text-muted-foreground">{p.position}</div></div>))}</CardContent></Card>
-              <Card><CardHeader><CardTitle>Away Team</CardTitle><div><Label>Formation</Label><Select value={formData.awayTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, awayTeamFormation: value })}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{FORMATIONS.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}</SelectContent></Select></div></CardHeader><CardContent className="space-y-2">{awayTeamPlayers.map((p, i) => (<div key={p.id} className="grid grid-cols-3 gap-2 items-center text-sm"><Input type="number" value={p.number} onChange={(e) => updatePlayer('away', i, 'number', parseInt(e.target.value) || 1)} className="h-8" min="1" max="99"/><Input value={p.name} onChange={(e) => updatePlayer('away', i, 'name', e.target.value)} placeholder="Player name" className="h-8"/><div className="text-xs text-muted-foreground">{p.position}</div></div>))}</CardContent></Card>
+              <Card>
+                <CardHeader>
+                    <CardTitle>Home Team</CardTitle>
+                    <div>
+                        <Label>Formation</Label>
+                        <Select value={formData.homeTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, homeTeamFormation: value })}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>{FORMATIONS.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}</SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="starters" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="starters">Starters ({STARTERS_COUNT})</TabsTrigger>
+                            <TabsTrigger value="subs">Substitutes ({SUBS_COUNT})</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="starters" className="pt-4">
+                            {renderPlayerInputs(homeTeamPlayers.filter(p => !p.isSubstitute), 'home')}
+                        </TabsContent>
+                        <TabsContent value="subs" className="pt-4">
+                            {renderPlayerInputs(homeTeamPlayers.filter(p => p.isSubstitute), 'home')}
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                    <CardTitle>Away Team</CardTitle>
+                    <div>
+                        <Label>Formation</Label>
+                        <Select value={formData.awayTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, awayTeamFormation: value })}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>{FORMATIONS.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}</SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="starters" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="starters">Starters ({STARTERS_COUNT})</TabsTrigger>
+                            <TabsTrigger value="subs">Substitutes ({SUBS_COUNT})</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="starters" className="pt-4">
+                            {renderPlayerInputs(awayTeamPlayers.filter(p => !p.isSubstitute), 'away')}
+                        </TabsContent>
+                        <TabsContent value="subs" className="pt-4">
+                            {renderPlayerInputs(awayTeamPlayers.filter(p => p.isSubstitute), 'away')}
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
           <TabsContent value="trackers" className="space-y-4">
@@ -400,13 +556,13 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                       {EVENT_TYPE_CATEGORIES.map((category) => {
                         const state = getCategoryState(category, index);
                         const isOpen = openCategories.includes(`${category.key}-${index}`);
-                        return (<div key={category.key} className="border rounded-lg overflow-hidden"><Collapsible open={isOpen} onOpenChange={() => toggleCategory(`${category.key}-${index}`)}><CollapsibleTrigger className="w-full"><div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"><div className="flex items-center gap-3"><div className="flex items-center gap-2"><Checkbox checked={state === 'all'} ref={(el) => {if(el&&state==='some')(el as any).indeterminate=true;}} onCheckedChange={(c) => handleCategoryToggle(category, !!c, index)} onClick={(e)=>e.stopPropagation()}/><div className="w-3 h-3 rounded-full" style={{backgroundColor: category.color}}/></div><div className="text-left"><h4 className="font-medium">{category.label}</h4><p className="text-sm text-muted-foreground">{category.events.length} event types</p></div></div><div className="flex items-center gap-2"><Badge variant="secondary">{category.events.filter(e => assignment.assigned_event_types.includes(e.key)).length}/{category.events.length}</Badge>{isOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}</div></div></CollapsibleTrigger><CollapsibleContent><div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">{category.events.map((e) => (<div key={e.key} className="flex items-center space-x-2"><Checkbox id={`event-${index}-${e.key}`} checked={assignment.assigned_event_types.includes(e.key)} onCheckedChange={(c) => handleEventTypeChange(e.key, !!c, index)}/><Label htmlFor={`event-${index}-${e.key}`} className="text-sm leading-none">{e.label}</Label></div>))}</div></CollapsibleContent></Collapsible></div>);
+                        return (<div key={category.key} className="border rounded-lg overflow-hidden"><Collapsible open={isOpen} onOpenChange={() => toggleCategory(`${category.key}-${index}`)}><CollapsibleTrigger className="w-full"><div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"><div className="flex items-center gap-3"><div className="flex items-center gap-2"><Checkbox checked={state === 'all'} ref={(el) => {if(el&&state==='some')(el as any).indeterminate=true;}} onCheckedChange={(c) => handleCategoryToggle(category, !!c, index)} onClick={(e)=>e.stopPropagation()}/><div className="w-3 h-3 rounded-full" style={{backgroundColor: category.color}}/></div><div className="text-left"><h4 className="font-medium">{category.label}</h4><p className="text-sm text-muted-foreground">{category.events.length} event types</p></div></div><div className="flex items-center gap-2"><Badge variant="secondary">{assignment.assigned_event_types.filter(k => category.events.some(e => e.key === k)).length}/{category.events.length}</Badge>{isOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}</div></div></CollapsibleTrigger><CollapsibleContent><div className="border-t bg-muted/20 p-4 grid grid-cols-2 gap-3">{category.events.map((e) => (<div key={e.key} className="flex items-center space-x-2"><Checkbox id={`event-${index}-${e.key}`} checked={assignment.assigned_event_types.includes(e.key)} onCheckedChange={(c) => handleEventTypeChange(e.key, !!c, index)}/><Label htmlFor={`event-${index}-${e.key}`} className="text-sm leading-none">{e.label}</Label></div>))}</div></CollapsibleContent></Collapsible></div>);
                       })}
                     </div>
                     <div><Label>Assigned Players</Label><div className="mb-3"><Label className="text-sm text-muted-foreground">Filter by Team</Label><Select value={selectedTeamForAssignment[index]||'both'} onValueChange={(v:'home'|'away'|'both') => handleTeamFilterChange(index,v)}><SelectTrigger className="w-48"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="both">Both Teams</SelectItem><SelectItem value="home">Home Team Only</SelectItem><SelectItem value="away">Away Team Only</SelectItem></SelectContent></Select></div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        {(!selectedTeamForAssignment[index] || ['both', 'home'].includes(selectedTeamForAssignment[index])) && (<div><Label className="text-sm text-muted-foreground">Home Team</Label><div className="space-y-1">{getFilteredPlayers(index, 'home').map((p) => (<div key={`home-${p.id}-assign-${index}`} className="flex items-center space-x-2"><Checkbox id={`home-p-${index}-${p.id}`} checked={assignment.player_ids.includes(p.id)} onCheckedChange={(c) => {const n = c ? [...assignment.player_ids, p.id] : assignment.player_ids.filter(id => id !== p.id); updateTrackerAssignment(index, 'player_ids', n);}}/><Label htmlFor={`home-p-${index}-${p.id}`} className="text-sm">#{p.number} {p.name || 'Unnamed'}</Label></div>))}</div></div>)}
-                        {(!selectedTeamForAssignment[index] || ['both', 'away'].includes(selectedTeamForAssignment[index])) && (<div><Label className="text-sm text-muted-foreground">Away Team</Label><div className="space-y-1">{getFilteredPlayers(index, 'away').map((p) => (<div key={`away-${p.id}-assign-${index}`} className="flex items-center space-x-2"><Checkbox id={`away-p-${index}-${p.id}`} checked={assignment.player_ids.includes(p.id)} onCheckedChange={(c) => {const n = c ? [...assignment.player_ids, p.id] : assignment.player_ids.filter(id => id !== p.id); updateTrackerAssignment(index, 'player_ids', n);}}/><Label htmlFor={`away-p-${index}-${p.id}`} className="text-sm">#{p.number} {p.name || 'Unnamed'}</Label></div>))}</div></div>)}
+                        {(!selectedTeamForAssignment[index] || ['both', 'home'].includes(selectedTeamForAssignment[index])) && (<div><Label className="text-sm text-muted-foreground">Home Team</Label><div className="space-y-1">{getFilteredPlayers(index, 'home').filter(p => p.number !== null).map((p) => (<div key={`home-${p.id}-assign-${index}`} className="flex items-center space-x-2"><Checkbox id={`home-p-${index}-${p.id}`} checked={assignment.player_ids.includes(p.id)} onCheckedChange={(c) => {const n = c ? [...assignment.player_ids, p.id] : assignment.player_ids.filter(id => id !== p.id); updateTrackerAssignment(index, 'player_ids', n);}}/><Label htmlFor={`home-p-${index}-${p.id}`} className="text-sm">#{p.number} {p.name || 'Unnamed'}</Label></div>))}</div></div>)}
+                        {(!selectedTeamForAssignment[index] || ['both', 'away'].includes(selectedTeamForAssignment[index])) && (<div><Label className="text-sm text-muted-foreground">Away Team</Label><div className="space-y-1">{getFilteredPlayers(index, 'away').filter(p => p.number !== null).map((p) => (<div key={`away-${p.id}-assign-${index}`} className="flex items-center space-x-2"><Checkbox id={`away-p-${index}-${p.id}`} checked={assignment.player_ids.includes(p.id)} onCheckedChange={(c) => {const n = c ? [...assignment.player_ids, p.id] : assignment.player_ids.filter(id => id !== p.id); updateTrackerAssignment(index, 'player_ids', n);}}/><Label htmlFor={`away-p-${index}-${p.id}`} className="text-sm">#{p.number} {p.name || 'Unnamed'}</Label></div>))}</div></div>)}
                       </div>
                     </div>
                   </div>
