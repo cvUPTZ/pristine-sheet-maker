@@ -1,3 +1,4 @@
+
 // src/components/video/DirectAnalysisInterface.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -474,7 +475,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                       <span className="font-semibold" style={eventType?.color ? {color: eventType.color} : {}}>{event.typeName}</span> @ {formatTime(event.timestamp)}
                       {event.annotations && event.annotations.length > 0 && <span className="ml-1 text-blue-500">(A)</span>}
                     </div>
-                    <Button variant="ghost" size="xs" onClick={(e) => { e.stopPropagation(); handleDeleteTaggedEvent(event.id);}} title="Delete Event">X</Button>
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteTaggedEvent(event.id);}} title="Delete Event">X</Button>
                   </div>
                   {event.customPropertyValues && Object.keys(event.customPropertyValues).length > 0 && (
                     <div className="mt-1 pt-1 border-t border-gray-200">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,18 +17,10 @@ import DetailedStatsTable from '@/components/DetailedStatsTable';
 import PassMatrixTable from '@/components/analytics/PassMatrixTable';
 import ShotMap from '@/components/analytics/ShotMap';
 import PassingNetworkMap from '@/components/analytics/PassingNetworkMap';
-// Import all new analytics components
-import {
-  TeamComparisonCharts, PerformanceDifferenceAnalysis, EfficiencyMetricsRatios,
-  ShootingAccuracyCharts, ShotDistributionAnalysis, TargetOffTargetComparison,
-  DuelSuccessRateCharts, PassDirectionAnalysis, ActionEffectivenessMetrics,
-  IndividualPlayerCharts, PlayerBallHandlingStats, PlayerPassingStatsTable,
-  PlayerBallLossRatioTable, PlayerBallRecoveryStats,
-  PassFrequencyHeatmap, AdvancedEfficiencyRatioCharts, PerformanceComparisonGraphs,
-  // Time-based analysis components
-  BallControlTimelineChart, CumulativeBallControlChart, RecoveryTimelineChart,
-  PossessionTimelineChart, CumulativePossessionChart
-} from '@/components/analytics'; // Assuming barrel file is setup
+import EnhancedShotMap from '@/components/analytics/EnhancedShotMap';
+import EnhancedPassingNetwork from '@/components/analytics/EnhancedPassingNetwork';
+import EnhancedBallFlow from '@/components/analytics/EnhancedBallFlow';
+import AdvancedAnalyticsDashboard from '@/components/analytics/AdvancedAnalyticsDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType, Player, Team, TeamDetailedStats, PlayerStatSummary } from '@/types/index'; // Updated imports
@@ -484,26 +475,19 @@ const Statistics = () => {
                 </Card>
             </TabsContent>
 
-            {/* Passing Network Tab (Enhanced) */}
+            {/* Enhanced Passing Network Tab */}
             <TabsContent value="passingNetwork" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" />Passing Network Analysis</CardTitle>
+                  <CardDescription>Interactive passing networks and connection analysis</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {selectedMatchFullData && (
-                    <>
-                      <PassingNetworkMap
-                        playerStats={playerStats}
-                        homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
-                        awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
-                      />
-                      <PassFrequencyHeatmap 
-                        playerStats={playerStats} 
-                        allPlayers={allPlayersForMatch} 
-                      />
-                    </>
-                  )}
+                  <EnhancedPassingNetwork
+                    playerStats={playerStats}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -519,25 +503,54 @@ const Statistics = () => {
               />
             </TabsContent>
 
-            {/* Ball Flow Tab */}
+            {/* Enhanced Shot Map Tab */}
+            <TabsContent value="shotmap" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Shot Analysis</CardTitle>
+                  <CardDescription>Interactive shot map with detailed shooting statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <EnhancedShotMap
+                    events={events}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Advanced Visualizations Tab */}
+            <TabsContent value="advancedViz" className="space-y-6">
+              {statistics && playerStats.length > 0 && (
+                <AdvancedAnalyticsDashboard
+                  statistics={statistics}
+                  playerStats={playerStats}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
+                />
+              )}
+            </TabsContent>
+
+            {/* Enhanced Ball Flow Tab */}
             <TabsContent value="flow" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Ball Flow Analysis</CardTitle>
-                  <CardDescription>Visualization of ball movement and flow patterns</CardDescription>
+                  <CardDescription>Advanced ball movement visualization and heatmaps</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {ballData.length > 0 && selectedMatchFullData ? (
-                    <BallFlowVisualization
+                    <EnhancedBallFlow
                       ballTrackingPoints={ballData}
                       homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
                       awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
                     />
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>No ball tracking data available for visualization</p>
-                      <p className="text-sm">Use ball tracking mode during matches to see flow patterns</p>
+                    <div className="text-center py-12">
+                      <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-600 mb-2">No Ball Tracking Data</h3>
+                      <p className="text-gray-500">Use ball tracking mode during matches to see advanced flow patterns and heatmaps</p>
                     </div>
                   )}
                 </CardContent>
