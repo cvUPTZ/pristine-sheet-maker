@@ -14,9 +14,12 @@ interface EnhancedShotMapProps {
 const EnhancedShotMap: React.FC<EnhancedShotMapProps> = ({ events, homeTeamName, awayTeamName }) => {
   const shotData = useMemo(() => {
     const shots = events.filter(event => 
-      event.type === 'shot' || 
-      event.type === 'goal' ||
-      (event.event_data && (event.event_data.type === 'shot' || event.event_data.type === 'goal'))
+      event.event_type === 'shot' || 
+      event.event_type === 'goal' ||
+      (event.event_data && (
+        (event.event_data as any).subtype === 'shot' || 
+        (event.event_data as any).subtype === 'goal'
+      ))
     );
 
     const homeShots = shots.filter(shot => shot.team === 'home');
@@ -26,15 +29,24 @@ const EnhancedShotMap: React.FC<EnhancedShotMapProps> = ({ events, homeTeamName,
       homeShots,
       awayShots,
       totalShots: shots.length,
-      homeGoals: homeShots.filter(shot => shot.type === 'goal' || shot.event_data?.type === 'goal').length,
-      awayGoals: awayShots.filter(shot => shot.type === 'goal' || shot.event_data?.type === 'goal').length,
+      homeGoals: homeShots.filter(shot => 
+        shot.event_type === 'goal' || 
+        (shot.event_data && (shot.event_data as any).subtype === 'goal')
+      ).length,
+      awayGoals: awayShots.filter(shot => 
+        shot.event_type === 'goal' || 
+        (shot.event_data && (shot.event_data as any).subtype === 'goal')
+      ).length,
     };
   }, [events]);
 
   const renderShot = (shot: MatchEvent, index: number, isHome: boolean) => {
-    const isGoal = shot.type === 'goal' || shot.event_data?.type === 'goal';
-    const x = shot.coordinates?.x || Math.random() * 400;
-    const y = shot.coordinates?.y || Math.random() * 300;
+    const isGoal = shot.event_type === 'goal' || 
+      (shot.event_data && (shot.event_data as any).subtype === 'goal');
+    
+    const coordinates = shot.coordinates as any;
+    const x = coordinates?.x || Math.random() * 400;
+    const y = coordinates?.y || Math.random() * 300;
     
     return (
       <div
@@ -46,7 +58,7 @@ const EnhancedShotMap: React.FC<EnhancedShotMapProps> = ({ events, homeTeamName,
           left: `${Math.min(Math.max(x / 500 * 100, 5), 95)}%`,
           top: `${Math.min(Math.max(y / 300 * 100, 5), 95)}%`,
         }}
-        title={`${isGoal ? 'Goal' : 'Shot'} by ${shot.player?.name || 'Unknown'} at ${Math.floor(shot.timestamp / 60)}:${(shot.timestamp % 60).toString().padStart(2, '0')}`}
+        title={`${isGoal ? 'Goal' : 'Shot'} by Player ${shot.player_id || 'Unknown'} at ${Math.floor((shot.timestamp || 0) / 60)}:${((shot.timestamp || 0) % 60).toString().padStart(2, '0')}`}
       >
         <div className={`w-4 h-4 rounded-full border-2 ${
           isGoal 

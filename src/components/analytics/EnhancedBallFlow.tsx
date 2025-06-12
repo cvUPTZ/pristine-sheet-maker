@@ -27,6 +27,7 @@ const EnhancedBallFlow: React.FC<EnhancedBallFlowProps> = ({
         averageSpeed: 0,
         maxSpeed: 0,
         timeInZones: {},
+        ballTrackingPoints: [],
       };
     }
 
@@ -245,8 +246,8 @@ const EnhancedBallFlow: React.FC<EnhancedBallFlowProps> = ({
             
             {/* Ball trail */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              {flowAnalysis.ballTrackingPoints.map((point, index) => {
-                if (index === 0) return null;
+              {flowAnalysis.ballTrackingPoints && flowAnalysis.ballTrackingPoints.map((point, index) => {
+                if (index === 0 || !flowAnalysis.ballTrackingPoints) return null;
                 const prevPoint = flowAnalysis.ballTrackingPoints[index - 1];
                 return (
                   <line
