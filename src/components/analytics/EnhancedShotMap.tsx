@@ -14,8 +14,8 @@ interface EnhancedShotMapProps {
 const EnhancedShotMap: React.FC<EnhancedShotMapProps> = ({ events, homeTeamName, awayTeamName }) => {
   const shotData = useMemo(() => {
     const shots = events.filter(event => 
-      event.event_type === 'shot' || 
-      event.event_type === 'goal' ||
+      event.type === 'shot' || 
+      event.type === 'goal' ||
       (event.event_data && (
         (event.event_data as any).subtype === 'shot' || 
         (event.event_data as any).subtype === 'goal'
@@ -30,18 +30,18 @@ const EnhancedShotMap: React.FC<EnhancedShotMapProps> = ({ events, homeTeamName,
       awayShots,
       totalShots: shots.length,
       homeGoals: homeShots.filter(shot => 
-        shot.event_type === 'goal' || 
+        shot.type === 'goal' || 
         (shot.event_data && (shot.event_data as any).subtype === 'goal')
       ).length,
       awayGoals: awayShots.filter(shot => 
-        shot.event_type === 'goal' || 
+        shot.type === 'goal' || 
         (shot.event_data && (shot.event_data as any).subtype === 'goal')
       ).length,
     };
   }, [events]);
 
   const renderShot = (shot: MatchEvent, index: number, isHome: boolean) => {
-    const isGoal = shot.event_type === 'goal' || 
+    const isGoal = shot.type === 'goal' || 
       (shot.event_data && (shot.event_data as any).subtype === 'goal');
     
     const coordinates = shot.coordinates as any;

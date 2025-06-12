@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,29 @@ import EnhancedShotMap from '@/components/analytics/EnhancedShotMap';
 import EnhancedPassingNetwork from '@/components/analytics/EnhancedPassingNetwork';
 import EnhancedBallFlow from '@/components/analytics/EnhancedBallFlow';
 import AdvancedAnalyticsDashboard from '@/components/analytics/AdvancedAnalyticsDashboard';
+import TeamComparisonCharts from '@/components/analytics/TeamComparisonCharts';
+import {
+  PerformanceDifferenceAnalysis,
+  AdvancedEfficiencyRatioCharts,
+  PerformanceComparisonGraphs,
+  EfficiencyMetricsRatios,
+  TargetOffTargetComparison,
+  ShootingAccuracyCharts,
+  ShotDistributionAnalysis,
+  DuelSuccessRateCharts,
+  PassDirectionAnalysis,
+  ActionEffectivenessMetrics,
+  IndividualPlayerCharts,
+  PlayerBallHandlingStats,
+  PlayerPassingStatsTable,
+  PlayerBallLossRatioTable,
+  PlayerBallRecoveryStats,
+  BallControlTimelineChart,
+  CumulativeBallControlChart,
+  RecoveryTimelineChart,
+  PossessionTimelineChart,
+  CumulativePossessionChart
+} from '@/components/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventType, Player, Team, TeamDetailedStats, PlayerStatSummary } from '@/types/index'; // Updated imports

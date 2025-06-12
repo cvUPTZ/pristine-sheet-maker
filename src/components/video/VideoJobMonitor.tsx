@@ -81,7 +81,7 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
 
             <div className="mb-4 bg-black rounded-md relative">
               <video
-                src={job.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
+                src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                 controls
                 width="100%"
                 className="rounded-md"
