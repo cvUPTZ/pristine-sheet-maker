@@ -62,7 +62,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const { } = useRealtimeMatch({
     matchId,
     onEventReceived: (event) => {
-      console.log('[TrackerPianoInput] Event received via real-time:', event);
+      // console.log('[TrackerPianoInput] Event received via real-time:', event); // Removed console.log
       if (event.created_by === user?.id) {
         const eventInfo = {
           id: event.id,
@@ -119,13 +119,13 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
 
   const fetchAssignments = useCallback(async () => {
     if (!matchId || !user?.id) {
-      console.error("Match ID or user ID is missing.");
+      // console.error("Match ID or user ID is missing."); // Kept for critical issues
       return;
     }
 
-    console.log('=== TRACKER DEBUG: Starting fetchAssignments (User/Match specific) ===');
-    console.log('User ID:', user.id);
-    console.log('Match ID:', matchId);
+    // console.log('=== TRACKER DEBUG: Starting fetchAssignments (User/Match specific) ==='); // Removed console.log
+    // console.log('User ID:', user.id); // Removed console.log
+    // console.log('Match ID:', matchId); // Removed console.log
 
     try {
       const { data, error } = await supabase
@@ -134,9 +134,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         .eq('match_id', matchId)
         .eq('tracker_user_id', user.id);
 
-      console.log('=== RAW ASSIGNMENTS DATA ===');
-      console.log('Assignments found:', data?.length || 0);
-      console.log('Full assignments data:', data);
+      // console.log('=== RAW ASSIGNMENTS DATA ==='); // Removed console.log
+      // console.log('Assignments found:', data?.length || 0); // Removed console.log
+      // console.log('Full assignments data:', data); // Removed console.log
 
       if (error) {
         console.error("Error fetching tracker assignments:", error);
@@ -146,7 +146,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
 
       if (!data || data.length === 0) {
-        console.log("No assignments found - setting error state");
+        // console.log("No assignments found - setting error state"); // Kept for important state change
         setError("No assignments found for this tracker and match. Please contact your administrator.");
         setAssignedEventTypes([]);
         setAssignedPlayers({ home: [], away: [] });
@@ -618,55 +618,151 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     : "Select a player first, then tap any event type"}
               </p>
             </div>
-            
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
-              {assignedEventTypes.map((eventType, index) => (
-                <motion.div
-                  key={eventType.key}
-                  initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    delay: index * 0.1,
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 20
-                  }}
-                  whileHover={{ scale: 1.1, y: -10 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative"
-                >
-                  <div className="text-center">
-                    <EventTypeSvg
-                      eventType={eventType.key}
-                      isRecording={recordingEventType === eventType.key}
-                      disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)}
-                      onClick={() => handleEventTypeClick(eventType)}
-                    />
-                    <motion.div
-                      className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
-                      whileHover={{ scale: 1.05 }}
+
+            {totalAssignedPlayers <= 1 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
+                {assignedEventTypes.map((eventType, index) => (
+                  <motion.div
+                    key={eventType.key} // Single player event types
+                    initial={{ opacity: 0, scale: 0.5, y: 30 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                      duration: 0.4,
+                      delay: index * 0.1,
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20
+                    }}
+                    whileHover={{ scale: 1.1, y: -10 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative"
+                  >
+                    <div className="text-center">
+                      <EventTypeSvg
+                        eventType={eventType.key}
+                        isRecording={recordingEventType === eventType.key}
+                        disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)} // This condition might need adjustment for single player auto-selection
+                        onClick={() => handleEventTypeClick(eventType)}
+                      />
+                      <motion.div
+                        className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                          {eventType.label}
+                        </span>
+                      </motion.div>
+                    </div>
+
+                    {recordingEventType === eventType.key && (
+                      <motion.div
+                        className="absolute -inset-4 rounded-full border-4 border-green-400"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{ duration: 0.8, repeat: Infinity }}
+                      />
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-xl font-semibold mb-6 text-center text-purple-700 dark:text-purple-300">
+                  Record Events by Player
+                </h3>
+                <div className="space-y-6">
+                  {assignedPlayers && [...assignedPlayers.home, ...assignedPlayers.away].map(player => (
+                    <div 
+                      key={player.id} 
+                      className={`p-4 border rounded-lg shadow-md transition-all duration-300 ease-in-out ${
+                        selectedPlayer?.id === player.id 
+                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-2 ring-green-500' 
+                          : 'bg-white dark:bg-slate-800 hover:shadow-lg'
+                      }`}
                     >
-                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                        {eventType.label}
-                      </span>
-                    </motion.div>
-                  </div>
-                  
-                  {recordingEventType === eventType.key && (
-                    <motion.div
-                      className="absolute -inset-4 rounded-full border-4 border-green-400"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.7, 1, 0.7]
-                      }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
-                    />
-                  )}
-                </motion.div>
-              ))}
-            </div>
-            
+                      <CardTitle 
+                        className={`mb-4 cursor-pointer flex items-center justify-between p-3 rounded-md ${
+                          selectedPlayer?.id === player.id 
+                            ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800' 
+                            : 'text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                        onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
+                      >
+                        <div>
+                          {player.jersey_number && <span className="font-bold">#{player.jersey_number} </span>}
+                          {player.name}
+                          <span className={`text-xs ml-2 px-2 py-0.5 rounded-full ${
+                            assignedPlayers.home.includes(player) 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' 
+                              : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
+                          }`}>
+                            {assignedPlayers.home.includes(player) ? 'Home' : 'Away'}
+                          </span>
+                        </div>
+                        {selectedPlayer?.id === player.id && (
+                          <span className="text-xs font-semibold px-2 py-1 bg-green-500 text-white rounded-full shadow">SELECTED</span>
+                        )}
+                      </CardTitle>
+                      
+                      {selectedPlayer?.id === player.id && ( 
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 justify-items-center pt-3">
+                            {assignedEventTypes.map((eventType, index) => (
+                              <motion.div
+                                key={`${player.id}-${eventType.key}`} {/* Multi-player event types */}
+                            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{
+                              duration: 0.3,
+                              delay: index * 0.05,
+                              type: "spring",
+                              stiffness: 280,
+                              damping: 18
+                            }}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="relative"
+                          >
+                            <div className="text-center">
+                              <EventTypeSvg
+                                eventType={eventType.key}
+                                isRecording={recordingEventType === eventType.key}
+                                // Player is already selected by clicking CardTitle, so no need to check !selectedPlayer here for disabled state
+                                disabled={isRecording}
+                                onClick={() => handleEventTypeClick(eventType)} // handleEventTypeClick uses selectedPlayer
+                              />
+                              <motion.div
+                                className="mt-2 px-2 py-1 bg-white dark:bg-gray-700 rounded-full shadow border border-purple-100 dark:border-purple-600 text-center"
+                                whileHover={{ scale: 1.05 }}
+                              >
+                                <span className="text-xs font-medium text-purple-600 dark:text-purple-200 block truncate w-full">
+                                  {eventType.label}
+                                </span>
+                              </motion.div>
+                            </div>
+                            {recordingEventType === eventType.key && selectedPlayer?.id === player.id && ( // Ensure animation is only for selected player's events
+                              <motion.div
+                                className="absolute -inset-3 rounded-full border-2 border-green-500"
+                                animate={{
+                                  scale: [1, 1.15, 1],
+                                  opacity: [0.6, 0.9, 0.6]
+                                }}
+                                transition={{ duration: 0.7, repeat: Infinity }}
+                              />
+                            )}
+                          </motion.div>
+                        ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {isRecording && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
