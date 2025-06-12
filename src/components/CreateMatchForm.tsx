@@ -172,14 +172,26 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      const parseAndPadPlayers = (savedPlayers: any[] | null, teamIdentifier: string): Player[] => {
+      const parseAndPadPlayers = (savedPlayers: any[] | string | null, teamIdentifier: string): Player[] => {
+          let parsedSavedPlayers: any[] | null = null;
+          if (typeof savedPlayers === 'string') {
+            try {
+              parsedSavedPlayers = JSON.parse(savedPlayers);
+            } catch (e) {
+              console.error("Failed to parse savedPlayers JSON string:", e);
+              parsedSavedPlayers = []; // Default to empty array on parse error
+            }
+          } else {
+            parsedSavedPlayers = savedPlayers;
+          }
+
           const fullSquad = initializeBlankPlayers(teamIdentifier);
-          const loaded = Array.isArray(savedPlayers) ? savedPlayers.map((p: any) => ({ 
+          const loaded = Array.isArray(parsedSavedPlayers) ? parsedSavedPlayers.map((p: any) => ({
               id: p.id || Date.now() + Math.random(), 
               name: p.player_name || p.name || '', 
               number: p.jersey_number !== undefined ? p.jersey_number : (p.number !== undefined ? p.number : null), 
               position: p.position || '',
-              isSubstitute: p.is_substitute || false
+              isSubstitute: p.is_substitute || false // Ensure is_substitute is handled
           })) : [];
           
           const loadedStarters = loaded.filter(p => !p.isSubstitute);

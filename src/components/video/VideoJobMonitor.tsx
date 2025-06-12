@@ -37,7 +37,7 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
   useEffect(() => {
     let stopPolling: (() => void) | null = null;
     if (job.status === 'pending' || job.status === 'processing') {
-      VideoJobService.pollJobStatus(job.id, onJobUpdate).then(stopFn => { stopPolling = stopFn; });
+      VideoJobService.pollJobStatus(job.id, onJobUpdate).then((stopFn: () => void) => { stopPolling = stopFn; });
     }
     return () => { if (stopPolling) stopPolling(); };
   }, [job.id, job.status, onJobUpdate]);

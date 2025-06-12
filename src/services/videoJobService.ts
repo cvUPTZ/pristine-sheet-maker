@@ -2,6 +2,19 @@
 // src/services/videoJobService.ts
 import { supabase } from '@/integrations/supabase/client';
 
+export interface VideoJob {
+  id: string;
+  status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed' | 'pending';
+  progress?: number;
+  fileName?: string;
+  createdAt?: string; // Or Date
+  segmentId?: string;
+  results?: any;
+  error?: string;
+  colabLogUrl?: string;
+  // Add other fields as suggested by usage in VideoJobMonitor.tsx or useVideoJobs.ts if identifiable
+}
+
 /**
  * Simplified Video Service for direct video processing without job queues.
  * Focuses on basic video upload and URL handling.
@@ -31,5 +44,25 @@ export class VideoJobService {
     if (videoPath && !videoPath.includes('youtube.com') && !videoPath.includes('youtu.be')) {
       await supabase.storage.from('videos').remove([videoPath]);
     }
+  }
+
+  static async pollJobStatus(jobId: string, callback: (job: VideoJob | null) => void, intervalMs: number = 5000): Promise<() => void> {
+    console.warn(`VideoJobService.pollJobStatus is a stub and does not perform real polling for job ID: ${jobId}. Interval: ${intervalMs}ms`);
+    // Immediately call back with a placeholder or null, then do nothing.
+    // callback(null); // Or a mock job
+    // Return a no-op stop function
+    return () => {
+      console.warn(`Polling stopped for job ID: ${jobId} (stub)`);
+    };
+  }
+
+  static async getUserJobs(userId: string): Promise<VideoJob[]> {
+    console.warn(`VideoJobService.getUserJobs is a stub and will return an empty array for user ID: ${userId}`);
+    return [];
+  }
+
+  static async deleteJob(jobId: string): Promise<void> {
+    console.warn(`VideoJobService.deleteJob is a stub and does not delete job ID: ${jobId}`);
+    return Promise.resolve();
   }
 }

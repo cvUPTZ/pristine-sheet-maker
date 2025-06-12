@@ -711,10 +711,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 justify-items-center pt-3">
                             {assignedEventTypes.map((eventType, index) => (
                               <motion.div
-                                key={`${player.id}-${eventType.key}`} {/* Multi-player event types */}
-                            initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{
+                                key={`${player.id}-${eventType.key}`}
+                                initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                transition={{
                               duration: 0.3,
                               delay: index * 0.05,
                               type: "spring",
