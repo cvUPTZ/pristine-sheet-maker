@@ -93,8 +93,7 @@ export const AnnotationToolbox: React.FC<AnnotationToolboxProps> = ({
               paths: paths,
               strokeColor: annotation.color,
               strokeWidth: annotation.strokeWidth || 3,
-              drawMode: false,
-              isEraser: false
+              drawMode: false
             }]);
           }
         }
@@ -116,7 +115,7 @@ export const AnnotationToolbox: React.FC<AnnotationToolboxProps> = ({
   };
 
   const handleCanvasMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (disabled || !isDrawing || !startPoint || currentTool === 'freehand') return;
+    if (disabled || !isDrawing || !startPoint || currentTool === 'freehand' || currentTool === 'text') return;
     
     const rect = event.currentTarget.getBoundingClientRect();
     const endX = event.clientX - rect.left;
