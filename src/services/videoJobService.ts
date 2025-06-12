@@ -8,13 +8,13 @@ export interface VideoJob {
   updated_at: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   input_video_path: string;
-  video_title?: string; // Changed from string | null to string | undefined
-  video_duration?: number; // Changed from number | null to number | undefined
+  video_title?: string;
+  video_duration?: number;
   result_data?: any;
-  error_message?: string; // Changed from string | null to string | undefined
+  error_message?: string;
   progress: number;
-  user_id: string;
-  job_config?: any; // Make optional to handle missing cases
+  user_id: string | null; // Changed to match database schema
+  job_config?: any;
 }
 
 /**
@@ -37,43 +37,86 @@ export class VideoJobService {
   }
 
   static async getJob(jobId: string): Promise<VideoJob | null> {
-    // Select only the columns that exist in the database
-    const { data, error } = await supabase
+    // First try to get the job with job_config column
+    let { data, error } = await supabase
       .from('video_jobs')
-      .select('*')
+      .select('*, job_config')
       .eq('id', jobId)
       .single();
+    
+    // If job_config column doesn't exist, fall back to basic query
+    if (error && error.message?.includes('job_config')) {
+      const fallbackResult = await supabase
+        .from('video_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+      
+      if (fallbackResult.error && fallbackResult.error.code !== 'PGRST116') {
+        throw new Error(`Failed to fetch job: ${fallbackResult.error.message}`);
+      }
+      
+      if (!fallbackResult.data) return null;
+      
+      return {
+        ...fallbackResult.data,
+        video_title: fallbackResult.data.video_title || undefined,
+        video_duration: fallbackResult.data.video_duration || undefined,
+        error_message: fallbackResult.data.error_message || undefined,
+        job_config: {} // Default empty object since column doesn't exist
+      } as VideoJob;
+    }
     
     if (error && error.code !== 'PGRST116') throw new Error(`Failed to fetch job: ${error.message}`);
     
     if (!data) return null;
     
-    // Convert database types to interface types and add default job_config
+    // Convert database types to interface types
     return {
       ...data,
       video_title: data.video_title || undefined,
       video_duration: data.video_duration || undefined,
       error_message: data.error_message || undefined,
-      job_config: {} // Default empty object since column doesn't exist
+      job_config: data.job_config || {} // Use actual job_config or default to empty object
     } as VideoJob;
   }
 
   static async getUserJobs(): Promise<VideoJob[]> {
-    // Select only the columns that exist in the database
-    const { data, error } = await supabase
+    // First try to get jobs with job_config column
+    let { data, error } = await supabase
       .from('video_jobs')
-      .select('*')
+      .select('*, job_config')
       .order('created_at', { ascending: false });
+    
+    // If job_config column doesn't exist, fall back to basic query
+    if (error && error.message?.includes('job_config')) {
+      const fallbackResult = await supabase
+        .from('video_jobs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (fallbackResult.error) {
+        throw new Error(`Failed to fetch jobs: ${fallbackResult.error.message}`);
+      }
+      
+      return (fallbackResult.data || []).map(job => ({
+        ...job,
+        video_title: job.video_title || undefined,
+        video_duration: job.video_duration || undefined,
+        error_message: job.error_message || undefined,
+        job_config: {} // Default empty object since column doesn't exist
+      })) as VideoJob[];
+    }
     
     if (error) throw new Error(`Failed to fetch jobs: ${error.message}`);
     
-    // Convert database types to interface types and add default job_config
+    // Convert database types to interface types
     return (data || []).map(job => ({
       ...job,
       video_title: job.video_title || undefined,
       video_duration: job.video_duration || undefined,
       error_message: job.error_message || undefined,
-      job_config: {} // Default empty object since column doesn't exist
+      job_config: job.job_config || {} // Use actual job_config or default to empty object
     })) as VideoJob[];
   }
 
