@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { YouTubeService } from './youtubeService';
 import { AIProcessingService } from './aiProcessingService';
@@ -68,46 +67,33 @@ export class VideoProcessingPipeline {
       video_title: videoInfo.title,
       video_duration: videoInfo.duration,
       user_id: user.user.id,
-      status: 'pending' as const
+      status: 'pending' as const,
+      progress: 0
     };
 
-    // Try to insert with job_config, fallback without it if column doesn't exist
-    let insertResult = await supabase
+    const insertResult = await supabase
       .from('video_jobs')
-      .insert({
-        ...jobData,
-        job_config: {
-          source_type: source.type,
-          enableAIAnalysis: config.enableAIAnalysis,
-          enableSegmentation: config.enableSegmentation,
-          segmentDuration: config.segmentDuration
-        }
-      })
+      .insert(jobData)
       .select('*')
       .single();
-
-    if (insertResult.error && insertResult.error.message.includes('job_config')) {
-      // Fallback: insert without job_config if column doesn't exist
-      insertResult = await supabase
-        .from('video_jobs')
-        .insert(jobData)
-        .select('*')
-        .single();
-    }
 
     if (insertResult.error) {
       throw new Error(`Failed to create job: ${insertResult.error.message}`);
     }
 
+    // Convert database response to VideoJob format
     let currentJobState: VideoJob = {
       ...insertResult.data,
-      job_config: insertResult.data.job_config || {
+      video_title: insertResult.data.video_title || undefined,
+      video_duration: insertResult.data.video_duration || undefined,
+      error_message: insertResult.data.error_message || undefined,
+      job_config: {
         source_type: source.type,
         enableAIAnalysis: config.enableAIAnalysis,
         enableSegmentation: config.enableSegmentation,
         segmentDuration: config.segmentDuration
       }
-    } as VideoJob;
+    };
 
     // Immediately update job status to 'processing' after creation
     const updateResult = await supabase
@@ -122,8 +108,11 @@ export class VideoProcessingPipeline {
     } else if (updateResult.data) {
       currentJobState = {
         ...updateResult.data,
+        video_title: updateResult.data.video_title || undefined,
+        video_duration: updateResult.data.video_duration || undefined,
+        error_message: updateResult.data.error_message || undefined,
         job_config: currentJobState.job_config
-      } as VideoJob;
+      };
     }
 
     // Step 3: AI Processing with fallback
@@ -143,29 +132,17 @@ export class VideoProcessingPipeline {
         if (updateAfterPrimary.data) {
           currentJobState = {
             ...updateAfterPrimary.data,
+            video_title: updateAfterPrimary.data.video_title || undefined,
+            video_duration: updateAfterPrimary.data.video_duration || undefined,
+            error_message: updateAfterPrimary.data.error_message || undefined,
             job_config: currentJobState.job_config
-          } as VideoJob;
+          };
         }
         console.log(`Job ${currentJobState.id} status updated to 'processing'.`);
 
       } catch (primaryError: any) {
         console.error(`Primary AI processing failed for job ${currentJobState.id}:`, primaryError.message);
         
-        const updateAfterPrimaryFail = await supabase.from('video_jobs').update({ 
-          status: 'failed' as const, 
-          error_message: primaryError.message 
-        }).eq('id', currentJobState.id).select('*').single();
-        
-        if (updateAfterPrimaryFail.data) {
-          currentJobState = {
-            ...updateAfterPrimaryFail.data,
-            job_config: currentJobState.job_config
-          } as VideoJob;
-        } else {
-          currentJobState.status = 'failed';
-          currentJobState.error_message = primaryError.message;
-        }
-
         // Fallback logic for YouTube videos
         if (source.type === 'youtube' && config.enableAIAnalysis) {
           console.log(`Attempting fallback AI analysis for YouTube video (job ${currentJobState.id}) using 'analyze-youtube-video' function...`);
@@ -189,13 +166,15 @@ export class VideoProcessingPipeline {
               if (updateAfterFallbackFail.data) {
                 currentJobState = {
                   ...updateAfterFallbackFail.data,
+                  video_title: updateAfterFallbackFail.data.video_title || undefined,
+                  video_duration: updateAfterFallbackFail.data.video_duration || undefined,
+                  error_message: updateAfterFallbackFail.data.error_message || undefined,
                   job_config: currentJobState.job_config
-                } as VideoJob;
+                };
               }
               return currentJobState;
             }
             const retrievedApiKey = apiKeyData.apiKey;
-            console.log(`Gemini API key retrieved successfully for job ${currentJobState.id}.`);
 
             // Call 'analyze-youtube-video'
             const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('analyze-youtube-video', {
@@ -223,8 +202,11 @@ export class VideoProcessingPipeline {
             if (updateAfterFallback.data) {
               currentJobState = {
                 ...updateAfterFallback.data,
+                video_title: updateAfterFallback.data.video_title || undefined,
+                video_duration: updateAfterFallback.data.video_duration || undefined,
+                error_message: updateAfterFallback.data.error_message || undefined,
                 job_config: currentJobState.job_config
-              } as VideoJob;
+              };
             }
 
           } catch (fallbackCatchError: any) {
@@ -242,16 +224,15 @@ export class VideoProcessingPipeline {
             if (updateAfterFallbackCatch.data) {
               currentJobState = {
                 ...updateAfterFallbackCatch.data,
+                video_title: updateAfterFallbackCatch.data.video_title || undefined,
+                video_duration: updateAfterFallbackCatch.data.video_duration || undefined,
+                error_message: updateAfterFallbackCatch.data.error_message || undefined,
                 job_config: currentJobState.job_config
-              } as VideoJob;
-            } else {
-              currentJobState.status = 'failed';
-              currentJobState.error_message = fallbackCatchError.message;
+              };
             }
           }
         } else {
           // No fallback applicable
-          console.log(`No fallback AI analysis applicable for job ${currentJobState.id}. Final status: 'failed'.`);
           const updateNoFallback = await supabase
             .from('video_jobs')
             .update({ 
@@ -265,14 +246,16 @@ export class VideoProcessingPipeline {
           if (updateNoFallback.data) {
             currentJobState = {
               ...updateNoFallback.data,
+              video_title: updateNoFallback.data.video_title || undefined,
+              video_duration: updateNoFallback.data.video_duration || undefined,
+              error_message: updateNoFallback.data.error_message || undefined,
               job_config: currentJobState.job_config
-            } as VideoJob;
+            };
           }
         }
       }
     } else {
       // AI analysis not enabled, update status accordingly
-      console.log(`AI analysis not enabled for job ${currentJobState.id}.`);
       const updateNoAI = await supabase
         .from('video_jobs')
         .update({ status: 'completed' as const })
@@ -280,13 +263,14 @@ export class VideoProcessingPipeline {
         .select('*')
         .single();
       
-      if (updateNoAI.error) {
-        console.error(`Failed to update job status for no AI analysis (job ${currentJobState.id}):`, updateNoAI.error.message);
-      } else if (updateNoAI.data) {
+      if (updateNoAI.data) {
         currentJobState = {
           ...updateNoAI.data,
+          video_title: updateNoAI.data.video_title || undefined,
+          video_duration: updateNoAI.data.video_duration || undefined,
+          error_message: updateNoAI.data.error_message || undefined,
           job_config: currentJobState.job_config
-        } as VideoJob;
+        };
       }
     }
     return currentJobState;

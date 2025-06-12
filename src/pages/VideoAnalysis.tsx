@@ -1,12 +1,12 @@
 // src/pages/VideoAnalysis.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { VideoJobMonitor } from '@/components/video/VideoJobMonitor';
-import { VideoJob, VideoJobService } from '@/services/videoJobService'; // VideoJob interface from service
+import { VideoJob, VideoJobService } from '@/services/videoJobService';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client'; // Import supabase client
+import { supabase } from '@/integrations/supabase/client';
 
 // Define a local VideoJob type for the page that includes videoUrl for VideoJobMonitor
 interface PageVideoJob extends VideoJob {
@@ -25,11 +25,13 @@ const VideoAnalysis: React.FC = () => {
     setError(null);
     try {
       const fetchedJobs = await VideoJobService.getUserJobs();
-      // Assuming RLS on video_jobs table correctly filters by user_id or provides all accessible jobs.
+      
       // Map fetched jobs to PageVideoJob, preparing videoUrl
       const processedJobs = await Promise.all(fetchedJobs.map(async (job) => {
         let videoUrl = job.input_video_path; // Default for YouTube URLs
-        if (job.job_config?.source_type === 'upload' && job.input_video_path) {
+        
+        // Check if it's an uploaded file (not a YouTube URL)
+        if (job.input_video_path && !job.input_video_path.includes('youtube.com') && !job.input_video_path.includes('youtu.be')) {
           try {
             videoUrl = await VideoJobService.getVideoDownloadUrl(job.input_video_path);
           } catch (e) {
@@ -37,6 +39,7 @@ const VideoAnalysis: React.FC = () => {
             // Keep original path, VideoJobMonitor might have a fallback or show error
           }
         }
+        
         return { 
           ...job, 
           videoUrl: videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" 
@@ -65,55 +68,46 @@ const VideoAnalysis: React.FC = () => {
     if (!videoUrlPrompt) return;
 
     const jobTitle = prompt("Enter a title for this analysis job:", "New Video Analysis");
-    if (!jobTitle) return; // User cancelled or entered nothing
+    if (!jobTitle) return;
 
     setIsLoading(true);
     try {
       // Directly insert the job using Supabase client
-      // This emulates what useVideoJobs hook might do for a 'youtube' source type
       const newJobData = {
         user_id: user.id,
-        status: 'pending' as const, // Use const assertion for proper typing
+        status: 'pending' as const,
         input_video_path: videoUrlPrompt,
         video_title: jobTitle,
         progress: 0,
-        // video_duration might be set later by a backend process
       };
 
-      // Try to insert with job_config, fallback without it if column doesn't exist
-      let insertResult = await supabase
+      const insertResult = await supabase
         .from('video_jobs')
-        .insert({
-          ...newJobData,
-          job_config: { source_type: 'youtube', original_url: videoUrlPrompt }
-        })
+        .insert(newJobData)
         .select('*')
         .single();
-
-      if (insertResult.error && insertResult.error.message.includes('job_config')) {
-        // Fallback: insert without job_config if column doesn't exist
-        insertResult = await supabase
-          .from('video_jobs')
-          .insert(newJobData)
-          .select('*')
-          .single();
-      }
 
       if (insertResult.error) throw insertResult.error;
 
       if (insertResult.data) {
-        const newJob = {
+        // Convert the database response to VideoJob format
+        const newJob: VideoJob = {
           ...insertResult.data,
-          job_config: insertResult.data.job_config || { source_type: 'youtube', original_url: videoUrlPrompt }
-        } as VideoJob;
+          video_title: insertResult.data.video_title || undefined,
+          video_duration: insertResult.data.video_duration || undefined,
+          error_message: insertResult.data.error_message || undefined,
+          job_config: { source_type: 'youtube', original_url: videoUrlPrompt }
+        };
 
         toast.success(`Job created successfully for ${newJob.video_title || 'Unknown Title'}`);
+        
         // Add to list and poll for status
         const processedNewJob: PageVideoJob = { 
           ...newJob, 
           videoUrl: newJob.input_video_path
         };
         setJobs(prevJobs => [processedNewJob, ...prevJobs]);
+        
         // Start polling for this new job
         VideoJobService.pollJobStatus(newJob.id, handleJobUpdate);
       } else {
@@ -134,7 +128,7 @@ const VideoAnalysis: React.FC = () => {
   }, []);
 
   const handleJobDelete = async (jobId: string) => {
-    setIsLoading(true); // Prevent other actions while deleting
+    setIsLoading(true);
     try {
       await VideoJobService.deleteJob(jobId);
       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
@@ -197,9 +191,9 @@ const VideoAnalysis: React.FC = () => {
           {jobs.map(job => (
             <VideoJobMonitor
               key={job.id}
-              job={job} // Now passing PageVideoJob which includes videoUrl
+              job={job}
               onJobUpdate={handleJobUpdate}
-              onJobDelete={() => handleJobDelete(job.id)} // Ensure correct job.id is passed
+              onJobDelete={() => handleJobDelete(job.id)}
             />
           ))}
         </div>

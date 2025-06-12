@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Clock, CheckCircle, XCircle, Loader2, Trash2, Eye } from 'lucide-react'; // Base icons
+import { Clock, CheckCircle, XCircle, Loader2, Trash2, Eye } from 'lucide-react';
 
 import { VideoJob, VideoJobService } from '@/services/videoJobService';
 import { toast } from 'sonner';
@@ -24,7 +24,7 @@ const formatTime = (seconds: number | null | undefined): string => {
 };
 
 interface VideoJobMonitorProps {
-  job: VideoJob;
+  job: VideoJob & { videoUrl?: string }; // Include videoUrl from PageVideoJob
   onJobUpdate: (job: VideoJob) => void;
   onJobDelete: (jobId: string) => void;
 }
@@ -81,10 +81,17 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
 
             <div className="mb-4 bg-black rounded-md relative">
               <video
-                src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                src={job.videoUrl || job.input_video_path || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
                 controls
                 width="100%"
                 className="rounded-md"
+                onError={(e) => {
+                  console.error('Video loading failed:', e);
+                  toast.error('Failed to load video. The video may not be accessible.');
+                }}
+                onLoadStart={() => {
+                  console.log('Video loading started:', job.videoUrl || job.input_video_path);
+                }}
               >
                 Your browser does not support the video tag.
               </video>

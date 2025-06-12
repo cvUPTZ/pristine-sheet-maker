@@ -8,10 +8,10 @@ export interface VideoJob {
   updated_at: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   input_video_path: string;
-  video_title?: string | null; // Match database schema
-  video_duration?: number | null; // Match database schema
+  video_title?: string; // Changed from string | null to string | undefined
+  video_duration?: number; // Changed from number | null to number | undefined
   result_data?: any;
-  error_message?: string | null; // Match database schema
+  error_message?: string; // Changed from string | null to string | undefined
   progress: number;
   user_id: string;
   job_config?: any; // Make optional to handle missing cases
@@ -37,39 +37,43 @@ export class VideoJobService {
   }
 
   static async getJob(jobId: string): Promise<VideoJob | null> {
-    // First try with job_config, fallback without it if column doesn't exist
-    let { data, error } = await supabase
-      .from('video_jobs').select('*, job_config').eq('id', jobId).single();
-    
-    if (error && error.message.includes('job_config')) {
-      // Fallback: select without job_config if column doesn't exist
-      const fallback = await supabase
-        .from('video_jobs').select('*').eq('id', jobId).single();
-      data = fallback.data;
-      error = fallback.error;
-    }
+    // Select only the columns that exist in the database
+    const { data, error } = await supabase
+      .from('video_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
     
     if (error && error.code !== 'PGRST116') throw new Error(`Failed to fetch job: ${error.message}`);
-    return data as VideoJob | null;
+    
+    if (!data) return null;
+    
+    // Convert database types to interface types and add default job_config
+    return {
+      ...data,
+      video_title: data.video_title || undefined,
+      video_duration: data.video_duration || undefined,
+      error_message: data.error_message || undefined,
+      job_config: {} // Default empty object since column doesn't exist
+    } as VideoJob;
   }
 
   static async getUserJobs(): Promise<VideoJob[]> {
-    // First try with job_config, fallback without it if column doesn't exist
-    let { data, error } = await supabase
-      .from('video_jobs').select('*, job_config').order('created_at', { ascending: false });
-    
-    if (error && error.message.includes('job_config')) {
-      // Fallback: select without job_config if column doesn't exist
-      const fallback = await supabase
-        .from('video_jobs').select('*').order('created_at', { ascending: false });
-      data = fallback.data;
-      error = fallback.error;
-    }
+    // Select only the columns that exist in the database
+    const { data, error } = await supabase
+      .from('video_jobs')
+      .select('*')
+      .order('created_at', { ascending: false });
     
     if (error) throw new Error(`Failed to fetch jobs: ${error.message}`);
+    
+    // Convert database types to interface types and add default job_config
     return (data || []).map(job => ({
       ...job,
-      job_config: job.job_config || {} // Ensure job_config exists
+      video_title: job.video_title || undefined,
+      video_duration: job.video_duration || undefined,
+      error_message: job.error_message || undefined,
+      job_config: {} // Default empty object since column doesn't exist
     })) as VideoJob[];
   }
 
@@ -100,8 +104,8 @@ export class VideoJobService {
     const job = await this.getJob(jobId);
     if (!job) return;
 
-    // Only delete from storage if it was an upload
-    if (job.job_config?.source_type === 'upload' && job.input_video_path) {
+    // Only delete from storage if it was an upload (check if it's not a YouTube URL)
+    if (job.input_video_path && !job.input_video_path.includes('youtube.com') && !job.input_video_path.includes('youtu.be')) {
       await supabase.storage.from('videos').remove([job.input_video_path]);
     }
     const { error } = await supabase.from('video_jobs').delete().eq('id', jobId);
