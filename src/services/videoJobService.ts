@@ -192,4 +192,3 @@ export class VideoJobService {
     if (error) throw new Error(`Failed to delete job: ${error.message}`);
   }
 }
-
