@@ -1,9 +1,10 @@
+
 // src/pages/DirectVideoAnalyzer.tsx
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { DirectAnalysisInterface } from '@/components/video/DirectAnalysisInterface'; // Import the new component
+import { DirectAnalysisInterface } from '@/components/video/DirectAnalysisInterface';
 
 const DirectVideoAnalyzer: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string>('');
@@ -34,7 +35,7 @@ const DirectVideoAnalyzer: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <Card className="max-w-4xl mx-auto"> {/* Increased max-width for better layout */}
+      <Card className="max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle>Direct Video Analyzer</CardTitle>
           {!submittedUrl && (
