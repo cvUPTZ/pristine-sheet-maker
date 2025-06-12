@@ -674,18 +674,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 </h3>
                 <div className="space-y-6">
                   {assignedPlayers && [...assignedPlayers.home, ...assignedPlayers.away].map(player => (
-                    <div
-                      key={player.id}
+                    <div 
+                      key={player.id} 
                       className={`p-4 border rounded-lg shadow-md transition-all duration-300 ease-in-out ${
-                        selectedPlayer?.id === player.id
-                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-2 ring-green-500'
+                        selectedPlayer?.id === player.id 
+                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-2 ring-green-500' 
                           : 'bg-white dark:bg-slate-800 hover:shadow-lg'
                       }`}
                     >
-                      <CardTitle
+                      <CardTitle 
                         className={`mb-4 cursor-pointer flex items-center justify-between p-3 rounded-md ${
-                          selectedPlayer?.id === player.id
-                            ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800'
+                          selectedPlayer?.id === player.id 
+                            ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800' 
                             : 'text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                         onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
@@ -694,8 +694,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                           {player.jersey_number && <span className="font-bold">#{player.jersey_number} </span>}
                           {player.name}
                           <span className={`text-xs ml-2 px-2 py-0.5 rounded-full ${
-                            assignedPlayers.home.includes(player)
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
+                            assignedPlayers.home.includes(player) 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' 
                               : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100'
                           }`}>
                             {assignedPlayers.home.includes(player) ? 'Home' : 'Away'}
@@ -705,8 +705,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                           <span className="text-xs font-semibold px-2 py-1 bg-green-500 text-white rounded-full shadow">SELECTED</span>
                         )}
                       </CardTitle>
-
-                      {selectedPlayer?.id === player.id && (
+                      
+                      {selectedPlayer?.id === player.id && ( 
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
                           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 justify-items-center pt-3">
                             {assignedEventTypes.map((eventType, index) => (
