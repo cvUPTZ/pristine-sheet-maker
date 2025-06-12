@@ -58,11 +58,20 @@ export class VideoJobService {
       
       if (!fallbackResult.data) return null;
       
+      // Properly handle the fallback data
+      const fallbackData = fallbackResult.data;
       return {
-        ...fallbackResult.data,
-        video_title: fallbackResult.data.video_title || undefined,
-        video_duration: fallbackResult.data.video_duration || undefined,
-        error_message: fallbackResult.data.error_message || undefined,
+        id: fallbackData.id,
+        created_at: fallbackData.created_at,
+        updated_at: fallbackData.updated_at,
+        status: fallbackData.status,
+        input_video_path: fallbackData.input_video_path,
+        progress: fallbackData.progress,
+        user_id: fallbackData.user_id,
+        video_title: fallbackData.video_title || undefined,
+        video_duration: fallbackData.video_duration || undefined,
+        error_message: fallbackData.error_message || undefined,
+        result_data: fallbackData.result_data,
         job_config: {} // Default empty object since column doesn't exist
       } as VideoJob;
     }
@@ -99,11 +108,21 @@ export class VideoJobService {
         throw new Error(`Failed to fetch jobs: ${fallbackResult.error.message}`);
       }
       
-      return (fallbackResult.data || []).map(job => ({
-        ...job,
+      if (!fallbackResult.data) return [];
+      
+      // Properly handle the fallback data array
+      return fallbackResult.data.map(job => ({
+        id: job.id,
+        created_at: job.created_at,
+        updated_at: job.updated_at,
+        status: job.status,
+        input_video_path: job.input_video_path,
+        progress: job.progress,
+        user_id: job.user_id,
         video_title: job.video_title || undefined,
         video_duration: job.video_duration || undefined,
         error_message: job.error_message || undefined,
+        result_data: job.result_data,
         job_config: {} // Default empty object since column doesn't exist
       })) as VideoJob[];
     }
