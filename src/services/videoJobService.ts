@@ -1,4 +1,5 @@
 
+
 // src/services/videoJobService.ts
 import { supabase } from '@/integrations/supabase/client';
 
@@ -80,12 +81,19 @@ export class VideoJobService {
     
     if (!data) return null;
     
-    // Convert database types to interface types
+    // Convert database types to interface types for successful query
     return {
-      ...data,
+      id: data.id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      status: data.status,
+      input_video_path: data.input_video_path,
+      progress: data.progress,
+      user_id: data.user_id,
       video_title: data.video_title || undefined,
       video_duration: data.video_duration || undefined,
       error_message: data.error_message || undefined,
+      result_data: data.result_data,
       job_config: data.job_config || {} // Use actual job_config or default to empty object
     } as VideoJob;
   }
@@ -129,12 +137,21 @@ export class VideoJobService {
     
     if (error) throw new Error(`Failed to fetch jobs: ${error.message}`);
     
-    // Convert database types to interface types
-    return (data || []).map(job => ({
-      ...job,
+    if (!data) return [];
+    
+    // Convert database types to interface types for successful query
+    return data.map(job => ({
+      id: job.id,
+      created_at: job.created_at,
+      updated_at: job.updated_at,
+      status: job.status,
+      input_video_path: job.input_video_path,
+      progress: job.progress,
+      user_id: job.user_id,
       video_title: job.video_title || undefined,
       video_duration: job.video_duration || undefined,
       error_message: job.error_message || undefined,
+      result_data: job.result_data,
       job_config: job.job_config || {} // Use actual job_config or default to empty object
     })) as VideoJob[];
   }
@@ -174,3 +191,4 @@ export class VideoJobService {
     if (error) throw new Error(`Failed to delete job: ${error.message}`);
   }
 }
+
