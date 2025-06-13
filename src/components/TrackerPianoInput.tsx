@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -483,7 +482,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       </AnimatePresence>
 
       {/* Player Selection - Only show when there are multiple players */}
-      {showPlayerSelection && (assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
+      {showPlayerSelection && assignedPlayers && (assignedPlayers.home?.length || assignedPlayers.away?.length) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -497,7 +496,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 p-6">
-              {assignedPlayers?.home?.length > 0 && (
+              {assignedPlayers.home && assignedPlayers.home.length > 0 && (
                 <div>
                   <h3 className="font-bold mb-4 text-lg text-blue-700 dark:text-blue-300 flex items-center gap-2">
                     <span className="w-4 h-4 bg-blue-500 rounded-full"></span>
@@ -542,7 +541,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 </div>
               )}
 
-              {assignedPlayers?.away?.length > 0 && (
+              {assignedPlayers.away && assignedPlayers.away.length > 0 && (
                 <div>
                   <h3 className="font-bold mb-4 text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
                     <span className="w-4 h-4 bg-red-500 rounded-full"></span>
@@ -666,7 +665,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   Record Events by Player
                 </h3>
                 {(() => {
-                  const allPlayersList = assignedPlayers ? [...assignedPlayers.home, ...assignedPlayers.away] : [];
+                  const allPlayersList = assignedPlayers ? [...(assignedPlayers.home || []), ...(assignedPlayers.away || [])] : [];
                   const playerSections = allPlayersList.map(player => (
                     <div
                       key={player.id}

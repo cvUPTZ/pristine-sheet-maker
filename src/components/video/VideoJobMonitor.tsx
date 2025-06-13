@@ -1,6 +1,6 @@
 
 // src/components/VideoJobMonitor.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ const formatTime = (seconds: number | null | undefined): string => {
 };
 
 interface VideoJobMonitorProps {
-  job: VideoJob & { videoUrl?: string }; // Include videoUrl from PageVideoJob
+  job: VideoJob & { videoUrl?: string };
   onJobUpdate: (job: VideoJob) => void;
   onJobDelete: (jobId: string) => void;
 }
@@ -37,7 +37,11 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
   useEffect(() => {
     let stopPolling: (() => void) | null = null;
     if (job.status === 'pending' || job.status === 'processing') {
-      VideoJobService.pollJobStatus(job.id, onJobUpdate).then((stopFn: () => void) => { stopPolling = stopFn; });
+      VideoJobService.pollJobStatus(job.id, (updatedJob: VideoJob | null) => {
+        if (updatedJob) {
+          onJobUpdate(updatedJob);
+        }
+      }).then((stopFn: () => void) => { stopPolling = stopFn; });
     }
     return () => { if (stopPolling) stopPolling(); };
   }, [job.id, job.status, onJobUpdate]);
@@ -46,7 +50,7 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium">{job.video_title || 'Video Analysis Job'}</CardTitle>
+          <CardTitle className="text-base font-medium">{job.video_title || job.fileName || 'Video Analysis Job'}</CardTitle>
           <Badge className={job.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : job.status === 'processing' ? 'bg-blue-100 text-blue-800' : job.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
             <div className="flex items-center gap-1">
               {job.status === 'processing' ? <Loader2 className="h-4 w-4 animate-spin"/> : job.status === 'completed' ? <CheckCircle className="h-4 w-4"/> : job.status === 'failed' ? <XCircle className="h-4 w-4"/> : <Clock className="h-4 w-4"/>}
@@ -57,10 +61,10 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-gray-600">
-          <div>Submitted: {new Date(job.created_at).toLocaleString()}</div>
+          <div>Submitted: {new Date(job.created_at || job.createdAt || Date.now()).toLocaleString()}</div>
           {job.video_duration && <div>Duration: {formatTime(job.video_duration)}</div>}
         </div>
-        {(job.status === 'processing' && job.progress > 0) && (
+        {(job.status === 'processing' && job.progress && job.progress > 0) && (
           <Progress value={job.progress} className="w-full" />
         )}
         {job.status === 'failed' && job.error_message && (
