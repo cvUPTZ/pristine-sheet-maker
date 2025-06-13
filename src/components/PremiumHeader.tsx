@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, Search, Settings, User } from 'luc ide-react';
+import { Bell, Search, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PremiumHeaderProps {
