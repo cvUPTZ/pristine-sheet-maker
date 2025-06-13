@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -482,7 +483,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       </AnimatePresence>
 
       {/* Player Selection - Only show when there are multiple players */}
-      {showPlayerSelection && assignedPlayers && (assignedPlayers.home?.length || assignedPlayers.away?.length) && (
+      {showPlayerSelection && assignedPlayers && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -683,17 +684,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                             ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800'
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
-                        onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
+                        onClick={() => handlePlayerSelect(player, assignedPlayers && assignedPlayers.home.includes(player) ? 'home' : 'away')}
                       >
                         <div className="truncate">
                           {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>}
                           <span className="text-sm font-medium">{player.name}</span>
                           <span className={`text-xs ml-1.5 px-1 py-0 rounded-full ${
-                            assignedPlayers.home.includes(player)
+                            assignedPlayers && assignedPlayers.home.includes(player)
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200'
                               : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'
                           }`}>
-                            {assignedPlayers.home.includes(player) ? 'H' : 'A'}
+                            {assignedPlayers && assignedPlayers.home.includes(player) ? 'H' : 'A'}
                           </span>
                         </div>
                         {selectedPlayer?.id === player.id && (
@@ -725,7 +726,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                                   isRecording={recordingEventType === eventType.key && selectedPlayer?.id === player.id}
                                   disabled={isRecording}
                                   onClick={() => {
-                                    const teamForThisPlayer = assignedPlayers.home.includes(player) ? 'home' : 'away';
+                                    const teamForThisPlayer = assignedPlayers && assignedPlayers.home.includes(player) ? 'home' : 'away';
                                     handlePlayerSelect(player, teamForThisPlayer);
                                     handleEventTypeClick(eventType);
                                   }}

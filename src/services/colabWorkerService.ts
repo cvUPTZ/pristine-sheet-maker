@@ -104,7 +104,7 @@ export class ColabWorkerService {
     try {
       // Step 1: Download video from Supabase Storage
       await this.updateJobProgress(job.id, 10, 'Downloading video...');
-      const videoBlob = await this.downloadVideoFromStorage(job.input_video_path);
+      const videoBlob = await this.downloadVideoFromStorage(job.input_video_path || '');
       
       // Step 2: Initialize AI models
       await this.updateJobProgress(job.id, 20, 'Loading AI models...');
