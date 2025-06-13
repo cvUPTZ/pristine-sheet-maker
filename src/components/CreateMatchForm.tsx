@@ -172,7 +172,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      const parseAndPadPlayers = (savedPlayers: any[] | string | null, teamIdentifier: string): Player[] => {
+      const parseAndPadPlayers = (savedPlayers: any, teamIdentifier: string): Player[] => {
           let parsedSavedPlayers: any[] | null = null;
           if (typeof savedPlayers === 'string') {
             try {
@@ -181,8 +181,10 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               console.error("Failed to parse savedPlayers JSON string:", e);
               parsedSavedPlayers = []; // Default to empty array on parse error
             }
-          } else {
+          } else if (Array.isArray(savedPlayers)) {
             parsedSavedPlayers = savedPlayers;
+          } else {
+            parsedSavedPlayers = [];
           }
 
           const fullSquad = initializeBlankPlayers(teamIdentifier);

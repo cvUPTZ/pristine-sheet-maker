@@ -7,12 +7,17 @@ export interface VideoJob {
   status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed' | 'pending';
   progress?: number;
   fileName?: string;
-  createdAt?: string; // Or Date
+  created_at?: string;
+  createdAt?: string;
   segmentId?: string;
   results?: any;
   error?: string;
+  error_message?: string;
   colabLogUrl?: string;
-  // Add other fields as suggested by usage in VideoJobMonitor.tsx or useVideoJobs.ts if identifiable
+  video_title?: string;
+  video_duration?: number;
+  input_video_path?: string;
+  job_config?: any;
 }
 
 /**
@@ -48,16 +53,14 @@ export class VideoJobService {
 
   static async pollJobStatus(jobId: string, callback: (job: VideoJob | null) => void, intervalMs: number = 5000): Promise<() => void> {
     console.warn(`VideoJobService.pollJobStatus is a stub and does not perform real polling for job ID: ${jobId}. Interval: ${intervalMs}ms`);
-    // Immediately call back with a placeholder or null, then do nothing.
-    // callback(null); // Or a mock job
     // Return a no-op stop function
     return () => {
       console.warn(`Polling stopped for job ID: ${jobId} (stub)`);
     };
   }
 
-  static async getUserJobs(userId: string): Promise<VideoJob[]> {
-    console.warn(`VideoJobService.getUserJobs is a stub and will return an empty array for user ID: ${userId}`);
+  static async getUserJobs(): Promise<VideoJob[]> {
+    console.warn(`VideoJobService.getUserJobs is a stub and will return an empty array`);
     return [];
   }
 
