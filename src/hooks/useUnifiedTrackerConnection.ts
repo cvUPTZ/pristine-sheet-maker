@@ -43,12 +43,12 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
 
     const initializeChannel = async () => {
       initializingRef.current = true;
-      console.log('UnifiedTrackerConnection: Initialize (attempting channel setup)', { 
-        matchId, 
-        userId, 
-        isCurrentUser,
-        timestamp: new Date().toISOString() 
-      });
+      // console.log('UnifiedTrackerConnection: Initialize (attempting channel setup)', { 
+      //   matchId, 
+      //   userId, 
+      //   isCurrentUser,
+      //   timestamp: new Date().toISOString() 
+      // });
       
       try {
         console.log('UnifiedTrackerConnection: Setting up unified channel for match:', matchId);
