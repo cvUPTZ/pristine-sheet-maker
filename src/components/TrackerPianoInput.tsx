@@ -361,8 +361,22 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     );
   }
 
-  const totalAssignedPlayers = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
-  const showPlayerSelection = totalAssignedPlayers > 1;
+  // Renamed to be specific to players assigned to this tracker, for view logic
+  const totalPlayersAssignedToThisTrackerForView = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
+  const isEliteView = totalPlayersAssignedToThisTrackerForView > 1;
+
+  // Show the main player selection card (full roster) only if not in Elite Tier multi-player view (i.e., in primary view)
+  // AND if there's actually more than one player in the full match roster to choose from.
+  const showRosterPlayerSelectionCard =
+    totalPlayersAssignedToThisTrackerForView <= 1 &&
+    fullMatchRoster &&
+    ((fullMatchRoster.home?.length || 0) + (fullMatchRoster.away?.length || 0)) > 1;
+
+  // This controls the "Clear" button on the top "Selected Player Display" card.
+  // It should be visible if there's more than one *assigned* player to the tracker (Elite view)
+  // OR if in primary view and there's more than one player in the *roster* to choose from.
+  const showClearSelectedPlayerButton = totalPlayersAssignedToThisTrackerForView > 1 || showRosterPlayerSelectionCard;
+
 
   return (
     <div className="space-y-6 p-4">
@@ -423,7 +437,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                             #{selectedPlayer.jersey_number}
                           </span>
                         )}
-                        {totalAssignedPlayers === 1 && (
+                        {totalPlayersAssignedToThisTrackerForView === 1 && ( // Use the new variable name
                           <span className="px-2 py-1 bg-orange-200 dark:bg-orange-800 rounded-full text-xs font-medium">
                             Auto-selected
                           </span>
@@ -431,7 +445,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                       </div>
                     </div>
                   </div>
-                  {showPlayerSelection && (
+                  {showClearSelectedPlayerButton && ( // Use the new variable for controlling clear button
                     <Button 
                       onClick={() => {
                         setSelectedPlayer(null);
@@ -489,8 +503,8 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         )}
       </AnimatePresence>
 
-      {/* Player Selection - Only show when there are multiple players */}
-      {showPlayerSelection && (assignedPlayers?.home?.length || assignedPlayers?.away?.length) && (
+      {/* Player Selection from Roster - Show only in primary view mode and if multiple roster players exist */}
+      {showRosterPlayerSelectionCard && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -611,54 +625,58 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 🎹 Record Events
               </h2>
               <p className="text-purple-600 dark:text-purple-300 mt-2">
-                {totalAssignedPlayers === 1 
-                  ? "Tap any event type to record instantly" 
-                  : selectedPlayer 
-                    ? `Recording for ${selectedPlayer.name}` 
-                    : "Select a player first, then tap any event type"}
+                {totalPlayersAssignedToThisTrackerForView <= 1
+                  ? (selectedPlayer ? `Recording for ${selectedPlayer.name}` : "Select a player, then tap event type")
+                  : "Events per assigned player:"} {/* Changed message for Elite view */}
               </p>
             </div>
 
-            {totalAssignedPlayers <= 1 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 justify-items-center">
+            {!isEliteView ? ( /* This is the Primary View */
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 justify-items-center"> {/* Adjusted grid and gap for primary view */}
                 {assignedEventTypes.map((eventType, index) => (
                   <motion.div
-                    key={eventType.key} // Single player event types
+                    key={eventType.key}
                     initial={{ opacity: 0, scale: 0.5, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{
                       duration: 0.4,
                       delay: index * 0.1,
                       type: "spring",
-                      stiffness: 300,
+                      stiffness: 250, // Slightly softer spring for primary view
                       damping: 20
                     }}
-                    whileHover={{ scale: 1.1, y: -10 }}
+                    whileHover={{ scale: 1.05, y: -5 }} // Less aggressive hover for primary
                     whileTap={{ scale: 0.95 }}
                     className="relative"
                   >
                     <div className="text-center">
                       <EventTypeSvg
                         eventType={eventType.key}
-                        isRecording={recordingEventType === eventType.key}
-                        disabled={isRecording || (totalAssignedPlayers > 1 && !selectedPlayer)} // This condition might need adjustment for single player auto-selection
-                        onClick={() => handleEventTypeClick(eventType)}
+                        isRecording={recordingEventType === eventType.key && selectedPlayer?.id !== undefined}
+                        disabled={isRecording || !selectedPlayer}
+                        onClick={() => {
+                          if (!selectedPlayer) {
+                            toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
+                            return;
+                          }
+                          handleEventTypeClick(eventType);
+                        }}
                       />
                       <motion.div
-                        className="mt-3 px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-purple-200 dark:border-purple-700"
+                        className="mt-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-center" // Restored some styling for primary label
                         whileHover={{ scale: 1.05 }}
                       >
-                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight"> {/* Standard text-xs, standard colors */}
                           {eventType.label}
                         </span>
                       </motion.div>
                     </div>
 
-                    {recordingEventType === eventType.key && (
+                    {recordingEventType === eventType.key && selectedPlayer?.id !== undefined && ( // Check selectedPlayer for animation too
                       <motion.div
-                        className="absolute -inset-4 rounded-full border-4 border-green-400"
+                        className="absolute -inset-2 rounded-full border-2 border-green-500" // Standard animation inset/border
                         animate={{
-                          scale: [1, 1.2, 1],
+                          scale: [1, 1.15, 1],
                           opacity: [0.7, 1, 0.7]
                         }}
                         transition={{ duration: 0.8, repeat: Infinity }}
@@ -667,9 +685,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   </motion.div>
                 ))}
               </div>
-            ) : (
+            ) : ( /* This is the Elite Tier View */
               <div>
-                <h3 className="text-xl font-semibold mb-3 text-center text-purple-700 dark:text-purple-300"> {/* mb-4 to mb-3 */}
+                <h3 className="text-xl font-semibold mb-3 text-center text-purple-700 dark:text-purple-300">
                   Record Events by Player
                 </h3>
                 {(() => {
@@ -677,40 +695,40 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   const playerSections = allPlayersList.map(player => (
                     <div
                       key={player.id}
-                      className={`border rounded-lg transition-all duration-300 ease-in-out ${ /* base classes for player section */
-                        totalAssignedPlayers === 2 ? 'flex-1 min-w-0 p-2' : 'p-2' /* p-3 to p-2 */
+                      className={`border rounded-lg transition-all duration-300 ease-in-out ${
+                        totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-2' : 'p-2'
                       } ${
                         selectedPlayer?.id === player.id
-                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' // Reduced ring, added shadow-sm
+                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm'
                           : 'bg-white dark:bg-slate-800 hover:shadow-md'
                       }`}
                     >
                       <CardTitle
-                        className={`mb-1.5 cursor-pointer flex items-center justify-between px-2 py-1 rounded ${ /* mb-3 to mb-1.5, p-2 to px-2 py-1, rounded-md to rounded */
+                        className={`mb-1.5 cursor-pointer flex items-center justify-between px-2 py-1 rounded ${
                           selectedPlayer?.id === player.id
                             ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800'
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                         onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
                       >
-                        <div className="truncate"> {/* Added truncate for player name */}
-                          {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>} {/* text-sm to text-xs, font-bold to font-semibold */}
-                          <span className="text-sm font-medium">{player.name}</span> {/* text-base to text-sm, added font-medium */}
-                          <span className={`text-xs ml-1.5 px-1 py-0 rounded-full ${ /* ml-2 to ml-1.5, px-1.5 to px-1 */
+                        <div className="truncate">
+                          {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>}
+                          <span className="text-sm font-medium">{player.name}</span>
+                          <span className={`text-xs ml-1.5 px-1 py-0 rounded-full ${
                             assignedPlayers.home.includes(player)
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200'
                               : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'
                           }`}>
-                            {assignedPlayers.home.includes(player) ? 'H' : 'A'} {/* Home/Away to H/A */}
+                            {assignedPlayers.home.includes(player) ? 'H' : 'A'}
                           </span>
                         </div>
                         {selectedPlayer?.id === player.id && (
-                          <span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span> {/* Adjusted padding, text, shadow */}
+                          <span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span>
                         )}
                       </CardTitle>
 
                       <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                        <div className={`grid ${totalAssignedPlayers === 2 ? 'grid-cols-3 gap-1.5' : 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5'} justify-items-center pt-1`}> {/* gap-3 to gap-1.5, pt-2 to pt-1, more cols */}
+                        <div className={`grid ${totalPlayersAssignedToThisTrackerForView === 2 ? 'grid-cols-3 gap-1.5' : 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5'} justify-items-center pt-1`}>
                           {assignedEventTypes.map((eventType, index) => (
                             <motion.div
                               key={`${player.id}-${eventType.key}`}
@@ -741,17 +759,17 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                                     handleEventTypeClick(eventType);
                                   }}
                                 />
-                                <div /* Using div instead of motion.div for simpler label */
-                                  className="mt-0.5 text-center" // Reduced mt, removed padding, shadow, border from label wrapper
+                                <div
+                                  className="mt-0.5 text-center"
                                 >
-                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}>{/* Custom smaller font, adjusted color */}
+                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}>
                                     {eventType.label}
                                   </span>
                                 </div>
                               </div>
                               {recordingEventType === eventType.key && selectedPlayer?.id === player.id && (
                                 <motion.div
-                                  className="absolute -inset-1 rounded-full border border-green-600" /* Reduced inset, thinner border */
+                                  className="absolute -inset-1 rounded-full border border-green-600"
                                   animate={{
                                     scale: [1, 1.15, 1],
                                     opacity: [0.6, 0.9, 0.6]
@@ -766,10 +784,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     </div>
                   ));
 
-                  if (totalAssignedPlayers === 2) {
+                  if (totalPlayersAssignedToThisTrackerForView === 2) {
                     return <div className="flex flex-row gap-2 items-start">{playerSections}</div>;
                   } else {
-                    return <div className="space-y-2">{playerSections}</div>; // Reduced space-y-4 to space-y-2
+                    return <div className="space-y-2">{playerSections}</div>;
                   }
                 })()}
               </div>
