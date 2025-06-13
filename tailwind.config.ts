@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -53,28 +52,24 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
-				},
 				success: {
 					DEFAULT: 'hsl(var(--success))',
 					foreground: 'hsl(var(--success-foreground))'
-				}
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
+				'dashboard-bg': 'rgb(var(--dashboard-bg))',
+				'header-bg': 'rgb(var(--header-bg))',
 			},
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)',
-				xl: '12px',
-				'2xl': '16px',
-				'3xl': '24px',
+				lg: 'var(--radius)', // 12px
+				md: 'calc(var(--radius) - 2px)', // 10px
+				sm: 'calc(var(--radius) - 4px)', // 8px
+				xl: 'calc(var(--radius) + 4px)', // 16px
+				'2xl': 'calc(var(--radius) + 8px)', // 20px
+				'3xl': 'calc(var(--radius) + 12px)', // 24px
 			},
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -96,75 +91,85 @@ export default {
 				'88': '22rem',
 			},
 			boxShadow: {
+				'card': 'var(--card-shadow)',
+				'card-hover': 'var(--card-shadow-hover)',
+				'glow': '0 0 20px rgb(var(--primary) / 0.3)',
 				'modern': '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
 				'modern-lg': '0 25px 50px -12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.05)',
 				'inner-modern': 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
 			},
 			backdropBlur: {
 				'xs': '2px',
+				'lg': '20px',
 			},
 			keyframes: {
 				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+					from: { height: '0' },
+					to: { height: 'var(--radix-accordion-content-height)' }
 				},
 				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
+					from: { height: 'var(--radix-accordion-content-height)' },
+					to: { height: '0' }
 				},
 				'fade-in': {
-					'0%': {
+					'from': {
 						opacity: '0',
 						transform: 'translateY(20px)'
 					},
-					'100%': {
+					'to': {
 						opacity: '1',
 						transform: 'translateY(0)'
 					}
 				},
 				'slide-up': {
-					'0%': {
+					'from': {
 						opacity: '0',
 						transform: 'translateY(30px)'
 					},
-					'100%': {
+					'to': {
 						opacity: '1',
 						transform: 'translateY(0)'
 					}
 				},
 				'scale-in': {
-					'0%': {
+					'from': {
 						opacity: '0',
 						transform: 'scale(0.95)'
 					},
-					'100%': {
+					'to': {
 						opacity: '1',
 						transform: 'scale(1)'
 					}
 				},
-				'shimmer': {
+				'bounce-in': {
 					'0%': {
-						transform: 'translateX(-100%)'
+						opacity: '0',
+						transform: 'scale(0.3)',
+					},
+					'50%': {
+						opacity: '1',
+						transform: 'scale(1.05)',
+					},
+					'70%': {
+						transform: 'scale(0.9)',
 					},
 					'100%': {
-						transform: 'translateX(100%)'
-					}
+						opacity: '1',
+						transform: 'scale(1)',
+					},
+				},
+				'shimmer': {
+					'0%': { transform: 'translateX(-100%)' },
+					'100%': { transform: 'translateX(100%)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'fade-in': 'fade-in 0.6s ease-out',
-				'slide-up': 'slide-up 0.6s ease-out',
-				'scale-in': 'scale-in 0.3s ease-out',
+				'fade-in': 'fade-in 0.6s ease-out forwards',
+				'slide-up': 'slide-up 0.6s ease-out forwards',
+				'scale-in': 'scale-in 0.3s ease-out forwards',
+				'bounce-in': 'bounce-in 0.6s ease-out forwards',
 				'shimmer': 'shimmer 2s infinite',
 			}
 		}
