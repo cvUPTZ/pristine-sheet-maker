@@ -5,7 +5,8 @@ import { getEventTypeIcon } from './getEventTypeIcon';
 import { 
   Tooltip, 
   TooltipContent, 
-  TooltipTrigger
+  TooltipTrigger, 
+  TooltipProvider 
 } from '@/components/ui/tooltip';
 
 // --- Helper: Intersection Observer Hook ---
@@ -222,14 +223,16 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
 
   if (showTooltip) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {iconElement}
-        </TooltipTrigger>
-        <TooltipContent>
-          {tooltipContent || eventType}
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {iconElement}
+          </TooltipTrigger>
+          <TooltipContent>
+            {tooltipContent || eventType}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
