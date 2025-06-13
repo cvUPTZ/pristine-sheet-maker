@@ -744,7 +744,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                                 <div /* Using div instead of motion.div for simpler label */
                                   className="mt-0.5 text-center" // Reduced mt, removed padding, shadow, border from label wrapper
                                 >
-                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}> {/* Custom smaller font, adjusted color */}
+                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}>{/* Custom smaller font, adjusted color */}
                                     {eventType.label}
                                   </span>
                                 </div>
