@@ -6,6 +6,7 @@ interface EventTypeSvgProps {
   isSelected?: boolean;
   onClick?: () => void;
   disabled?: boolean;
+  size?: 'xs' | 'sm' | 'md'; // Added size prop
 }
 
 const EventTypeSvg: React.FC<EventTypeSvgProps> = ({
@@ -13,12 +14,27 @@ const EventTypeSvg: React.FC<EventTypeSvgProps> = ({
   isRecording = false,
   isSelected = false,
   onClick,
-  disabled = false
+  disabled = false,
+  size = 'md' // Default to 'md' if no size is provided
 }) => {
   const getEventSvg = () => {
-    const baseClasses = `w-40 h-40 cursor-pointer transition-all duration-500 transform ${
-      isRecording ? 'scale-125 animate-pulse' : 'hover:scale-125 hover:rotate-3'
-    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} drop-shadow-2xl hover:drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`;
+    let sizeClasses = '';
+    let hoverScale = 'hover:scale-110'; // Default hover scale for smaller sizes
+    let shadow = 'drop-shadow-lg hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]'; // Default shadow for smaller sizes
+
+    if (size === 'xs') {
+      sizeClasses = 'w-10 h-10'; // 40px
+    } else if (size === 'sm') {
+      sizeClasses = 'w-16 h-16'; // 64px
+    } else { // 'md' or default
+      sizeClasses = 'w-24 h-24'; // 96px - making this the new default medium
+      hoverScale = 'hover:scale-125'; // Keep larger hover for md
+      shadow = 'drop-shadow-xl hover:drop-shadow-[0_0_25px_rgba(255,255,255,0.25)]'; // Slightly stronger shadow for md
+    }
+
+    const baseClasses = `${sizeClasses} cursor-pointer transition-all duration-300 transform ${ // duration-500 to duration-300
+      isRecording ? 'scale-110 animate-pulse' : hoverScale // isRecording scale-125 to scale-110
+    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${shadow}`;
 
     switch (eventType.toLowerCase()) {
       case 'goal':

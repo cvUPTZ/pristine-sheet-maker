@@ -364,12 +364,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   // Renamed to be specific to players assigned to this tracker, for view logic
   const totalPlayersAssignedToThisTrackerForView = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
   const isEliteView = totalPlayersAssignedToThisTrackerForView > 1;
-  
+
   // Show the main player selection card (full roster) only if not in Elite Tier multi-player view (i.e., in primary view)
   // AND if there's actually more than one player in the full match roster to choose from.
-  const showRosterPlayerSelectionCard = 
-    totalPlayersAssignedToThisTrackerForView <= 1 && 
-    fullMatchRoster && 
+  const showRosterPlayerSelectionCard =
+    totalPlayersAssignedToThisTrackerForView <= 1 &&
+    fullMatchRoster &&
     ((fullMatchRoster.home?.length || 0) + (fullMatchRoster.away?.length || 0)) > 1;
 
   // This controls the "Clear" button on the top "Selected Player Display" card.
@@ -625,173 +625,253 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 🎹 Record Events
               </h2>
               <p className="text-purple-600 dark:text-purple-300 mt-2">
-                {totalPlayersAssignedToThisTrackerForView <= 1 
+                {totalPlayersAssignedToThisTrackerForView <= 1
                   ? (selectedPlayer ? `Recording for ${selectedPlayer.name}` : "Select a player, then tap event type")
                   : "Events per assigned player:"} {/* Changed message for Elite view */}
               </p>
             </div>
 
-            {!isEliteView ? ( /* This is the Primary View */
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 justify-items-center"> {/* Adjusted grid and gap for primary view */}
-                {assignedEventTypes.map((eventType, index) => (
-                  <motion.div
-                    key={eventType.key} 
-                    initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{
-                      duration: 0.4,
-                      delay: index * 0.1,
-                      type: "spring",
-                      stiffness: 250, // Slightly softer spring for primary view
-                      damping: 20
-                    }}
-                    whileHover={{ scale: 1.05, y: -5 }} // Less aggressive hover for primary
-                    whileTap={{ scale: 0.95 }}
-                    className="relative"
-                  >
-                    <div className="text-center">
-                      <EventTypeSvg
-                        eventType={eventType.key}
-                        isRecording={recordingEventType === eventType.key && selectedPlayer?.id !== undefined}
-                        disabled={isRecording || !selectedPlayer} 
-                        onClick={() => {
-                          if (!selectedPlayer) {
-                            toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
-                            return;
-                          }
-                          handleEventTypeClick(eventType);
-                        }}
-                      />
-                      <motion.div
-                        className="mt-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-center" // Restored some styling for primary label
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight"> {/* Standard text-xs, standard colors */}
-                          {eventType.label}
-                        </span>
-                      </motion.div>
-                    </div>
+            <RadialEventLayout
+              eventTypes={assignedEventTypes}
+              isEliteView={isEliteView}
+              settings={
+                !isEliteView
+                ? { // Primary View settings
+                    containerSizeClass: 'w-60 h-60', // Approx 240px
+                    radius: 90, // Pixel radius
+                    svgSize: 'sm', // from EventTypeSvgProps
+                    labelClassName: "mt-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-center",
+                    labelTextClassName: "text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight",
+                    labelStyle: {},
+                    animationInsetClass: "-inset-2 border-2",
+                  }
+                : { // Elite Tier View base settings (will be used per player)
+                    containerSizeClass: 'w-36 h-36', // Approx 144px
+                    radius: 55, // Increased radius for Elite (was 50)
+                    svgSize: 'xs',
+                    labelClassName: "mt-0.5 text-center",
+                    labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
+                    labelStyle: { fontSize: '0.6rem', lineHeight: '0.75rem' },
+                    animationInsetClass: "-inset-1 border",
+                  }
+              }
+              recordingEventType={recordingEventType}
+              selectedPlayerId={selectedPlayer?.id}
+              isRecordingGlobal={isRecording}
+              // Simplified onEventClick for Primary View
+              onEventClick={(eventType) => {
+                if (!selectedPlayer) {
+                  toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
+                  return;
+                }
+                handleEventTypeClick(eventType);
+              }}
+              // These props are only relevant for Elite view instances if not handled by a closure in the loop
+              // For Primary view, they are not used by the simplified onEventClick
+              currentPlayerForLayout={null}
+              allAssignedPlayers={assignedPlayers} // Pass for context if needed, though simplified onClick won't use it here
+              totalPlayersInCurrentLayoutContext={totalPlayersAssignedToThisTrackerForView}
+            />
 
-                    {recordingEventType === eventType.key && selectedPlayer?.id !== undefined && ( // Check selectedPlayer for animation too
-                      <motion.div
-                        className="absolute -inset-2 rounded-full border-2 border-green-500" // Standard animation inset/border
-                        animate={{
-                          scale: [1, 1.15, 1],
-                          opacity: [0.7, 1, 0.7]
-                        }}
-                        transition={{ duration: 0.8, repeat: Infinity }}
-                      />
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            ) : ( /* This is the Elite Tier View */
+            {isEliteView && (
               <div>
-                <h3 className="text-xl font-semibold mb-3 text-center text-purple-700 dark:text-purple-300"> 
+                <h3 className="text-xl font-semibold mb-3 text-center text-purple-700 dark:text-purple-300">
                   Record Events by Player
                 </h3>
                 {(() => {
                   const allPlayersList = assignedPlayers ? [...assignedPlayers.home, ...assignedPlayers.away] : [];
-                  const playerSections = allPlayersList.map(player => (
-                    <div 
-                      key={player.id} 
-                      className={`border rounded-lg transition-all duration-300 ease-in-out ${
-                        totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-2' : 'p-2' 
-                      } ${
-                        selectedPlayer?.id === player.id 
-                          ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm'
-                          : 'bg-white dark:bg-slate-800 hover:shadow-md'
-                      }`}
-                    >
-                      <CardTitle 
-                        className={`mb-1.5 cursor-pointer flex items-center justify-between px-2 py-1 rounded ${
-                          selectedPlayer?.id === player.id 
-                            ? 'text-green-700 dark:text-green-200 bg-green-100 dark:bg-green-800' 
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  const numEvents = assignedEventTypes.length;
+
+                  const playerSections = allPlayersList.map(player => {
+                    let radialContainerClass: string;
+                    let radialRadius: number;
+
+                    if (totalPlayersAssignedToThisTrackerForView === 2) { // Horizontal Layout for 2 elite players
+                      if (numEvents >= 7) {
+                        radialContainerClass = 'w-40 h-40'; // 160px
+                        radialRadius = 55;
+                      } else {
+                        radialContainerClass = 'w-36 h-36'; // 144px
+                        radialRadius = 45;
+                      }
+                    } else { // Vertical Stack for 3+ elite players
+                      if (numEvents >= 7) {
+                        radialContainerClass = 'w-44 h-44'; // 176px
+                        radialRadius = 65;
+                      } else {
+                        radialContainerClass = 'w-40 h-40'; // 160px
+                        radialRadius = 55;
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={player.id}
+                        className={`border rounded-lg transition-all duration-300 ease-in-out ${
+                          totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-1' : 'p-2'
+                        } ${
+                          selectedPlayer?.id === player.id
+                            ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 hover:shadow-md'
                         }`}
-                        onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
                       >
-                        <div className="truncate"> 
-                          {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>} 
-                          <span className="text-sm font-medium">{player.name}</span> 
-                          <span className={`text-xs ml-1.5 px-1 py-0 rounded-full ${ 
-                            assignedPlayers.home.includes(player) 
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' 
-                              : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'
-                          }`}>
-                            {assignedPlayers.home.includes(player) ? 'H' : 'A'} 
-                          </span>
-                        </div>
-                        {selectedPlayer?.id === player.id && (
-                          <span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span> 
-                        )}
-                      </CardTitle>
-                      
-                      <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                        <div className={`grid ${totalPlayersAssignedToThisTrackerForView === 2 ? 'grid-cols-3 gap-1.5' : 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5'} justify-items-center pt-1`}>
-                          {assignedEventTypes.map((eventType, index) => (
-                            <motion.div
-                              key={`${player.id}-${eventType.key}`}
-                              initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              transition={{
-                                duration: 0.3,
-                                delay: index * 0.05,
-                                type: "spring",
-                                stiffness: 280,
-                                damping: 18
-                              }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="relative"
-                            >
-                              <div className="text-center">
-                                <EventTypeSvg
-                                  eventType={eventType.key}
-                                  isRecording={recordingEventType === eventType.key && selectedPlayer?.id === player.id}
-                                  // An event button for a player implies that player *should* be selected for the action.
-                                  // Disable if another event is already recording OR if this player is not the globally selected one (optional, for stricter feedback)
-                                  // For now, only disable if isRecording. The handleEventTypeClick will set the player.
-                                  disabled={isRecording} 
-                                  onClick={() => {
-                                    const teamForThisPlayer = assignedPlayers.home.includes(player) ? 'home' : 'away';
-                                    handlePlayerSelect(player, teamForThisPlayer);
-                                    handleEventTypeClick(eventType);
-                                  }}
-                                />
-                                <div 
-                                  className="mt-0.5 text-center" 
-                                >
-                                  <span className="text-purple-700 dark:text-purple-300 block truncate w-full" style={{ fontSize: '0.6rem', lineHeight: '0.75rem' }}>
-                                    {eventType.label}
-                                  </span>
-                                </div>
-                              </div>
-                              {recordingEventType === eventType.key && selectedPlayer?.id === player.id && (
-                                <motion.div
-                                  className="absolute -inset-1 rounded-full border border-green-600" 
-                                  animate={{
-                                    scale: [1, 1.15, 1],
-                                    opacity: [0.6, 0.9, 0.6]
-                                  }}
-                                  transition={{ duration: 0.7, repeat: Infinity }}
-                                />
-                              )}
-                            </motion.div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </div>
-                  ));
+                        <CardTitle
+                          className={`mb-1 cursor-pointer flex items-center justify-between px-1.5 py-0.5 rounded ${
+                            selectedPlayer?.id === player.id
+                              ? 'text-green-600 dark:text-green-200 bg-green-100 dark:bg-green-800 text-sm'
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm'
+                          }`}
+                          onClick={() => handlePlayerSelect(player, assignedPlayers.home.includes(player) ? 'home' : 'away')}
+                        >
+                          <div className="truncate">
+                            {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>}
+                            <span className="font-medium">{player.name}</span>
+                            <span className={`text-xs ml-1 px-1 rounded-full ${
+                              assignedPlayers.home.includes(player)
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200'
+                                : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'
+                            }`}>
+                              {assignedPlayers.home.includes(player) ? 'H' : 'A'}
+                            </span>
+                          </div>
+                          {selectedPlayer?.id === player.id && (
+                            <span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span>
+                          )}
+                        </CardTitle>
+
+                        <RadialEventLayout
+                          eventTypes={assignedEventTypes}
+                          isEliteView={true}
+                          settings={{
+                            containerSizeClass: radialContainerClass,
+                            radius: radialRadius,
+                            svgSize: 'xs',
+                            labelClassName: "mt-0.5 text-center",
+                            labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
+                            labelStyle: { fontSize: '0.6rem', lineHeight: '0.75rem' },
+                            animationInsetClass: "-inset-1 border",
+                          }}
+                          recordingEventType={recordingEventType}
+                          selectedPlayerId={selectedPlayer?.id}
+                          isRecordingGlobal={isRecording}
+                          onEventClick={(eventType) => {
+                              const teamForThisPlayer = assignedPlayers.home.includes(player) ? 'home' : 'away';
+                              handlePlayerSelect(player, teamForThisPlayer);
+                              handleEventTypeClick(eventType);
+                          }}
+                          currentPlayerForLayout={player}
+                          totalPlayersInCurrentLayoutContext={1}
+                        />
+                      </div>
+                    );
+                  });
                   
                   if (totalPlayersAssignedToThisTrackerForView === 2) {
-                    return <div className="flex flex-row gap-2 items-start">{playerSections}</div>;
+                    return <div className="flex flex-row gap-1.5 items-start">{playerSections}</div>; // Reduced gap
                   } else {
-                    return <div className="space-y-2">{playerSections}</div>;
+                    return <div className="space-y-1.5">{playerSections}</div>; // Reduced space-y
                   }
                 })()}
               </div>
             )}
+
+            {isRecording && (
+// Define RadialEventLayoutProps and RadialEventLayout component here
+interface RadialEventLayoutProps {
+  eventTypes: EnhancedEventType[];
+  isEliteView: boolean; // To differentiate context
+  settings: {
+    containerSizeClass: string;
+    radius: number;
+    svgSize: 'xs' | 'sm' | 'md';
+    labelClassName: string;
+    labelTextClassName: string;
+    labelStyle: React.CSSProperties;
+    animationInsetClass: string;
+  };
+  recordingEventType: string | null;
+  selectedPlayerId?: number; // Used for Elite view to match player context for animation
+  isRecordingGlobal: boolean;
+  onEventClick: (eventType: EnhancedEventType) => void; // Simplified: player/team context handled by caller
+  currentPlayerForLayout?: PlayerForPianoInput | null;
+  // allAssignedPlayers prop is removed as team determination is now handled by the caller for Elite view
+  totalPlayersInCurrentLayoutContext?: number;
+}
+
+const RadialEventLayout: React.FC<RadialEventLayoutProps> = ({
+  eventTypes,
+  isEliteView, // Used to determine animation/selected state correctly
+  settings,
+  recordingEventType,
+  selectedPlayerId, // This is the global selectedPlayer.id
+  isRecordingGlobal,
+  onEventClick,
+  currentPlayerForLayout, // This is the specific player for an Elite section's layout
+  // totalPlayersInCurrentLayoutContext,
+}) => {
+  if (!eventTypes || eventTypes.length === 0) return null;
+
+  const { containerSizeClass, radius, svgSize, labelClassName, labelTextClassName, labelStyle, animationInsetClass } = settings;
+
+  return (
+    <div className={`relative mx-auto flex items-center justify-center ${containerSizeClass}`}>
+      {eventTypes.map((eventType, index) => {
+        const angle = (index / eventTypes.length) * 2 * Math.PI - (Math.PI / 2);
+        const x = Math.round(radius * Math.cos(angle));
+        const y = Math.round(radius * Math.sin(angle));
+
+        const itemWrapperStyle: React.CSSProperties = {
+          position: 'absolute',
+          top: `calc(50% + ${y}px)`,
+          left: `calc(50% + ${x}px)`,
+          transform: 'translate(-50%, -50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        };
+
+        const isCurrentlyRecordingThisEvent =
+          recordingEventType === eventType.key &&
+          selectedPlayerId === (isEliteView && currentPlayerForLayout ? currentPlayerForLayout.id : selectedPlayerId);
+
+        return (
+          <motion.div
+            key={eventType.key}
+            style={itemWrapperStyle}
+            className="w-auto h-auto"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: index * 0.05, type: "spring", stiffness: 280, damping: 18 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <div className="text-center">
+              <EventTypeSvg
+                eventType={eventType.key}
+                size={svgSize}
+                isRecording={isCurrentlyRecordingThisEvent}
+                disabled={isRecordingGlobal}
+                onClick={() => onEventClick(eventType)} // Simplified, context is handled by the caller
+              />
+              <div className={labelClassName}>
+                <span className={labelTextClassName} style={labelStyle}>
+                  {eventType.label}
+                </span>
+              </div>
+            </div>
+            {isCurrentlyRecordingThisEvent && (
+              <motion.div
+                className={`absolute rounded-full border-green-600 ${animationInsetClass}`}
+                animate={{ scale: [1, 1.15, 1], opacity: [0.6, 0.9, 0.6] }}
+                transition={{ duration: 0.7, repeat: Infinity }}
+              />
+            )}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
 
             {isRecording && (
               <motion.div
