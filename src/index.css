@@ -1,11 +1,10 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Modern Color Palette */
+    /* Modern Color Palette - Fixed */
     --background: 250 250 252;
     --foreground: 15 23 42;
 
@@ -15,8 +14,8 @@
     --popover: 255 255 255;
     --popover-foreground: 15 23 42;
 
-    /* Modern Brand Colors */
-    --primary: 79 70 229;
+    /* Modern Brand Colors - Football Theme */
+    --primary: 34 197 94;
     --primary-foreground: 255 255 255;
 
     --secondary: 248 250 252;
@@ -25,7 +24,7 @@
     --muted: 241 245 249;
     --muted-foreground: 100 116 139;
 
-    --accent: 99 102 241;
+    --accent: 16 185 129;
     --accent-foreground: 255 255 255;
 
     --destructive: 220 38 38;
@@ -34,26 +33,25 @@
     --success: 34 197 94;
     --success-foreground: 255 255 255;
 
+    --warning: 245 158 11;
+    --warning-foreground: 255 255 255;
+
     /* Modern Neutrals */
     --border: 226 232 240;
     --input: 226 232 240;
-    --ring: 99 102 241;
+    --ring: 34 197 94;
 
     --radius: 12px;
 
-    /* Sidebar Modern Colors */
-    --sidebar-background: 255 255 255;
-    --sidebar-foreground: 51 65 85;
-    --sidebar-primary: 79 70 229;
-    --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 248 250 252;
-    --sidebar-accent-foreground: 51 65 85;
-    --sidebar-border: 226 232 240;
-    --sidebar-ring: 99 102 241;
+    /* Dashboard Specific Colors */
+    --dashboard-bg: 249 250 251;
+    --header-bg: 255 255 255;
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --card-shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
 
   .dark {
-    /* Dark Mode Modern Colors */
+    /* Dark Mode Colors */
     --background: 3 7 18;
     --foreground: 248 250 252;
 
@@ -63,7 +61,7 @@
     --popover: 15 23 42;
     --popover-foreground: 248 250 252;
 
-    --primary: 129 140 248;
+    --primary: 34 197 94;
     --primary-foreground: 15 23 42;
 
     --secondary: 30 41 59;
@@ -72,7 +70,7 @@
     --muted: 30 41 59;
     --muted-foreground: 148 163 184;
 
-    --accent: 129 140 248;
+    --accent: 16 185 129;
     --accent-foreground: 15 23 42;
 
     --destructive: 239 68 68;
@@ -81,18 +79,17 @@
     --success: 34 197 94;
     --success-foreground: 15 23 42;
 
+    --warning: 245 158 11;
+    --warning-foreground: 15 23 42;
+
     --border: 51 65 85;
     --input: 51 65 85;
-    --ring: 129 140 248;
+    --ring: 34 197 94;
 
-    --sidebar-background: 15 23 42;
-    --sidebar-foreground: 203 213 225;
-    --sidebar-primary: 129 140 248;
-    --sidebar-primary-foreground: 15 23 42;
-    --sidebar-accent: 30 41 59;
-    --sidebar-accent-foreground: 203 213 225;
-    --sidebar-border: 51 65 85;
-    --sidebar-ring: 129 140 248;
+    --dashboard-bg: 3 7 18;
+    --header-bg: 15 23 42;
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+    --card-shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
   }
 }
 
@@ -102,7 +99,8 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: rgb(var(--dashboard-bg));
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
@@ -146,121 +144,261 @@
 }
 
 @layer components {
-  /* Modern Glass Effect */
-  .glass {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Dashboard Layout */
+  .dashboard-container {
+    min-height: 100vh;
+    background-color: rgb(var(--dashboard-bg));
   }
 
-  .glass-dark {
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(51, 65, 85, 0.3);
+  .dashboard-header {
+    background-color: rgb(var(--header-bg));
+    border-bottom: 1px solid rgb(var(--border));
+    box-shadow: var(--card-shadow);
   }
 
-  /* Modern Card Styles */
-  .modern-card {
-    @apply rounded-2xl border bg-card p-6 shadow-lg transition-all duration-300;
-    @apply hover:shadow-xl hover:-translate-y-1;
-    background: linear-gradient(135deg, rgb(255 255 255) 0%, rgb(248 250 252) 100%);
+  .dashboard-main {
+    @apply p-6 md:p-8 lg:p-10;
   }
 
-  .modern-card-dark {
-    background: linear-gradient(135deg, rgb(15 23 42) 0%, rgb(30 41 59) 100%);
+  /* Hero Section */
+  .hero-section {
+    @apply mb-8 md:mb-12;
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
+    @apply rounded-3xl p-8 md:p-12 text-white shadow-xl;
+    position: relative;
+    overflow: hidden;
   }
 
-  /* Modern Button Styles */
-  .modern-btn {
+  .hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="white" opacity="0.1"/></svg>') repeat;
+    background-size: 30px 30px;
+    pointer-events: none;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Card System */
+  .dashboard-card {
+    background-color: rgb(var(--card));
+    @apply rounded-2xl border border-border p-6 transition-all duration-300;
+    box-shadow: var(--card-shadow);
+  }
+
+  .dashboard-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    @apply -translate-y-1;
+  }
+
+  .dashboard-card-header {
+    @apply flex items-center gap-3 mb-4;
+  }
+
+  .dashboard-card-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold;
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
+  }
+
+  .dashboard-card-title {
+    @apply text-lg font-semibold text-foreground;
+  }
+
+  .dashboard-card-description {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Feature Cards */
+  .feature-card {
+    @apply dashboard-card;
+    background: linear-gradient(135deg, rgb(var(--card)) 0%, rgb(var(--muted)) 100%);
+  }
+
+  .feature-card-primary {
+    background: linear-gradient(135deg, rgb(var(--primary) / 0.05) 0%, rgb(var(--accent) / 0.05) 100%);
+    border-color: rgb(var(--primary) / 0.2);
+  }
+
+  .feature-card-secondary {
+    background: linear-gradient(135deg, rgb(var(--secondary)) 0%, rgb(var(--muted)) 100%);
+  }
+
+  .feature-card-accent {
+    background: linear-gradient(135deg, rgb(var(--accent) / 0.05) 0%, rgb(var(--primary) / 0.05) 100%);
+    border-color: rgb(var(--accent) / 0.2);
+  }
+
+  /* Admin Panel */
+  .admin-panel {
+    @apply dashboard-card;
+    background: linear-gradient(135deg, rgb(var(--warning) / 0.05) 0%, rgb(var(--warning) / 0.02) 100%);
+    border-color: rgb(var(--warning) / 0.2);
+  }
+
+  .admin-panel-header {
+    @apply flex items-center gap-3 mb-4;
+  }
+
+  .admin-panel-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center text-white;
+    background: linear-gradient(135deg, rgb(var(--warning)) 0%, rgb(245 101 101) 100%);
+  }
+
+  /* Recent Activity */
+  .activity-section {
+    @apply dashboard-card;
+  }
+
+  .activity-empty {
+    @apply text-center py-12;
+  }
+
+  .activity-empty-icon {
+    @apply w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center;
+    background: linear-gradient(135deg, rgb(var(--muted)) 0%, rgb(var(--border)) 100%);
+    color: rgb(var(--muted-foreground));
+  }
+
+  /* Modern Button System */
+  .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold;
     @apply transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
     @apply hover:scale-105 active:scale-95;
   }
 
-  .modern-btn-primary {
-    @apply modern-btn bg-primary text-primary-foreground shadow-lg;
-    @apply hover:shadow-xl hover:-translate-y-0.5;
-    background: linear-gradient(135deg, rgb(79 70 229) 0%, rgb(99 102 241) 100%);
+  .btn-primary {
+    @apply btn text-white shadow-lg;
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
   }
 
-  .modern-btn-secondary {
-    @apply modern-btn bg-secondary text-secondary-foreground border border-border;
-    @apply hover:bg-muted hover:shadow-md hover:-translate-y-0.5;
+  .btn-primary:hover {
+    @apply shadow-xl -translate-y-0.5;
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
+    filter: brightness(1.1);
   }
 
-  /* Modern Input Styles */
-  .modern-input {
-    @apply flex h-12 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm;
-    @apply ring-offset-background transition-all duration-200;
-    @apply placeholder:text-muted-foreground;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
-    @apply focus-visible:border-primary/50;
-    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  .btn-secondary {
+    @apply btn bg-secondary text-secondary-foreground border border-border;
   }
 
-  /* Modern Status Indicators */
-  .status-success {
-    @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium;
-    @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20;
+  .btn-secondary:hover {
+    @apply bg-muted shadow-md -translate-y-0.5;
   }
 
-  .status-error {
-    @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium;
-    @apply bg-red-50 text-red-700 ring-1 ring-red-600/20;
+  .btn-outline {
+    @apply btn border-2 border-primary text-primary bg-transparent;
   }
 
-  .status-info {
-    @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium;
-    @apply bg-blue-50 text-blue-700 ring-1 ring-blue-600/20;
+  .btn-outline:hover {
+    background: rgb(var(--primary));
+    color: rgb(var(--primary-foreground));
   }
 
-  .status-neutral {
-    @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium;
-    @apply bg-gray-50 text-gray-700 ring-1 ring-gray-600/20;
+  .btn-ghost {
+    @apply btn text-muted-foreground;
   }
 
-  /* Modern Navigation */
-  .modern-nav {
-    @apply flex items-center gap-1 rounded-xl bg-muted/50 p-1 backdrop-blur-sm;
+  .btn-ghost:hover {
+    @apply bg-muted text-foreground;
   }
 
-  .modern-nav-item {
-    @apply flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200;
-    @apply text-muted-foreground hover:bg-background hover:text-foreground;
-    @apply hover:shadow-sm hover:scale-105;
+  /* Navigation */
+  .nav-header {
+    @apply flex items-center justify-between p-4 md:p-6;
   }
 
-  .modern-nav-item.active {
-    @apply bg-background text-foreground shadow-md;
-    background: linear-gradient(135deg, rgb(255 255 255) 0%, rgb(248 250 252) 100%);
+  .nav-brand {
+    @apply flex items-center gap-3;
   }
 
-  /* Modern Layout */
-  .modern-container {
-    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  .nav-brand-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold;
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
   }
 
-  .modern-section {
-    @apply py-12 md:py-16 lg:py-20;
+  .nav-brand-text {
+    @apply text-xl font-bold text-foreground;
   }
 
-  .modern-grid {
+  .nav-user {
+    @apply flex items-center gap-4;
+  }
+
+  .nav-user-info {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Grid System */
+  .dashboard-grid {
     @apply grid gap-6 md:gap-8;
   }
 
-  .modern-grid-2 {
-    @apply modern-grid grid-cols-1 md:grid-cols-2;
+  .dashboard-grid-2 {
+    @apply dashboard-grid grid-cols-1 md:grid-cols-2;
   }
 
-  .modern-grid-3 {
-    @apply modern-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  .dashboard-grid-3 {
+    @apply dashboard-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
   }
 
-  .modern-grid-4 {
-    @apply modern-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  .dashboard-grid-4 {
+    @apply dashboard-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
   }
 
-  /* Modern Animations */
+  /* Status Indicators */
+  .status-badge {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium;
+  }
+
+  .status-success {
+    @apply status-badge bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20;
+  }
+
+  .status-error {
+    @apply status-badge bg-red-50 text-red-700 ring-1 ring-red-600/20;
+  }
+
+  .status-warning {
+    @apply status-badge bg-amber-50 text-amber-700 ring-1 ring-amber-600/20;
+  }
+
+  .status-info {
+    @apply status-badge bg-blue-50 text-blue-700 ring-1 ring-blue-600/20;
+  }
+
+  .status-neutral {
+    @apply status-badge bg-gray-50 text-gray-700 ring-1 ring-gray-600/20;
+  }
+
+  /* Dark mode status badges */
+  .dark .status-success {
+    @apply bg-emerald-950 text-emerald-300 ring-emerald-400/20;
+  }
+
+  .dark .status-error {
+    @apply bg-red-950 text-red-300 ring-red-400/20;
+  }
+
+  .dark .status-warning {
+    @apply bg-amber-950 text-amber-300 ring-amber-400/20;
+  }
+
+  .dark .status-info {
+    @apply bg-blue-950 text-blue-300 ring-blue-400/20;
+  }
+
+  .dark .status-neutral {
+    @apply bg-gray-800 text-gray-300 ring-gray-600/20;
+  }
+
+  /* Animations */
   .fade-in {
     animation: fadeIn 0.6s ease-out forwards;
   }
@@ -272,19 +410,23 @@
   .scale-in {
     animation: scaleIn 0.3s ease-out forwards;
   }
+
+  .bounce-in {
+    animation: bounceIn 0.6s ease-out forwards;
+  }
 }
 
 @layer utilities {
-  /* Modern Text Gradients */
+  /* Text Gradients */
   .text-gradient-primary {
-    background: linear-gradient(135deg, rgb(79 70 229) 0%, rgb(99 102 241) 100%);
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-accent {
-    background: linear-gradient(135deg, rgb(99 102 241) 0%, rgb(139 92 246) 100%);
+    background: linear-gradient(135deg, rgb(var(--accent)) 0%, rgb(139 92 246) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -297,6 +439,23 @@
 
   .shadow-modern-lg {
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.05);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 20px rgb(var(--primary) / 0.3);
+  }
+
+  /* Glass Effects */
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(51, 65, 85, 0.3);
   }
 }
 
@@ -334,18 +493,40 @@
   }
 }
 
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 640px) {
-  .modern-card {
+  .dashboard-card {
     @apply p-4;
   }
 
-  .modern-btn {
+  .btn {
     @apply px-4 py-2.5 text-xs;
   }
 
-  .modern-container {
-    @apply px-4;
+  .dashboard-main {
+    @apply p-4;
+  }
+
+  .hero-section {
+    @apply p-6;
   }
 }
 
@@ -371,8 +552,23 @@
 
 /* Focus Enhancement */
 @supports selector(:focus-visible) {
-  .modern-btn:focus-visible,
-  .modern-input:focus-visible {
+  .btn:focus-visible {
     @apply ring-2 ring-primary/30 ring-offset-2;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .dashboard-container {
+    background: white !important;
+  }
+  
+  .dashboard-card {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  
+  .btn {
+    display: none !important;
   }
 }
