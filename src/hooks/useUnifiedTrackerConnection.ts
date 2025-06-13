@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -26,6 +25,7 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
   const [trackers, setTrackers] = useState<TrackerInfo[]>([]);
   const [lastBroadcast, setLastBroadcast] = useState<number>(0);
   const channelRef = useRef<any>(null);
+  const initializingRef = useRef(false); // Add initialization guard
   const isCurrentUser = Boolean(userId);
 
   // Initialize unified channel
@@ -35,8 +35,21 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
       return;
     }
 
+    // Prevent multiple simultaneous initializations
+    if (initializingRef.current) {
+      console.log('UnifiedTrackerConnection: Already initializing, skipping');
+      return;
+    }
+
     const initializeChannel = async () => {
-      console.log('UnifiedTrackerConnection: Initialize (attempting channel setup)', { matchId, userId, isCurrentUser });
+      initializingRef.current = true;
+      console.log('UnifiedTrackerConnection: Initialize (attempting channel setup)', { 
+        matchId, 
+        userId, 
+        isCurrentUser,
+        timestamp: new Date().toISOString() 
+      });
+      
       try {
         console.log('UnifiedTrackerConnection: Setting up unified channel for match:', matchId);
         
@@ -130,6 +143,8 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
       } catch (error) {
         console.error('UnifiedTrackerConnection: Error initializing channel:', error);
         setIsConnected(false);
+      } finally {
+        initializingRef.current = false;
       }
     };
 
@@ -137,6 +152,8 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
 
     return () => {
       console.log('UnifiedTrackerConnection: Cleaning up on unmount');
+      initializingRef.current = false;
+      
       if (isCurrentUser && userId && channelRef.current) {
         try {
           channelRef.current.send({
@@ -160,7 +177,7 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
       }
       setIsConnected(false);
     };
-  }, [matchId, userId, isCurrentUser]);
+  }, [matchId, userId, isCurrentUser]); // Keep these dependencies but add guard
 
   // Fetch initial tracker assignments
   useEffect(() => {
@@ -241,6 +258,8 @@ export const useUnifiedTrackerConnection = (matchId: string, userId?: string) =>
 
   const cleanup = useCallback(() => {
     console.log('UnifiedTrackerConnection: Manual cleanup called');
+    initializingRef.current = false;
+    
     if (isCurrentUser && userId && channelRef.current) {
       try {
         channelRef.current.send({

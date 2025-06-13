@@ -75,6 +75,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
     }
   });
+  
 
   // Use unified tracker connection for status broadcasting
   const { broadcastStatus } = useUnifiedTrackerConnection(matchId, user?.id || '');
