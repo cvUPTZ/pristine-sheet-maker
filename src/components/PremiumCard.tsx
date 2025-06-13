@@ -9,7 +9,7 @@ interface PremiumCardProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
-  variant?: 'default' | 'glass' | 'gradient' | 'elevated';
+  variant?: 'default' | 'glass' | 'gradient' | 'elevated' | 'modern';
   size?: 'sm' | 'default' | 'lg';
 }
 
@@ -19,14 +19,15 @@ export function PremiumCard({
   children, 
   footer, 
   className, 
-  variant = 'default',
+  variant = 'modern',
   size = 'default'
 }: PremiumCardProps) {
   const variants = {
-    default: '',
-    glass: 'bg-white/10 backdrop-blur-md border-white/20',
+    default: 'bg-card',
+    glass: 'glass',
     gradient: 'bg-gradient-to-br from-card via-card to-muted/20 border-primary/20',
-    elevated: 'shadow-premium-lg hover:shadow-xl hover:-translate-y-2'
+    elevated: 'shadow-modern-lg hover:shadow-xl hover:-translate-y-2',
+    modern: 'modern-card'
   };
 
   const sizes = {
@@ -38,12 +39,21 @@ export function PremiumCard({
   return (
     <Card className={cn(
       variants[variant],
+      'transition-all duration-300 hover:scale-[1.02]',
       className
     )}>
       {(title || description) && (
-        <CardHeader className={sizes[size]}>
-          {title && <CardTitle className="text-xl">{title}</CardTitle>}
-          {description && <CardDescription>{description}</CardDescription>}
+        <CardHeader className={cn(sizes[size], 'pb-4')}>
+          {title && (
+            <CardTitle className="text-xl font-semibold text-foreground">
+              {title}
+            </CardTitle>
+          )}
+          {description && (
+            <CardDescription className="text-muted-foreground">
+              {description}
+            </CardDescription>
+          )}
         </CardHeader>
       )}
       
@@ -55,7 +65,7 @@ export function PremiumCard({
       </CardContent>
       
       {footer && (
-        <CardFooter className={sizes[size]}>
+        <CardFooter className={cn(sizes[size], 'pt-4')}>
           {footer}
         </CardFooter>
       )}

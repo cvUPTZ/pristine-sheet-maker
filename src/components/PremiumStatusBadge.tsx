@@ -3,7 +3,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface PremiumStatusBadgeProps {
-  status: 'success' | 'warning' | 'error' | 'info' | 'neutral';
+  status: 'success' | 'error' | 'info' | 'neutral';
   children: React.ReactNode;
   size?: 'sm' | 'default' | 'lg';
   variant?: 'solid' | 'soft' | 'outline';
@@ -29,24 +29,21 @@ export function PremiumStatusBadge({
 
   const variants = {
     solid: {
-      success: 'bg-success-600 text-white',
-      warning: 'bg-warning-600 text-white',
-      error: 'bg-error-600 text-white',
-      info: 'bg-info-600 text-white',
+      success: 'bg-success text-success-foreground',
+      error: 'bg-destructive text-destructive-foreground', 
+      info: 'bg-primary text-primary-foreground',
       neutral: 'bg-muted-foreground text-white'
     },
     soft: {
-      success: 'bg-success-50 text-success-700 ring-1 ring-success-600/20',
-      warning: 'bg-warning-50 text-warning-700 ring-1 ring-warning-600/20',
-      error: 'bg-error-50 text-error-700 ring-1 ring-error-600/20',
-      info: 'bg-info-50 text-info-700 ring-1 ring-info-600/20',
-      neutral: 'bg-muted text-muted-foreground ring-1 ring-border'
+      success: 'status-success',
+      error: 'status-error',
+      info: 'status-info',
+      neutral: 'status-neutral'
     },
     outline: {
-      success: 'border border-success-600 text-success-700 bg-transparent',
-      warning: 'border border-warning-600 text-warning-700 bg-transparent',
-      error: 'border border-error-600 text-error-700 bg-transparent',
-      info: 'border border-info-600 text-info-700 bg-transparent',
+      success: 'border border-success text-success bg-transparent',
+      error: 'border border-destructive text-destructive bg-transparent',
+      info: 'border border-primary text-primary bg-transparent',
       neutral: 'border border-muted-foreground text-muted-foreground bg-transparent'
     }
   };
@@ -61,12 +58,11 @@ export function PremiumStatusBadge({
     )}>
       {pulse && (
         <span className={cn(
-          "h-2 w-2 rounded-full animate-pulse",
-          status === 'success' && 'bg-success-500',
-          status === 'warning' && 'bg-warning-500',
-          status === 'error' && 'bg-error-500',
-          status === 'info' && 'bg-info-500',
-          status === 'neutral' && 'bg-muted-foreground'
+          "h-2 w-2 rounded-full",
+          status === 'success' && 'bg-success animate-pulse',
+          status === 'error' && 'bg-destructive animate-pulse',
+          status === 'info' && 'bg-primary animate-pulse',
+          status === 'neutral' && 'bg-muted-foreground animate-pulse'
         )} />
       )}
       {children}
