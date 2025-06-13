@@ -123,20 +123,12 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       return;
     }
 
-    // console.log('=== TRACKER DEBUG: Starting fetchAssignments (User/Match specific) ==='); // Removed console.log
-    // console.log('User ID:', user.id); // Removed console.log
-    // console.log('Match ID:', matchId); // Removed console.log
-
     try {
       const { data, error } = await supabase
         .from('match_tracker_assignments')
         .select('*')
         .eq('match_id', matchId)
         .eq('tracker_user_id', user.id);
-
-      // console.log('=== RAW ASSIGNMENTS DATA ==='); // Removed console.log
-      // console.log('Assignments found:', data?.length || 0); // Removed console.log
-      // console.log('Full assignments data:', data); // Removed console.log
 
       if (error) {
         console.error("Error fetching tracker assignments:", error);
@@ -146,7 +138,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       }
 
       if (!data || data.length === 0) {
-        // console.log("No assignments found - setting error state"); // Kept for important state change
         setError("No assignments found for this tracker and match. Please contact your administrator.");
         setAssignedEventTypes([]);
         setAssignedPlayers({ home: [], away: [] });
@@ -218,7 +209,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
 
       if (error) throw error;
 
-      // Remove from local state
       setRecentEvents(prev => prev.slice(1));
       setLastRecordedEvent(null);
 
@@ -243,43 +233,29 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     broadcastStatus({ status: 'recording', timestamp: Date.now() });
 
     let teamContextForEvent: 'home' | 'away' | undefined = undefined;
-    // selectedTeam is set by handlePlayerSelect
     if (selectedPlayer && selectedTeam) {
       teamContextForEvent = selectedTeam;
     }
-    // If no player is selected, teamContext remains undefined, which is fine.
 
     try {
-      await onRecordEvent( // Use the prop here
+      await onRecordEvent(
         eventType.key,
-        selectedPlayer?.id, // Pass selected player's ID if a player is selected
-        teamContextForEvent, // Pass team context if a player is selected
-        {
-          recorded_via: 'piano',
-          // You can add other piano-specific details here, e.g., coordinates if captured
-        }
+        selectedPlayer?.id,
+        teamContextForEvent,
+        { recorded_via: 'piano' }
       );
       
-      // For local UI feedback (recent events list)
       const eventInfoForRecentList = {
-        id: `local-${Date.now()}-${eventType.key}`, // Temporary local ID
-        eventType: { key: eventType.key, label: eventType.label }, // Use the structure expected by recentEvents
-        player: selectedPlayer, // Keep the selected player object for display
+        id: `local-${Date.now()}-${eventType.key}`,
+        eventType: { key: eventType.key, label: eventType.label },
+        player: selectedPlayer,
         timestamp: Date.now()
       };
-      setLastRecordedEvent(eventInfoForRecentList); // Update last recorded event display
-      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]); // Update recent events list
-
-      // The main success toast is handled by onRecordEvent in TrackerInterface.
-      // Optionally, reset selections or provide further local feedback.
-      // E.g., clear selected player if events are usually one-off for a player selection:
-      // setSelectedPlayer(null);
-      // setSelectedTeam(null);
-      // However, users might want to record multiple events for the same player, so avoid auto-clearing for now.
+      setLastRecordedEvent(eventInfoForRecentList);
+      setRecentEvents(prev => [eventInfoForRecentList, ...prev.slice(0, 4)]);
 
     } catch (error: any) {
       console.error('Error calling onRecordEvent from PianoInput:', error);
-      // Error toast is handled by onRecordEvent in TrackerInterface.
     } finally {
       setIsRecording(false);
       setRecordingEventType(null);
@@ -361,26 +337,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     );
   }
 
-  // Renamed to be specific to players assigned to this tracker, for view logic
   const totalPlayersAssignedToThisTrackerForView = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
   const isEliteView = totalPlayersAssignedToThisTrackerForView > 1;
 
-  // Show the main player selection card (full roster) only if not in Elite Tier multi-player view (i.e., in primary view)
-  // AND if there's actually more than one player in the full match roster to choose from.
   const showRosterPlayerSelectionCard =
     totalPlayersAssignedToThisTrackerForView <= 1 &&
     fullMatchRoster &&
     ((fullMatchRoster.home?.length || 0) + (fullMatchRoster.away?.length || 0)) > 1;
 
-  // This controls the "Clear" button on the top "Selected Player Display" card.
-  // It should be visible if there's more than one *assigned* player to the tracker (Elite view)
-  // OR if in primary view and there's more than one player in the *roster* to choose from.
   const showClearSelectedPlayerButton = totalPlayersAssignedToThisTrackerForView > 1 || showRosterPlayerSelectionCard;
-
 
   return (
     <div className="space-y-6 p-4">
-      {/* Undo Button - Fixed position and easily accessible */}
       <motion.div
         className="fixed top-4 right-4 z-50"
         initial={{ opacity: 0, scale: 0.8 }}
@@ -399,7 +367,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         </Button>
       </motion.div>
 
-      {/* Selected Player Display */}
       <AnimatePresence>
         {selectedPlayer && (
           <motion.div
@@ -437,7 +404,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                             #{selectedPlayer.jersey_number}
                           </span>
                         )}
-                        {totalPlayersAssignedToThisTrackerForView === 1 && ( // Use the new variable name
+                        {totalPlayersAssignedToThisTrackerForView === 1 && (
                           <span className="px-2 py-1 bg-orange-200 dark:bg-orange-800 rounded-full text-xs font-medium">
                             Auto-selected
                           </span>
@@ -445,7 +412,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                       </div>
                     </div>
                   </div>
-                  {showClearSelectedPlayerButton && ( // Use the new variable for controlling clear button
+                  {showClearSelectedPlayerButton && (
                     <Button 
                       onClick={() => {
                         setSelectedPlayer(null);
@@ -465,7 +432,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         )}
       </AnimatePresence>
 
-      {/* Last Recorded Event */}
       <AnimatePresence>
         {lastRecordedEvent && (
           <motion.div
@@ -503,7 +469,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         )}
       </AnimatePresence>
 
-      {/* Player Selection from Roster - Show only in primary view mode and if multiple roster players exist */}
       {showRosterPlayerSelectionCard && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -612,7 +577,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         </motion.div>
       )}
 
-      {/* Event Types - Enhanced SVG Design */}
       {assignedEventTypes.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -627,7 +591,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               <p className="text-purple-600 dark:text-purple-300 mt-2">
                 {totalPlayersAssignedToThisTrackerForView <= 1
                   ? (selectedPlayer ? `Recording for ${selectedPlayer.name}` : "Select a player, then tap event type")
-                  : "Events per assigned player:"} {/* Changed message for Elite view */}
+                  : "Events per assigned player:"}
               </p>
             </div>
 
@@ -636,18 +600,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               isEliteView={isEliteView}
               settings={
                 !isEliteView
-                ? { // Primary View settings
-                    containerSizeClass: 'w-60 h-60', // Approx 240px
-                    radius: 90, // Pixel radius
-                    svgSize: 'sm', // from EventTypeSvgProps
+                ? {
+                    containerSizeClass: 'w-60 h-60',
+                    radius: 90,
+                    svgSize: 'sm',
                     labelClassName: "mt-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-center",
                     labelTextClassName: "text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight",
                     labelStyle: {},
                     animationInsetClass: "-inset-2 border-2",
                   }
-                : { // Elite Tier View base settings (will be used per player)
-                    containerSizeClass: 'w-36 h-36', // Approx 144px
-                    radius: 55, // Increased radius for Elite (was 50)
+                : {
+                    containerSizeClass: 'w-36 h-36',
+                    radius: 55,
                     svgSize: 'xs',
                     labelClassName: "mt-0.5 text-center",
                     labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
@@ -658,18 +622,18 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               recordingEventType={recordingEventType}
               selectedPlayerId={selectedPlayer?.id}
               isRecordingGlobal={isRecording}
-              // Simplified onEventClick for Primary View
               onEventClick={(eventType) => {
-                if (!selectedPlayer) {
-                  toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
-                  return;
+                if (!isEliteView) { // Primary View specific logic
+                  if (!selectedPlayer) {
+                    toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
+                    return;
+                  }
                 }
+                // For Elite view, player context is set by the caller of RadialEventLayout's onEventClick
+                // For Primary view, selectedPlayer is already set or checked.
                 handleEventTypeClick(eventType);
               }}
-              // These props are only relevant for Elite view instances if not handled by a closure in the loop
-              // For Primary view, they are not used by the simplified onEventClick
-              currentPlayerForLayout={null}
-              allAssignedPlayers={assignedPlayers} // Pass for context if needed, though simplified onClick won't use it here
+              currentPlayerForLayout={null} // Only relevant for Elite view, passed per player there
               totalPlayersInCurrentLayoutContext={totalPlayersAssignedToThisTrackerForView}
             />
 
@@ -686,20 +650,20 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     let radialContainerClass: string;
                     let radialRadius: number;
 
-                    if (totalPlayersAssignedToThisTrackerForView === 2) { // Horizontal Layout for 2 elite players
+                    if (totalPlayersAssignedToThisTrackerForView === 2) {
                       if (numEvents >= 7) {
-                        radialContainerClass = 'w-40 h-40'; // 160px
+                        radialContainerClass = 'w-40 h-40';
                         radialRadius = 55;
                       } else {
-                        radialContainerClass = 'w-36 h-36'; // 144px
+                        radialContainerClass = 'w-36 h-36';
                         radialRadius = 45;
                       }
-                    } else { // Vertical Stack for 3+ elite players
+                    } else {
                       if (numEvents >= 7) {
-                        radialContainerClass = 'w-44 h-44'; // 176px
+                        radialContainerClass = 'w-44 h-44';
                         radialRadius = 65;
                       } else {
-                        radialContainerClass = 'w-40 h-40'; // 160px
+                        radialContainerClass = 'w-40 h-40';
                         radialRadius = 55;
                       }
                     }
@@ -767,9 +731,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   });
                   
                   if (totalPlayersAssignedToThisTrackerForView === 2) {
-                    return <div className="flex flex-row gap-1.5 items-start">{playerSections}</div>; // Reduced gap
+                    return <div className="flex flex-row gap-1.5 items-start">{playerSections}</div>;
                   } else {
-                    return <div className="space-y-1.5">{playerSections}</div>; // Reduced space-y
+                    return <div className="space-y-1.5">{playerSections}</div>;
                   }
                 })()}
               </div>
@@ -779,7 +743,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
 // Define RadialEventLayoutProps and RadialEventLayout component here
 interface RadialEventLayoutProps {
   eventTypes: EnhancedEventType[];
-  isEliteView: boolean; // To differentiate context
+  isEliteView: boolean;
   settings: {
     containerSizeClass: string;
     radius: number;
@@ -790,24 +754,22 @@ interface RadialEventLayoutProps {
     animationInsetClass: string;
   };
   recordingEventType: string | null;
-  selectedPlayerId?: number; // Used for Elite view to match player context for animation
+  selectedPlayerId?: number;
   isRecordingGlobal: boolean;
-  onEventClick: (eventType: EnhancedEventType) => void; // Simplified: player/team context handled by caller
+  onEventClick: (eventType: EnhancedEventType) => void;
   currentPlayerForLayout?: PlayerForPianoInput | null;
-  // allAssignedPlayers prop is removed as team determination is now handled by the caller for Elite view
   totalPlayersInCurrentLayoutContext?: number;
 }
 
 const RadialEventLayout: React.FC<RadialEventLayoutProps> = ({
   eventTypes,
-  isEliteView, // Used to determine animation/selected state correctly
+  isEliteView,
   settings,
   recordingEventType,
-  selectedPlayerId, // This is the global selectedPlayer.id
+  selectedPlayerId,
   isRecordingGlobal,
   onEventClick,
-  currentPlayerForLayout, // This is the specific player for an Elite section's layout
-  // totalPlayersInCurrentLayoutContext,
+  currentPlayerForLayout,
 }) => {
   if (!eventTypes || eventTypes.length === 0) return null;
 
@@ -851,7 +813,7 @@ const RadialEventLayout: React.FC<RadialEventLayoutProps> = ({
                 size={svgSize}
                 isRecording={isCurrentlyRecordingThisEvent}
                 disabled={isRecordingGlobal}
-                onClick={() => onEventClick(eventType)} // Simplified, context is handled by the caller
+                onClick={() => onEventClick(eventType)}
               />
               <div className={labelClassName}>
                 <span className={labelTextClassName} style={labelStyle}>
@@ -897,3 +859,5 @@ const RadialEventLayout: React.FC<RadialEventLayoutProps> = ({
 };
 
 export default TrackerPianoInput;
+
+[end of src/components/TrackerPianoInput.tsx]
