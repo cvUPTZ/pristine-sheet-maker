@@ -25,9 +25,9 @@ const EventTypeSvg: React.FC<EventTypeSvgProps> = ({
     if (size === 'xs') {
       sizeClasses = 'w-10 h-10'; // 40px
     } else if (size === 'sm') {
-      sizeClasses = 'w-16 h-16'; // 64px
+      sizeClasses = 'w-12 h-12'; // 64px
     } else { // 'md' or default
-      sizeClasses = 'w-24 h-24'; // 96px - making this the new default medium
+      sizeClasses = 'w-20 h-20'; // 96px - making this the new default medium
       hoverScale = 'hover:scale-125'; // Keep larger hover for md
       shadow = 'drop-shadow-xl hover:drop-shadow-[0_0_25px_rgba(255,255,255,0.25)]'; // Slightly stronger shadow for md
     }
