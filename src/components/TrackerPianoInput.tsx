@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   const { user } = useAuth();
   const userIdForConnection = useMemo(() => user?.id || '', [user?.id]);
 
-
   const { } = useRealtimeMatch({
     matchId,
     onEventReceived: (event) => {
@@ -76,7 +76,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     }
   });
   
-
   const { broadcastStatus } = useUnifiedTrackerConnection(matchId, userIdForConnection);
 
   const fetchMatchDetails = useCallback(async () => {
@@ -225,7 +224,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     );
   }
 
-
   const totalPlayersAssignedToThisTrackerForView = (assignedPlayers?.home?.length || 0) + (assignedPlayers?.away?.length || 0);
   const isEliteView = totalPlayersAssignedToThisTrackerForView > 1;
 
@@ -235,7 +233,6 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     ((fullMatchRoster.home?.length || 0) + (fullMatchRoster.away?.length || 0)) > 1;
 
   const showClearSelectedPlayerButton = isEliteView || showRosterPlayerSelectionCard;
-
 
   return (
     <div className="space-y-6 p-4">
@@ -274,10 +271,54 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       </AnimatePresence>
 
       <AnimatePresence>
-        {lastRecordedEvent && ( /* ... Last Recorded Event Card ... */ )}
+        {lastRecordedEvent && (
+          <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }} transition={{ duration: 0.3 }}>
+            <Card className="border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 shadow-lg">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <motion.div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
+                    ✓
+                  </motion.div>
+                  <div>
+                    <div className="font-bold text-lg text-blue-800 dark:text-blue-200">Event Recorded!</div>
+                    <div className="text-sm text-blue-600 dark:text-blue-300">
+                      {lastRecordedEvent.eventType.label} {lastRecordedEvent.player && `for ${lastRecordedEvent.player.name}`}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {showRosterPlayerSelectionCard && assignedPlayers && ( /* ... Player Selection from Roster Card ... */ )}
+      {showRosterPlayerSelectionCard && assignedPlayers && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Player from Full Roster</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {['home', 'away'].map(team => {
+                const players = team === 'home' ? fullMatchRoster?.home : fullMatchRoster?.away;
+                if (!players?.length) return null;
+                return (
+                  <div key={team}>
+                    <h4 className="font-medium mb-2 capitalize">{team} Team</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {players.map(player => (
+                        <Button key={player.id} onClick={() => handlePlayerSelect(player, team as 'home' | 'away')} variant={selectedPlayer?.id === player.id ? "default" : "outline"} size="sm" className="justify-start">
+                          {player.jersey_number && `#${player.jersey_number} `}{player.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {assignedEventTypes.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
@@ -377,7 +418,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 })()}
               </div>
             )}
-            {isRecording && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="mt-8 text-center"> <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-lg font-bold shadow-xl"> <motion.div className="w-4 h-4 bg-white rounded-full" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 0.6, repeat: Infinity }} /> Recording Event... </div> </motion.div> )}
+            {isRecording && (
+              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="mt-8 text-center">
+                <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-lg font-bold shadow-xl">
+                  <motion.div className="w-4 h-4 bg-white rounded-full" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 0.6, repeat: Infinity }} />
+                  Recording Event...
+                </div>
+              </motion.div>
+            )}
           </div>
         </motion.div>
       )}

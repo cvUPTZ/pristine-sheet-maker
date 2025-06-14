@@ -2,12 +2,6 @@
 import React, { memo, useMemo, useEffect, useRef, useState, CSSProperties } from 'react';
 import * as AllTypes from 'src/types/index';
 import { getEventTypeIcon } from './getEventTypeIcon';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipTrigger, 
-  TooltipProvider 
-} from '@/components/ui/tooltip';
 
 // --- Helper: Intersection Observer Hook ---
 interface IntersectionObserverHookOptions extends IntersectionObserverInit {
@@ -216,25 +210,11 @@ export const EnhancedEventTypeIcon: React.FC<EnhancedEventTypeIconProps> = memo(
       data-testid={testId}
       data-event-type={eventType}
       data-variant={variant}
+      title={showTooltip ? (typeof tooltipContent === 'string' ? tooltipContent : eventType) : undefined}
     >
       {isVisible && <IconComponent />}
     </span>
   );
-
-  if (showTooltip) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {iconElement}
-          </TooltipTrigger>
-          <TooltipContent>
-            {tooltipContent || eventType}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
 
   return iconElement;
 });
