@@ -2,11 +2,14 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Flag } from 'lucide-react';
 
 interface TeamHeaderData {
   name: string;
   formation?: string;
   score?: number;
+  flagUrl?: string | null;
 }
 interface MatchHeaderProps {
   mode: 'piano' | 'tracking';
@@ -52,9 +55,17 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
       <CardContent className="relative p-4 sm:p-5">
         <div className="flex justify-between items-center">
-          <div className="flex-1 text-left">
-            <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
-            <p className="text-xs sm:text-sm opacity-80">{homeTeam.formation || '4-4-2'}</p>
+          <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
+              <AvatarImage src={homeTeam.flagUrl || undefined} alt={`${homeTeam.name} flag`} />
+              <AvatarFallback className="bg-white/20">
+                <Flag className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
+              <p className="text-xs sm:text-sm opacity-80">{homeTeam.formation || '4-4-2'}</p>
+            </div>
           </div>
 
           <div className="flex-1 text-center px-2">
@@ -71,9 +82,17 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
             )}
           </div>
 
-          <div className="flex-1 text-right">
-            <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>{awayTeam.name}</h2>
-            <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
+          <div className="flex flex-1 items-center gap-3 sm:gap-4 text-right justify-end">
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>{awayTeam.name}</h2>
+              <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
+            </div>
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
+              <AvatarImage src={awayTeam.flagUrl || undefined} alt={`${awayTeam.name} flag`} />
+              <AvatarFallback className="bg-white/20">
+                <Flag className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </Fallback>
+            </Avatar>
           </div>
         </div>
         {name && (

@@ -15,6 +15,8 @@ export interface MatchDataInHook {
   away_team_name: string | null;
   home_team_formation: string | null;
   away_team_formation: string | null;
+  home_team_flag_url?: string | null;
+  away_team_flag_url?: string | null;
   created_at?: string;
   description?: string | null;
   match_type?: string | null;
@@ -25,6 +27,7 @@ export interface MatchDataInHook {
 export interface TeamHeaderData {
   name: string;
   formation: Formation;
+  flagUrl?: string | null;
 }
 
 const useMatchData = (matchId: string | undefined) => {
@@ -81,10 +84,12 @@ const useMatchData = (matchId: string | undefined) => {
       const homeTeamData = {
         name: matchData.home_team_name || 'Home Team Default',
         formation: homeFormation,
+        flagUrl: matchData.home_team_flag_url,
       };
       const awayTeamData = {
         name: matchData.away_team_name || 'Away Team Default',
         formation: awayFormation,
+        flagUrl: matchData.away_team_flag_url,
       };
       console.log('[useMatchData] Constructed homeTeamData:', homeTeamData);
       console.log('[useMatchData] Constructed awayTeamData:', awayTeamData);
