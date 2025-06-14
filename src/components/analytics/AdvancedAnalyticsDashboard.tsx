@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -202,41 +201,41 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/50 dark:to-green-950/50 border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/50 dark:to-teal-950/50 border-teal-200 dark:border-teal-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Pass Efficiency</p>
+                <p className="text-sm font-medium text-teal-600 dark:text-teal-400 mb-1">Pass Efficiency</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-green-900 dark:text-green-100">
+                  <span className="text-2xl font-bold text-teal-900 dark:text-teal-100">
                     {kpis.efficiency.home}%
                   </span>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
-                <p className="text-xs text-green-700 dark:text-green-500">vs {kpis.efficiency.away}% away</p>
+                <p className="text-xs text-teal-700 dark:text-teal-500">vs {kpis.efficiency.away}% away</p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <Target className="h-8 w-8 text-green-500" />
+              <div className="p-3 bg-teal-500/10 rounded-lg">
+                <Target className="h-8 w-8 text-teal-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/50 dark:to-orange-950/50 border-orange-200 dark:border-orange-800 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/50 dark:to-indigo-950/50 border-indigo-200 dark:border-indigo-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Attacking Actions</p>
+                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Attacking Actions</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                  <span className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">
                     {kpis.attacking.home}
                   </span>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
-                <p className="text-xs text-orange-700 dark:text-orange-500">vs {kpis.attacking.away} away</p>
+                <p className="text-xs text-indigo-700 dark:text-indigo-500">vs {kpis.attacking.away} away</p>
               </div>
-              <div className="p-3 bg-orange-500/10 rounded-lg">
-                <Zap className="h-8 w-8 text-orange-500" />
+              <div className="p-3 bg-indigo-500/10 rounded-lg">
+                <Zap className="h-8 w-8 text-indigo-500" />
               </div>
             </div>
           </CardContent>
@@ -366,7 +365,7 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
                         startAngle={90}
                         endAngle={-270}
                       >
-                        <RadialBar dataKey="value" fill="hsl(var(--chart-1))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
+                        <RadialBar dataKey="value" fill="hsl(var(--chart-5))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
                       </RadialBarChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -378,10 +377,10 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/50 dark:to-emerald-950/50 border-emerald-200 dark:border-emerald-800">
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-950/50 border-purple-200 dark:border-purple-800">
               <CardContent className="p-6">
                 <div className="text-center">
-                  <h3 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-2">Defensive Solidity</h3>
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Defensive Solidity</h3>
                   <div className="relative w-24 h-24 mx-auto mb-3">
                     <ResponsiveContainer width="100%" height="100%">
                       <RadialBarChart data={[{ value: 88 }]} innerRadius="80%" outerRadius="100%" startAngle={90} endAngle={-270}>
@@ -389,29 +388,29 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
                       </RadialBarChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-bold text-emerald-900 dark:text-emerald-100">88%</span>
+                      <span className="text-lg font-bold text-purple-900 dark:text-purple-100">88%</span>
                     </div>
                   </div>
-                  <p className="text-sm text-emerald-700 dark:text-emerald-400">Excellent</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-400">Excellent</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/50 dark:to-amber-950/50 border-amber-200 dark:border-amber-800">
+            <Card className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/50 dark:to-teal-950/50 border-teal-200 dark:border-teal-800">
               <CardContent className="p-6">
                 <div className="text-center">
-                  <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">Ball Recovery</h3>
+                  <h3 className="font-semibold text-teal-900 dark:text-teal-100 mb-2">Ball Recovery</h3>
                   <div className="relative w-24 h-24 mx-auto mb-3">
                      <ResponsiveContainer width="100%" height="100%">
                       <RadialBarChart data={[{ value: 92 }]} innerRadius="80%" outerRadius="100%" startAngle={90} endAngle={-270}>
-                        <RadialBar dataKey="value" fill="hsl(var(--chart-4))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
+                        <RadialBar dataKey="value" fill="hsl(var(--chart-3))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
                       </RadialBarChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-bold text-amber-900 dark:text-amber-100">92%</span>
+                      <span className="text-lg font-bold text-teal-900 dark:text-teal-100">92%</span>
                     </div>
                   </div>
-                  <p className="text-sm text-amber-700 dark:text-amber-400">Outstanding</p>
+                  <p className="text-sm text-teal-700 dark:text-teal-400">Outstanding</p>
                 </div>
               </CardContent>
             </Card>
@@ -431,9 +430,9 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
               <CardContent>
                 <div className="space-y-4">
                   {playerStats.slice(0, 5).map((player, index) => (
-                    <div key={player.playerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={player.playerId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Badge variant={player.team === 'home' ? 'default' : 'secondary'}>
+                        <Badge className={`border-transparent text-white ${player.team === 'home' ? 'bg-blue-500' : 'bg-purple-500'}`}>
                           #{index + 1}
                         </Badge>
                         <div>
@@ -538,51 +537,51 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
 
         <TabsContent value="insights" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-200 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                  <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h3 className="font-semibold text-blue-900">Key Insight</h3>
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">Key Insight</h3>
                 </div>
-                <p className="text-sm text-blue-800 mb-3">
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
                   {homeTeamName} is dominating possession in the midfield
                 </p>
-                <Progress value={75} className="h-2" />
-                <p className="text-xs text-blue-700 mt-1">75% control rate</p>
+                <Progress value={75} className="h-2 [&>div]:bg-blue-500" />
+                <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">75% control rate</p>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 dark:bg-teal-900/20 dark:border-teal-800/50">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-green-200 rounded-lg">
-                    <Target className="h-5 w-5 text-green-600" />
+                  <div className="p-2 bg-teal-200 dark:bg-teal-500/20 rounded-lg">
+                    <Target className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                   </div>
-                  <h3 className="font-semibold text-green-900">Opportunity</h3>
+                  <h3 className="font-semibold text-teal-900 dark:text-teal-100">Opportunity</h3>
                 </div>
-                <p className="text-sm text-green-800 mb-3">
+                <p className="text-sm text-teal-800 dark:text-teal-200 mb-3">
                   High conversion rate on counter-attacks
                 </p>
-                <Progress value={88} className="h-2" />
-                <p className="text-xs text-green-700 mt-1">88% success rate</p>
+                <Progress value={88} className="h-2 [&>div]:bg-teal-500" />
+                <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">88% success rate</p>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/50">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-amber-200 rounded-lg">
-                    <Activity className="h-5 w-5 text-amber-600" />
+                  <div className="p-2 bg-purple-200 dark:bg-purple-500/20 rounded-lg">
+                    <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="font-semibold text-amber-900">Alert</h3>
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-100">Alert</h3>
                 </div>
-                <p className="text-sm text-amber-800 mb-3">
+                <p className="text-sm text-purple-800 dark:text-purple-200 mb-3">
                   Defensive pressure increasing
                 </p>
-                <Progress value={92} className="h-2" />
-                <p className="text-xs text-amber-700 mt-1">92% intensity</p>
+                <Progress value={92} className="h-2 [&>div]:bg-purple-500" />
+                <p className="text-xs text-purple-700 dark:text-purple-400 mt-1">92% intensity</p>
               </CardContent>
             </Card>
           </div>
