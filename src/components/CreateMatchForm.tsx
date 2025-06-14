@@ -172,51 +172,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      const parseAndPadPlayers = (savedPlayers: any[] | string | null, teamIdentifier: string): Player[] => {
-          let parsedSavedPlayers: any[] | null = null;
-          if (typeof savedPlayers === 'string') {
-            try {
-              parsedSavedPlayers = JSON.parse(savedPlayers);
-            } catch (e) {
-              console.error("Failed to parse savedPlayers JSON string:", e);
-              parsedSavedPlayers = []; // Default to empty array on parse error
-            }
-          } else {
-            parsedSavedPlayers = savedPlayers;
-          }
-
-          const fullSquad = initializeBlankPlayers(teamIdentifier);
-          const loaded = Array.isArray(parsedSavedPlayers) ? parsedSavedPlayers.map((p: any) => ({
-              id: p.id || Date.now() + Math.random(), 
-              name: p.player_name || p.name || '', 
-              number: p.jersey_number !== undefined ? p.jersey_number : (p.number !== undefined ? p.number : null), 
-              position: p.position || '',
-              isSubstitute: p.is_substitute || false // Ensure is_substitute is handled
-          })) : [];
-          
-          const loadedStarters = loaded.filter(p => !p.isSubstitute);
-          const loadedSubs = loaded.filter(p => p.isSubstitute);
-
-          // Overwrite blank starters with loaded data
-          loadedStarters.forEach((player, i) => {
-            if(i < STARTERS_COUNT) {
-              fullSquad[i] = { ...fullSquad[i], ...player };
-            }
-          });
-
-          // Overwrite blank subs with loaded data
-          loadedSubs.forEach((player, i) => {
-            const subIndex = STARTERS_COUNT + i;
-            if(subIndex < TOTAL_PLAYERS) {
-              fullSquad[subIndex] = { ...fullSquad[subIndex], ...player };
-            }
-          });
-          
-          return fullSquad;
-      };
-
-      setHomeTeamPlayers(parseAndPadPlayers(matchData.home_team_players, 'home'));
-      setAwayTeamPlayers(parseAndPadPlayers(matchData.away_team_players, 'away'));
+      // Fix the type casting for parseAndPadPlayers calls
+      setHomeTeamPlayers(parseAndPadPlayers(matchData.home_team_players as any[] | string | null, 'home'));
+      setAwayTeamPlayers(parseAndPadPlayers(matchData.away_team_players as any[] | string | null, 'away'));
 
       const assignments: TrackerAssignment[] = [];
       if (Array.isArray(matchData.match_tracker_assignments)) {

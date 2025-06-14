@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { YouTubeService } from './youtubeService';
 import { AIProcessingService } from './aiProcessingService';
@@ -58,7 +59,7 @@ export class VideoProcessingPipeline {
 
     // Step 2: Create job record
     const { data: user } = await supabase.auth.getUser();
-    if (!user.user) {
+    if (!user.user?.id) {
       throw new Error('User must be authenticated');
     }
 
@@ -66,7 +67,7 @@ export class VideoProcessingPipeline {
       input_video_path: videoPath,
       video_title: videoInfo.title,
       video_duration: videoInfo.duration,
-      user_id: user.user.id,
+      user_id: user.user.id, // Now guaranteed to be string
       status: 'pending' as const,
       progress: 0
     };
@@ -87,6 +88,7 @@ export class VideoProcessingPipeline {
       video_title: insertResult.data.video_title || undefined,
       video_duration: insertResult.data.video_duration || undefined,
       error_message: insertResult.data.error_message || undefined,
+      user_id: insertResult.data.user_id, // Already string from database
       job_config: {
         source_type: source.type,
         enableAIAnalysis: config.enableAIAnalysis,
@@ -111,6 +113,7 @@ export class VideoProcessingPipeline {
         video_title: updateResult.data.video_title || undefined,
         video_duration: updateResult.data.video_duration || undefined,
         error_message: updateResult.data.error_message || undefined,
+        user_id: updateResult.data.user_id, // Already string from database
         job_config: currentJobState.job_config
       };
     }
@@ -135,6 +138,7 @@ export class VideoProcessingPipeline {
             video_title: updateAfterPrimary.data.video_title || undefined,
             video_duration: updateAfterPrimary.data.video_duration || undefined,
             error_message: updateAfterPrimary.data.error_message || undefined,
+            user_id: updateAfterPrimary.data.user_id, // Already string from database
             job_config: currentJobState.job_config
           };
         }
@@ -169,6 +173,7 @@ export class VideoProcessingPipeline {
                   video_title: updateAfterFallbackFail.data.video_title || undefined,
                   video_duration: updateAfterFallbackFail.data.video_duration || undefined,
                   error_message: updateAfterFallbackFail.data.error_message || undefined,
+                  user_id: updateAfterFallbackFail.data.user_id, // Already string from database
                   job_config: currentJobState.job_config
                 };
               }
@@ -205,6 +210,7 @@ export class VideoProcessingPipeline {
                 video_title: updateAfterFallback.data.video_title || undefined,
                 video_duration: updateAfterFallback.data.video_duration || undefined,
                 error_message: updateAfterFallback.data.error_message || undefined,
+                user_id: updateAfterFallback.data.user_id, // Already string from database
                 job_config: currentJobState.job_config
               };
             }
@@ -227,6 +233,7 @@ export class VideoProcessingPipeline {
                 video_title: updateAfterFallbackCatch.data.video_title || undefined,
                 video_duration: updateAfterFallbackCatch.data.video_duration || undefined,
                 error_message: updateAfterFallbackCatch.data.error_message || undefined,
+                user_id: updateAfterFallbackCatch.data.user_id, // Already string from database
                 job_config: currentJobState.job_config
               };
             }
@@ -249,6 +256,7 @@ export class VideoProcessingPipeline {
               video_title: updateNoFallback.data.video_title || undefined,
               video_duration: updateNoFallback.data.video_duration || undefined,
               error_message: updateNoFallback.data.error_message || undefined,
+              user_id: updateNoFallback.data.user_id, // Already string from database
               job_config: currentJobState.job_config
             };
           }
@@ -269,6 +277,7 @@ export class VideoProcessingPipeline {
           video_title: updateNoAI.data.video_title || undefined,
           video_duration: updateNoAI.data.video_duration || undefined,
           error_message: updateNoAI.data.error_message || undefined,
+          user_id: updateNoAI.data.user_id, // Already string from database
           job_config: currentJobState.job_config
         };
       }
