@@ -234,7 +234,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   return (
     <div className="space-y-2 p-1 sm:p-2">
       <motion.div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-50" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}>
-        <Button onClick={undoLastAction} disabled={recentEvents.length === 0} variant="outline" size="sm" className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow">
+        <Button onClick={undoLastAction} disabled={recentEvents.length === 0} variant="outline" className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow h-9 sm:h-10 px-3 text-sm">
           <Undo className="h-4 w-4 mr-2" /> Annuler Dernière Action
         </Button>
       </motion.div>
@@ -243,15 +243,15 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         {selectedPlayer && (
           <motion.div initial={{ opacity: 0, y: -16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16, scale: 0.97 }} transition={{ duration: 0.25 }}>
             <Card className="border-2 border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 shadow rounded-lg">
-              <CardContent className="py-2 px-3">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <motion.div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow" whileHover={{ scale: 1.08 }} transition={{ type: "spring", stiffness: 300 }}>
                       {selectedPlayer.jersey_number || selectedPlayer.name.charAt(0)}
                     </motion.div>
                     <div>
-                      <div className="font-bold text-sm text-green-800 dark:text-green-200">{selectedPlayer.name}</div>
-                      <div className="text-xs text-green-600 dark:text-green-300 flex flex-wrap items-center gap-1">
+                      <div className="text-base font-semibold text-green-700 dark:text-green-300">{selectedPlayer.name}</div>
+                      <div className="text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-1">
                         <span className="px-1.5 py-0.5 bg-green-200 dark:bg-green-800 rounded-full font-medium text-xs">{selectedTeam === 'home' ? 'Home' : 'Away'}</span>
                         {selectedPlayer.position && (<span className="px-1.5 py-0.5 bg-blue-200 dark:bg-blue-800 rounded-full text-xs">{selectedPlayer.position}</span>)}
                         {selectedPlayer.jersey_number && (<span className="px-1.5 py-0.5 bg-purple-200 dark:bg-purple-800 rounded-full text-xs">#{selectedPlayer.jersey_number}</span>)}
@@ -271,14 +271,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
         {lastRecordedEvent && (
           <motion.div initial={{ opacity: 0, y: -16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16, scale: 0.97 }} transition={{ duration: 0.25 }}>
             <Card className="border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 shadow rounded-lg">
-              <CardContent className="p-2">
+              <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <motion.div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center text-white font-bold shadow text-sm" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
                     ✓
                   </motion.div>
                   <div>
-                    <div className="font-bold text-sm text-blue-800 dark:text-blue-200">Event Recorded!</div>
-                    <div className="text-xs text-blue-600 dark:text-blue-300">
+                    <div className="text-base font-semibold text-blue-700 dark:text-blue-300">Event Recorded!</div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">
                       {lastRecordedEvent.eventType.label} {lastRecordedEvent.player && `for ${lastRecordedEvent.player.name}`}
                     </div>
                   </div>
@@ -292,7 +292,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
       {showRosterPlayerSelectionCard && assignedPlayers && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm">Select Player from Full Roster</CardTitle>
+            <CardTitle className="text-base font-semibold">Select Player from Full Roster</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 pt-0">
             {['home', 'away'].map(team => {
@@ -300,10 +300,10 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
               if (!players?.length) return null;
               return (
                 <div key={team}>
-                  <h4 className="font-medium mb-1 capitalize text-xs">{team} Team</h4>
+                  <h4 className="text-sm font-semibold mb-1.5 capitalize">{team} Team</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
                     {players.map(player => (
-                      <Button key={player.id} onClick={() => handlePlayerSelect(player, team as 'home' | 'away')} variant={selectedPlayer?.id === player.id ? "default" : "outline"} size="sm" className="justify-start text-xs">
+                      <Button key={player.id} onClick={() => handlePlayerSelect(player, team as 'home' | 'away')} variant={selectedPlayer?.id === player.id ? "default" : "outline"} size="sm" className="justify-start text-sm">
                         {player.jersey_number && `#${player.jersey_number} `}{player.name}
                       </Button>
                     ))}
@@ -320,7 +320,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-xl p-3 sm:p-4 shadow-lg border border-purple-200">
             <div className="text-center mb-3">
               <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">🎹 Record Events</h2>
-              <p className="text-purple-600 dark:text-purple-300 mt-1 text-xs">
+              <p className="text-sm text-purple-600 dark:text-purple-300 mt-1">
                 {!isEliteView ? (selectedPlayer ? `Recording for ${selectedPlayer.name}` : "Select a player, then tap event type") : "Events per assigned player:"}
               </p>
             </div>
@@ -333,14 +333,14 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                 ? {
                     containerSizeClass: 'w-40 h-40 sm:w-52 sm:h-52', radius: 65, svgSize: 'sm',
                     labelClassName: "mt-0.5 px-1 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow border border-gray-200 dark:border-gray-700 text-center",
-                    labelTextClassName: "text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight",
+                    labelTextClassName: "text-sm font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight", // Changed text-xs to text-sm
                     labelStyle: {}, animationInsetClass: "-inset-2 border-2",
                   }
-                : {
+                : { // Elite View Settings
                     containerSizeClass: 'w-20 h-20 sm:w-32 sm:h-32', radius: 32, svgSize: 'xs',
                     labelClassName: "mt-0.5 text-center",
-                    labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
-                    labelStyle: { fontSize: '0.55rem', lineHeight: '0.65rem' }, animationInsetClass: "-inset-1 border",
+                    labelTextClassName: "text-xs text-purple-700 dark:text-purple-300 block truncate w-full", // Changed from inline style to text-xs
+                    labelStyle: { /* fontSize and lineHeight removed */ }, animationInsetClass: "-inset-1 border",
                   }
               }
               recordingEventType={recordingEventType}
@@ -386,9 +386,9 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     }
                     return (
                       <div key={player.id} className={`border rounded-lg transition-all duration-300 ease-in-out ${totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-1' : 'p-1'} ${selectedPlayer?.id === player.id ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' : 'bg-white dark:bg-slate-800 hover:shadow'} `}>
-                        <CardTitle className={`mb-1 cursor-pointer flex items-center justify-between px-1 py-0.5 rounded ${selectedPlayer?.id === player.id ? 'text-green-600 dark:text-green-200 bg-green-100 dark:bg-green-800 text-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs'}`} onClick={() => handlePlayerSelect(player, assignedPlayers!.home.includes(player) ? 'home' : 'away')}>
+                        <CardTitle className={`mb-1 cursor-pointer flex items-center justify-between px-1.5 py-1 rounded ${selectedPlayer?.id === player.id ? 'text-green-600 dark:text-green-200 bg-green-100 dark:bg-green-800 text-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm'}`} onClick={() => handlePlayerSelect(player, assignedPlayers!.home.includes(player) ? 'home' : 'away')}>
                           <div className="truncate">
-                            {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>}
+                            {player.jersey_number && <span className="font-semibold text-sm">#{player.jersey_number} </span>}
                             <span className="font-medium">{player.name}</span>
                             <span className={`text-xs ml-1 px-1 rounded-full ${ assignedPlayers!.home.includes(player) ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-200'}`}>{assignedPlayers!.home.includes(player) ? 'H' : 'A'}</span>
                           </div>
@@ -397,11 +397,11 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                         <RadialEventLayout
                           eventTypes={assignedEventTypes}
                           isEliteView={true}
-                          settings={{
+                          settings={{ // Elite View Settings (individual player radials)
                             containerSizeClass: radialContainerClass, radius: radialRadius, svgSize: 'xs',
                             labelClassName: "mt-0.5 text-center",
-                            labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
-                            labelStyle: { fontSize: '0.55rem', lineHeight: '0.65rem' },
+                            labelTextClassName: "text-xs text-purple-700 dark:text-purple-300 block truncate w-full", // Changed from inline style to text-xs
+                            labelStyle: { /* fontSize and lineHeight removed */ },
                             animationInsetClass: "-inset-1 border",
                           }}
                           recordingEventType={recordingEventType}

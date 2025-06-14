@@ -86,10 +86,10 @@ const VoiceCollaborationUI = ({
   // --- Fully Implemented UI Helper Functions ---
   const AudioLevelIndicator = ({ level }: { level: number }) => (
     <div className="flex items-center gap-1">
-      <Volume2 className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-gray-500`} />
+      <Volume2 className={`${isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} text-gray-500`} />
       <div className="flex gap-0.5">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className={`${isMobile ? 'w-0.5 h-2' : 'w-1 h-3'} rounded-sm transition-colors ${level > (i + 1) * 0.08 ? 'bg-green-500' : 'bg-gray-300'}`} />
+          <div key={i} className={`${isMobile ? 'w-1 h-2.5' : 'w-1 h-3.5'} rounded-sm transition-colors ${level > (i + 1) * 0.08 ? 'bg-green-500' : 'bg-gray-300'}`} />
         ))}
       </div>
       <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} font-mono ml-1`}>{Math.round(level * 100)}%</span>
@@ -97,21 +97,21 @@ const VoiceCollaborationUI = ({
   );
 
   const getRoleIcon = (role?: string) => {
-    const iconSize = isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3';
+    const iconSize = 'h-3.5 w-3.5'; // Standardized size
     if (role === 'admin') return <Crown className={`${iconSize} text-yellow-500`} />;
     if (role === 'coordinator') return <Shield className={`${iconSize} text-blue-500`} />;
     return null;
   };
 
   const getNetworkIcon = () => {
-    if (networkStatus === 'offline') return <WifiOff className="h-3 w-3 text-red-500" />;
-    if (networkStatus === 'unstable') return <Wifi className="h-3 w-3 text-yellow-500" />;
-    return <Wifi className="h-3 w-3 text-green-500" />;
+    if (networkStatus === 'offline') return <WifiOff className="h-4 w-4 text-red-500" />; // Standardized with other header icons
+    if (networkStatus === 'unstable') return <Wifi className="h-4 w-4 text-yellow-500" />; // Standardized
+    return <Wifi className="h-4 w-4 text-green-500" />; // Standardized
   };
 
   const getWebRTCStatusIndicator = (state: ConnectionState) => {
     const baseClasses = "text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1";
-    const iconSize = "h-2 w-2";
+    const iconSize = "h-3 w-3"; // Slightly larger for status
     if (state === ConnectionState.Connecting || state === ConnectionState.Reconnecting) return <Badge variant="outline" className={`${baseClasses} bg-yellow-100 text-yellow-800`}><Activity className={`${iconSize} animate-spin`} />Connecting...</Badge>;
     if (state === ConnectionState.Connected) return <Badge variant="outline" className={`${baseClasses} bg-green-100 text-green-800`}><Mic className={iconSize} />Connected</Badge>;
     if (state === ConnectionState.Disconnected) return <Badge variant="destructive" className={`${baseClasses}`}><WifiOff className={iconSize} />Dropped</Badge>;
@@ -122,27 +122,42 @@ const VoiceCollaborationUI = ({
     <Card className={`border-blue-200 ${connectionState === ConnectionState.Connected ? 'bg-green-50/50' : 'bg-blue-50/50'}`}>
       <RoomAudioRenderer />
       <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
-        <CardTitle className={`flex items-center justify-between ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}>
-          <div className="flex items-center gap-2"><Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />Voice Collaboration{getNetworkIcon()}</div>
-          <div className="flex items-center gap-2">{getWebRTCStatusIndicator(connectionState)}<Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)} className="p-1"><Settings className="h-3 w-3" /></Button></div>
+        <CardTitle className="flex items-center justify-between text-base sm:text-lg font-semibold">
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-600" />Voice Collaboration{getNetworkIcon()}</div>
+          <div className="flex items-center gap-2">{getWebRTCStatusIndicator(connectionState)}<Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)} className="p-1"><Settings className="h-4 w-4" /></Button></div>
         </CardTitle>
       </CardHeader>
       <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
         {showSettings && (<Alert className="mb-3"><Activity className="h-4 w-4" /><AlertDescription><div className="text-xs space-y-1"><div>Network: {networkStatus}</div><div>Voice State: {connectionState}</div><div>Room: {currentRoom?.name || 'None'}</div><div>Participants: {participants.length}</div></div></AlertDescription></Alert>)}
         <div className="flex items-center justify-between">
-          <h3 className={`font-medium truncate pr-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>Connected to: {currentRoom.name}</h3>
-          <div className="flex gap-2"><Button size="sm" variant={isMuted ? "default" : "outline"} onClick={toggleMute} className={isMobile ? 'text-xs px-2 py-1' : ''}>{isMuted ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}</Button><Button size="sm" variant="destructive" onClick={onLeave} className={isMobile ? 'text-xs px-2 py-1' : ''}><PhoneOff className="h-3 w-3" /></Button></div>
+          <h3 className="text-sm font-semibold truncate pr-2">Connected to: {currentRoom.name}</h3>
+          <div className="flex gap-2">
+            <Button size="sm" variant={isMuted ? "default" : "outline"} onClick={toggleMute} className={`${isMobile ? 'text-xs px-2 py-1' : ''} hover:opacity-85`}>{isMuted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}</Button>
+            <Button size="sm" variant="destructive" onClick={onLeave} className={`${isMobile ? 'text-xs px-2 py-1' : ''} hover:opacity-85`}><PhoneOff className="h-3.5 w-3.5" /></Button>
+          </div>
         </div>
         <div className="space-y-2">
           <div className={`flex items-center justify-between ${isMobile ? 'text-xs' : 'text-sm'}`}><span>Your Audio Level:</span><AudioLevelIndicator level={isMuted ? 0 : localAudioLevel} /></div>
           {participants.length > 0 && (
             <div>
-              <h4 className={`font-medium mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>Participants ({participants.length})</h4>
+              <h4 className="text-sm font-semibold mb-2">Participants ({participants.length})</h4>
               <div className="space-y-1">
                 {participants.map((p) => (
-                  <div key={p.identity} className={`flex items-center justify-between p-2 rounded ${isMobile ? 'text-xs' : 'text-sm'} bg-white/50`}>
-                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500" title="Connected" /><span>{p.name || p.identity}</span>{getRoleIcon(p.isLocal ? userRole : undefined)}{p.isLocal && <Badge variant="outline" className="text-[10px] px-1">You</Badge>}</div>
-                    <div className="flex items-center gap-2">{p.isMicrophoneEnabled === false && <MicOff className="h-3 w-3 text-red-500" />}{p.isSpeaking && p.isMicrophoneEnabled !== false && (<div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />)}{isRoomAdmin && !p.isLocal && (<Button size="sm" variant="ghost" onClick={() => adminSetParticipantMute(p.identity, p.isMicrophoneEnabled !== false)} className="p-1 h-6 w-6">{p.isMicrophoneEnabled === false ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}</Button>)}</div>
+                  <div key={p.identity} className={`flex items-center justify-between p-2 rounded ${isMobile ? 'text-xs' : 'text-sm'} bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-600/50 border border-slate-200 dark:border-slate-600`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${p.isSpeaking && p.isMicrophoneEnabled !== false ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} title={p.isSpeaking && p.isMicrophoneEnabled !== false ? "Speaking" : (p.isMicrophoneEnabled !== false ? "Connected" : "Muted")} />
+                      <span>{p.name || p.identity}</span>
+                      {getRoleIcon(p.isLocal ? userRole : undefined)}
+                      {p.isLocal && <Badge variant="outline" className="text-[10px] px-1">You</Badge>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {p.isMicrophoneEnabled === false && <MicOff className="h-3.5 w-3.5 text-red-500" />}
+                      {isRoomAdmin && !p.isLocal && (
+                        <Button size="sm" variant="ghost" onClick={() => adminSetParticipantMute(p.identity, p.isMicrophoneEnabled !== false)} className="p-1 h-6 w-6">
+                          {p.isMicrophoneEnabled === false ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -151,8 +166,8 @@ const VoiceCollaborationUI = ({
         </div>
         {audioOutputDevices.length > 0 && showSettings && (
           <div className="space-y-2">
-            <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Audio Output Device</h4>
-            <select value={selectedAudioOutputDeviceId || ''} onChange={(e) => onSelectAudioOutputDevice(e.target.value)} className={`w-full p-2 border rounded ${isMobile ? 'text-xs' : 'text-sm'}`}>
+            <h4 className="text-sm font-semibold">Audio Output Device</h4>
+            <select value={selectedAudioOutputDeviceId || ''} onChange={(e) => onSelectAudioOutputDevice(e.target.value)} className={`w-full p-2 border rounded ${isMobile ? 'text-xs' : 'text-sm'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:border-blue-500`}>
               {audioOutputDevices.map(device => (<option key={device.deviceId} value={device.deviceId}>{device.label || `Speaker ${device.deviceId.slice(0, 8)}`}</option>))}
             </select>
           </div>
@@ -249,19 +264,19 @@ const VoiceCollaboration: React.FC<VoiceCollaborationProps> = ({ matchId, userId
       ) : (
         <Card>
           <CardHeader className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
-            <CardTitle className={`flex items-center justify-between ${isMobile ? 'text-sm' : 'text-sm sm:text-base'}`}><div className="flex items-center gap-2"><Users className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-600`} />Voice Collaboration</div></CardTitle>
+            <CardTitle className="flex items-center justify-between text-base sm:text-lg font-semibold"><div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-600" />Voice Collaboration</div></CardTitle>
           </CardHeader>
           <CardContent className={`${isMobile ? 'p-2' : 'p-3 sm:p-4'} pt-0 space-y-3`}>
             {uiError && <Alert variant="destructive" className="mb-2"><AlertDescription>{uiError}</AlertDescription></Alert>}
             <div className="space-y-2">
-              <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Available Voice Rooms</h3>
+              <h3 className="text-sm font-semibold">Available Voice Rooms</h3>
               {isConnecting ? <div className="text-center py-4"><Activity className="h-6 w-6 animate-spin mx-auto" /></div> : availableRooms.length > 0 ? (
                 availableRooms.map((room) => (
                   <Card key={room.id} className={`${getRoomColorClass(room.name)} transition-all hover:shadow-md`}>
-                    <CardContent className="p-3">
+                    <CardContent className="p-2 sm:p-3">
                       <div className="flex items-center justify-between">
-                        <div><div className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>{room.name}</div><div className={`text-muted-foreground ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Max: {room.max_participants || 25}</div></div>
-                        <Button size="sm" onClick={() => joinVoiceRoom(room)} className={isMobile ? 'text-xs px-2 py-1' : ''}><Phone className="h-3 w-3 mr-1" />Join</Button>
+                        <div><div className="text-sm font-semibold">{room.name}</div><div className={`text-muted-foreground ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Max: {room.max_participants || 25}</div></div>
+                        <Button size="sm" onClick={() => joinVoiceRoom(room)} className={`${isMobile ? 'text-xs px-2 py-1' : ''} hover:opacity-85`}><Phone className="h-3.5 w-3.5 mr-1" />Join</Button>
                       </div>
                     </CardContent>
                   </Card>
