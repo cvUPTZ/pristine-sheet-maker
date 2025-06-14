@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { NewVoiceChat } from '@/components/voice/NewVoiceChat';
+import { EnhancedVoiceChat } from '@/components/voice/EnhancedVoiceChat';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
@@ -60,16 +59,12 @@ const NewVoiceChatPage: React.FC = () => {
         <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
           Voice Chat for Match: {matchId}
         </h1>
-        <Card className="shadow-xl border-slate-200 bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <NewVoiceChat
-              matchId={matchId}
-              userId={user.id}
-              userRole={userRole}
-              userName={participantName}
-            />
-          </CardContent>
-        </Card>
+        <EnhancedVoiceChat
+          matchId={matchId}
+          userId={user.id}
+          userRole={userRole}
+          userName={participantName}
+        />
       </div>
     </div>
   );

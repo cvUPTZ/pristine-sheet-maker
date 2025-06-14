@@ -1,4 +1,3 @@
-
 import { Room, RoomOptions, Track, RemoteParticipant, LocalParticipant, ConnectionState, Participant, RoomEvent, DisconnectReason, LocalTrackPublication, RemoteTrackPublication, RemoteTrack } from 'livekit-client';
 
 export interface LiveKitConfig {
@@ -150,12 +149,5 @@ export class LiveKitService {
       this.room = null;
       this.localParticipant = null;
     }
-  }
-
-  async moderateMuteParticipant(identity: string, mute: boolean): Promise<boolean> {
-    // This would typically require server-side implementation
-    // For now, we'll return false as it's not implemented
-    console.warn('[LiveKitService] Moderation mute not implemented on client side');
-    return false;
   }
 }

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { LiveKitService } from './LiveKitService';
 import { AudioLevelMonitor } from './AudioLevelMonitor';
@@ -185,8 +184,35 @@ export class NewVoiceChatManager {
   }
 
   async moderateMuteParticipant(targetIdentity: string, mute: boolean): Promise<boolean> {
+    if (!this.currentRoomId) {
+      const err = new Error('Cannot moderate participant: not connected to a room.');
+      console.error('[NewVoiceChatManager]', err.message);
+      this.onError?.(err);
+      return false;
+    }
+
     try {
-      return await this.liveKitService.moderateMuteParticipant(targetIdentity, mute);
+      console.log(`[NewVoiceChatManager] Attempting to ${mute ? 'mute' : 'unmute'} participant ${targetIdentity} in room ${this.currentRoomId}`);
+
+      const { data, error } = await supabase.functions.invoke('moderate-livekit-room', {
+        body: {
+          roomId: this.currentRoomId,
+          targetIdentity: targetIdentity,
+          mute: mute,
+        },
+      });
+
+      if (error) {
+        throw new Error(`Supabase function error: ${error.message}`);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.message || 'Moderation call to function failed.');
+      }
+
+      console.log(`[NewVoiceChatManager] Successfully moderated participant: ${targetIdentity}`);
+      return true;
+
     } catch (error) {
       console.error('[NewVoiceChatManager] Error moderating participant:', error);
       this.onError?.(error as Error);

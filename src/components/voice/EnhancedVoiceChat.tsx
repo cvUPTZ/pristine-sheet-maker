@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
@@ -128,7 +127,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
             </div>
           )}
           {!isLoadingRooms && availableRooms.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 animate-fade-in">
               <h3 className="text-sm font-medium text-slate-500">Available Rooms</h3>
               {availableRooms.map(room => (
                 <div key={room.id} className="flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-white/50 hover:bg-slate-50/50 transition-colors">
