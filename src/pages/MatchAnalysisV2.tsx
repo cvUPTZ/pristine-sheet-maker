@@ -18,7 +18,7 @@ import { EventType as AppEventType } from '@/types';
 import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, FoulCommittedEventData, CardEventData, SubstitutionEventData, GenericEventData } from '@/types/eventData';
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
-import { Activity, Piano, Users, Settings, Mic, Zap } from 'lucide-react';
+import { Activity, Piano, Users, Settings, Mic, Zap, LayoutDashboard } from 'lucide-react';
 
 // Type for TrackerVoiceInput players
 interface VoiceInputPlayer {
@@ -334,7 +334,7 @@ const MatchAnalysisV2: React.FC = () => {
     ...(isAdmin ? [{
       value: 'main',
       label: 'Dashboard',
-      icon: Activity,
+      icon: LayoutDashboard,
     }] : []),
     {
       value: 'piano',
@@ -374,6 +374,7 @@ const MatchAnalysisV2: React.FC = () => {
           activeView={activeView}
           setActiveView={setActiveView}
           menuItems={menuItems}
+          groupLabel="Match Tools"
         />
         <SidebarInset>
           <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
