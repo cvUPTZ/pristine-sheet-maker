@@ -42,7 +42,8 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
   const actualPassEvents = React.useMemo(() => events.filter(event =>
     event.type === 'pass' &&
     event.player_id &&
-    event.relatedPlayerId
+    event.event_data &&
+    (event.event_data as any).recipient_player_id
   ), [events]);
 
   // Extract pass events and build connections
@@ -56,7 +57,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
 
     actualPassEvents.forEach(passEvent => {
       const fromPlayerId = Number(passEvent.player_id);
-      const toPlayerId = Number(passEvent.relatedPlayerId);
+      const toPlayerId = Number((passEvent.event_data as any).recipient_player_id);
       const team = passEvent.team || 'home';
       
       // Find player names
@@ -82,7 +83,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     });
 
     return Object.values(connections).sort((a, b) => b.count - a.count);
-  }, [events, homeTeamPlayers, awayTeamPlayers]);
+  }, [actualPassEvents, homeTeamPlayers, awayTeamPlayers]);
 
   // Create player summaries
   const playerSummaries = React.useMemo(() => {
@@ -236,9 +237,9 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Passeur</TableHead>
+              <TableHead>Passer</TableHead>
               <TableHead className="text-center">→</TableHead>
-              <TableHead>Receveur</TableHead>
+              <TableHead>Receiver</TableHead>
               <TableHead className="text-center">Passes</TableHead>
             </TableRow>
           </TableHeader>
@@ -266,7 +267,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
       ) : (
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p>Aucune connexion de passe enregistrée</p>
+          <p>No pass connections recorded</p>
         </div>
       )}
     </div>
@@ -280,12 +281,12 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
 
     return (
       <div className="space-y-4">
-        <h3 className={`font-semibold text-lg ${teamColor}`}>{teamName} - Matrice</h3>
+        <h3 className={`font-semibold text-lg ${teamColor}`}>{teamName} - Matrix</h3>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-32">Passeur \ Receveur</TableHead>
+                <TableHead className="w-32">Passer \ Receiver</TableHead>
                 {players.map((player) => (
                   <TableHead key={player.id} className="text-center min-w-20 text-xs">
                     {player.name.split(' ').pop()}
@@ -326,7 +327,7 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
     <div className="space-y-6">
       {d3SankeyData.links.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="font-semibold text-lg">Flux de Passes - Diagramme Sankey Avancé</h3>
+          <h3 className="font-semibold text-lg">Pass Flow - Advanced Sankey Diagram</h3>
           <D3SankeyChart 
             nodes={d3SankeyData.nodes}
             links={d3SankeyData.links}
@@ -334,127 +335,93 @@ const PassMatrixTable: React.FC<PassMatrixTableProps> = ({
             height={400}
           />
           <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-            <p><strong>Comment lire ce diagramme :</strong></p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Les rectangles représentent les joueurs (bleu = domicile, rouge = extérieur)</li>
-              <li>Les flux représentent les passes entre joueurs</li>
-              <li>Plus le flux est épais, plus il y a de passes</li>
-              <li>Survolez les éléments pour plus de détails</li>
-            </ul>
+            This Sankey diagram visualizes the flow of passes between players. The thickness of the lines represents the number of passes.
           </div>
         </div>
       ) : (
         <div className="text-center py-8 text-gray-500">
-          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p>Impossible de générer le diagramme Sankey</p>
-          <p className="text-sm">Aucune donnée de passe disponible</p>
+          <Grid3X3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p>Not enough data for Sankey diagram</p>
         </div>
       )}
-      
-      {/* Player Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h4 className="font-semibold text-blue-600 mb-3">{homeTeamName} - Résumé</h4>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Joueur</TableHead>
-                <TableHead className="text-center">Passes Données</TableHead>
-                <TableHead className="text-center">Passes Reçues</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {playerSummaries.filter(p => p.team === 'home').map((player) => (
-                <TableRow key={player.id}>
-                  <TableCell className="font-medium">{player.name}</TableCell>
-                  <TableCell className="text-center">{player.passesGiven}</TableCell>
-                  <TableCell className="text-center">{player.passesReceived}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        
-        <div>
-          <h4 className="font-semibold text-red-600 mb-3">{awayTeamName} - Résumé</h4>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Joueur</TableHead>
-                <TableHead className="text-center">Passes Données</TableHead>
-                <TableHead className="text-center">Passes Reçues</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {playerSummaries.filter(p => p.team === 'away').map((player) => (
-                <TableRow key={player.id}>
-                  <TableCell className="font-medium">{player.name}</TableCell>
-                  <TableCell className="text-center">{player.passesGiven}</TableCell>
-                  <TableCell className="text-center">{player.passesReceived}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
     </div>
   );
+  
+  if (actualPassEvents.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Passing Matrix & Analysis</CardTitle>
+          <CardDescription>No passing data available to generate analysis.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12 text-gray-500">
+            <Users className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-semibold">No Passes Logged</h3>
+            <p className="mt-1">Once passes are tracked in the match, this dashboard will come to life.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Qui Passe à Qui
+          <Grid3X3 className="h-5 w-5" />
+          Passing Matrix & Analysis
         </CardTitle>
         <CardDescription>
-          Matrice des passes entre joueurs - Analyse des connexions d'équipe
-          {actualPassEvents.length === 0 && (
-            <span className="block text-orange-600 text-sm mt-1">
-              📊 No actual pass events found in the data for this match.
-            </span>
-          )}
+          Detailed analysis of passing connections, key players, and flow between teams.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="connections" className="flex items-center gap-2">
-              <ArrowRight className="h-4 w-4" />
-              Connexions
-            </TabsTrigger>
-            <TabsTrigger value="matrix" className="flex items-center gap-2">
-              <Grid3X3 className="h-4 w-4" />
-              Matrice
-            </TabsTrigger>
-            <TabsTrigger value="visualization" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Visualisation
-            </TabsTrigger>
+        <Tabs defaultValue="connections">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="connections">Top Connections</TabsTrigger>
+            <TabsTrigger value="matrix">Pass Matrix</TabsTrigger>
+            <TabsTrigger value="summary">Player Summary</TabsTrigger>
+            <TabsTrigger value="visualization">Flow Visualization</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="connections" className="space-y-8 mt-6">
-            {renderConnectionsTable(homeConnections, homeTeamName, 'text-blue-600')}
-            {renderConnectionsTable(awayConnections, awayTeamName, 'text-red-600')}
+          
+          <TabsContent value="connections" className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {renderConnectionsTable(homeConnections, homeTeamName, 'text-blue-800')}
+              {renderConnectionsTable(awayConnections, awayTeamName, 'text-orange-800')}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="matrix" className="mt-4">
+            <div className="space-y-8">
+              {renderMatrixTable(homeConnections, homeTeamName, 'text-blue-800')}
+              {renderMatrixTable(awayConnections, awayTeamName, 'text-orange-800')}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="summary" className="mt-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {playerSummaries.sort((a,b) => (b.passesGiven + b.passesReceived) - (a.passesGiven + a.passesReceived)).map((player) => (
+                  <div key={player.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{player.name}</p>
+                      <p className={`text-sm ${player.team === 'home' ? 'text-blue-600' : 'text-orange-600'}`}>
+                        {player.team === 'home' ? homeTeamName : awayTeamName}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{player.passesGiven} <span className="text-xs font-normal">sent</span></p>
+                      <p className="font-semibold">{player.passesReceived} <span className="text-xs font-normal">received</span></p>
+                    </div>
+                  </div>
+                ))}
+             </div>
           </TabsContent>
 
-          <TabsContent value="matrix" className="space-y-8 mt-6">
-            {renderMatrixTable(homeConnections, homeTeamName, 'text-blue-600')}
-            {renderMatrixTable(awayConnections, awayTeamName, 'text-red-600')}
-          </TabsContent>
-
-          <TabsContent value="visualization" className="mt-6">
+          <TabsContent value="visualization" className="mt-4">
             {renderVisualization()}
           </TabsContent>
         </Tabs>
-        
-        {passConnections.length === 0 && (
-          <div className="text-center py-8 text-gray-500 mt-6">
-            <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>Aucune donnée de passe disponible</p>
-            <p className="text-sm">Utilisez le mode de suivi des passes pour enregistrer les connexions entre joueurs</p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
