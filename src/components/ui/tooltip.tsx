@@ -26,12 +26,4 @@ const TooltipContent = React.forwardRef<
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-// We need to create a wrapper component that ensures the TooltipProvider is always used
-const TooltipWrapper = ({ children }: { children: React.ReactNode }) => (
-  <TooltipProvider>
-    {children}
-  </TooltipProvider>
-)
-
-// Export the wrapper as a convenience component
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipWrapper }
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
