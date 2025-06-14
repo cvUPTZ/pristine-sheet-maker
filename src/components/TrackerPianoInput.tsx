@@ -368,11 +368,21 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   const playerSections = allPlayersList.map(player => {
                     let radialContainerClass: string, radialRadius: number;
                     if (totalPlayersAssignedToThisTrackerForView === 2) {
-                      if (numEvents >= 7) { radialContainerClass = 'w-28 h-28 sm:w-36 sm:h-36'; radialRadius = 32; }
-                      else { radialContainerClass = 'w-24 h-24 sm:w-32 sm:h-32'; radialRadius: 26; }
+                      if (numEvents >= 7) { 
+                        radialContainerClass = 'w-28 h-28 sm:w-36 sm:h-36'; 
+                        radialRadius = 32; 
+                      } else { 
+                        radialContainerClass = 'w-24 h-24 sm:w-32 sm:h-32'; 
+                        radialRadius = 26; 
+                      }
                     } else {
-                      if (numEvents >= 7) { radialContainerClass = 'w-28 h-28 sm:w-40 sm:h-40'; radialRadius = 36; }
-                      else { radialContainerClass = 'w-24 h-24 sm:w-36 sm:h-36'; radialRadius = 28; }
+                      if (numEvents >= 7) { 
+                        radialContainerClass = 'w-28 h-28 sm:w-40 sm:h-40'; 
+                        radialRadius = 36; 
+                      } else { 
+                        radialContainerClass = 'w-24 h-24 sm:w-36 sm:h-36'; 
+                        radialRadius = 28; 
+                      }
                     }
                     return (
                       <div key={player.id} className={`border rounded-lg transition-all duration-300 ease-in-out ${totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-1' : 'p-1'} ${selectedPlayer?.id === player.id ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' : 'bg-white dark:bg-slate-800 hover:shadow'} `}>
