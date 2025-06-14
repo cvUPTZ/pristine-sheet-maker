@@ -83,12 +83,34 @@ const TrackerNotifications: React.FC = () => {
     const iconProps = { className: "h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" };
     switch (type) {
       case 'match_assignment':
-        return <ClipboardList {...iconProps} style={{ color: 'hsl(var(--primary))' }} />;
+        return <ClipboardList {...iconProps} className="text-primary" />;
       case 'urgent_replacement_assignment':
         return <TriangleAlert {...iconProps} className="text-destructive" />;
       default:
-        return <Info {...iconProps} className="text-muted-foreground" />;
+        return <Info {...iconProps} className="text-blue-500" />;
     }
+  };
+
+  const getNotificationStyle = (type: string, is_read: boolean) => {
+    const base = 'flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors duration-200 border-l-4';
+    let styles = '';
+
+    switch (type) {
+      case 'urgent_replacement_assignment':
+        styles = 'border-destructive hover:bg-destructive/10';
+        if (!is_read) styles += ' bg-destructive/5';
+        break;
+      case 'match_assignment':
+        styles = 'border-primary hover:bg-primary/10';
+        if (!is_read) styles += ' bg-primary/5';
+        break;
+      default:
+        styles = 'border-blue-500 hover:bg-blue-500/10';
+        if (!is_read) styles += ' bg-blue-500/5';
+        break;
+    }
+
+    return `${base} ${styles}`;
   };
 
   const getNotificationTypeFormatted = (type: string) => {
@@ -375,9 +397,7 @@ const TrackerNotifications: React.FC = () => {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors duration-200 ${
-                  notification.is_read ? '' : 'bg-accent/50'
-                } hover:bg-accent/80`}
+                className={getNotificationStyle(notification.type, notification.is_read)}
               >
                 <div className="flex-shrink-0 pt-1">
                   {getNotificationIcon(notification.type)}
