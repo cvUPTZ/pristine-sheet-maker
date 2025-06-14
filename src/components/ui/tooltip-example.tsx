@@ -4,15 +4,13 @@ import {
   Tooltip, 
   TooltipContent, 
   TooltipTrigger, 
-  TooltipProvider,
-  TooltipWrapper
+  TooltipProvider
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 
 export const TooltipExample = () => {
-  // Using the wrapper method
   return (
-    <TooltipWrapper>
+    <TooltipProvider>
       <div className="flex flex-col gap-4 p-4">
         <h2 className="text-xl font-bold">Tooltip Examples</h2>
         
@@ -42,29 +40,27 @@ export const TooltipExample = () => {
         <div>
           <h3 className="text-lg font-medium mb-2">Multiple Tooltips with one Provider</h3>
           <div className="flex gap-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="secondary">First tooltip</Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  First tooltip content
-                </TooltipContent>
-              </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="secondary">First tooltip</Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                First tooltip content
+              </TooltipContent>
+            </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="secondary">Second tooltip</Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Second tooltip content
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="secondary">Second tooltip</Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Second tooltip content
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
-    </TooltipWrapper>
+    </TooltipProvider>
   );
 };
 
