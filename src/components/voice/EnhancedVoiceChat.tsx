@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
@@ -64,11 +65,17 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
     await joinRoom(roomId, userId, userRole, userName);
   };
 
-  const isParticipantMuted = (participant: Participant): boolean => {
-    if (participant.isLocal && localParticipant) {
-      const localP = localParticipant as LocalParticipant;
-      return !localP.isMicrophoneEnabled;
+  const isParticipantMuted = (participant: Participant | null): boolean => {
+    if (!participant) {
+      return true; // Default to muted if participant is null
     }
+
+    if (participant.isLocal) {
+      // It's the local participant, check microphone state directly.
+      return !(participant as LocalParticipant).isMicrophoneEnabled;
+    }
+    
+    // It's a remote participant, check their audio tracks.
     const audioTrackPublications = Array.from(participant.audioTrackPublications.values());
     return audioTrackPublications.length === 0 || audioTrackPublications.some(pub => pub.isMuted);
   };
@@ -183,7 +190,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
             disabled={!localParticipant}
             className="shadow-sm hover:shadow-md"
           >
-            {isParticipantMuted(localParticipant!) ? (
+            {isParticipantMuted(localParticipant) ? (
               <>
                 <VolumeX className="h-4 w-4 mr-2 text-red-500" />
                 Unmute Self
