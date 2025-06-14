@@ -91,7 +91,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               <AvatarImage src={awayTeam.flagUrl || undefined} alt={`${awayTeam.name} flag`} />
               <AvatarFallback className="bg-white/20">
                 <Flag className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </Fallback>
+              </AvatarFallback>
             </Avatar>
           </div>
         </div>
