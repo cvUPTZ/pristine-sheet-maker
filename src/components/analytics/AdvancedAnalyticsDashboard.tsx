@@ -52,7 +52,13 @@ interface AdvancedAnalyticsDashboardProps {
   awayTeamName: string;
 }
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0'];
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
 
 const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
   statistics,
@@ -119,10 +125,25 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
     }));
   }, [playerStats]);
 
+  const teamPerformanceData = useMemo(() => [
+    { metric: 'Possession', home: kpis.totalPossession.home, away: kpis.totalPossession.away },
+    { metric: 'Pass Accuracy', home: kpis.efficiency.home, away: kpis.efficiency.away },
+    { metric: 'Shots', home: statistics.home?.shots || 0, away: statistics.away?.shots || 0 },
+    { metric: 'Duels Won', home: statistics.home?.duelsWon || 0, away: statistics.away?.duelsWon || 0 },
+  ], [kpis, statistics]);
+
   const chartConfig = {
-    [homeTeamName]: { label: homeTeamName, color: "hsl(var(--chart-1))" },
-    [awayTeamName]: { label: awayTeamName, color: "hsl(var(--chart-2))" },
+    home: { label: homeTeamName, color: "hsl(var(--chart-1))" },
+    away: { label: awayTeamName, color: "hsl(var(--chart-2))" },
   };
+
+  const pieChartConfig = useMemo(() => playerRadarData.reduce((acc, entry, index) => {
+    acc[entry.player] = {
+        label: entry.player,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+    };
+    return acc;
+  }, {} as any), [playerRadarData]);
 
   return (
     <div className="space-y-6 p-6">
@@ -158,13 +179,13 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/50 dark:to-blue-950/50 border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600 mb-1">Ball Possession</p>
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Ball Possession</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-blue-900">
+                  <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                     {kpis.totalPossession.home}%
                   </span>
                   {kpis.totalPossession.trend === 'up' ? 
@@ -172,63 +193,71 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
                     <TrendingDown className="h-4 w-4 text-red-500" />
                   }
                 </div>
-                <p className="text-xs text-blue-700">vs {kpis.totalPossession.away}% away</p>
+                <p className="text-xs text-blue-700 dark:text-blue-500">vs {kpis.totalPossession.away}% away</p>
               </div>
-              <Activity className="h-8 w-8 text-blue-500" />
+              <div className="p-3 bg-blue-500/10 rounded-lg">
+                <Activity className="h-8 w-8 text-blue-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/50 dark:to-green-950/50 border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600 mb-1">Pass Efficiency</p>
+                <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Pass Efficiency</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-green-900">
+                  <span className="text-2xl font-bold text-green-900 dark:text-green-100">
                     {kpis.efficiency.home}%
                   </span>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
-                <p className="text-xs text-green-700">vs {kpis.efficiency.away}% away</p>
+                <p className="text-xs text-green-700 dark:text-green-500">vs {kpis.efficiency.away}% away</p>
               </div>
-              <Target className="h-8 w-8 text-green-500" />
+              <div className="p-3 bg-green-500/10 rounded-lg">
+                <Target className="h-8 w-8 text-green-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/50 dark:to-orange-950/50 border-orange-200 dark:border-orange-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-600 mb-1">Attacking Actions</p>
+                <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Attacking Actions</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-orange-900">
+                  <span className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                     {kpis.attacking.home}
                   </span>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
-                <p className="text-xs text-orange-700">vs {kpis.attacking.away} away</p>
+                <p className="text-xs text-orange-700 dark:text-orange-500">vs {kpis.attacking.away} away</p>
               </div>
-              <Zap className="h-8 w-8 text-orange-500" />
+              <div className="p-3 bg-orange-500/10 rounded-lg">
+                <Zap className="h-8 w-8 text-orange-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-950/50 border-purple-200 dark:border-purple-800 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600 mb-1">Defensive Actions</p>
+                <p className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">Defensive Actions</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-purple-900">
+                  <span className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                     {kpis.defensive.home}
                   </span>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
-                <p className="text-xs text-purple-700">vs {kpis.defensive.away} away</p>
+                <p className="text-xs text-purple-700 dark:text-purple-500">vs {kpis.defensive.away} away</p>
               </div>
-              <Users className="h-8 w-8 text-purple-500" />
+              <div className="p-3 bg-purple-500/10 rounded-lg">
+                <Users className="h-8 w-8 text-purple-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -268,19 +297,14 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
               <CardContent>
                 <ChartContainer config={chartConfig} className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { metric: 'Possession', [homeTeamName]: kpis.totalPossession.home, [awayTeamName]: kpis.totalPossession.away },
-                      { metric: 'Pass Accuracy', [homeTeamName]: kpis.efficiency.home, [awayTeamName]: kpis.efficiency.away },
-                      { metric: 'Shots', [homeTeamName]: statistics.home?.shots || 0, [awayTeamName]: statistics.away?.shots || 0 },
-                      { metric: 'Duels Won', [homeTeamName]: statistics.home?.duelsWon || 0, [awayTeamName]: statistics.away?.duelsWon || 0 },
-                    ]}>
+                    <BarChart data={teamPerformanceData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="metric" />
                       <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Bar dataKey={homeTeamName} fill={chartConfig[homeTeamName].color} radius={4} />
-                      <Bar dataKey={awayTeamName} fill={chartConfig[awayTeamName].color} radius={4} />
+                      <Bar dataKey="home" fill="var(--color-home)" radius={4} />
+                      <Bar dataKey="away" fill="var(--color-away)" radius={4} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -308,16 +332,16 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
                         type="monotone" 
                         dataKey="home" 
                         stackId="1" 
-                        stroke={chartConfig[homeTeamName].color} 
-                        fill={chartConfig[homeTeamName].color}
+                        stroke="var(--color-home)" 
+                        fill="var(--color-home)"
                         fillOpacity={0.6}
                       />
                       <Area 
                         type="monotone" 
                         dataKey="away" 
-                        stackId="2" 
-                        stroke={chartConfig[awayTeamName].color} 
-                        fill={chartConfig[awayTeamName].color}
+                        stackId="1"
+                        stroke="var(--color-away)" 
+                        fill="var(--color-away)"
                         fillOpacity={0.6}
                       />
                     </AreaChart>
@@ -329,53 +353,65 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
 
           {/* Advanced Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
+            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/50 dark:to-indigo-950/50 border-indigo-200 dark:border-indigo-800">
               <CardContent className="p-6">
                 <div className="text-center">
-                  <h3 className="font-semibold text-indigo-900 mb-2">Shot Conversion</h3>
+                  <h3 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">Shot Conversion</h3>
                   <div className="relative w-24 h-24 mx-auto mb-3">
-                    <RadialBarChart width={96} height={96} data={[{ value: 75 }]}>
-                      <RadialBar dataKey="value" fill="#6366f1" />
-                    </RadialBarChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart 
+                        data={[{ value: 75 }]} 
+                        innerRadius="80%"
+                        outerRadius="100%"
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <RadialBar dataKey="value" fill="hsl(var(--chart-1))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-bold text-indigo-900">75%</span>
+                      <span className="text-lg font-bold text-indigo-900 dark:text-indigo-100">75%</span>
                     </div>
                   </div>
-                  <p className="text-sm text-indigo-700">Above average</p>
+                  <p className="text-sm text-indigo-700 dark:text-indigo-400">Above average</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
+            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/50 dark:to-emerald-950/50 border-emerald-200 dark:border-emerald-800">
               <CardContent className="p-6">
                 <div className="text-center">
-                  <h3 className="font-semibold text-emerald-900 mb-2">Defensive Solidity</h3>
+                  <h3 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-2">Defensive Solidity</h3>
                   <div className="relative w-24 h-24 mx-auto mb-3">
-                    <RadialBarChart width={96} height={96} data={[{ value: 88 }]}>
-                      <RadialBar dataKey="value" fill="#10b981" />
-                    </RadialBarChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart data={[{ value: 88 }]} innerRadius="80%" outerRadius="100%" startAngle={90} endAngle={-270}>
+                        <RadialBar dataKey="value" fill="hsl(var(--chart-2))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-bold text-emerald-900">88%</span>
+                      <span className="text-lg font-bold text-emerald-900 dark:text-emerald-100">88%</span>
                     </div>
                   </div>
-                  <p className="text-sm text-emerald-700">Excellent</p>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-400">Excellent</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/50 dark:to-amber-950/50 border-amber-200 dark:border-amber-800">
               <CardContent className="p-6">
                 <div className="text-center">
-                  <h3 className="font-semibold text-amber-900 mb-2">Ball Recovery</h3>
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">Ball Recovery</h3>
                   <div className="relative w-24 h-24 mx-auto mb-3">
-                    <RadialBarChart width={96} height={96} data={[{ value: 92 }]}>
-                      <RadialBar dataKey="value" fill="#f59e0b" />
-                    </RadialBarChart>
+                     <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart data={[{ value: 92 }]} innerRadius="80%" outerRadius="100%" startAngle={90} endAngle={-270}>
+                        <RadialBar dataKey="value" fill="hsl(var(--chart-4))" background={{ fill: 'hsl(var(--muted))' }} cornerRadius={10} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-bold text-amber-900">92%</span>
+                      <span className="text-lg font-bold text-amber-900 dark:text-amber-100">92%</span>
                     </div>
                   </div>
-                  <p className="text-sm text-amber-700">Outstanding</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400">Outstanding</p>
                 </div>
               </CardContent>
             </Card>
@@ -420,27 +456,40 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="h-5 w-5" />
-                  Performance Distribution
+                  Player Passing Contribution
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-80">
+                <ChartContainer config={pieChartConfig} className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
                         data={playerRadarData}
+                        dataKey="passing"
+                        nameKey="player"
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="passing"
-                        label={({ player }) => player}
+                        labelLine={false}
+                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                          const RADIAN = Math.PI / 180;
+                          const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          if (percent < 0.05) return null; // Hide small labels
+                          return (
+                            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12}>
+                              {`${(percent * 100).toFixed(0)}%`}
+                            </text>
+                          );
+                        }}
                       >
-                        {playerRadarData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        {playerRadarData.map((entry) => (
+                          <Cell key={`cell-${entry.player}`} fill={pieChartConfig[entry.player]?.color || "#8884d8"} />
                         ))}
                       </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartTooltip content={<ChartTooltipContent nameKey="player" />} />
+                      <ChartLegend content={<ChartLegendContent />} />
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -469,14 +518,14 @@ const AdvancedAnalyticsDashboard: React.FC<AdvancedAnalyticsDashboardProps> = ({
                     <Line 
                       type="monotone" 
                       dataKey="home" 
-                      stroke={chartConfig[homeTeamName].color} 
+                      stroke="var(--color-home)" 
                       strokeWidth={3}
                       dot={{ r: 6 }}
                     />
                     <Line 
                       type="monotone" 
                       dataKey="away" 
-                      stroke={chartConfig[awayTeamName].color} 
+                      stroke="var(--color-away)" 
                       strokeWidth={3}
                       dot={{ r: 6 }}
                     />
