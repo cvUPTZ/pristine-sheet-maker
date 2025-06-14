@@ -84,26 +84,28 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   const secondaryEvents: EventType[] = ['foul', 'assist', 'save', 'corner', 'freeKick'];
 
   const renderEventButton = (eventType: EventType, isPrimary: boolean) => {
-    const buttonClasses = isPrimary
-      ? "min-h-[90px] md:min-h-[100px] text-sm sm:text-base from-blue-50/80 to-indigo-100/80 border-blue-200/80 hover:border-blue-400"
-      : "min-h-[70px] md:min-h-[80px] text-xs sm:text-sm from-slate-50/80 to-slate-100/80 border-slate-200/80 hover:border-slate-400";
+    const buttonSizeClasses = isPrimary
+      ? "w-[80px] h-[80px] md:w-[90px] md:h-[90px]"
+      : "w-[65px] h-[65px] md:w-[70px] md:h-[70px]";
     
-    const iconSize = isPrimary ? "lg" : "sm";
+    const iconSize = isPrimary ? "lg" : "md";
 
     return (
-      <button
-        key={eventType}
-        onClick={() => handleEventRecord(eventType)}
-        className={`flex flex-col items-center justify-center p-2 rounded-2xl border bg-gradient-to-br bg-white/60 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-70 ${buttonClasses}`}
-      >
-        <EnhancedEventTypeIcon
-          eventType={eventType}
-          size={iconSize}
-        />
-        <span className="font-semibold text-slate-700 mt-2 text-center leading-tight">
+      <div key={eventType} className="flex flex-col items-center justify-start gap-2">
+        <button
+          onClick={() => handleEventRecord(eventType)}
+          aria-label={`Record ${eventType} event`}
+          className={`flex items-center justify-center rounded-full border bg-gradient-to-br from-white/70 to-slate-100/70 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-70 ${buttonSizeClasses} ${isPrimary ? 'border-blue-200/80 hover:border-blue-400' : 'border-slate-200/80 hover:border-slate-400'}`}
+        >
+          <EnhancedEventTypeIcon
+            eventType={eventType}
+            size={iconSize}
+          />
+        </button>
+        <span className="font-semibold text-slate-700 text-center leading-tight text-xs sm:text-sm max-w-[90px] break-words">
           {eventType.replace(/([A-Z])/g, ' $1').trim()}
         </span>
-      </button>
+      </div>
     );
   };
 
@@ -111,19 +113,23 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
     <div className="space-y-8">
       <Card className="bg-white/60 backdrop-blur-xl border-slate-200/80 shadow-2xl rounded-3xl overflow-hidden transition-all">
         <CardHeader className="pb-4 border-b border-slate-200/80 bg-slate-50/30">
-          <CardTitle className="text-xl font-bold text-slate-800">Event Piano</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-800 text-center">Event Piano</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Primary Actions</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {primaryEvents.map(et => renderEventButton(et, true))}
+        <CardContent className="p-4 sm:p-6 space-y-8">
+          <div className="text-center">
+            <h3 className="text-sm font-semibold text-slate-600 mb-4 uppercase tracking-wider">Primary Actions</h3>
+            <div className="flex justify-center">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6">
+                {primaryEvents.map(et => renderEventButton(et, true))}
+              </div>
             </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Secondary Actions</h3>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
-              {secondaryEvents.map(et => renderEventButton(et, false))}
+          <div className="text-center">
+            <h3 className="text-sm font-semibold text-slate-600 mb-4 uppercase tracking-wider">Secondary Actions</h3>
+            <div className="flex justify-center">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
+                {secondaryEvents.map(et => renderEventButton(et, false))}
+              </div>
             </div>
           </div>
         </CardContent>
