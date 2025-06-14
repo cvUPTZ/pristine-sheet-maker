@@ -1,7 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { EnhancedEventTypeIcon } from '@/components/match/EnhancedEventTypeIcon';
@@ -81,20 +80,27 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
     setRecentEvents(prev => prev.filter(event => event.id !== eventId));
   }, []);
 
-  const eventTypes: EventType[] = ['pass', 'shot', 'foul', 'goal', 'assist', 'tackle', 'save', 'corner', 'freeKick'];
+  const primaryEvents: EventType[] = ['goal', 'shot', 'pass', 'tackle'];
+  const secondaryEvents: EventType[] = ['foul', 'assist', 'save', 'corner', 'freeKick'];
 
-  const renderEventButton = (eventType: EventType) => {
+  const renderEventButton = (eventType: EventType, isPrimary: boolean) => {
+    const buttonClasses = isPrimary
+      ? "min-h-[90px] md:min-h-[100px] text-sm sm:text-base from-blue-50/80 to-indigo-100/80 border-blue-200/80 hover:border-blue-400"
+      : "min-h-[70px] md:min-h-[80px] text-xs sm:text-sm from-slate-50/80 to-slate-100/80 border-slate-200/80 hover:border-slate-400";
+    
+    const iconSize = isPrimary ? "lg" : "sm";
+
     return (
       <button
         key={eventType}
         onClick={() => handleEventRecord(eventType)}
-        className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200/80 bg-white/60 backdrop-blur-sm hover:border-blue-400/80 hover:bg-blue-50/50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 min-h-[70px] md:min-h-[80px] text-xs sm:text-sm"
+        className={`flex flex-col items-center justify-center p-2 rounded-2xl border bg-gradient-to-br bg-white/60 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-70 ${buttonClasses}`}
       >
         <EnhancedEventTypeIcon
           eventType={eventType}
-          size="sm"
+          size={iconSize}
         />
-        <span className="text-xs font-semibold text-slate-700 mt-2 text-center leading-tight">
+        <span className="font-semibold text-slate-700 mt-2 text-center leading-tight">
           {eventType.replace(/([A-Z])/g, ' $1').trim()}
         </span>
       </button>
@@ -102,22 +108,31 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl overflow-hidden transition-all">
+    <div className="space-y-8">
+      <Card className="bg-white/60 backdrop-blur-xl border-slate-200/80 shadow-2xl rounded-3xl overflow-hidden transition-all">
         <CardHeader className="pb-4 border-b border-slate-200/80 bg-slate-50/30">
-          <CardTitle className="text-lg text-slate-800">Event Recording Piano</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-800">Event Piano</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
-            {eventTypes.map(renderEventButton)}
+        <CardContent className="p-4 sm:p-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Primary Actions</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              {primaryEvents.map(et => renderEventButton(et, true))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Secondary Actions</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
+              {secondaryEvents.map(et => renderEventButton(et, false))}
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {recentEvents.length > 0 && (
-        <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl overflow-hidden transition-all animate-fade-in">
+        <Card className="bg-white/60 backdrop-blur-xl border-slate-200/80 shadow-2xl rounded-3xl overflow-hidden transition-all animate-fade-in">
           <CardHeader className="pb-3 border-b border-slate-200/80 bg-slate-50/30">
-            <CardTitle className="text-base text-slate-800">Recent Events (Click to Cancel)</CardTitle>
+            <CardTitle className="text-lg text-slate-800">Recent Events (Click to Cancel)</CardTitle>
           </CardHeader>
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-3 justify-start">

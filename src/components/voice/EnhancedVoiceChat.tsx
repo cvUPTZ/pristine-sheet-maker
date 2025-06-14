@@ -211,9 +211,9 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
         </div>
 
         {/* Participants list */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <h4 className="font-semibold text-slate-700 text-base">Participants ({participants.length})</h4>
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[28rem] overflow-y-auto p-1 -m-1">
             {participants.map(participant => {
               const isMuted = isParticipantMuted(participant);
               const isSpeaking = isParticipantSpeaking(participant);
@@ -221,38 +221,41 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
               return (
                 <div 
                   key={participant.identity} 
-                  className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${isSpeaking ? 'bg-emerald-50/80 border-emerald-200 border' : 'bg-slate-50/80'}`}
+                  className={`
+                    relative aspect-square flex flex-col items-center justify-center 
+                    p-2 rounded-2xl text-center
+                    bg-white/60 backdrop-blur-sm border border-slate-200/60
+                    transition-all duration-300 transform hover:-translate-y-1
+                    ${isSpeaking ? 'ring-2 ring-offset-2 ring-offset-slate-50/80 ring-emerald-500 shadow-lg' : 'shadow-md'}
+                  `}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-200 to-indigo-200 flex items-center justify-center text-blue-700 font-bold">
-                        {participant.name?.charAt(0).toUpperCase() || 'A'}
-                      </div>
-                      {isSpeaking && <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></div>}
+                  <div className="relative mb-2">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-200 to-indigo-200 flex items-center justify-center text-blue-700 font-bold text-2xl shadow-inner">
+                      {participant.name?.charAt(0).toUpperCase() || 'A'}
                     </div>
-                    <div>
-                      <span className="text-sm font-semibold text-slate-800">
-                        {participant.name || participant.identity}
-                        {participant.isLocal && <span className="text-xs text-blue-600 ml-1">(You)</span>}
-                      </span>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                         {isMuted ? (
-                          <div className="flex items-center gap-1"><VolumeX size={12} className="text-red-500" /> Muted</div>
-                         ) : (
-                          <div className="flex items-center gap-1"><Volume2 size={12} className="text-emerald-500"/> Unmuted</div>
-                         )}
-                      </div>
+                    <div className={`absolute bottom-0 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-2 border-white/80 ${isMuted ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                      {isMuted ? (
+                        <MicOff size={14} className="text-white" />
+                      ) : (
+                        <Mic size={14} className="text-white"/>
+                      )}
                     </div>
                   </div>
 
+                  <span className="text-sm font-semibold text-slate-800 w-full truncate" title={participant.name || participant.identity}>
+                    {participant.name || participant.identity}
+                  </span>
+                  {participant.isLocal && <Badge variant="secondary" className="mt-1 px-2 py-0.5 text-xs">You</Badge>}
+                
                   {canModerate && !participant.isLocal && (
                     <Button
                       onClick={() => moderateMuteParticipant(participant.identity, !isMuted)}
                       variant="ghost"
-                      size="sm"
-                      className="text-xs text-slate-500 hover:bg-slate-200/50"
+                      size="icon"
+                      className="absolute top-1 right-1 h-7 w-7 rounded-full bg-white/50 hover:bg-slate-200/50 text-slate-600"
                     >
-                      {isMuted ? 'Unmute' : 'Mute'}
+                      {isMuted ? <Volume2 size={16}/> : <VolumeX size={16}/>}
+                      <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
                     </Button>
                   )}
                 </div>
