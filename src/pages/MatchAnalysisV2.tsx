@@ -9,7 +9,8 @@ import TrackerAssignment from '@/components/match/TrackerAssignment';
 import MainTabContentV2 from '@/components/match/MainTabContentV2';
 import VoiceCollaboration from '@/components/match/VoiceCollaboration';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import { TrackerVoiceInput } from '@/components/TrackerVoiceInput';
 import { EventType as LocalEventType } from '@/types/matchForm';
@@ -44,6 +45,9 @@ const MatchAnalysisV2: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isSmall = useBreakpoint('sm');
+
+  const isAdmin = userRole === 'admin';
+  const [activeView, setActiveView] = useState(isAdmin ? 'main' : 'piano');
 
   // Convert PlayerForPianoInput to VoiceInputPlayer format
   const convertPlayersForVoiceInput = (players: AssignedPlayers): VoiceInputAssignedPlayers => {
@@ -290,164 +294,112 @@ const MatchAnalysisV2: React.FC = () => {
     );
   }
 
-  // Determine available tabs based on user role
-  const isAdmin = userRole === 'admin';
-  const defaultTab = isAdmin ? 'main' : 'piano';
-
-  const tabsConfig = [
-    ...(isAdmin ? [{
-      value: 'main',
-      label: isMobile ? 'Dashboard' : 'Main Dashboard',
-      icon: Activity,
-      description: 'Overview and match control'
-    }] : []),
-    {
-      value: 'piano',
-      label: isMobile ? 'Piano' : 'Piano Input',
-      icon: Piano,
-      description: 'Event recording interface'
-    },
-    ...(isAdmin ? [
-      {
-        value: 'planning',
-        label: isMobile ? 'Network' : 'Planning Network',
-        icon: Users,
-        description: 'Visualize relationships'
-      },
-      {
-        value: 'tracker',
-        label: isMobile ? 'Assign' : 'Tracker Assignment',
-        icon: Settings,
-        description: 'Manage tracker roles'
-      }
-    ] : [])
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
-        {/* Modern Header */}
-        <div className="mb-8">
-          <MatchHeader
-            mode={mode}
-            setMode={setMode}
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-            handleToggleTracking={handleToggleTracking}
-            handleSave={handleSave}
-          />
-        </div>
-
-        <Tabs defaultValue={defaultTab} className="w-full space-y-6">
-          {/* Modern Tab Navigation */}
-          <TabsList className="grid w-full h-auto p-1 bg-white/80 backdrop-blur-xl shadow-lg border-0 rounded-2xl">
-            <div className={`grid gap-1 ${
-              isAdmin 
-                ? "grid-cols-2 lg:grid-cols-4" 
-                : "grid-cols-1"
-            }`}>
-              {tabsConfig.map((tab) => (
-                <TabsTrigger 
-                  key={tab.value}
-                  value={tab.value} 
-                  className="group flex flex-col items-center gap-2 py-4 px-4 text-sm font-medium rounded-xl transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-50"
-                >
-                  <tab.icon className="w-5 h-5 transition-transform group-data-[state=active]:scale-110" />
-                  <div className="text-center">
-                    <div className="font-semibold">{tab.label}</div>
-                    <div className="text-xs opacity-70 group-data-[state=active]:opacity-90 hidden sm:block">
-                      {tab.description}
-                    </div>
-                  </div>
-                </TabsTrigger>
-              ))}
-            </div>
-          </TabsList>
-          
-          {/* Tab Content */}
-          {isAdmin && (
-            <TabsContent value="main" className="space-y-6">
-              <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                <CardContent className="p-6">
-                  <MainTabContentV2
-                    matchId={matchId}
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                    isTracking={isTracking}
-                    onEventRecord={handleRecordEvent}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-          
-          <TabsContent value="piano" className="space-y-6">
-            {/* Voice Collaboration Card */}
-            {user?.id && (
-              <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                      <Mic className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Voice Collaboration</h3>
-                      <p className="text-sm text-gray-500">Real-time voice communication</p>
-                    </div>
-                  </div>
-                  <VoiceCollaboration
-                    matchId={matchId}
-                    userId={user.id}
-                  />
-                </CardContent>
-              </Card>
-            )}
-            
-            {/* Piano Input Card */}
-            <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <Piano className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Piano Input</h3>
-                    <p className="text-sm text-gray-500">Quick event recording interface</p>
-                  </div>
-                </div>
-                <TrackerPianoInput 
-                  matchId={matchId} 
-                  onRecordEvent={handleRecordEvent}
+    <SidebarProvider>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex w-full">
+        <MatchAnalysisSidebar activeView={activeView} setActiveView={setActiveView} />
+        <SidebarInset>
+          <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
+            {/* Modern Header */}
+            <div className="flex items-center gap-4 mb-8">
+              <SidebarTrigger />
+              <div className="flex-grow">
+                <MatchHeader
+                  mode={mode}
+                  setMode={setMode}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                  handleToggleTracking={handleToggleTracking}
+                  handleSave={handleSave}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Voice Input Card */}
-            {assignedPlayers && assignedEventTypes && (
-              <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Voice Input</h3>
-                      <p className="text-sm text-gray-500">Voice-activated event recording</p>
-                    </div>
-                  </div>
-                  <TrackerVoiceInput
-                    assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
-                    assignedEventTypes={assignedEventTypes}
-                    onRecordEvent={handleRecordEvent}
-                  />
-                </CardContent>
-              </Card>
+            {/* Content based on activeView */}
+            {activeView === 'main' && isAdmin && (
+              <div className="space-y-6 animate-fade-in">
+                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                  <CardContent className="p-6">
+                    <MainTabContentV2
+                      matchId={matchId}
+                      homeTeam={homeTeam}
+                      awayTeam={awayTeam}
+                      isTracking={isTracking}
+                      onEventRecord={handleRecordEvent}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             )}
-          </TabsContent>
 
-          {isAdmin && (
-            <>
-              <TabsContent value="planning" className="space-y-6">
+            {activeView === 'piano' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Voice Collaboration Card */}
+                {user?.id && (
+                  <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                          <Mic className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Voice Collaboration</h3>
+                          <p className="text-sm text-gray-500">Real-time voice communication</p>
+                        </div>
+                      </div>
+                      <VoiceCollaboration
+                        matchId={matchId}
+                        userId={user.id}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Piano Input Card */}
+                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                        <Piano className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Piano Input</h3>
+                        <p className="text-sm text-gray-500">Quick event recording interface</p>
+                      </div>
+                    </div>
+                    <TrackerPianoInput 
+                      matchId={matchId} 
+                      onRecordEvent={handleRecordEvent}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Voice Input Card */}
+                {assignedPlayers && assignedEventTypes && (
+                  <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                          <Zap className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Voice Input</h3>
+                          <p className="text-sm text-gray-500">Voice-activated event recording</p>
+                        </div>
+                      </div>
+                      <TrackerVoiceInput
+                        assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
+                        assignedEventTypes={assignedEventTypes}
+                        onRecordEvent={handleRecordEvent}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {activeView === 'planning' && isAdmin && (
+              <div className="space-y-6 animate-fade-in">
                 <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-6">
@@ -466,9 +418,11 @@ const MatchAnalysisV2: React.FC = () => {
                     />
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
+            )}
               
-              <TabsContent value="tracker" className="space-y-6">
+            {activeView === 'tracker' && isAdmin && (
+              <div className="space-y-6 animate-fade-in">
                 <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-6">
@@ -487,12 +441,12 @@ const MatchAnalysisV2: React.FC = () => {
                     />
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
+              </div>
+            )}
+          </div>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
