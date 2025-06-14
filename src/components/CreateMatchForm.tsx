@@ -73,6 +73,44 @@ const initializeBlankPlayers = (teamIdentifier: string): Player[] => {
   return players;
 };
 
+const parseAndPadPlayers = (playersData: any[] | string | null, teamIdentifier: string): Player[] => {
+  let parsedPlayers: any[] = [];
+  
+  if (typeof playersData === 'string') {
+    try {
+      parsedPlayers = JSON.parse(playersData);
+    } catch (error) {
+      console.error('Failed to parse players data:', error);
+      parsedPlayers = [];
+    }
+  } else if (Array.isArray(playersData)) {
+    parsedPlayers = playersData;
+  }
+
+  // Convert parsed data to Player objects
+  const players: Player[] = parsedPlayers.map((p, index) => ({
+    id: p.id || Date.now() + index + (teamIdentifier === 'home' ? 1000 : 2000),
+    name: p.name || p.player_name || '',
+    number: p.number !== undefined ? p.number : (p.jersey_number !== undefined ? p.jersey_number : null),
+    position: p.position || '',
+    isSubstitute: p.is_substitute !== undefined ? p.is_substitute : index >= STARTERS_COUNT,
+  }));
+
+  // Pad with blank players if needed
+  while (players.length < TOTAL_PLAYERS) {
+    const index = players.length;
+    players.push({
+      id: Date.now() + index + (teamIdentifier === 'home' ? 1000 : 2000),
+      name: '',
+      number: null,
+      position: '',
+      isSubstitute: index >= STARTERS_COUNT,
+    });
+  }
+
+  return players.slice(0, TOTAL_PLAYERS);
+};
+
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmit }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -172,7 +210,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         notes: matchData.notes || ''
       });
 
-      // Fix the type casting for parseAndPadPlayers calls
       setHomeTeamPlayers(parseAndPadPlayers(matchData.home_team_players as any[] | string | null, 'home'));
       setAwayTeamPlayers(parseAndPadPlayers(matchData.away_team_players as any[] | string | null, 'away'));
 
@@ -442,7 +479,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label htmlFor="competition">Competition</Label><Input id="competition" value={formData.competition} onChange={(e) => setFormData({ ...formData, competition: e.target.value })} placeholder="Enter competition name"/></div>
-                <div><Label htmlFor="matchType">Match Type</Label><Select value={formData.matchType} onValueChange={(value) => setFormData({ ...formData, matchType: value })}><SelectTrigger><SelectValue placeholder="Select match type"/></SelectTrigger><SelectContent><SelectItem value="regular">Regular</SelectItem><SelectItem value="friendly">Friendly</SelectItem><SelectItem value="tournament">Tournament</SelectItem><SelectItem value="league">League</SelectItem></SelectContent></Select></div>
+                <div><Label htmlFor="matchType">Match Type</Label>
+                  <Select value={formData.matchType} onValueChange={(value) => setFormData({ ...formData, matchType: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select match type"/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="regular">Regular</SelectItem>
+                      <SelectItem value="friendly">Friendly</SelectItem>
+                      <SelectItem value="tournament">Tournament</SelectItem>
+                      <SelectItem value="league">League</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div><Label htmlFor="description">Description</Label><Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Enter match description"/></div>
               <div><Label htmlFor="notes">Notes</Label><Textarea id="notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Additional notes"/></div>
