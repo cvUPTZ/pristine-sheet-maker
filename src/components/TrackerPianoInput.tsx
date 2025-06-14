@@ -303,7 +303,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                   <h4 className="font-medium mb-1 capitalize">{team} Team</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
                     {players.map(player => (
-                      <Button key={player.id} onClick={() => handlePlayerSelect(player, team as 'home' | 'away')} variant={selectedPlayer?.id === player.id ? "default" : "outline"} size="xs" className="justify-start">
+                      <Button key={player.id} onClick={() => handlePlayerSelect(player, team as 'home' | 'away')} variant={selectedPlayer?.id === player.id ? "default" : "outline"} size="sm" className="justify-start">
                         {player.jersey_number && `#${player.jersey_number} `}{player.name}
                       </Button>
                     ))}
