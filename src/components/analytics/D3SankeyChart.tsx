@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 import { sankey, sankeyLinkHorizontal, SankeyNode, SankeyLink } from 'd3-sankey';
@@ -41,6 +40,11 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
+    // Get theme colors from CSS variables
+    const style = getComputedStyle(document.body);
+    const homeColor = `hsl(${style.getPropertyValue('--chart-1').trim()})`;
+    const awayColor = `hsl(${style.getPropertyValue('--chart-2').trim()})`;
+
     // Create a map of node IDs to indices for D3 sankey
     const nodeMap = new Map(nodes.map((node, i) => [node.id, i]));
 
@@ -70,7 +74,7 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
     // Color scales for teams
     const colorScale = d3.scaleOrdinal<string>()
       .domain(['home', 'away'])
-      .range(['#3b82f6', '#ef4444']); // Blue for home, red for away
+      .range([homeColor, awayColor]); // Use theme colors
 
     // Draw links
     const link = g.selectAll(".link")
@@ -134,7 +138,7 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
       .text((d: any) => {
         const totalIn = d.targetLinks?.reduce((sum: number, link: any) => sum + (link.value || 0), 0) || 0;
         const totalOut = d.sourceLinks?.reduce((sum: number, link: any) => sum + (link.value || 0), 0) || 0;
-        return `${d.name}\nPasses reçues: ${totalIn}\nPasses données: ${totalOut}`;
+        return `${d.name}\nPasses received: ${totalIn}\nPasses sent: ${totalOut}`;
       });
 
     // Add team legend
@@ -143,8 +147,8 @@ const D3SankeyChart: React.FC<D3SankeyChartProps> = ({
       .attr("transform", `translate(${width - 120}, 20)`);
 
     const legendData = [
-      { team: 'home', label: 'Équipe Domicile' },
-      { team: 'away', label: 'Équipe Extérieur' }
+      { team: 'home', label: 'Home Team' },
+      { team: 'away', label: 'Away Team' }
     ];
 
     const legendItems = legend.selectAll(".legend-item")
