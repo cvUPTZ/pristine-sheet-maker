@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Save, Settings } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+
 interface TeamHeaderData {
   name: string;
   formation?: string;
@@ -22,69 +21,68 @@ interface MatchHeaderProps {
   onToggleTracking?: () => void;
   onSave?: () => void;
 }
+
+// Helper function to generate a vibrant color from a string
+const generateColorFromString = (str: string): string => {
+  if (!str) return '#333333';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = hash % 360;
+  return `hsl(${h}, 60%, 35%)`; // Darker, saturated colors for background
+};
+
+
 const MatchHeader: React.FC<MatchHeaderProps> = ({
-  mode,
-  setMode,
   homeTeam,
   awayTeam,
-  handleToggleTracking,
-  handleSave,
   name,
   status,
-  userRole,
-  onToggleTracking,
-  onSave
 }) => {
-  const [togglePressed, setTogglePressed] = useState(false);
-  const [savePressed, setSavePressed] = useState(false);
-  const isMobile = useIsMobile();
-  const toggleHandler = onToggleTracking || handleToggleTracking;
-  const saveHandler = onSave || handleSave;
-  const handleToggleClick = () => {
-    setTogglePressed(true);
-    toggleHandler();
+  const homeColor = generateColorFromString(homeTeam.name);
+  const awayColor = generateColorFromString(awayTeam.name);
+
+  const gradientStyle = {
+    background: `linear-gradient(90deg, ${homeColor} 0%, ${awayColor} 100%)`,
   };
-  const handleSaveClick = () => {
-    setSavePressed(true);
-    saveHandler();
-  };
-  const truncateName = (name: string, maxLength: number) => {
-    return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
-  };
-  return <Card className="mb-2 sm:mb-4">
-      <CardContent className="p-2 sm:p-4">
-        <div className="flex flex-col gap-3 sm:gap-4">
-          {/* Main title and status */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                <h1 className="text-sm sm:text-xl md:text-2xl font-bold truncate">
-                  {name || `${truncateName(homeTeam.name, isMobile ? 8 : 15)} vs ${truncateName(awayTeam.name, isMobile ? 8 : 15)}`}
-                </h1>
-                {status && <Badge variant={status === 'live' ? 'default' : 'secondary'} className="text-xs">
-                    {status.toUpperCase()}
-                  </Badge>}
-              </div>
-              
-              {/* Team details - responsive layout */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                <div className="flex items-center justify-between sm:justify-start gap-2">
-                  <span className="truncate max-w-[100px] sm:max-w-none">
-                    {truncateName(homeTeam.name, isMobile ? 12 : 20)} ({homeTeam.formation || '4-4-2'})
-                  </span>
-                  <span className="text-gray-400">vs</span>
-                  <span className="truncate max-w-[100px] sm:max-w-none">
-                    {truncateName(awayTeam.name, isMobile ? 12 : 20)} ({awayTeam.formation || '4-3-3'})
-                  </span>
-                </div>
-              </div>
-            </div>
+
+  return (
+    <Card style={gradientStyle} className="mb-4 text-white shadow-lg overflow-hidden relative border-none">
+      <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
+      <CardContent className="relative p-4 sm:p-5">
+        <div className="flex justify-between items-center">
+          <div className="flex-1 text-left">
+            <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
+            <p className="text-xs sm:text-sm opacity-80">{homeTeam.formation || '4-4-2'}</p>
           </div>
-          
-          {/* Action buttons - responsive grid */}
-          
+
+          <div className="flex-1 text-center px-2">
+            <h1 className="text-sm sm:text-lg font-semibold truncate hidden sm:block" title={name}>
+              {name || 'Match'}
+            </h1>
+            {status && (
+              <Badge
+                variant="secondary"
+                className="mt-1 bg-white/20 text-white border-none text-xs backdrop-blur-sm"
+              >
+                {status.toUpperCase()}
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex-1 text-right">
+            <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>{awayTeam.name}</h2>
+            <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
+          </div>
         </div>
+        {name && (
+          <h1 className="text-center text-md font-semibold truncate sm:hidden mt-2" title={name}>
+            {name}
+          </h1>
+        )}
       </CardContent>
-    </Card>;
+    </Card>
+  );
 };
 export default MatchHeader;
