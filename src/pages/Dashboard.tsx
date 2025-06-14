@@ -56,6 +56,9 @@ const Dashboard = () => {
   if (userRole === 'admin' || userRole === 'manager' || userRole === 'teacher') {
     menuItems.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
   }
+  if (userRole === 'admin' || userRole === 'manager') {
+    menuItems.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
+  }
   if (userRole === 'admin') {
     menuItems.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
   }
