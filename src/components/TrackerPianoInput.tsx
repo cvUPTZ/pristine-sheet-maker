@@ -317,51 +317,53 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
 
       {assignedEventTypes.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.33, delay: 0.13 }}>
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-xl p-3 sm:p-4 shadow-lg border border-purple-200">
-            <div className="text-center mb-3">
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-xl p-3 sm:p-4 shadow-lg border border-purple-200 max-w-md mx-auto">
+            <div className="text-center mb-4">
               <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">🎹 Record Events</h2>
               <p className="text-purple-600 dark:text-purple-300 mt-1 text-xs">
                 {!isEliteView ? (selectedPlayer ? `Recording for ${selectedPlayer.name}` : "Select a player, then tap event type") : "Events per assigned player:"}
               </p>
             </div>
 
-            <RadialEventLayout
-              eventTypes={assignedEventTypes}
-              isEliteView={isEliteView}
-              settings={
-                !isEliteView
-                ? {
-                    containerSizeClass: 'w-40 h-40 sm:w-52 sm:h-52', radius: 65, svgSize: 'sm',
-                    labelClassName: "mt-0.5 px-1 py-0.5 bg-white dark:bg-gray-800 rounded-full shadow border border-gray-200 dark:border-gray-700 text-center",
-                    labelTextClassName: "text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight",
-                    labelStyle: {}, animationInsetClass: "-inset-2 border-2",
-                  }
-                : {
-                    containerSizeClass: 'w-20 h-20 sm:w-32 sm:h-32', radius: 32, svgSize: 'xs',
-                    labelClassName: "mt-0.5 text-center",
-                    labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
-                    labelStyle: { fontSize: '0.55rem', lineHeight: '0.65rem' }, animationInsetClass: "-inset-1 border",
-                  }
-              }
-              recordingEventType={recordingEventType}
-              selectedPlayerId={selectedPlayer?.id}
-              isRecordingGlobal={isRecording}
-              onEventClick={(eventType) => {
-                if (!isEliteView) {
-                  if (!selectedPlayer) {
-                    toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
-                    return;
-                  }
+            <div className="flex justify-center">
+              <RadialEventLayout
+                eventTypes={assignedEventTypes}
+                isEliteView={isEliteView}
+                settings={
+                  !isEliteView
+                  ? {
+                      containerSizeClass: 'w-48 h-48 sm:w-60 sm:h-60', radius: 75, svgSize: 'sm',
+                      labelClassName: "mt-2 px-2 py-1 bg-white dark:bg-gray-800 rounded-full shadow border border-gray-200 dark:border-gray-700 text-center",
+                      labelTextClassName: "text-xs font-medium text-gray-700 dark:text-gray-300 block truncate w-full leading-tight",
+                      labelStyle: {}, animationInsetClass: "-inset-2 border-2",
+                    }
+                  : {
+                      containerSizeClass: 'w-24 h-24 sm:w-36 sm:h-36', radius: 38, svgSize: 'xs',
+                      labelClassName: "mt-1.5 text-center",
+                      labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
+                      labelStyle: { fontSize: '0.6rem', lineHeight: '0.7rem' }, animationInsetClass: "-inset-1 border",
+                    }
                 }
-                handleEventTypeClick(eventType);
-              }}
-              currentPlayerForLayout={null}
-              totalPlayersInCurrentLayoutContext={totalPlayersAssignedToThisTrackerForView}
-            />
+                recordingEventType={recordingEventType}
+                selectedPlayerId={selectedPlayer?.id}
+                isRecordingGlobal={isRecording}
+                onEventClick={(eventType) => {
+                  if (!isEliteView) {
+                    if (!selectedPlayer) {
+                      toast({ title: "No Player Selected", description: "Please select a player before recording an event.", variant: "destructive"});
+                      return;
+                    }
+                  }
+                  handleEventTypeClick(eventType);
+                }}
+                currentPlayerForLayout={null}
+                totalPlayersInCurrentLayoutContext={totalPlayersAssignedToThisTrackerForView}
+              />
+            </div>
 
             {isEliteView && (
-              <div>
-                <h3 className="text-sm font-semibold mb-1 text-center text-purple-700 dark:text-purple-300">Record Events by Player</h3>
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold mb-2 text-center text-purple-700 dark:text-purple-300">Record Events by Player</h3>
                 {(() => {
                   const allPlayersList = assignedPlayers ? [...assignedPlayers.home, ...assignedPlayers.away] : [];
                   const numEvents = assignedEventTypes.length;
@@ -369,24 +371,24 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                     let radialContainerClass: string, radialRadius: number;
                     if (totalPlayersAssignedToThisTrackerForView === 2) {
                       if (numEvents >= 7) { 
+                        radialContainerClass = 'w-32 h-32 sm:w-40 sm:h-40'; 
+                        radialRadius = 38; 
+                      } else { 
                         radialContainerClass = 'w-28 h-28 sm:w-36 sm:h-36'; 
                         radialRadius = 32; 
-                      } else { 
-                        radialContainerClass = 'w-24 h-24 sm:w-32 sm:h-32'; 
-                        radialRadius = 26; 
                       }
                     } else {
                       if (numEvents >= 7) { 
-                        radialContainerClass = 'w-28 h-28 sm:w-40 sm:h-40'; 
-                        radialRadius = 36; 
+                        radialContainerClass = 'w-36 h-36 sm:w-44 sm:h-44'; 
+                        radialRadius = 42; 
                       } else { 
-                        radialContainerClass = 'w-24 h-24 sm:w-36 sm:h-36'; 
-                        radialRadius = 28; 
+                        radialContainerClass = 'w-32 h-32 sm:w-40 sm:h-40'; 
+                        radialRadius = 36; 
                       }
                     }
                     return (
-                      <div key={player.id} className={`border rounded-lg transition-all duration-300 ease-in-out ${totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-1' : 'p-1'} ${selectedPlayer?.id === player.id ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' : 'bg-white dark:bg-slate-800 hover:shadow'} `}>
-                        <CardTitle className={`mb-1 cursor-pointer flex items-center justify-between px-1 py-0.5 rounded ${selectedPlayer?.id === player.id ? 'text-green-600 dark:text-green-200 bg-green-100 dark:bg-green-800 text-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs'}`} onClick={() => handlePlayerSelect(player, assignedPlayers!.home.includes(player) ? 'home' : 'away')}>
+                      <div key={player.id} className={`border rounded-lg transition-all duration-300 ease-in-out max-w-xs mx-auto ${totalPlayersAssignedToThisTrackerForView === 2 ? 'flex-1 min-w-0 p-2' : 'p-2'} ${selectedPlayer?.id === player.id ? 'bg-green-50 dark:bg-green-900 border-green-400 dark:border-green-600 ring-1 ring-green-500 shadow-sm' : 'bg-white dark:bg-slate-800 hover:shadow'} `}>
+                        <CardTitle className={`mb-2 cursor-pointer flex items-center justify-between px-2 py-1 rounded ${selectedPlayer?.id === player.id ? 'text-green-600 dark:text-green-200 bg-green-100 dark:bg-green-800 text-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs'}`} onClick={() => handlePlayerSelect(player, assignedPlayers!.home.includes(player) ? 'home' : 'away')}>
                           <div className="truncate">
                             {player.jersey_number && <span className="font-semibold text-xs">#{player.jersey_number} </span>}
                             <span className="font-medium">{player.name}</span>
@@ -394,38 +396,40 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
                           </div>
                           {selectedPlayer?.id === player.id && (<span className="text-xs font-semibold px-1 py-0 bg-green-500 text-white rounded-full shadow-sm">SEL</span>)}
                         </CardTitle>
-                        <RadialEventLayout
-                          eventTypes={assignedEventTypes}
-                          isEliteView={true}
-                          settings={{
-                            containerSizeClass: radialContainerClass, radius: radialRadius, svgSize: 'xs',
-                            labelClassName: "mt-0.5 text-center",
-                            labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
-                            labelStyle: { fontSize: '0.55rem', lineHeight: '0.65rem' },
-                            animationInsetClass: "-inset-1 border",
-                          }}
-                          recordingEventType={recordingEventType}
-                          selectedPlayerId={selectedPlayer?.id}
-                          isRecordingGlobal={isRecording}
-                          onEventClick={(eventType) => {
-                              const teamForThisPlayer = assignedPlayers!.home.includes(player) ? 'home' : 'away';
-                              handlePlayerSelect(player, teamForThisPlayer);
-                              handleEventTypeClick(eventType);
-                          }}
-                          currentPlayerForLayout={player}
-                          totalPlayersInCurrentLayoutContext={1}
-                        />
+                        <div className="flex justify-center">
+                          <RadialEventLayout
+                            eventTypes={assignedEventTypes}
+                            isEliteView={true}
+                            settings={{
+                              containerSizeClass: radialContainerClass, radius: radialRadius, svgSize: 'xs',
+                              labelClassName: "mt-1.5 text-center",
+                              labelTextClassName: "text-purple-700 dark:text-purple-300 block truncate w-full",
+                              labelStyle: { fontSize: '0.6rem', lineHeight: '0.7rem' },
+                              animationInsetClass: "-inset-1 border",
+                            }}
+                            recordingEventType={recordingEventType}
+                            selectedPlayerId={selectedPlayer?.id}
+                            isRecordingGlobal={isRecording}
+                            onEventClick={(eventType) => {
+                                const teamForThisPlayer = assignedPlayers!.home.includes(player) ? 'home' : 'away';
+                                handlePlayerSelect(player, teamForThisPlayer);
+                                handleEventTypeClick(eventType);
+                            }}
+                            currentPlayerForLayout={player}
+                            totalPlayersInCurrentLayoutContext={1}
+                          />
+                        </div>
                       </div>
                     );
                   });
-                  if (totalPlayersAssignedToThisTrackerForView === 2) { return <div className="flex flex-row gap-1 items-start">{playerSections}</div>; }
-                  else { return <div className="space-y-1">{playerSections}</div>; }
+                  if (totalPlayersAssignedToThisTrackerForView === 2) { return <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">{playerSections}</div>; }
+                  else { return <div className="space-y-3">{playerSections}</div>; }
                 })()}
               </div>
             )}
 
             {isRecording && (
-              <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} className="mt-3 text-center">
+              <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} className="mt-4 text-center">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-sm font-bold shadow">
                   <motion.div className="w-2.5 h-2.5 bg-white rounded-full" animate={{ scale: [1, 1.35, 1] }} transition={{ duration: 0.5, repeat: Infinity }} />
                   Recording Event...
@@ -458,7 +462,7 @@ const RadialEventLayout: React.FC<RadialEventLayoutProps> = ({
   if (!eventTypes || eventTypes.length === 0) return null;
   const { containerSizeClass, radius, svgSize, labelClassName, labelTextClassName, labelStyle, animationInsetClass } = settings;
   return (
-    <div className={`relative mx-auto flex items-center justify-center ${containerSizeClass}`}>
+    <div className={`relative flex items-center justify-center ${containerSizeClass}`}>
       {eventTypes.map((eventType, index) => {
         const angle = (index / eventTypes.length) * 2 * Math.PI - (Math.PI / 2);
         const x = Math.round(radius * Math.cos(angle));
