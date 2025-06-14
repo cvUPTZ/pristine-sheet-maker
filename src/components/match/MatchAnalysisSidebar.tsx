@@ -51,32 +51,37 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-gray-100/50 dark:bg-zinc-900/50">
-      <SidebarHeader>
-        {/* You can add a header here, e.g., a logo or project name */}
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.value}>
-                  <SidebarMenuButton
-                    onClick={() => handleItemClick(item)}
-                    isActive={isItemActive(item)}
-                    tooltip={item.label}
-                    className="h-10 justify-start group-data-[state=collapsed]:justify-center"
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+    <Sidebar collapsible="icon" className="border-r !bg-transparent text-white">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?w=1200&q=80')` }} />
+      <div className="absolute inset-0 bg-black/70" />
+      
+      <div className="relative z-10 flex h-full flex-col">
+        <SidebarHeader>
+          {/* You can add a header here, e.g., a logo or project name */}
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel className="!text-gray-300">{groupLabel}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-2">
+                {menuItems.map((item) => (
+                  <SidebarMenuItem key={item.value}>
+                    <SidebarMenuButton
+                      onClick={() => handleItemClick(item)}
+                      isActive={isItemActive(item)}
+                      tooltip={item.label}
+                      className="h-10 justify-start group-data-[state=collapsed]:justify-center !bg-transparent text-white hover:!bg-white/10 data-[active=true]:!bg-white/20"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </div>
     </Sidebar>
   );
 };
