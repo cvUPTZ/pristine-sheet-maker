@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,46 +32,40 @@ const LandingPage: React.FC = () => {
 
   const features = [
     {
-      icon: <Target className="h-8 w-8 text-red-500" />,
+      icon: <Target className="h-8 w-8 text-blue-600" />,
       title: "Enregistrement d'Événements en Direct et Précis",
       description: "Saisissez chaque action avec notre interface de 'piano' optimisée, suivi de la position du ballon, et collaboration multi-opérateurs en temps réel.",
-      gradient: "from-red-500/10 to-pink-500/10",
-      border: "border-red-200"
+      gradient: "from-blue-500/10 to-indigo-500/10",
     },
     {
-      icon: <Video className="h-8 w-8 text-blue-500" />,
+      icon: <Video className="h-8 w-8 text-indigo-600" />,
       title: "Analyse Vidéo Intégrée et Synchronisée",
-      description: "Liez les données d'événements aux séquences vidéo (y compris YouTube) pour des revues tactiques approfondies et une compréhension visuelle.",
-      gradient: "from-blue-500/10 to-cyan-500/10",
-      border: "border-blue-200"
+      description: "Liez les données d'événements aux séquences vidéo pour des revues tactiques approfondies et une compréhension visuelle.",
+      gradient: "from-indigo-500/10 to-purple-500/10",
     },
     {
-      icon: <Users className="h-8 w-8 text-emerald-500" />,
+      icon: <Users className="h-8 w-8 text-purple-600" />,
       title: "Gestion Complète des Équipes et Joueurs",
       description: "Administrez vos effectifs, profils de joueurs, formations tactiques et assignations de rôles avec une flexibilité totale.",
-      gradient: "from-emerald-500/10 to-green-500/10",
-      border: "border-emerald-200"
+      gradient: "from-purple-500/10 to-violet-500/10",
     },
     {
-      icon: <BarChart3 className="h-8 w-8 text-purple-500" />,
+      icon: <BarChart3 className="h-8 w-8 text-sky-600" />,
       title: "Analyses et Visualisations Puissantes",
       description: "Tableaux de bord KPI, cartes de chaleur, graphiques radar, statistiques détaillées et analyse tactique pour une performance optimale.",
-      gradient: "from-purple-500/10 to-violet-500/10",
-      border: "border-purple-200"
+      gradient: "from-sky-500/10 to-blue-500/10",
     },
     {
-      icon: <Share2 className="h-8 w-8 text-indigo-500" />,
+      icon: <Share2 className="h-8 w-8 text-violet-600" />,
       title: "Collaboration d'Équipe Optimisée",
       description: "Permettez à plusieurs analystes de travailler simultanément avec assignations spécialisées, synchronisation en temps réel et outils de communication.",
-      gradient: "from-indigo-500/10 to-blue-500/10",
-      border: "border-indigo-200"
+      gradient: "from-violet-500/10 to-indigo-500/10",
     },
     {
-      icon: <Shield className="h-8 w-8 text-amber-500" />,
+      icon: <Shield className="h-8 w-8 text-fuchsia-600" />,
       title: "Administration et Contrôle Avancés",
       description: "Gérez les utilisateurs avec des rôles précis, suivez l'activité des trackers (absences, batterie), et accédez à des journaux d'audit complets.",
-      gradient: "from-amber-500/10 to-orange-500/10",
-      border: "border-amber-200"
+      gradient: "from-fuchsia-500/10 to-purple-500/10",
     }
   ];
 
@@ -81,25 +74,21 @@ const LandingPage: React.FC = () => {
       icon: <TrendingUp className="h-6 w-6 text-blue-600" />,
       title: "Performance Améliorée",
       description: "Identifiez les points forts, faibles, et tendances pour optimiser les stratégies et performances de l'équipe.",
-      accent: "bg-blue-50 border-blue-100"
     },
     {
       icon: <Timer className="h-6 w-6 text-emerald-600" />,
       title: "Analyse en Temps Réel & Collaborative",
       description: "Suivez et enregistrez les événements en direct avec plusieurs analystes, recevez des notifications et communiquez efficacement.",
-      accent: "bg-emerald-50 border-emerald-100"
     },
     {
       icon: <Zap className="h-6 w-6 text-purple-600" />,
       title: "Efficacité Opérationnelle",
       description: "Optimisez les workflows d'analyse grâce aux outils administratifs, assignations spécialisées et gestion des trackers.",
-      accent: "bg-purple-50 border-purple-100"
     },
     {
       icon: <Lightbulb className="h-6 w-6 text-amber-600" />,
       title: "Prise de Décision Éclairée",
       description: "Basez vos décisions tactiques et de développement sur des données précises, des analyses vidéo et des rapports complets.",
-      accent: "bg-amber-50 border-amber-100"
     }
   ];
 
@@ -119,7 +108,7 @@ const LandingPage: React.FC = () => {
         "Stockage 10GB"
       ],
       popular: false,
-      cardStyle: "bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg",
+      cardStyle: "bg-white/60 backdrop-blur-lg border-slate-200/80 hover:border-blue-300 hover:shadow-xl rounded-2xl",
       buttonStyle: "bg-slate-900 hover:bg-slate-800"
     },
     {
@@ -140,7 +129,7 @@ const LandingPage: React.FC = () => {
         "API d'intégration"
       ],
       popular: true,
-      cardStyle: "bg-gradient-to-br from-purple-50 to-blue-50 border-purple-300 shadow-xl scale-105 relative",
+      cardStyle: "bg-gradient-to-br from-purple-50 to-blue-50 border-purple-300 shadow-2xl scale-105 relative rounded-2xl",
       buttonStyle: "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
     },
     {
@@ -148,7 +137,7 @@ const LandingPage: React.FC = () => {
       price: "Sur devis",
       period: "",
       description: "Solution complète pour les clubs professionnels et fédérations",
-      icon: <Shield className="h-6 w-6 text-emerald-600" />,
+      icon: <Shield className="h-6 w-8 text-emerald-600" />,
       features: [
         "Tout du plan Professional",
         "Analystes illimités et rôles personnalisés",
@@ -160,13 +149,13 @@ const LandingPage: React.FC = () => {
         "Développement sur mesure"
       ],
       popular: false,
-      cardStyle: "bg-white border-slate-200 hover:border-emerald-300 hover:shadow-lg",
+      cardStyle: "bg-white/60 backdrop-blur-lg border-slate-200/80 hover:border-emerald-300 hover:shadow-xl rounded-2xl",
       buttonStyle: "bg-emerald-600 hover:bg-emerald-700"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -194,13 +183,13 @@ const LandingPage: React.FC = () => {
           <Badge className="mb-6 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200 px-6 py-2 text-sm font-medium">
             Plateforme d'Analyse et Gestion Football Professionnelle
           </Badge>
-          <h1 className="text-6xl font-bold mb-8 leading-tight">
-            <span className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent">
-              Révolutionnez Votre
+          <h1 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">
+            <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+              Révolutionnez Votre Analyse
             </span>
             <br />
             <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Analyse et Gestion de Match
+              et Gestion de Match
             </span>
           </h1>
           <p className="text-xl text-slate-600 mb-10 leading-relaxed max-w-3xl mx-auto">
@@ -243,14 +232,14 @@ const LandingPage: React.FC = () => {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className={`${feature.border} hover:shadow-xl transition-all duration-300 transform hover:scale-105 bg-gradient-to-br ${feature.gradient} backdrop-blur-sm`}>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">
+              <Card key={index} className={`border border-slate-200/50 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white/60 backdrop-blur-lg rounded-2xl overflow-hidden`}>
+                <CardHeader className="text-center pb-4 pt-8">
+                  <div className={`mx-auto mb-6 p-4 bg-gradient-to-br ${feature.gradient} rounded-xl w-fit shadow-lg`}>
                     {feature.icon}
                   </div>
                   <CardTitle className="text-xl text-slate-900 leading-tight">{feature.title}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-8 pb-8">
                   <p className="text-slate-600 text-center leading-relaxed">
                     {feature.description}
                   </p>
@@ -277,7 +266,7 @@ const LandingPage: React.FC = () => {
           
           <div className="grid md:grid-cols-3 gap-8">
             {pricingPlans.map((plan, index) => (
-              <Card key={index} className={`${plan.cardStyle} transition-all duration-300 transform hover:scale-105`}>
+              <Card key={index} className={`${plan.cardStyle} transition-all duration-300 transform hover:-translate-y-2 overflow-hidden`}>
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 shadow-lg">
@@ -285,7 +274,7 @@ const LandingPage: React.FC = () => {
                     </Badge>
                   </div>
                 )}
-                <CardHeader className="text-center">
+                <CardHeader className="text-center pt-8">
                   <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">
                     {plan.icon}
                   </div>
@@ -296,9 +285,9 @@ const LandingPage: React.FC = () => {
                     </span>
                     <span className="text-slate-600 text-lg">{plan.period}</span>
                   </div>
-                  <p className="text-slate-600 leading-relaxed">{plan.description}</p>
+                  <p className="text-slate-600 leading-relaxed px-4">{plan.description}</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-8 pb-8">
                   <ul className="space-y-4 mb-8">
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-start gap-3">
@@ -360,7 +349,7 @@ const LandingPage: React.FC = () => {
           
           <div className="grid md:grid-cols-2 gap-8">
             {benefits.map((benefit, index) => (
-              <div key={index} className={`flex gap-6 p-8 ${benefit.accent} rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border backdrop-blur-sm`}>
+              <div key={index} className={`flex gap-6 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border backdrop-blur-sm bg-white/60 border-slate-200/80`}>
                 <div className="flex-shrink-0 p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md">
                   {benefit.icon}
                 </div>
@@ -394,7 +383,7 @@ const LandingPage: React.FC = () => {
               { icon: Building, title: "Clubs & Organisations", desc: "Gérez plusieurs équipes, centralisez les données, coordonnez les analystes et structurez vos opérations d'analyse.", color: "purple" },
               { icon: School, title: "Éducation & Recherche", desc: "Utilisez notre plateforme comme outil pédagogique pour la science du sport ou pour mener des recherches avancées.", color: "amber" }
             ].map((item, index) => (
-              <div key={index} className="p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-slate-200">
+              <div key={index} className="p-8 bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-slate-200/80">
                 <div className={`w-20 h-20 bg-gradient-to-br from-${item.color}-100 to-${item.color}-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg`}>
                   <item.icon className={`h-10 w-10 text-${item.color}-600`} />
                 </div>
@@ -427,7 +416,7 @@ const LandingPage: React.FC = () => {
               { name: "Supabase", description: "Backend & BDD scalable", color: "emerald" },
               { name: "Tailwind CSS", description: "Design moderne", color: "purple" }
             ].map((tech, index) => (
-              <div key={index} className="p-6 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-slate-200">
+              <div key={index} className="p-6 bg-white/60 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-slate-200/80">
                 <div className={`w-16 h-16 bg-gradient-to-br from-${tech.color}-100 to-${tech.color}-50 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md`}>
                   <Zap className={`h-8 w-8 text-${tech.color}-600`} />
                 </div>
@@ -488,29 +477,29 @@ const LandingPage: React.FC = () => {
             <div>
               <h4 className="font-semibold mb-6 text-lg">Services Clés</h4>
               <ul className="space-y-3 text-slate-400">
-                <li className="hover:text-white transition-colors cursor-pointer">Analyse Vidéo & Données</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Collaboration en Temps Réel</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Gestion d'Équipes & Joueurs</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Outils Administratifs</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Analyse Vidéo & Données</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Collaboration en Temps Réel</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Gestion d'Équipes & Joueurs</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Outils Administratifs</li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-6 text-lg">Support</h4>
               <ul className="space-y-3 text-slate-400">
-                <li className="hover:text-white transition-colors cursor-pointer">Documentation</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Tutoriels Vidéo</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Support Client Réactif</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Formations Personnalisées</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Documentation</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Tutoriels Vidéo</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Support Client Réactif</li>
+                <li className="hover:text-blue-300 transition-colors cursor-pointer">Formations Personnalisées</li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-6 text-lg">Contact</h4>
               <ul className="space-y-3 text-slate-400">
-                <li className="hover:text-white transition-colors">contact@footballanalytics.pro</li>
-                <li className="hover:text-white transition-colors">+33 1 23 45 67 89</li>
-                <li className="hover:text-white transition-colors">Paris, France</li>
+                <li className="hover:text-blue-300 transition-colors">contact@footballanalytics.pro</li>
+                <li className="hover:text-blue-300 transition-colors">+33 1 23 45 67 89</li>
+                <li className="hover:text-blue-300 transition-colors">Paris, France</li>
               </ul>
             </div>
           </div>
