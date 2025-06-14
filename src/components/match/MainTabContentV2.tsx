@@ -143,9 +143,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
         
         {/* Enhanced Tracker Status Display with TrackerPresenceIndicator styling */}
         {unifiedTrackers.length > 0 && (
-          <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-lg border-slate-200 mb-3">
+          <Card className="bg-gradient-to-br from-slate-50 to-slate-100 shadow-lg border-slate-200 mb-3 hover:bg-slate-100 dark:hover:bg-slate-800/50">
             <CardHeader className="pb-2 md:pb-4">
-              <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-semibold">
                 <motion.div
                   animate={{ rotate: isConnected ? 360 : 0 }}
                   transition={{ duration: 2, repeat: isConnected ? Infinity : 0, ease: "linear" }}
@@ -327,18 +327,18 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-        <Card className="min-w-0">
+        <Card className="min-w-0 hover:bg-slate-100 dark:hover:bg-slate-800/50">
           <CardHeader className="pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Events</CardTitle>
+            <CardTitle className="text-sm font-medium sm:font-semibold sm:text-base">Total Events</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-lg sm:text-xl md:text-2xl font-bold">{events.length}</div>
           </CardContent>
         </Card>
         
-        <Card className="min-w-0">
+        <Card className="min-w-0 hover:bg-slate-100 dark:hover:bg-slate-800/50">
           <CardHeader className="pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+            <CardTitle className="text-sm font-medium sm:font-semibold sm:text-base truncate">
               {isMobile ? homeTeam.name.substring(0, 10) + (homeTeam.name.length > 10 ? '...' : '') : homeTeam.name} Events
             </CardTitle>
           </CardHeader>
@@ -349,9 +349,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
           </CardContent>
         </Card>
         
-        <Card className="min-w-0 sm:col-span-2 lg:col-span-1">
+        <Card className="min-w-0 sm:col-span-2 lg:col-span-1 hover:bg-slate-100 dark:hover:bg-slate-800/50">
           <CardHeader className="pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium truncate">
+            <CardTitle className="text-sm font-medium sm:font-semibold sm:text-base truncate">
               {isMobile ? awayTeam.name.substring(0, 10) + (awayTeam.name.length > 10 ? '...' : '') : awayTeam.name} Events
             </CardTitle>
           </CardHeader>
@@ -365,9 +365,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
 
       {/* Advanced Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-        <Card>
+        <Card className="hover:bg-slate-100 dark:hover:bg-slate-800/50">
           <CardHeader className="pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium">Passing Accuracy</CardTitle>
+            <CardTitle className="text-sm font-medium sm:font-semibold sm:text-base">Passing Accuracy</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
             <div className="flex justify-between items-center">
@@ -384,9 +384,9 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:bg-slate-100 dark:hover:bg-slate-800/50">
           <CardHeader className="pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium">Shooting Accuracy</CardTitle>
+            <CardTitle className="text-sm font-medium sm:font-semibold sm:text-base">Shooting Accuracy</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0 space-y-1">
             <div className="flex justify-between items-center">
@@ -408,7 +408,7 @@ const MainTabContentV2: React.FC<MainTabContentV2Props> = ({
       {/* Events List */}
       <Card className="w-full">
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="text-sm sm:text-base md:text-lg">Recent Events</CardTitle>
+          <CardTitle className="text-base sm:text-lg font-semibold">Recent Events</CardTitle>
         </CardHeader>
         <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
           <div className="space-y-1 sm:space-y-2 max-h-48 sm:max-h-64 md:max-h-96 overflow-y-auto">

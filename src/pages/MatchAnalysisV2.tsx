@@ -290,8 +290,8 @@ const MatchAnalysisV2: React.FC = () => {
   const defaultTab = isAdmin ? 'main' : 'piano';
 
   return (
-    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-7xl">
-      <div className="mb-3 sm:mb-4">
+    <div className="container mx-auto p-2 sm:p-3 lg:p-4 max-w-7xl">
+      <div className="mb-4 sm:mb-6 lg:mb-8">
         <MatchHeader
           mode={mode}
           setMode={setMode}
@@ -304,23 +304,23 @@ const MatchAnalysisV2: React.FC = () => {
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className={`
-          grid w-full gap-1 h-auto p-1 mb-3 sm:mb-4
+          grid w-full gap-1 h-auto p-1 mb-4 sm:mb-6
           ${isAdmin 
-            ? (isMobile ? "grid-cols-2" : isSmall ? "grid-cols-2" : "grid-cols-4")
+            ? "grid-cols-2 lg:grid-cols-4"
             : "grid-cols-1"
           }
         `}>
           {isAdmin && (
             <TabsTrigger 
               value="main" 
-              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+              className="text-xs sm:text-sm py-2.5 px-3 sm:py-3 sm:px-4"
             >
               {isMobile ? "Main" : "Main Dashboard"}
             </TabsTrigger>
           )}
           <TabsTrigger 
             value="piano" 
-            className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+            className="text-xs sm:text-sm py-2.5 px-3 sm:py-3 sm:px-4"
           >
             {isMobile ? "Piano" : "Piano Input"}
           </TabsTrigger>
@@ -328,13 +328,13 @@ const MatchAnalysisV2: React.FC = () => {
             <>
               <TabsTrigger 
                 value="planning" 
-                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+                className="text-xs sm:text-sm py-2.5 px-3 sm:py-3 sm:px-4"
               >
                 {isMobile ? "Plan" : "Planning"}
               </TabsTrigger>
               <TabsTrigger 
                 value="tracker" 
-                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+                className="text-xs sm:text-sm py-2.5 px-3 sm:py-3 sm:px-4"
               >
                 {isMobile ? "Assign" : "Assign Tracker"}
               </TabsTrigger>
@@ -366,7 +366,7 @@ const MatchAnalysisV2: React.FC = () => {
             
             <Card>
               <CardContent className="p-2 sm:p-3 lg:p-6">
-                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
                   Piano Input
                 </h2>
                 <TrackerPianoInput 
@@ -380,7 +380,7 @@ const MatchAnalysisV2: React.FC = () => {
             {assignedPlayers && assignedEventTypes && (
               <Card>
                 <CardContent className="p-2 sm:p-3 lg:p-6">
-                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                  <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
                     Voice Input
                   </h2>
                   <TrackerVoiceInput
@@ -407,7 +407,7 @@ const MatchAnalysisV2: React.FC = () => {
             <TabsContent value="tracker" className="mt-2 sm:mt-4">
               <Card>
                 <CardContent className="p-2 sm:p-3 lg:p-6">
-                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
+                  <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
                     Tracker Assignment
                   </h2>
                   <TrackerAssignment
