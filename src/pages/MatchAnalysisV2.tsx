@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import MatchHeader from '@/components/match/MatchHeader';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
 import MainTabContentV2 from '@/components/match/MainTabContentV2';
-import VoiceCollaboration from '@/components/match/VoiceCollaboration';
+import VoiceCollaborationWithTest from '@/components/match/VoiceCollaborationWithTest';
 import MatchPlanningNetwork from '@/components/match/MatchPlanningNetwork';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
@@ -428,7 +429,7 @@ const MatchAnalysisV2: React.FC = () => {
                   )}
 
                   {activeView === 'voice-collab' && canShowVoiceCollab && (
-                    <VoiceCollaboration
+                    <VoiceCollaborationWithTest
                       matchId={matchId}
                       userId={user.id!}
                     />
