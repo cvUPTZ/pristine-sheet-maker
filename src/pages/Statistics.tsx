@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck } from 'lucide-react'; // Added Share2, ShieldCheck
+import {
+  ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck,
+  LayoutDashboard, ListChecks, Clock, Grid, Crosshair, BarChartBig
+} from 'lucide-react';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
@@ -70,6 +71,7 @@ const Statistics = () => {
   const [statsSegments, setStatsSegments] = useState<AggregatedStats[] | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<number>(15); // Default interval
   const [matchDuration, setMatchDuration] = useState<number>(90); // Default match duration
+  const [activeView, setActiveView] = useState('overview');
 
   // No longer needed if PlayerStatSummary is used directly by new components
   // and PlayerPerformanceChart is updated or replaced.
@@ -260,6 +262,281 @@ const Statistics = () => {
 
   const selectedMatchInfo = matches.find(m => m.id === selectedMatch);
 
+  const menuItems = [
+    { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { value: 'detailed', label: 'Detailed', icon: ListChecks },
+    { value: 'teamAnalysis', label: 'Team Analysis', icon: ShieldCheck },
+    { value: 'shootingActions', label: 'Shooting & Actions', icon: Target },
+    { value: 'timeAnalysis', label: 'Time Analysis', icon: Clock },
+    { value: 'players', label: 'Players', icon: Users },
+    { value: 'passingNetwork', label: 'Passing Network', icon: Share2 },
+    { value: 'passMatrix', label: 'Pass Matrix', icon: Grid },
+    { value: 'shotmap', label: 'Shot Map', icon: Crosshair },
+    { value: 'advancedViz', label: 'Advanced Viz', icon: BarChartBig },
+    { value: 'flow', label: 'Ball Flow', icon: TrendingUp },
+  ];
+
+  const CurrentViewComponent = () => {
+    switch (activeView) {
+      case 'overview':
+        return (
+          <div className="space-y-6">
+            {statistics && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <StatisticsDisplay
+                    statistics={statistics}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
+                  />
+                  <MatchRadarChart
+                    statistics={statistics}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
+                  />
+                </div>
+                <EventTimelineChart
+                  events={events}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
+                />
+              </>
+            )}
+          </div>
+        );
+      case 'detailed':
+        return (
+          <div className="space-y-6">
+            {statistics && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Detailed Match Statistics</CardTitle>
+                  <CardDescription>Comprehensive breakdown of match statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DetailedStatsTable
+                    statistics={statistics}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+      case 'teamAnalysis':
+        return (
+          <div className="space-y-6">
+            {statistics && statistics.home && statistics.away && (
+              <>
+                <TeamComparisonCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <PerformanceDifferenceAnalysis homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <AdvancedEfficiencyRatioCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <PerformanceComparisonGraphs homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <Card><CardHeader><CardTitle>Home Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} /></CardContent></Card>
+                <Card><CardHeader><CardTitle>Away Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} /></CardContent></Card>
+              </>
+            )}
+          </div>
+        );
+      case 'shootingActions':
+        return (
+          <div className="space-y-6">
+            {statistics && statistics.home && statistics.away && (
+              <>
+                <TargetOffTargetComparison homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ShootingAccuracyCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ShootingAccuracyCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <ShotDistributionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ShotDistributionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <DuelSuccessRateCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <DuelSuccessRateCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <PassDirectionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <PassDirectionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <ActionEffectivenessMetrics teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ActionEffectivenessMetrics teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      case 'timeAnalysis':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Time-Based Analysis</CardTitle>
+                <CardDescription>
+                  Statistics broken down by {selectedInterval}-minute intervals over {matchDuration} minutes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <label htmlFor="interval-select" className="text-sm font-medium">Select Interval (minutes):</label>
+                  <Select value={String(selectedInterval)} onValueChange={handleIntervalChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select interval" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 minutes</SelectItem>
+                      <SelectItem value="10">10 minutes</SelectItem>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="45">Half-time (45 min)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {loading && <p>Loading segmented data...</p>}
+                {!loading && statsSegments && statsSegments.length > 0 && selectedMatchFullData && (
+                  <>
+                    <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                    <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                    <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                    <PossessionTimelineChart 
+                      events={events}
+                      playerStats={playerStats}
+                      homeTeamName={selectedMatchFullData.home_team_name} 
+                      awayTeamName={selectedMatchFullData.away_team_name} 
+                    />
+                    <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                  </>
+                )}
+                {!loading && (!statsSegments || statsSegments.length === 0) && (
+                  <p className="text-center text-muted-foreground py-4">No data available for selected time segmentation or match.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'players':
+        return (
+          <div className="space-y-6">
+              <Card>
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Player Performance</CardTitle>
+                      <CardDescription>Select a player to view detailed charts, and browse player statistics tables.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="mb-4">
+                          <Select onValueChange={(value) => setSelectedPlayerForChart(value)} defaultValue={selectedPlayerForChart?.toString()}>
+                              <SelectTrigger className="w-full md:w-1/2 lg:w-1/3">
+                                  <SelectValue placeholder="Select a player for detailed charts..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {allPlayersForMatch.map(player => (
+                                      <SelectItem key={player.id} value={String(player.id)}>
+                                          {player.name || player.player_name || `ID: ${player.id}`} ({playerStats.find(p=>p.playerId === player.id)?.team || 'N/A'})
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
+
+                      {selectedPlayerForChart && playerStats.length > 0 && (
+                          <IndividualPlayerCharts playerStats={playerStats} selectedPlayerId={selectedPlayerForChart} />
+                      )}
+
+                      <PlayerBallHandlingStats playerStats={playerStats} />
+                      <PlayerPassingStatsTable playerStats={playerStats} />
+                      <PlayerBallLossRatioTable playerStats={playerStats} />
+                      <PlayerBallRecoveryStats playerStats={playerStats} />
+                  </CardContent>
+              </Card>
+          </div>
+        );
+      case 'passingNetwork':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" />Passing Network Analysis</CardTitle>
+                <CardDescription>Interactive passing networks and connection analysis</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EnhancedPassingNetwork
+                  playerStats={playerStats}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'passMatrix':
+        return (
+          <div className="space-y-6">
+            <PassMatrixTable
+              events={events}
+              homeTeamName={selectedMatchFullData.home_team_name}
+              awayTeamName={selectedMatchFullData.away_team_name}
+              homeTeamPlayers={selectedMatchFullData.home_team_players || []}
+              awayTeamPlayers={selectedMatchFullData.away_team_players || []}
+            />
+          </div>
+        );
+      case 'shotmap':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Shot Analysis</CardTitle>
+                <CardDescription>Interactive shot map with detailed shooting statistics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EnhancedShotMap
+                  events={events}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'advancedViz':
+        return (
+          <div className="space-y-6">
+            {statistics && playerStats.length > 0 && (
+              <AdvancedAnalyticsDashboard
+                statistics={statistics}
+                playerStats={playerStats}
+                homeTeamName={selectedMatchFullData.home_team_name}
+                awayTeamName={selectedMatchFullData.away_team_name}
+              />
+            )}
+          </div>
+        );
+      case 'flow':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Ball Flow Analysis</CardTitle>
+                <CardDescription>Advanced ball movement visualization and heatmaps</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {ballData.length > 0 && selectedMatchFullData ? (
+                  <EnhancedBallFlow
+                    ballTrackingPoints={ballData}
+                    homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
+                    awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-600 mb-2">No Ball Tracking Data</h3>
+                    <p className="text-gray-500">Use ball tracking mode during matches to see advanced flow patterns and heatmaps</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -276,362 +553,126 @@ const Statistics = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">Match Statistics & Analytics</h1>
-        </div>
-        <Select value={selectedMatch} onValueChange={setSelectedMatch}>
-          <SelectTrigger className="w-80">
-            <SelectValue placeholder="Select a match" />
-          </SelectTrigger>
-          <SelectContent>
-            {matches.map((match) => (
-              <SelectItem key={match.id} value={match.id}>
-                {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {selectedMatchFullData && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{selectedMatchFullData.name || `${selectedMatchFullData.home_team_name} vs ${selectedMatchFullData.away_team_name}`}</CardTitle>
-              <CardDescription>
-                {selectedMatchFullData.match_date && `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}`}
-                {selectedMatchFullData.status && ` • Status: ${selectedMatchFullData.status}`}
-                {` • ${events.length} events recorded`}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Key Metrics Cards as before */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{events.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Home: {events.filter(e => e.team === 'home').length} • Away: {events.filter(e => e.team === 'away').length}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Passes</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-50 flex w-full">
+        <MatchAnalysisSidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          menuItems={menuItems}
+          groupLabel="Analytics Tools"
+        />
+        <SidebarInset>
+          <div className="container mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger />
+                <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold">Match Statistics & Analytics</h1>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Shots</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ball Tracking Points</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{ballData.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Tracked ball positions
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+              <Select value={selectedMatch} onValueChange={setSelectedMatch}>
+                <SelectTrigger className="w-80">
+                  <SelectValue placeholder="Select a match" />
+                </SelectTrigger>
+                <SelectContent>
+                  {matches.map((match) => (
+                    <SelectItem key={match.id} value={match.id}>
+                      {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                      {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-11">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="detailed">Detailed</TabsTrigger>
-              <TabsTrigger value="teamAnalysis">Team Analysis</TabsTrigger>
-              <TabsTrigger value="shootingActions">Shooting & Actions</TabsTrigger>
-              <TabsTrigger value="timeAnalysis">Time Analysis</TabsTrigger>
-              <TabsTrigger value="players">Players</TabsTrigger>
-              <TabsTrigger value="passingNetwork">Passing Network</TabsTrigger>
-              <TabsTrigger value="passMatrix">Pass Matrix</TabsTrigger>
-              <TabsTrigger value="shotmap">Shot Map</TabsTrigger>
-              <TabsTrigger value="advancedViz">Advanced Viz</TabsTrigger>
-              <TabsTrigger value="flow">Ball Flow</TabsTrigger>
-            </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              {statistics && (
-                <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <StatisticsDisplay
-                      statistics={statistics}
-                      homeTeamName={selectedMatchFullData.home_team_name}
-                      awayTeamName={selectedMatchFullData.away_team_name}
-                    />
-                     {/* MatchRadarChart might need update if its prop 'statistics' expects old structure */}
-                    <MatchRadarChart
-                      statistics={statistics}
-                      homeTeamName={selectedMatchFullData.home_team_name}
-                      awayTeamName={selectedMatchFullData.away_team_name}
-                    />
-                  </div>
-                  <EventTimelineChart
-                    events={events}
-                    homeTeamName={selectedMatchFullData.home_team_name}
-                    awayTeamName={selectedMatchFullData.away_team_name}
-                  />
-                </>
-              )}
-            </TabsContent>
-
-            {/* Detailed Tab */}
-            <TabsContent value="detailed" className="space-y-6">
-              {statistics && (
+            {selectedMatchFullData && (
+              <>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Detailed Match Statistics</CardTitle>
-                    <CardDescription>Comprehensive breakdown of match statistics</CardDescription>
+                    <CardTitle>{selectedMatchFullData.name || `${selectedMatchFullData.home_team_name} vs ${selectedMatchFullData.away_team_name}`}</CardTitle>
+                    <CardDescription>
+                      {selectedMatchFullData.match_date && `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}`}
+                      {selectedMatchFullData.status && ` • Status: ${selectedMatchFullData.status}`}
+                      {` • ${events.length} events recorded`}
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <DetailedStatsTable
-                      statistics={statistics}
-                      homeTeamName={selectedMatchFullData.home_team_name}
-                      awayTeamName={selectedMatchFullData.away_team_name}
-                    />
-                  </CardContent>
                 </Card>
-              )}
-            </TabsContent>
 
-            {/* NEW: Team Analysis Tab */}
-            <TabsContent value="teamAnalysis" className="space-y-6">
-              {statistics && statistics.home && statistics.away && (
-                <>
-                  <TeamComparisonCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                  <PerformanceDifferenceAnalysis homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                  <AdvancedEfficiencyRatioCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                  <PerformanceComparisonGraphs homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                  <Card><CardHeader><CardTitle>Home Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} /></CardContent></Card>
-                  <Card><CardHeader><CardTitle>Away Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} /></CardContent></Card>
-                </>
-              )}
-            </TabsContent>
-
-            {/* NEW: Shooting & Actions Tab */}
-            <TabsContent value="shootingActions" className="space-y-6">
-              {statistics && statistics.home && statistics.away && (
-                <>
-                  <TargetOffTargetComparison homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ShootingAccuracyCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
-                    <ShootingAccuracyCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
-                    <ShotDistributionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
-                    <ShotDistributionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
-                    <DuelSuccessRateCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
-                    <DuelSuccessRateCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
-                    <PassDirectionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
-                    <PassDirectionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
-                    <ActionEffectivenessMetrics teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
-                    <ActionEffectivenessMetrics teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
-                  </div>
-                </>
-              )}
-            </TabsContent>
-
-            {/* Enhanced Players Tab */}
-            <TabsContent value="players" className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Player Performance</CardTitle>
-                        <CardDescription>Select a player to view detailed charts, and browse player statistics tables.</CardDescription>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="mb-4">
-                            <Select onValueChange={(value) => setSelectedPlayerForChart(value)} defaultValue={selectedPlayerForChart?.toString()}>
-                                <SelectTrigger className="w-full md:w-1/2 lg:w-1/3">
-                                    <SelectValue placeholder="Select a player for detailed charts..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allPlayersForMatch.map(player => (
-                                        <SelectItem key={player.id} value={String(player.id)}>
-                                            {player.name || player.player_name || `ID: ${player.id}`} ({playerStats.find(p=>p.playerId === player.id)?.team || 'N/A'})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                      <div className="text-2xl font-bold">{events.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Home: {events.filter(e => e.team === 'home').length} • Away: {events.filter(e => e.team === 'away').length}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Passes</CardTitle>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Shots</CardTitle>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Ball Tracking Points</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{ballData.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Tracked ball positions
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                        {selectedPlayerForChart && playerStats.length > 0 && (
-                            <IndividualPlayerCharts playerStats={playerStats} selectedPlayerId={selectedPlayerForChart} />
-                        )}
-
-                        <PlayerBallHandlingStats playerStats={playerStats} />
-                        <PlayerPassingStatsTable playerStats={playerStats} />
-                        <PlayerBallLossRatioTable playerStats={playerStats} />
-                        <PlayerBallRecoveryStats playerStats={playerStats} />
+                <div className="bg-white rounded-lg border border-gray-200 min-h-[500px] sm:min-h-[600px] p-3 sm:p-4 lg:p-6">
+                    <CurrentViewComponent />
+                </div>
+              </>
+            )}
+            {!selectedMatchFullData && !loading && (
+                <Card>
+                    <CardContent className="p-12 text-center">
+                        <p className="text-muted-foreground">Please select a match to view analytics.</p>
                     </CardContent>
                 </Card>
-            </TabsContent>
-
-            {/* Enhanced Passing Network Tab */}
-            <TabsContent value="passingNetwork" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" />Passing Network Analysis</CardTitle>
-                  <CardDescription>Interactive passing networks and connection analysis</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <EnhancedPassingNetwork
-                    playerStats={playerStats}
-                    homeTeamName={selectedMatchFullData.home_team_name}
-                    awayTeamName={selectedMatchFullData.away_team_name}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Pass Matrix Tab */}
-            <TabsContent value="passMatrix" className="space-y-6">
-              <PassMatrixTable
-                events={events}
-                homeTeamName={selectedMatchFullData.home_team_name}
-                awayTeamName={selectedMatchFullData.away_team_name}
-                homeTeamPlayers={selectedMatchFullData.home_team_players || []}
-                awayTeamPlayers={selectedMatchFullData.away_team_players || []}
-              />
-            </TabsContent>
-
-            {/* Enhanced Shot Map Tab */}
-            <TabsContent value="shotmap" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Shot Analysis</CardTitle>
-                  <CardDescription>Interactive shot map with detailed shooting statistics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <EnhancedShotMap
-                    events={events}
-                    homeTeamName={selectedMatchFullData.home_team_name}
-                    awayTeamName={selectedMatchFullData.away_team_name}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Advanced Visualizations Tab */}
-            <TabsContent value="advancedViz" className="space-y-6">
-              {statistics && playerStats.length > 0 && (
-                <AdvancedAnalyticsDashboard
-                  statistics={statistics}
-                  playerStats={playerStats}
-                  homeTeamName={selectedMatchFullData.home_team_name}
-                  awayTeamName={selectedMatchFullData.away_team_name}
-                />
-              )}
-            </TabsContent>
-
-            {/* Enhanced Ball Flow Tab */}
-            <TabsContent value="flow" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Ball Flow Analysis</CardTitle>
-                  <CardDescription>Advanced ball movement visualization and heatmaps</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {ballData.length > 0 && selectedMatchFullData ? (
-                    <EnhancedBallFlow
-                      ballTrackingPoints={ballData}
-                      homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
-                      awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
-                    />
-                  ) : (
-                    <div className="text-center py-12">
-                      <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-600 mb-2">No Ball Tracking Data</h3>
-                      <p className="text-gray-500">Use ball tracking mode during matches to see advanced flow patterns and heatmaps</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* NEW: Time Analysis Tab */}
-            <TabsContent value="timeAnalysis" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Time-Based Analysis</CardTitle>
-                  <CardDescription>
-                    Statistics broken down by {selectedInterval}-minute intervals over {matchDuration} minutes.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <label htmlFor="interval-select" className="text-sm font-medium">Select Interval (minutes):</label>
-                    <Select value={String(selectedInterval)} onValueChange={handleIntervalChange}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select interval" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5 minutes</SelectItem>
-                        <SelectItem value="10">10 minutes</SelectItem>
-                        <SelectItem value="15">15 minutes</SelectItem>
-                        <SelectItem value="45">Half-time (45 min)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {loading && <p>Loading segmented data...</p>}
-                  {!loading && statsSegments && statsSegments.length > 0 && selectedMatchFullData && (
-                    <>
-                      <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                      <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                      <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                      <PossessionTimelineChart 
-                        events={events}
-                        playerStats={playerStats}
-                        homeTeamName={selectedMatchFullData.home_team_name} 
-                        awayTeamName={selectedMatchFullData.away_team_name} 
-                      />
-                      <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
-                    </>
-                  )}
-                  {!loading && (!statsSegments || statsSegments.length === 0) && (
-                    <p className="text-center text-muted-foreground py-4">No data available for selected time segmentation or match.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-          </Tabs>
-        </>
-      )}
-    </div>
+            )}
+          </div>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   );
 };
 
