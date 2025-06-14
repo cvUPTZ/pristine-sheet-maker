@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AIProcessingService, AIPlayerInfo } from '@/services/aiProcessingService';
-import { Plus, Trash2, ChevronDown, ChevronRight, Target } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Target, Upload } from 'lucide-react';
 
 interface CreateMatchFormProps {
   matchId?: string;
@@ -126,6 +126,9 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
   
+  const [homeTeamFlagFile, setHomeTeamFlagFile] = useState<File | null>(null);
+  const [awayTeamFlagFile, setAwayTeamFlagFile] = useState<File | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -133,6 +136,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     awayTeamName: '',
     homeTeamFormation: '4-4-2' as Formation,
     awayTeamFormation: '4-4-2' as Formation,
+    homeTeamFlagUrl: '',
+    awayTeamFlagUrl: '',
     matchDate: '',
     location: '',
     competition: '',
@@ -202,6 +207,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         awayTeamName: matchData.away_team_name || '',
         homeTeamFormation: (matchData.home_team_formation as Formation) || '4-4-2',
         awayTeamFormation: (matchData.away_team_formation as Formation) || '4-4-2',
+        homeTeamFlagUrl: matchData.home_team_flag_url || '',
+        awayTeamFlagUrl: matchData.away_team_flag_url || '',
         matchDate: matchData.match_date ? new Date(matchData.match_date).toISOString().slice(0, 16) : '',
         location: matchData.location || '',
         competition: matchData.competition || '',
@@ -250,6 +257,20 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     }
   };
 
+  const handleFlagChange = (e: React.ChangeEvent<HTMLInputElement>, team: 'home' | 'away') => {
+    const file = e.target.files?.[0];
+    if (file) {
+        const previewUrl = URL.createObjectURL(file);
+        if (team === 'home') {
+            setHomeTeamFlagFile(file);
+            setFormData(prev => ({...prev, homeTeamFlagUrl: previewUrl}));
+        } else {
+            setAwayTeamFlagFile(file);
+            setFormData(prev => ({...prev, awayTeamFlagUrl: previewUrl}));
+        }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -295,21 +316,51 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       if (matchError) throw matchError;
       if (!match) throw new Error(isEditMode ? "Failed to update match." : "Failed to create match.");
       
+      let needsFlagUpdate = false;
+      const flagUpdatePayload: { home_team_flag_url?: string; away_team_flag_url?: string } = {};
+
+      if (homeTeamFlagFile) {
+        const fileExt = homeTeamFlagFile.name.split('.').pop();
+        const filePath = `flags/${match.id}-home.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('match-assets').upload(filePath, homeTeamFlagFile, { upsert: true });
+        if (uploadError) throw new Error(`Home flag upload failed: ${uploadError.message}`);
+        const { data: urlData } = supabase.storage.from('match-assets').getPublicUrl(filePath);
+        flagUpdatePayload.home_team_flag_url = urlData.publicUrl;
+        needsFlagUpdate = true;
+      }
+
+      if (awayTeamFlagFile) {
+        const fileExt = awayTeamFlagFile.name.split('.').pop();
+        const filePath = `flags/${match.id}-away.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('match-assets').upload(filePath, awayTeamFlagFile, { upsert: true });
+        if (uploadError) throw new Error(`Away flag upload failed: ${uploadError.message}`);
+        const { data: urlData } = supabase.storage.from('match-assets').getPublicUrl(filePath);
+        flagUpdatePayload.away_team_flag_url = urlData.publicUrl;
+        needsFlagUpdate = true;
+      }
+      
+      let finalMatch = match;
+      if (needsFlagUpdate) {
+        const { data, error } = await supabase.from('matches').update(flagUpdatePayload).eq('id', match.id).select().single();
+        if (error) throw error;
+        finalMatch = data;
+      }
+
       if (isEditMode && matchId) {
         await supabase.from('match_tracker_assignments').delete().eq('match_id', matchId);
       }
       
       if (trackerAssignments.length > 0) {
-        const assignments = trackerAssignments.flatMap(assignment => assignment.player_ids.map(playerId => ({ match_id: match.id, tracker_user_id: assignment.tracker_user_id, player_id: playerId, player_team_id: homeTeamPlayers.some(p => p.id === playerId) ? 'home' : 'away', assigned_event_types: assignment.assigned_event_types }))).filter(a => a.tracker_user_id && a.player_id);
+        const assignments = trackerAssignments.flatMap(assignment => assignment.player_ids.map(playerId => ({ match_id: finalMatch.id, tracker_user_id: assignment.tracker_user_id, player_id: playerId, player_team_id: homeTeamPlayers.some(p => p.id === playerId) ? 'home' : 'away', assigned_event_types: assignment.assigned_event_types }))).filter(a => a.tracker_user_id && a.player_id);
         if (assignments.length > 0) {
           const { error: assignmentError } = await supabase.from('match_tracker_assignments').insert(assignments);
           if (assignmentError) throw assignmentError;
         }
-        await supabase.rpc('notify_assigned_trackers' as any, { p_match_id: match.id, p_tracker_assignments: trackerAssignments.map(a => ({ tracker_user_id: a.tracker_user_id, assigned_event_types: a.assigned_event_types, player_ids: a.player_ids })) });
+        await supabase.rpc('notify_assigned_trackers' as any, { p_match_id: finalMatch.id, p_tracker_assignments: trackerAssignments.map(a => ({ tracker_user_id: a.tracker_user_id, assigned_event_types: a.assigned_event_types, player_ids: a.player_ids })) });
       }
 
       toast({ title: "Success", description: `Match ${isEditMode ? 'updated' : 'created'} successfully!` });
-      onMatchSubmit(match);
+      onMatchSubmit(finalMatch);
     } catch (error: any) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} match:`, error);
       toast({ title: "Error", description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} match`, variant: "destructive" });
@@ -510,6 +561,23 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               <Card>
                 <CardHeader>
                     <CardTitle>Home Team</CardTitle>
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="home-team-flag">Team Flag</Label>
+                      <div className="flex items-center gap-4">
+                        {formData.homeTeamFlagUrl ? 
+                          <img src={formData.homeTeamFlagUrl} alt="Home team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" /> :
+                          <div className="w-16 h-12 rounded-md border bg-muted flex items-center justify-center text-muted-foreground">
+                            <Upload className="h-6 w-6" />
+                          </div>
+                        }
+                        <Input id="home-team-flag" type="file" accept="image/*" onChange={(e) => handleFlagChange(e, 'home')} className="hidden" />
+                        <Button type="button" asChild variant="outline">
+                          <Label htmlFor="home-team-flag" className="cursor-pointer">
+                            {homeTeamFlagFile ? 'Change Flag' : 'Upload Flag'}
+                          </Label>
+                        </Button>
+                      </div>
+                    </div>
                     <div>
                         <Label>Formation</Label>
                         <Select value={formData.homeTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, homeTeamFormation: value })}>
@@ -536,6 +604,23 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               <Card>
                 <CardHeader>
                     <CardTitle>Away Team</CardTitle>
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="away-team-flag">Team Flag</Label>
+                      <div className="flex items-center gap-4">
+                        {formData.awayTeamFlagUrl ? 
+                          <img src={formData.awayTeamFlagUrl} alt="Away team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" /> :
+                          <div className="w-16 h-12 rounded-md border bg-muted flex items-center justify-center text-muted-foreground">
+                            <Upload className="h-6 w-6" />
+                          </div>
+                        }
+                        <Input id="away-team-flag" type="file" accept="image/*" onChange={(e) => handleFlagChange(e, 'away')} className="hidden" />
+                        <Button type="button" asChild variant="outline">
+                          <Label htmlFor="away-team-flag" className="cursor-pointer">
+                            {awayTeamFlagFile ? 'Change Flag' : 'Upload Flag'}
+                          </Label>
+                        </Button>
+                      </div>
+                    </div>
                     <div>
                         <Label>Formation</Label>
                         <Select value={formData.awayTeamFormation} onValueChange={(value: Formation) => setFormData({ ...formData, awayTeamFormation: value })}>
