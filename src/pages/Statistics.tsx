@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -593,10 +594,12 @@ const Statistics = () => {
 
             {selectedMatchFullData && (
               <>
-                <Card>
-                  <CardHeader>
+                <Card className="relative overflow-hidden text-white">
+                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?w=1200&q=80')` }} />
+                  <div className="absolute inset-0 bg-black/60" />
+                  <CardHeader className="relative z-10">
                     <CardTitle>{selectedMatchFullData.name || `${selectedMatchFullData.home_team_name} vs ${selectedMatchFullData.away_team_name}`}</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-gray-200">
                       {selectedMatchFullData.match_date && `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}`}
                       {selectedMatchFullData.status && ` • Status: ${selectedMatchFullData.status}`}
                       {` • ${events.length} events recorded`}
