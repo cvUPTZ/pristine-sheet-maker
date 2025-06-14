@@ -88,13 +88,13 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
       <button
         key={eventType}
         onClick={() => handleEventRecord(eventType)}
-        className="flex flex-col items-center justify-center p-1 sm:p-2 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 min-h-[50px] sm:min-h-[60px] md:min-h-[70px] text-xs sm:text-sm"
+        className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200/80 bg-white/60 backdrop-blur-sm hover:border-blue-400/80 hover:bg-blue-50/50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 min-h-[70px] md:min-h-[80px] text-xs sm:text-sm"
       >
         <EnhancedEventTypeIcon
           eventType={eventType}
           size="sm"
         />
-        <span className="text-xs font-medium mt-1 text-center leading-tight">
+        <span className="text-xs font-semibold text-slate-700 mt-2 text-center leading-tight">
           {eventType.replace(/([A-Z])/g, ' $1').trim()}
         </span>
       </button>
@@ -102,27 +102,25 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Event Recording</CardTitle>
+    <div className="space-y-6">
+      <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl overflow-hidden transition-all">
+        <CardHeader className="pb-4 border-b border-slate-200/80 bg-slate-50/30">
+          <CardTitle className="text-lg text-slate-800">Event Recording Piano</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Responsive grid for event buttons */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2 md:gap-3">
+        <CardContent className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
             {eventTypes.map(renderEventButton)}
           </div>
         </CardContent>
       </Card>
 
-      {/* Cancel action indicators */}
       {recentEvents.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Events (Click to Cancel)</CardTitle>
+        <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl overflow-hidden transition-all animate-fade-in">
+          <CardHeader className="pb-3 border-b border-slate-200/80 bg-slate-50/30">
+            <CardTitle className="text-base text-slate-800">Recent Events (Click to Cancel)</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2 justify-start">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap gap-3 justify-start">
               {recentEvents.map((event) => (
                 <CancelActionIndicator
                   key={event.id}

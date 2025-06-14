@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { VolumeX, Volume2, Shield, Users } from 'lucide-react';
+import { VolumeX, Volume2, Shield, Users, Mic, PhoneOff, Wifi, WifiOff, Loader2, MicOff } from 'lucide-react';
 
 interface EnhancedVoiceChatProps {
   matchId: string;
@@ -98,39 +98,51 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
   };
 
   const renderConnectionStatus = () => {
-    if (isConnecting) return <Badge variant="secondary">Connecting...</Badge>;
-    if (isConnected) return <Badge variant="default">Connected</Badge>;
-    if (connectionState === ConnectionState.Disconnected) return <Badge variant="destructive">Disconnected</Badge>;
-    return <Badge variant="outline">Initializing...</Badge>;
+    if (isConnecting) return <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Connecting...</Badge>;
+    if (isConnected) return <Badge variant="default" className="bg-emerald-100 text-emerald-800 border-emerald-200"><Wifi className="mr-1 h-3 w-3" />Connected</Badge>;
+    if (connectionState === ConnectionState.Disconnected) return <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200"><WifiOff className="mr-1 h-3 w-3" />Disconnected</Badge>;
+    return <Badge variant="outline"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Initializing...</Badge>;
   };
 
   if (!isConnected && !isConnecting) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+      <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl transition-all">
+        <CardHeader className="border-b border-slate-200/80 bg-slate-50/30">
+          <CardTitle className="flex items-center gap-3 text-slate-800">
+            <Users className="h-6 w-6 text-blue-600" />
             Voice Collaboration
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoadingRooms && <p>Loading voice rooms...</p>}
+        <CardContent className="p-6 space-y-4">
+          {isLoadingRooms && (
+            <div className="flex items-center justify-center p-8 text-slate-500">
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Loading voice rooms...
+            </div>
+          )}
           {!isLoadingRooms && availableRooms.length === 0 && (
-            <p className="text-muted-foreground">No voice rooms available for this match.</p>
+            <div className="text-center py-8">
+                <MicOff className="h-10 w-10 mx-auto text-slate-400 mb-4" />
+                <p className="text-slate-600 font-semibold">No voice rooms available</p>
+                <p className="text-sm text-slate-500">There are no voice rooms for this match yet.</p>
+            </div>
           )}
           {!isLoadingRooms && availableRooms.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-500">Available Rooms</h3>
               {availableRooms.map(room => (
-                <div key={room.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={room.id} className="flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-white/50 hover:bg-slate-50/50 transition-colors">
                   <div>
-                    <p className="font-medium">{room.name}</p>
-                    <p className="text-sm text-muted-foreground">Room ID: {room.id}</p>
+                    <p className="font-semibold text-slate-800">{room.name}</p>
+                    <p className="text-xs text-slate-500">Room ID: {room.id}</p>
                   </div>
                   <Button
                     onClick={() => handleJoinRoom(room.id)}
                     disabled={isConnecting}
                     size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
                   >
+                    <Mic className="mr-2 h-4 w-4" />
                     Join Room
                   </Button>
                 </div>
@@ -143,24 +155,26 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg rounded-2xl transition-all">
+      <CardHeader className="border-b border-slate-200/80 bg-slate-50/30">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Voice Room: {currentRoomId}
+          <CardTitle className="flex items-center gap-3 text-slate-800">
+            <Users className="h-6 w-6 text-blue-600" />
+            Voice Room: <span className="text-blue-700">{currentRoomId}</span>
           </CardTitle>
           {renderConnectionStatus()}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="p-6 space-y-6">
         {/* Control buttons */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           <Button
             onClick={leaveRoom}
             variant="destructive"
             size="sm"
+            className="shadow-md hover:shadow-lg"
           >
+            <PhoneOff className="h-4 w-4 mr-2" />
             Leave Room
           </Button>
           <Button
@@ -168,15 +182,16 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
             variant="outline"
             size="sm"
             disabled={!localParticipant}
+            className="shadow-sm hover:shadow-md"
           >
             {isParticipantMuted(localParticipant!) ? (
               <>
-                <VolumeX className="h-4 w-4 mr-2" />
+                <VolumeX className="h-4 w-4 mr-2 text-red-500" />
                 Unmute Self
               </>
             ) : (
               <>
-                <Volume2 className="h-4 w-4 mr-2" />
+                <Volume2 className="h-4 w-4 mr-2 text-emerald-500" />
                 Mute Self
               </>
             )}
@@ -187,7 +202,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
               onClick={handleMuteAll}
               variant="outline"
               size="sm"
-              className="text-orange-600 hover:text-orange-700"
+              className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50 shadow-sm hover:shadow-md"
             >
               <Shield className="h-4 w-4 mr-2" />
               {allMuted ? 'Unmute All' : 'Mute All'}
@@ -196,56 +211,54 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
         </div>
 
         {/* Participants list */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Participants ({participants.length})</h4>
-          {participants.map(participant => {
-            const isMuted = isParticipantMuted(participant);
-            const isSpeaking = isParticipantSpeaking(participant);
-            const audioLevel = getAudioLevel(participant.identity);
-            
-            return (
-              <div 
-                key={participant.identity} 
-                className="flex items-center justify-between p-2 bg-muted/50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">
-                      {participant.name || participant.identity}
-                      {participant.isLocal && ' (You)'}
-                    </span>
-                    {isMuted && <span className="text-xs text-muted-foreground">Muted</span>}
-                    {isSpeaking && !isMuted && (
-                      <span className="text-xs text-green-600 animate-pulse">Speaking</span>
-                    )}
-                  </div>
-                  
-                  {/* Audio level indicator */}
-                  {!isMuted && (
-                    <div className="w-8 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-100 ${
-                          isSpeaking ? 'bg-green-500' : 'bg-gray-400'
-                        }`}
-                        style={{ width: `${Math.max(audioLevel * 100, 2)}%` }}
-                      />
+        <div className="space-y-3">
+          <h4 className="font-semibold text-slate-700 text-base">Participants ({participants.length})</h4>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+            {participants.map(participant => {
+              const isMuted = isParticipantMuted(participant);
+              const isSpeaking = isParticipantSpeaking(participant);
+              
+              return (
+                <div 
+                  key={participant.identity} 
+                  className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${isSpeaking ? 'bg-emerald-50/80 border-emerald-200 border' : 'bg-slate-50/80'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-200 to-indigo-200 flex items-center justify-center text-blue-700 font-bold">
+                        {participant.name?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      {isSpeaking && <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></div>}
                     </div>
+                    <div>
+                      <span className="text-sm font-semibold text-slate-800">
+                        {participant.name || participant.identity}
+                        {participant.isLocal && <span className="text-xs text-blue-600 ml-1">(You)</span>}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                         {isMuted ? (
+                          <div className="flex items-center gap-1"><VolumeX size={12} className="text-red-500" /> Muted</div>
+                         ) : (
+                          <div className="flex items-center gap-1"><Volume2 size={12} className="text-emerald-500"/> Unmuted</div>
+                         )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {canModerate && !participant.isLocal && (
+                    <Button
+                      onClick={() => moderateMuteParticipant(participant.identity, !isMuted)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-slate-500 hover:bg-slate-200/50"
+                    >
+                      {isMuted ? 'Unmute' : 'Mute'}
+                    </Button>
                   )}
                 </div>
-
-                {canModerate && !participant.isLocal && (
-                  <Button
-                    onClick={() => moderateMuteParticipant(participant.identity, !isMuted)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {isMuted ? 'Unmute' : 'Mute'}
-                  </Button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>
