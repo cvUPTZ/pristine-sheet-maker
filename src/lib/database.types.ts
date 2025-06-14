@@ -31,6 +31,8 @@ export type Database = {
           match_type: string | null;
           home_team_score: number | null;
           away_team_score: number | null;
+          home_team_flag_url: string | null;
+          away_team_flag_url: string | null;
           timer_status: string | null;
           timer_current_value: number | null;
           timer_last_started_at: string | null;
@@ -58,6 +60,8 @@ export type Database = {
           match_type?: string | null;
           home_team_score?: number | null;
           away_team_score?: number | null;
+          home_team_flag_url?: string | null;
+          away_team_flag_url?: string | null;
           timer_status?: string | null;
           timer_current_value?: number | null;
           timer_last_started_at?: string | null;
@@ -85,6 +89,8 @@ export type Database = {
           match_type?: string | null;
           home_team_score?: number | null;
           away_team_score?: number | null;
+          home_team_flag_url?: string | null;
+          away_team_flag_url?: string | null;
           timer_status?: string | null;
           timer_current_value?: number | null;
           timer_last_started_at?: string | null;
