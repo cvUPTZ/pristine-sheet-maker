@@ -81,35 +81,38 @@ const Index = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto px-2 py-8">
         <div className="text-center">Loading matches...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Football Matches</h1>
+    <div className="container mx-auto max-w-6xl px-2 sm:px-4 py-4 space-y-4">
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold">Football Matches</h1>
       </div>
 
       {(userRole === 'admin' || userRole === 'tracker') && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Match</CardTitle>
+        <Card className="mb-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">Create New Match</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="py-2">
             <CreateMatchForm onMatchSubmit={handleMatchCreated} />
           </CardContent>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {matches.map((match) => (
-          <Card key={match.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
+          <Card 
+            key={match.id} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+          >
+            <CardHeader className="pb-0 pt-4 px-4">
               <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">
+                <CardTitle className="text-base sm:text-lg">
                   {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
                 </CardTitle>
                 <span className={`px-2 py-1 rounded-full text-xs text-white ${getStatusColor(match.status)}`}>
@@ -117,19 +120,20 @@ const Index = () => {
                 </span>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">
+            <CardContent className="pt-2 pb-4 px-4">
+              <div className="space-y-1">
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   <strong>Teams:</strong> {match.home_team_name} vs {match.away_team_name}
                 </div>
                 {match.match_date && (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs sm:text-sm text-muted-foreground">
                     <strong>Date:</strong> {new Date(match.match_date).toLocaleDateString()}
                   </div>
                 )}
                 <Button 
                   onClick={() => navigate(`/match/${match.id}`)}
-                  className="w-full mt-4"
+                  className="w-full mt-3"
+                  size="sm"
                 >
                   View Match
                 </Button>
@@ -141,8 +145,8 @@ const Index = () => {
 
       {matches.length === 0 && (
         <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-muted-foreground">No matches found. Create your first match to get started!</p>
+          <CardContent className="text-center py-6">
+            <p className="text-muted-foreground text-sm sm:text-base">No matches found. Create your first match to get started!</p>
           </CardContent>
         </Card>
       )}
