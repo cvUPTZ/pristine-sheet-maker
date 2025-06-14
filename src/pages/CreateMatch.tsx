@@ -6,54 +6,85 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import CreateMatchForm from '@/components/CreateMatchForm';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
+import { ArrowLeft, ListTodo, Users } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const CreateMatch: React.FC = () => {
   const navigate = useNavigate();
   const { matchId } = useParams<{ matchId: string }>();
+  const { toast } = useToast();
 
   const handleMatchSubmit = (submittedMatch: any) => {
-    if (matchId) {
-      navigate(`/match/${matchId}`);
+    if (submittedMatch?.id) {
+      if (matchId) {
+        toast({
+          title: 'Match Updated',
+          description: 'The match details have been saved successfully.',
+        });
+        // Stay on page to allow further edits
+      } else {
+        // After creation, navigate to the edit page for the new match
+        navigate(`/match/${submittedMatch.id}`);
+        toast({
+          title: 'Match Created',
+          description: 'You can now assign trackers to the match.',
+        });
+      }
     } else {
-      navigate('/admin');
+      // Fallback navigation
+      if (matchId) {
+        navigate(`/match/${matchId}`);
+      } else {
+        navigate('/admin');
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
           <Button 
             variant="outline" 
-            onClick={() => navigate(matchId ? `/match/${matchId}` : '/admin')}
-            className="mb-4 border-slate-300 hover:bg-slate-50 hover:border-slate-400 shadow-sm"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="h-10 w-10 flex-shrink-0"
           >
-            {matchId ? '← Back to Match Details' : '← Back to Admin'}
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Back</span>
           </Button>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            {matchId ? 'Edit Match' : 'Create New Match'}
-          </h1>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {matchId ? 'Edit Match' : 'Create New Match'}
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              {matchId ? 'Update match details and manage tracker assignments.' : 'Complete match details to enable tracker assignment.'}
+            </p>
+          </div>
         </div>
 
         <Tabs defaultValue="match-details" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-white/80 backdrop-blur-sm shadow-lg border border-slate-200">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-200/70 p-1 rounded-xl">
             <TabsTrigger 
               value="match-details"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 flex items-center gap-2 py-2.5"
             >
+              <ListTodo className="h-5 w-5" />
               Match Details
             </TabsTrigger>
             <TabsTrigger 
               value="tracker-assignment"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+              disabled={!matchId}
+              className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 flex items-center gap-2 py-2.5"
             >
+              <Users className="h-5 w-5" />
               Tracker Assignment
             </TabsTrigger>
           </TabsList>
           
           <TabsContent value="match-details" className="mt-6">
-            <Card className="shadow-xl border-slate-200 bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-6">
+            <Card className="shadow-lg border-gray-200 bg-white">
+              <CardContent className="p-6 sm:p-8">
                 <CreateMatchForm matchId={matchId} onMatchSubmit={handleMatchSubmit} />
               </CardContent>
             </Card>
@@ -61,8 +92,8 @@ const CreateMatch: React.FC = () => {
           
           <TabsContent value="tracker-assignment" className="mt-6">
             {matchId ? (
-              <Card className="shadow-xl border-slate-200 bg-white/80 backdrop-blur-sm">
-                <CardContent className="p-6">
+              <Card className="shadow-lg border-gray-200 bg-white">
+                <CardContent className="p-6 sm:p-8">
                   <TrackerAssignment
                     matchId={matchId}
                     homeTeamPlayers={[]}
@@ -71,9 +102,11 @@ const CreateMatch: React.FC = () => {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="shadow-xl border-slate-200 bg-white/80 backdrop-blur-sm">
-                <CardContent className="text-center py-8 text-slate-500">
-                  <p>Save the match details first to assign trackers</p>
+              <Card className="shadow-lg border-gray-200 bg-white">
+                <CardContent className="text-center py-16 px-6 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700">Assign Trackers</h3>
+                  <p className="mt-1">You must save the match details before you can assign trackers.</p>
                 </CardContent>
               </Card>
             )}
