@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -72,11 +71,13 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-muted/50">
-      <Card className="w-full max-w-md">
+    <div className="relative flex items-center justify-center min-h-screen p-4">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?w=1200&q=80')` }} />
+      <div className="absolute inset-0 bg-black/60" />
+      <Card className="w-full max-w-md z-10 bg-card/90 backdrop-blur-sm border-border/50">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Football Analytics</CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-card-foreground/80">
             Sign in to track matches in real-time
           </CardDescription>
         </CardHeader>
@@ -103,15 +104,12 @@ const Auth = () => {
                 Continue with Google
               </Button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with email
-                  </span>
-                </div>
+              <div className="relative flex items-center">
+                <div className="flex-grow border-t border-border/50" />
+                <span className="flex-shrink mx-4 text-xs uppercase text-card-foreground/80">
+                  Or continue with email
+                </span>
+                <div className="flex-grow border-t border-border/50" />
               </div>
             </div>
 
@@ -201,7 +199,7 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="flex justify-center text-sm text-muted-foreground">
+        <CardFooter className="flex justify-center text-sm text-card-foreground/80">
           {activeTab === 'login' ? (
             <p>Don't have an account? <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab('signup')}>Sign up</Button></p>
           ) : (
