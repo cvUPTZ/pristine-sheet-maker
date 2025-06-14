@@ -11,15 +11,17 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Activity, Piano, Users, Settings } from 'lucide-react';
+import { Activity, Piano, Users, Settings, Mic, Zap } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface MatchAnalysisSidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
+  canShowVoiceCollab: boolean;
+  canShowVoiceInput: boolean;
 }
 
-const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView }) => {
+const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView, canShowVoiceCollab, canShowVoiceInput }) => {
   const { userRole } = useAuth();
   const isAdmin = userRole === 'admin';
 
@@ -34,6 +36,16 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
       label: 'Piano Input',
       icon: Piano,
     },
+    ...(canShowVoiceCollab ? [{
+      value: 'voice-collab',
+      label: 'Voice Collaboration',
+      icon: Mic,
+    }] : []),
+    ...(canShowVoiceInput ? [{
+      value: 'voice-input',
+      label: 'Voice Input',
+      icon: Zap,
+    }] : []),
     ...(isAdmin ? [
       {
         value: 'planning',

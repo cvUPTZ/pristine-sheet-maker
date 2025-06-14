@@ -278,6 +278,9 @@ const MatchAnalysisV2: React.FC = () => {
     }
   };
 
+  const canShowVoiceCollab = !!user?.id;
+  const canShowVoiceInput = !!(assignedPlayers && assignedEventTypes);
+
   if (!matchId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
@@ -297,7 +300,12 @@ const MatchAnalysisV2: React.FC = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex w-full">
-        <MatchAnalysisSidebar activeView={activeView} setActiveView={setActiveView} />
+        <MatchAnalysisSidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          canShowVoiceCollab={canShowVoiceCollab}
+          canShowVoiceInput={canShowVoiceInput}
+        />
         <SidebarInset>
           <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
             {/* Modern Header */}
@@ -334,27 +342,6 @@ const MatchAnalysisV2: React.FC = () => {
 
             {activeView === 'piano' && (
               <div className="space-y-6 animate-fade-in">
-                {/* Voice Collaboration Card */}
-                {user?.id && (
-                  <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                          <Mic className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Voice Collaboration</h3>
-                          <p className="text-sm text-gray-500">Real-time voice communication</p>
-                        </div>
-                      </div>
-                      <VoiceCollaboration
-                        matchId={matchId}
-                        userId={user.id}
-                      />
-                    </CardContent>
-                  </Card>
-                )}
-                
                 {/* Piano Input Card */}
                 <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
                   <CardContent className="p-6">
@@ -373,28 +360,53 @@ const MatchAnalysisV2: React.FC = () => {
                     />
                   </CardContent>
                 </Card>
+              </div>
+            )}
 
-                {/* Voice Input Card */}
-                {assignedPlayers && assignedEventTypes && (
-                  <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                          <Zap className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Voice Input</h3>
-                          <p className="text-sm text-gray-500">Voice-activated event recording</p>
-                        </div>
+            {activeView === 'voice-collab' && canShowVoiceCollab && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Voice Collaboration Card */}
+                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <Mic className="w-5 h-5 text-white" />
                       </div>
-                      <TrackerVoiceInput
-                        assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
-                        assignedEventTypes={assignedEventTypes}
-                        onRecordEvent={handleRecordEvent}
-                      />
-                    </CardContent>
-                  </Card>
-                )}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Voice Collaboration</h3>
+                        <p className="text-sm text-gray-500">Real-time voice communication</p>
+                      </div>
+                    </div>
+                    <VoiceCollaboration
+                      matchId={matchId}
+                      userId={user.id!}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeView === 'voice-input' && canShowVoiceInput && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Voice Input Card */}
+                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Voice Input</h3>
+                        <p className="text-sm text-gray-500">Voice-activated event recording</p>
+                      </div>
+                    </div>
+                    <TrackerVoiceInput
+                      assignedPlayers={convertPlayersForVoiceInput(assignedPlayers!)}
+                      assignedEventTypes={assignedEventTypes!}
+                      onRecordEvent={handleRecordEvent}
+                    />
+                  </CardContent>
+                </Card>
               </div>
             )}
 
