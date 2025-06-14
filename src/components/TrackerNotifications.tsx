@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, Eye, X } from 'lucide-react';
+import { Bell, Check, Eye, X, ClipboardList, Info, TriangleAlert, BellOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -78,6 +78,22 @@ const TrackerNotifications: React.FC = () => {
       }
     }
   }, []);
+
+  const getNotificationIcon = (type: string) => {
+    const iconProps = { className: "h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" };
+    switch (type) {
+      case 'match_assignment':
+        return <ClipboardList {...iconProps} style={{ color: 'hsl(var(--primary))' }} />;
+      case 'urgent_replacement_assignment':
+        return <TriangleAlert {...iconProps} className="text-destructive" />;
+      default:
+        return <Info {...iconProps} className="text-muted-foreground" />;
+    }
+  };
+
+  const getNotificationTypeFormatted = (type: string) => {
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) {
@@ -319,134 +335,137 @@ const TrackerNotifications: React.FC = () => {
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 sm:p-6">
+    <Card className="shadow-sm">
+      <CardHeader className="p-4 sm:p-6 border-b">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-            <CardTitle className="text-sm sm:text-base md:text-lg">Notifications</CardTitle>
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+            <CardTitle className="text-lg sm:text-xl">Notifications</CardTitle>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-xs">
-                {unreadCount}
+              <Badge variant="destructive" className="h-6">
+                {unreadCount} New
               </Badge>
             )}
           </div>
           {unreadCount > 0 && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size={isMobile ? "sm" : "default"}
               onClick={markAllAsRead}
               className="text-xs sm:text-sm"
             >
-              <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              {isMobile ? "Mark All" : "Mark All Read"}
+              <Check className="mr-1" />
+              {isMobile ? "Mark All Read" : "Mark All as Read"}
             </Button>
           )}
         </div>
-        <CardDescription className="text-xs sm:text-sm">
-          Stay updated with match assignments and system alerts
+        <CardDescription className="text-xs sm:text-sm mt-2">
+          Stay updated with match assignments and system alerts.
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-3 sm:p-6">
+      <CardContent className="p-2 sm:p-4">
         {notifications.length === 0 ? (
-          <div className="text-center text-muted-foreground py-6 sm:py-8">
-            No notifications yet
+          <div className="text-center text-muted-foreground py-10 sm:py-16">
+            <BellOff className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium">No notifications yet</h3>
+            <p className="mt-1 text-sm text-muted-foreground">New notifications will appear here.</p>
           </div>
         ) : (
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-2">
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-3 sm:p-4 border rounded-lg ${
-                  notification.is_read ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
-                }`}
+                className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors duration-200 ${
+                  notification.is_read ? '' : 'bg-accent/50'
+                } hover:bg-accent/80`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {!notification.is_read && (
-                        <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
-                      )}
-                      <span className="font-medium text-sm sm:text-base truncate">{notification.title}</span>
-                      {!notification.is_read && <Badge variant="secondary" className="text-xs">New</Badge>}
-                      <Badge 
-                        variant="outline"
-                        className="text-xs flex-shrink-0"
-                      >
-                        {notification.type}
-                      </Badge>
-                    </div>
-                    
-                    {notification.matches && (
-                      <div className="mb-2">
-                        <span className="font-medium text-sm sm:text-base">
-                          {notification.matches.name || 
-                           `${notification.matches.home_team_name} vs ${notification.matches.away_team_name}`}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">
-                      {notification.message}
-                    </p>
-                    
-                    {notification.notification_data && (
-                      <div className="text-xs space-y-1 mb-2">
-                        {notification.notification_data.assigned_event_types && (
-                          <div className="break-words">
-                            <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
-                          </div>
-                        )}
-                        {notification.notification_data.assigned_player_ids && (
-                          <div>
-                            <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    <div className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                    </div>
+                <div className="flex-shrink-0 pt-1">
+                  {getNotificationIcon(notification.type)}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-semibold text-sm sm:text-base">{notification.title}</span>
+                    <Badge
+                      variant={
+                        notification.type === 'urgent_replacement_assignment'
+                          ? 'destructive'
+                          : notification.type === 'match_assignment'
+                          ? 'default'
+                          : 'secondary'
+                      }
+                      className="text-xs capitalize"
+                    >
+                      {getNotificationTypeFormatted(notification.type)}
+                    </Badge>
                   </div>
-                  
-                  <div className="flex gap-1 sm:gap-2 flex-col items-end flex-shrink-0">
-                    {/* Primary action button */}
-                    {notification.type === 'match_assignment' && notification.match_id && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleViewMatch(notification.match_id!, notification.id)}
-                        className="h-8 sm:h-9 text-xs mb-1"
-                      >
-                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="ml-1">{isMobile ? "Track" : "Start Tracking"}</span>
-                      </Button>
-                    )}
-                    
-                    {/* Secondary action buttons */}
-                    <div className="flex gap-1 sm:gap-2">
-                      {!notification.is_read && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => markAsRead(notification.id)}
-                          className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-2"
-                        >
-                          <Check className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden sm:inline sm:ml-1">Read</span>
-                        </Button>
+
+                  {notification.matches && (
+                    <div className="mb-2">
+                      <span className="font-medium text-sm sm:text-base text-muted-foreground">
+                        {notification.matches.name ||
+                         `${notification.matches.home_team_name} vs ${notification.matches.away_team_name}`}
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">
+                    {notification.message}
+                  </p>
+
+                  {notification.notification_data && (
+                    <div className="text-xs space-y-1 mb-2 bg-muted/50 p-2 rounded-md border">
+                      {notification.notification_data.assigned_event_types && (
+                        <div className="break-words">
+                          <strong>Event Types:</strong> {notification.notification_data.assigned_event_types.join(', ')}
+                        </div>
                       )}
+                      {notification.notification_data.assigned_player_ids && (
+                        <div>
+                          <strong>Players:</strong> {notification.notification_data.assigned_player_ids.length} assigned
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 items-end flex-shrink-0 self-start">
+                  {notification.type === 'match_assignment' && notification.match_id && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleViewMatch(notification.match_id!, notification.id)}
+                      className="h-8 sm:h-9 text-xs"
+                    >
+                      <Eye />
+                      <span>{isMobile ? "Track" : "Start Tracking"}</span>
+                    </Button>
+                  )}
+
+                  <div className="flex gap-2">
+                    {!notification.is_read && (
                       <Button
                         variant="outline"
-                        size="sm"
-                        onClick={() => dismissNotification(notification.id)}
-                        className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-2"
+                        size="icon"
+                        onClick={() => markAsRead(notification.id)}
+                        className="h-8 w-8"
+                        title="Mark as read"
                       >
-                        <X className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline sm:ml-1">Dismiss</span>
+                        <Check />
                       </Button>
-                    </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => dismissNotification(notification.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      title="Dismiss notification"
+                    >
+                      <X />
+                    </Button>
                   </div>
                 </div>
               </div>
