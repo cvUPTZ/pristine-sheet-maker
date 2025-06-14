@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWhisperJsSpeechRecognition } from '../hooks/useWhisperJsSpeechRecognition';
 import { ParsedCommand } from '../lib/ai-parser';
@@ -66,6 +67,7 @@ export function TrackerVoiceInput({
           body: {
             transcript: newTranscript,
             assignedEventTypes,
+            assignedPlayers,
           }
         }
       );
@@ -96,7 +98,8 @@ export function TrackerVoiceInput({
         }
       );
       
-      const successMessage = `✅ Recorded: ${command.eventType.label}`;
+      const playerInfo = command.player ? ` for ${command.player.name}` : '';
+      const successMessage = `✅ Recorded: ${command.eventType.label}${playerInfo}`;
       setFeedback({ status: 'success', message: successMessage });
       setCommandHistory(prev => [successMessage, ...prev.slice(0, 4)]);
       playSuccessSound();

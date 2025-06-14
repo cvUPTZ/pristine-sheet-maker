@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // TypeScript Interfaces for our data
@@ -21,8 +22,9 @@ export const parseCommandWithAI = async (
   transcript: string,
   context: GeminiContext
 ): Promise<ParsedCommand> => {
-  const { data, error } = await supabase.functions.invoke('speech-to-command', {
-    body: { transcript, context },
+  const { assignedPlayers, assignedEventTypes } = context;
+  const { data, error } = await supabase.functions.invoke('parse-voice-command', {
+    body: { transcript, assignedPlayers, assignedEventTypes },
   })
 
   if (error) {
