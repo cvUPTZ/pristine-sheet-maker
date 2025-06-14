@@ -57,30 +57,30 @@ const DashboardMetricsGrid: React.FC<DashboardMetricsGridProps> = ({ matches }) 
   const metrics = calculateMetrics();
   
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg hover:shadow-xl rounded-2xl transition-all h-full">
       <CardHeader>
-        <CardTitle>Performance Metrics</CardTitle>
+        <CardTitle>Overall Performance Metrics</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
-          <div className="border rounded-md p-4 text-center">
-            <div className="text-sm text-muted-foreground">Pass Accuracy</div>
-            <div className="text-2xl font-bold mt-1">{metrics.passAccuracy}%</div>
+          <div className="bg-slate-50/50 rounded-lg p-4 text-center transition-all hover:bg-slate-100/70">
+            <div className="text-sm text-slate-600">Pass Accuracy</div>
+            <div className="text-2xl font-bold mt-1 text-blue-700">{metrics.passAccuracy}%</div>
           </div>
           
-          <div className="border rounded-md p-4 text-center">
-            <div className="text-sm text-muted-foreground">Shot Accuracy</div>
-            <div className="text-2xl font-bold mt-1">{metrics.shotAccuracy}%</div>
+          <div className="bg-slate-50/50 rounded-lg p-4 text-center transition-all hover:bg-slate-100/70">
+            <div className="text-sm text-slate-600">Shot Accuracy</div>
+            <div className="text-2xl font-bold mt-1 text-emerald-700">{metrics.shotAccuracy}%</div>
           </div>
           
-          <div className="border rounded-md p-4 text-center">
-            <div className="text-sm text-muted-foreground">Avg. Possession</div>
-            <div className="text-2xl font-bold mt-1">{metrics.possessionAvg}%</div>
+          <div className="bg-slate-50/50 rounded-lg p-4 text-center transition-all hover:bg-slate-100/70">
+            <div className="text-sm text-slate-600">Avg. Possession</div>
+            <div className="text-2xl font-bold mt-1 text-purple-700">{metrics.possessionAvg}%</div>
           </div>
           
-          <div className="border rounded-md p-4 text-center">
-            <div className="text-sm text-muted-foreground">Fouls/Match</div>
-            <div className="text-2xl font-bold mt-1">{metrics.foulsPerMatch}</div>
+          <div className="bg-slate-50/50 rounded-lg p-4 text-center transition-all hover:bg-slate-100/70">
+            <div className="text-sm text-slate-600">Fouls/Match</div>
+            <div className="text-2xl font-bold mt-1 text-red-700">{metrics.foulsPerMatch}</div>
           </div>
         </div>
       </CardContent>
