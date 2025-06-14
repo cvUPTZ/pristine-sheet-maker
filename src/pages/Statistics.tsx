@@ -7,6 +7,8 @@ import {
   ArrowLeft, TrendingUp, Users, Activity, Target, BarChart3, PieChart, Share2, ShieldCheck,
   LayoutDashboard, ListChecks, Clock, Grid, Crosshair, BarChartBig
 } from 'lucide-react';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
 import BallFlowVisualization from '@/components/visualizations/BallFlowVisualization';
 import MatchRadarChart from '@/components/visualizations/MatchRadarChart';
 import TeamPerformanceRadar from '@/components/analytics/TeamPerformanceRadar';
