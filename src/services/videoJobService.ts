@@ -7,12 +7,25 @@ export interface VideoJob {
   status: 'queued' | 'uploading' | 'processing' | 'completed' | 'failed' | 'pending';
   progress?: number;
   fileName?: string;
-  createdAt?: string; // Or Date
+  createdAt?: string;
+  created_at: string;
+  updated_at: string;
   segmentId?: string;
   results?: any;
+  result_data?: any;
   error?: string;
+  error_message?: string;
   colabLogUrl?: string;
-  // Add other fields as suggested by usage in VideoJobMonitor.tsx or useVideoJobs.ts if identifiable
+  input_video_path: string;
+  video_title?: string;
+  video_duration?: number;
+  user_id: string;
+  job_config?: {
+    source_type: 'youtube' | 'upload';
+    enableAIAnalysis: boolean;
+    enableSegmentation: boolean;
+    segmentDuration?: number;
+  };
 }
 
 /**
@@ -56,8 +69,8 @@ export class VideoJobService {
     };
   }
 
-  static async getUserJobs(userId: string): Promise<VideoJob[]> {
-    console.warn(`VideoJobService.getUserJobs is a stub and will return an empty array for user ID: ${userId}`);
+  static async getUserJobs(userId?: string): Promise<VideoJob[]> {
+    console.warn(`VideoJobService.getUserJobs is a stub and will return an empty array for user ID: ${userId || 'undefined'}`);
     return [];
   }
 

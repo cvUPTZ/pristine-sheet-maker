@@ -14,8 +14,11 @@ export const useVideoJobs = () => {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const userJobs = await VideoJobService.getUserJobs();
-      setJobs(userJobs);
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        const userJobs = await VideoJobService.getUserJobs(user.user.id);
+        setJobs(userJobs);
+      }
     } catch (error: any) {
       toast.error(`Failed to load jobs: ${error.message}`);
     } finally {
@@ -53,7 +56,7 @@ export const useVideoJobs = () => {
       // If it's a file upload, VPP handles upload.
       const returnedJob = await VideoProcessingPipeline.processVideoComplete(source, pipelineConfig);
       
-      toast.success(`Job "${returnedJob.video_title}" submitted successfully!`);
+      toast.success(`Job "${returnedJob.video_title || 'Video'}" submitted successfully!`);
       setJobs(prevJobs => [returnedJob, ...prevJobs]);
       return returnedJob;
 

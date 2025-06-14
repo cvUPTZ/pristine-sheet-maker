@@ -37,7 +37,11 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
   useEffect(() => {
     let stopPolling: (() => void) | null = null;
     if (job.status === 'pending' || job.status === 'processing') {
-      VideoJobService.pollJobStatus(job.id, onJobUpdate).then((stopFn: () => void) => { stopPolling = stopFn; });
+      VideoJobService.pollJobStatus(job.id, (updatedJob: VideoJob | null) => {
+        if (updatedJob) {
+          onJobUpdate(updatedJob);
+        }
+      }).then((stopFn: () => void) => { stopPolling = stopFn; });
     }
     return () => { if (stopPolling) stopPolling(); };
   }, [job.id, job.status, onJobUpdate]);
@@ -60,8 +64,8 @@ export const VideoJobMonitor: React.FC<VideoJobMonitorProps> = ({ job, onJobUpda
           <div>Submitted: {new Date(job.created_at).toLocaleString()}</div>
           {job.video_duration && <div>Duration: {formatTime(job.video_duration)}</div>}
         </div>
-        {(job.status === 'processing' && job.progress > 0) && (
-          <Progress value={job.progress} className="w-full" />
+        {(job.status === 'processing' && (job.progress || 0) > 0) && (
+          <Progress value={job.progress || 0} className="w-full" />
         )}
         {job.status === 'failed' && job.error_message && (
           <div className="p-3 bg-red-50 border rounded text-sm text-red-700">{job.error_message}</div>
