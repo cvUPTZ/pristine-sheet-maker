@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
@@ -91,7 +92,7 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="mt-auto p-2">
+        <SidebarFooter className="mt-auto border-t border-white/10 bg-black/10 p-2">
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="gap-2">
@@ -122,7 +123,7 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-          <div className="border-t border-gray-500/50 my-2 group-data-[state=collapsed]:hidden" />
+          <div className="border-t border-white/10 my-2 group-data-[state=collapsed]:hidden" />
           <div className="flex items-center gap-3 p-2 text-sm text-gray-300 group-data-[state=collapsed]:hidden">
               <User size={24} className="shrink-0 rounded-full bg-white/10 p-1" />
               <div className="truncate flex-1">
