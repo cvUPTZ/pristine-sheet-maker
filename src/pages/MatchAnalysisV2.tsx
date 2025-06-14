@@ -290,84 +290,88 @@ const MatchAnalysisV2: React.FC = () => {
   const defaultTab = isAdmin ? 'main' : 'piano';
 
   return (
-    <div className="container mx-auto p-1 sm:p-2 lg:p-4 max-w-7xl">
-      <div className="mb-3 sm:mb-4">
-        <MatchHeader
-          mode={mode}
-          setMode={setMode}
-          homeTeam={homeTeam}
-          awayTeam={awayTeam}
-          handleToggleTracking={handleToggleTracking}
-          handleSave={handleSave}
-        />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="container mx-auto p-2 sm:p-3 lg:p-4 max-w-7xl">
+        {/* Compact Header */}
+        <div className="mb-2 sm:mb-3">
+          <MatchHeader
+            mode={mode}
+            setMode={setMode}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            handleToggleTracking={handleToggleTracking}
+            handleSave={handleSave}
+          />
+        </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className={`
-          grid w-full gap-1 h-auto p-1 mb-3 sm:mb-4
-          ${isAdmin 
-            ? (isMobile ? "grid-cols-2" : isSmall ? "grid-cols-2" : "grid-cols-4")
-            : "grid-cols-1"
-          }
-        `}>
-          {isAdmin && (
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className={`
+            grid w-full gap-1 h-9 p-1 mb-2 sm:mb-3 bg-white shadow-sm border
+            ${isAdmin 
+              ? (isMobile ? "grid-cols-2" : isSmall ? "grid-cols-2" : "grid-cols-4")
+              : "grid-cols-1"
+            }
+          `}>
+            {isAdmin && (
+              <TabsTrigger 
+                value="main" 
+                className="text-xs sm:text-sm py-1.5 px-2 sm:px-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+              >
+                {isMobile ? "Main" : "Dashboard"}
+              </TabsTrigger>
+            )}
             <TabsTrigger 
-              value="main" 
-              className="text-xs sm:text-sm py-2 px-2 sm:px-4"
+              value="piano" 
+              className="text-xs sm:text-sm py-1.5 px-2 sm:px-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
             >
-              {isMobile ? "Main" : "Main Dashboard"}
+              {isMobile ? "Piano" : "Piano Input"}
             </TabsTrigger>
-          )}
-          <TabsTrigger 
-            value="piano" 
-            className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-          >
-            {isMobile ? "Piano" : "Piano Input"}
-          </TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger 
+                  value="planning" 
+                  className="text-xs sm:text-sm py-1.5 px-2 sm:px-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                >
+                  {isMobile ? "Plan" : "Planning"}
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="tracker" 
+                  className="text-xs sm:text-sm py-1.5 px-2 sm:px-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                >
+                  {isMobile ? "Assign" : "Trackers"}
+                </TabsTrigger>
+              </>
+            )}
+          </TabsList>
+          
           {isAdmin && (
-            <>
-              <TabsTrigger 
-                value="planning" 
-                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-              >
-                {isMobile ? "Plan" : "Planning"}
-              </TabsTrigger>
-              <TabsTrigger 
-                value="tracker" 
-                className="text-xs sm:text-sm py-2 px-2 sm:px-4"
-              >
-                {isMobile ? "Assign" : "Assign Tracker"}
-              </TabsTrigger>
-            </>
-          )}
-        </TabsList>
-        
-        {isAdmin && (
-          <TabsContent value="main" className="mt-2 sm:mt-4">
-            <MainTabContentV2
-              matchId={matchId}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              isTracking={isTracking}
-              onEventRecord={handleRecordEvent}
-            />
-          </TabsContent>
-        )}
-        
-        <TabsContent value="piano" className="mt-2 sm:mt-4">
-          <div className="space-y-3 sm:space-y-4">
-            {/* Voice Collaboration for Piano Input */}
-            {user?.id && (
-              <VoiceCollaboration
+            <TabsContent value="main" className="mt-2 space-y-0">
+              <MainTabContentV2
                 matchId={matchId}
-                userId={user.id}
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                isTracking={isTracking}
+                onEventRecord={handleRecordEvent}
               />
+            </TabsContent>
+          )}
+          
+          <TabsContent value="piano" className="mt-2 space-y-2 sm:space-y-3">
+            {/* Voice Collaboration - Compact */}
+            {user?.id && (
+              <div className="mb-2 sm:mb-3">
+                <VoiceCollaboration
+                  matchId={matchId}
+                  userId={user.id}
+                />
+              </div>
             )}
             
-            <Card>
-              <CardContent className="p-2 sm:p-3 lg:p-6">
-                <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                  Piano Input
+            {/* Piano Input Section */}
+            <Card className="shadow-sm border-slate-200">
+              <CardContent className="p-2 sm:p-3">
+                <h2 className="text-sm sm:text-base font-semibold mb-2 text-slate-700 border-b border-slate-100 pb-1">
+                  🎹 Piano Input
                 </h2>
                 <TrackerPianoInput 
                   matchId={matchId} 
@@ -376,12 +380,12 @@ const MatchAnalysisV2: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Voice Input */}
+            {/* Voice Input Section */}
             {assignedPlayers && assignedEventTypes && (
-              <Card>
-                <CardContent className="p-2 sm:p-3 lg:p-6">
-                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                    Voice Input
+              <Card className="shadow-sm border-slate-200">
+                <CardContent className="p-2 sm:p-3">
+                  <h2 className="text-sm sm:text-base font-semibold mb-2 text-slate-700 border-b border-slate-100 pb-1">
+                    🎤 Voice Input
                   </h2>
                   <TrackerVoiceInput
                     assignedPlayers={convertPlayersForVoiceInput(assignedPlayers)}
@@ -391,36 +395,47 @@ const MatchAnalysisV2: React.FC = () => {
                 </CardContent>
               </Card>
             )}
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        {isAdmin && (
-          <>
-            <TabsContent value="planning" className="mt-2 sm:mt-4">
-              <MatchPlanningNetwork 
-                matchId={matchId}
-                width={isMobile ? 350 : 800}
-                height={isMobile ? 400 : 600}
-              />
-            </TabsContent>
-            
-            <TabsContent value="tracker" className="mt-2 sm:mt-4">
-              <Card>
-                <CardContent className="p-2 sm:p-3 lg:p-6">
-                  <h2 className="text-sm sm:text-base lg:text-lg font-semibold mb-2 sm:mb-3 lg:mb-4">
-                    Tracker Assignment
-                  </h2>
-                  <TrackerAssignment
-                    matchId={matchId}
-                    homeTeamPlayers={fullMatchRoster?.home || []}
-                    awayTeamPlayers={fullMatchRoster?.away || []}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </>
-        )}
-      </Tabs>
+          {isAdmin && (
+            <>
+              <TabsContent value="planning" className="mt-2 space-y-0">
+                <Card className="shadow-sm border-slate-200">
+                  <CardContent className="p-2 sm:p-3">
+                    <h2 className="text-sm sm:text-base font-semibold mb-2 text-slate-700 border-b border-slate-100 pb-1">
+                      📊 Match Planning Network
+                    </h2>
+                    <div className="mt-3">
+                      <MatchPlanningNetwork 
+                        matchId={matchId}
+                        width={isMobile ? 350 : 800}
+                        height={isMobile ? 400 : 600}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="tracker" className="mt-2 space-y-0">
+                <Card className="shadow-sm border-slate-200">
+                  <CardContent className="p-2 sm:p-3">
+                    <h2 className="text-sm sm:text-base font-semibold mb-2 text-slate-700 border-b border-slate-100 pb-1">
+                      👥 Tracker Assignment
+                    </h2>
+                    <div className="mt-3">
+                      <TrackerAssignment
+                        matchId={matchId}
+                        homeTeamPlayers={fullMatchRoster?.home || []}
+                        awayTeamPlayers={fullMatchRoster?.away || []}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
+      </div>
     </div>
   );
 };
