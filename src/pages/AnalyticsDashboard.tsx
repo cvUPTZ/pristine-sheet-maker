@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -171,6 +172,9 @@ const AnalyticsDashboard = () => {
           {loading ? (
             <div className="container mx-auto p-6">
               <div className="flex items-center gap-4 mb-6">
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                  <ArrowLeft />
+                </Button>
                 <SidebarTrigger />
                 <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
               </div>
@@ -181,6 +185,9 @@ const AnalyticsDashboard = () => {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                    <ArrowLeft />
+                  </Button>
                   <SidebarTrigger />
                   <div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">

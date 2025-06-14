@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +31,8 @@ import {
   Beaker,
   User,
   KeyRound,
-  FileText
+  FileText,
+  ArrowLeft
 } from 'lucide-react';
 import MockDataGenerator from '@/components/admin/MockDataGenerator';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ interface Match {
 }
 
 const Admin: React.FC = () => {
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState('users');
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -439,6 +442,9 @@ const Admin: React.FC = () => {
         <SidebarInset>
           <div className="container mx-auto p-2 sm:p-4 lg:p-6 max-w-full">
             <div className="flex items-center gap-4 mb-3 sm:mb-6">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                <ArrowLeft />
+              </Button>
               <SidebarTrigger />
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Admin Panel</h1>
