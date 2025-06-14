@@ -32,6 +32,39 @@ interface VoiceInputAssignedPlayers {
   away: VoiceInputPlayer[];
 }
 
+const viewDetails = {
+  piano: {
+    title: 'Piano Input',
+    subtitle: 'Quick event recording interface',
+    icon: Piano,
+    color: 'from-blue-500 to-blue-600',
+  },
+  'voice-collab': {
+    title: 'Voice Collaboration',
+    subtitle: 'Real-time voice communication',
+    icon: Mic,
+    color: 'from-emerald-500 to-emerald-600',
+  },
+  'voice-input': {
+    title: 'Voice Input',
+    subtitle: 'Voice-activated event recording',
+    icon: Zap,
+    color: 'from-purple-500 to-purple-600',
+  },
+  planning: {
+    title: 'Planning Network',
+    subtitle: 'Visualize tracker relationships and assignments',
+    icon: Users,
+    color: 'from-indigo-500 to-indigo-600',
+  },
+  tracker: {
+    title: 'Tracker Assignment',
+    subtitle: 'Manage and assign tracker responsibilities',
+    icon: Settings,
+    color: 'from-amber-500 to-amber-600',
+  },
+};
+
 const MatchAnalysisV2: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const { userRole, user } = useAuth();
@@ -297,14 +330,50 @@ const MatchAnalysisV2: React.FC = () => {
     );
   }
 
+  const menuItems = [
+    ...(isAdmin ? [{
+      value: 'main',
+      label: 'Dashboard',
+      icon: Activity,
+    }] : []),
+    {
+      value: 'piano',
+      label: 'Piano Input',
+      icon: Piano,
+    },
+    ...(canShowVoiceCollab ? [{
+      value: 'voice-collab',
+      label: 'Voice Collaboration',
+      icon: Mic,
+    }] : []),
+    ...(canShowVoiceInput ? [{
+      value: 'voice-input',
+      label: 'Voice Input',
+      icon: Zap,
+    }] : []),
+    ...(isAdmin ? [
+      {
+        value: 'planning',
+        label: 'Planning Network',
+        icon: Users,
+      },
+      {
+        value: 'tracker',
+        label: 'Assignment',
+        icon: Settings,
+      }
+    ] : [])
+  ];
+
+  const currentViewDetails = viewDetails[activeView as keyof typeof viewDetails];
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex w-full">
         <MatchAnalysisSidebar
           activeView={activeView}
           setActiveView={setActiveView}
-          canShowVoiceCollab={canShowVoiceCollab}
-          canShowVoiceInput={canShowVoiceInput}
+          menuItems={menuItems}
         />
         <SidebarInset>
           <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
@@ -323,11 +392,24 @@ const MatchAnalysisV2: React.FC = () => {
               </div>
             </div>
 
-            {/* Content based on activeView */}
-            {activeView === 'main' && isAdmin && (
-              <div className="space-y-6 animate-fade-in">
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
+            {/* Unified Content Area */}
+            <div className="space-y-6 animate-fade-in">
+              <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden min-h-[60vh]">
+                <CardContent className="p-6">
+                  {currentViewDetails && (
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className={`w-10 h-10 bg-gradient-to-r ${currentViewDetails.color} rounded-xl flex items-center justify-center`}>
+                        <currentViewDetails.icon className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{currentViewDetails.title}</h3>
+                        <p className="text-sm text-gray-500">{currentViewDetails.subtitle}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Content based on activeView */}
+                  {activeView === 'main' && isAdmin && (
                     <MainTabContentV2
                       matchId={matchId}
                       homeTeam={homeTeam}
@@ -335,126 +417,48 @@ const MatchAnalysisV2: React.FC = () => {
                       isTracking={isTracking}
                       onEventRecord={handleRecordEvent}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  )}
 
-            {activeView === 'piano' && (
-              <div className="space-y-6 animate-fade-in">
-                {/* Piano Input Card */}
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                        <Piano className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Piano Input</h3>
-                        <p className="text-sm text-gray-500">Quick event recording interface</p>
-                      </div>
-                    </div>
+                  {activeView === 'piano' && (
                     <TrackerPianoInput 
                       matchId={matchId} 
                       onRecordEvent={handleRecordEvent}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  )}
 
-            {activeView === 'voice-collab' && canShowVoiceCollab && (
-              <div className="space-y-6 animate-fade-in">
-                {/* Voice Collaboration Card */}
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                        <Mic className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Voice Collaboration</h3>
-                        <p className="text-sm text-gray-500">Real-time voice communication</p>
-                      </div>
-                    </div>
+                  {activeView === 'voice-collab' && canShowVoiceCollab && (
                     <VoiceCollaboration
                       matchId={matchId}
                       userId={user.id!}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  )}
 
-            {activeView === 'voice-input' && canShowVoiceInput && (
-              <div className="space-y-6 animate-fade-in">
-                {/* Voice Input Card */}
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                        <Zap className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Voice Input</h3>
-                        <p className="text-sm text-gray-500">Voice-activated event recording</p>
-                      </div>
-                    </div>
+                  {activeView === 'voice-input' && canShowVoiceInput && (
                     <TrackerVoiceInput
                       assignedPlayers={convertPlayersForVoiceInput(assignedPlayers!)}
                       assignedEventTypes={assignedEventTypes!}
                       onRecordEvent={handleRecordEvent}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  )}
 
-            {activeView === 'planning' && isAdmin && (
-              <div className="space-y-6 animate-fade-in">
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                        <Users className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Planning Network</h3>
-                        <p className="text-sm text-gray-500">Visualize tracker relationships and assignments</p>
-                      </div>
-                    </div>
+                  {activeView === 'planning' && isAdmin && (
                     <MatchPlanningNetwork 
                       matchId={matchId}
                       width={isMobile ? 350 : 800}
                       height={isMobile ? 400 : 600}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-              
-            {activeView === 'tracker' && isAdmin && (
-              <div className="space-y-6 animate-fade-in">
-                <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
-                        <Settings className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Tracker Assignment</h3>
-                        <p className="text-sm text-gray-500">Manage and assign tracker responsibilities</p>
-                      </div>
-                    </div>
+                  )}
+                    
+                  {activeView === 'tracker' && isAdmin && (
                     <TrackerAssignment
                       matchId={matchId}
                       homeTeamPlayers={fullMatchRoster?.home || []}
                       awayTeamPlayers={fullMatchRoster?.away || []}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </SidebarInset>
       </div>

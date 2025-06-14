@@ -11,55 +11,20 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Activity, Piano, Users, Settings, Mic, Zap } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+
+interface MenuItem {
+  value: string;
+  label: string;
+  icon: React.ElementType;
+}
 
 interface MatchAnalysisSidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
-  canShowVoiceCollab: boolean;
-  canShowVoiceInput: boolean;
+  menuItems: MenuItem[];
 }
 
-const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView, canShowVoiceCollab, canShowVoiceInput }) => {
-  const { userRole } = useAuth();
-  const isAdmin = userRole === 'admin';
-
-  const menuItems = [
-    ...(isAdmin ? [{
-      value: 'main',
-      label: 'Dashboard',
-      icon: Activity,
-    }] : []),
-    {
-      value: 'piano',
-      label: 'Piano Input',
-      icon: Piano,
-    },
-    ...(canShowVoiceCollab ? [{
-      value: 'voice-collab',
-      label: 'Voice Collaboration',
-      icon: Mic,
-    }] : []),
-    ...(canShowVoiceInput ? [{
-      value: 'voice-input',
-      label: 'Voice Input',
-      icon: Zap,
-    }] : []),
-    ...(isAdmin ? [
-      {
-        value: 'planning',
-        label: 'Planning Network',
-        icon: Users,
-      },
-      {
-        value: 'tracker',
-        label: 'Assignment',
-        icon: Settings,
-      }
-    ] : [])
-  ];
-
+const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView, menuItems }) => {
   return (
     <Sidebar>
       <SidebarHeader>
