@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,100 @@ const generateColorFromString = (str: string): string => {
   return `hsl(${h}, 60%, 35%)`; // Darker, saturated colors for background
 };
 
+// Helper function to generate a team logo color
+const generateTeamColor = (teamName: string): string => {
+  if (!teamName) return '#3b82f6';
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i++) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = hash % 360;
+  return `hsl(${h}, 70%, 50%)`;
+};
+
+// Helper function to generate a secondary color
+const generateSecondaryColor = (teamName: string): string => {
+  if (!teamName) return '#1d4ed8';
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i++) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = (hash % 360 + 180) % 360; // Offset by 180 degrees for contrast
+  return `hsl(${h}, 60%, 40%)`;
+};
+
+// Component to render unique team SVG logo
+const TeamLogo: React.FC<{ teamName: string; size?: number }> = ({ teamName, size = 48 }) => {
+  const primaryColor = generateTeamColor(teamName);
+  const secondaryColor = generateSecondaryColor(teamName);
+  const initials = teamName
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  // Generate pattern based on team name
+  const pattern = teamName.length % 4;
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" className="rounded-full">
+      <defs>
+        <linearGradient id={`grad-${teamName}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={primaryColor} />
+          <stop offset="100%" stopColor={secondaryColor} />
+        </linearGradient>
+      </defs>
+      
+      {/* Background circle */}
+      <circle cx="24" cy="24" r="24" fill={`url(#grad-${teamName})`} />
+      
+      {/* Pattern overlay based on team name */}
+      {pattern === 0 && (
+        <>
+          <circle cx="24" cy="24" r="18" fill="none" stroke="white" strokeWidth="2" opacity="0.3" />
+          <circle cx="24" cy="24" r="12" fill="none" stroke="white" strokeWidth="1.5" opacity="0.4" />
+        </>
+      )}
+      
+      {pattern === 1 && (
+        <>
+          <polygon points="24,8 35,20 35,28 24,40 13,28 13,20" fill="white" opacity="0.2" />
+          <polygon points="24,12 31,20 31,26 24,36 17,26 17,20" fill="white" opacity="0.1" />
+        </>
+      )}
+      
+      {pattern === 2 && (
+        <>
+          <rect x="12" y="12" width="24" height="24" rx="4" fill="white" opacity="0.2" />
+          <rect x="16" y="16" width="16" height="16" rx="2" fill="white" opacity="0.1" />
+        </>
+      )}
+      
+      {pattern === 3 && (
+        <>
+          <path d="M24 8 L36 24 L24 40 L12 24 Z" fill="white" opacity="0.2" />
+          <path d="M24 12 L32 24 L24 36 L16 24 Z" fill="white" opacity="0.1" />
+        </>
+      )}
+      
+      {/* Team initials */}
+      <text 
+        x="24" 
+        y="24" 
+        textAnchor="middle" 
+        dominantBaseline="central" 
+        fill="white" 
+        fontSize="14" 
+        fontWeight="bold" 
+        fontFamily="system-ui, sans-serif"
+      >
+        {initials}
+      </text>
+    </svg>
+  );
+};
+
 const MatchHeader: React.FC<MatchHeaderProps> = ({
   homeTeam,
   awayTeam,
@@ -40,11 +135,6 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   status,
   matchId,
 }) => {
-  const [flagErrors, setFlagErrors] = useState<{
-    home: boolean;
-    away: boolean;
-  }>({ home: false, away: false });
-  
   const [teamFlags, setTeamFlags] = useState<{
     homeTeamFlagUrl?: string | null;
     awayTeamFlagUrl?: string | null;
@@ -97,10 +187,6 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
     background: `linear-gradient(90deg, ${homeColor} 0%, ${awayColor} 100%)`,
   };
 
-  const handleFlagError = (team: 'home' | 'away') => {
-    setFlagErrors(prev => ({ ...prev, [team]: true }));
-  };
-
   const getStatusColor = (status?: MatchStatus): string => {
     switch (status) {
       case 'live':
@@ -124,16 +210,15 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
           {/* Home Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {homeFlagUrl && !flagErrors.home ? (
+              {homeFlagUrl ? (
                 <AvatarImage 
                   src={homeFlagUrl} 
                   alt={`${homeTeam.name} flag`}
                   className="object-cover"
-                  onError={() => handleFlagError('home')}
                 />
               ) : (
-                <AvatarFallback className="bg-white/20 text-white">
-                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                <AvatarFallback className="bg-transparent p-0 border-none">
+                  <TeamLogo teamName={homeTeam.name} size={48} />
                 </AvatarFallback>
               )}
             </Avatar>
@@ -188,16 +273,15 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               </p>
             </div>
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {awayFlagUrl && !flagErrors.away ? (
+              {awayFlagUrl ? (
                 <AvatarImage 
                   src={awayFlagUrl} 
                   alt={`${awayTeam.name} flag`}
                   className="object-cover"
-                  onError={() => handleFlagError('away')}
                 />
               ) : (
-                <AvatarFallback className="bg-white/20 text-white">
-                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                <AvatarFallback className="bg-transparent p-0 border-none">
+                  <TeamLogo teamName={awayTeam.name} size={48} />
                 </AvatarFallback>
               )}
             </Avatar>

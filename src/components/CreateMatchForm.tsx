@@ -139,7 +139,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     location: '',
     competition: '',
     matchType: 'regular',
-    status: 'draft',
+    status: 'draft' as 'draft' | 'scheduled' | 'live' | 'completed',
     notes: ''
   });
 
@@ -578,7 +578,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                       flagUrl: formData.awayTeamFlagUrl || null
                     }}
                     name={formData.name || `${formData.homeTeamName || "Home"} vs ${formData.awayTeamName || "Away"}`}
-                    status={formData.status}
+                    status={formData.status as 'draft' | 'scheduled' | 'live' | 'completed'}
                     handleToggleTracking={() => {}}
                     handleSave={() => {}}
                   />
