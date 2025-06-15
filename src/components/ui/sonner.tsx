@@ -1,10 +1,19 @@
+
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, toast } from "sonner"
+import React from "react"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // Defensive context check to help with debugging
+  const themeData = useTheme();
+  if (!themeData) {
+    throw new Error(
+      "[ui/sonner] useTheme() returned null. This usually means <ThemeProvider> from next-themes is missing in your component tree."
+    );
+  }
+  const { theme = "system" } = themeData;
 
   return (
     <Sonner
@@ -27,3 +36,4 @@ const Toaster = ({ ...props }: ToasterProps) => {
 }
 
 export { Toaster, toast }
+
