@@ -65,8 +65,7 @@ const Dashboard = () => {
         value: 'statistics',
         label: 'Statistics',
         icon: BarChart3,
-        path: '/statistics',
-        permission: 'statistics'
+        path: '/statistics'
       });
     }
   }
