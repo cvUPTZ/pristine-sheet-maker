@@ -42,6 +42,7 @@ interface Player {
 }
 
 type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2' | '3-4-3';
+type MatchStatus = 'draft' | 'scheduled' | 'live' | 'completed';
 
 const EVENT_TYPE_CATEGORIES = [
   { key: 'ball_actions', label: 'Ball Actions', color: '#3b82f6', events: [ { key: 'pass', label: 'Pass' }, { key: 'shot', label: 'Shot' }, { key: 'cross', label: 'Cross' }, { key: 'dribble', label: 'Dribble' }, { key: 'tackle', label: 'Tackle' }, { key: 'interception', label: 'Interception' }, { key: 'clearance', label: 'Clearance' }, { key: 'save', label: 'Save' } ] },
@@ -139,7 +140,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     location: '',
     competition: '',
     matchType: 'regular',
-    status: 'draft' as 'draft' | 'scheduled' | 'live' | 'completed',
+    status: 'draft' as MatchStatus,
     notes: ''
   });
 
@@ -565,8 +566,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 </CardHeader>
                 <CardContent>
                   <MatchHeader
-                    mode="piano"
-                    setMode={() => {}}
                     homeTeam={{
                       name: formData.homeTeamName || "Home Team",
                       formation: formData.homeTeamFormation,
@@ -578,9 +577,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                       flagUrl: formData.awayTeamFlagUrl || null
                     }}
                     name={formData.name || `${formData.homeTeamName || "Home"} vs ${formData.awayTeamName || "Away"}`}
-                    status={formData.status as 'draft' | 'scheduled' | 'live' | 'completed'}
-                    handleToggleTracking={() => {}}
-                    handleSave={() => {}}
+                    status={formData.status}
                   />
                 </CardContent>
               </Card>

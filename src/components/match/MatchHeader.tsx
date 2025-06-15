@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ interface TeamHeaderData {
   flagUrl?: string | null;
 }
 
-type MatchStatus = 'live' | 'upcoming' | 'finished' | 'postponed';
+type MatchStatus = 'live' | 'draft' | 'scheduled' | 'completed';
 
 interface MatchHeaderProps {
   homeTeam: TeamHeaderData;
@@ -21,6 +20,10 @@ interface MatchHeaderProps {
   name?: string;
   status?: MatchStatus;
   matchId?: string;
+  mode?: string;
+  setMode?: (mode: any) => void;
+  handleToggleTracking?: () => void;
+  handleSave?: () => void;
 }
 
 // Helper function to generate a vibrant color from a string
@@ -134,6 +137,10 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   name,
   status,
   matchId,
+  mode,
+  setMode,
+  handleToggleTracking,
+  handleSave,
 }) => {
   const [teamFlags, setTeamFlags] = useState<{
     homeTeamFlagUrl?: string | null;
@@ -191,11 +198,11 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
     switch (status) {
       case 'live':
         return 'bg-red-500/80 text-white';
-      case 'finished':
+      case 'completed':
         return 'bg-gray-500/80 text-white';
-      case 'upcoming':
+      case 'scheduled':
         return 'bg-blue-500/80 text-white';
-      case 'postponed':
+      case 'draft':
         return 'bg-yellow-500/80 text-black';
       default:
         return 'bg-white/20 text-white';
