@@ -1,9 +1,13 @@
 
 import React from "react";
 import { useVoiceCollaborationContext } from "@/context/VoiceCollaborationContext";
-import { Mic, Users, VolumeX, Volume2, WifiOff, Loader2 } from "lucide-react";
+import { Mic, Users, VolumeX, Volume2, WifiOff, Loader2, Move } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useDraggableOverlay } from "@/hooks/useDraggableOverlay";
 
+/**
+ * Draggable, beautiful minimalist overlay displaying live voice collaboration status.
+ */
 const VoiceCollaborationOverlay: React.FC = () => {
   const {
     currentRoomId,
@@ -14,10 +18,20 @@ const VoiceCollaborationOverlay: React.FC = () => {
     connectionState,
   } = useVoiceCollaborationContext();
 
-  // Find self in participants for mute status
+  // DRAGGABLE OVERLAY state & handlers from hook
+  const {
+    position,
+    handleMouseDown,
+    handleTouchStart,
+    resetPosition,
+  } = useDraggableOverlay("voice-overlay-position", {
+    x: 32,
+    y: window.innerWidth < 640 ? 24 : window.innerHeight - 180 // top for mobile, bottom for desktop
+  });
+
+  // Robust mute detection
   let isMuted = true;
   if (localParticipant) {
-    // Local participant mute check – robust for both local and remote
     (localParticipant as any).isMicrophoneEnabled !== undefined
       ? (isMuted = !(localParticipant as any).isMicrophoneEnabled)
       : (isMuted = true);
@@ -25,18 +39,54 @@ const VoiceCollaborationOverlay: React.FC = () => {
 
   return (
     <div
-      className="
-        fixed z-30 max-w-xs w-full 
-        right-4 bottom-6
-        md:bottom-7 md:right-8
-        md:max-w-xs
-        sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:top-5 sm:bottom-auto
-        shadow-xl pointer-events-none
-      "
-      style={{ pointerEvents: "none" }}
+      className="pointer-events-none"
       aria-live="polite"
+      style={{
+        position: "fixed",
+        left: position.x,
+        top: position.y,
+        zIndex: 9999, // Make absolutely sure it floats above the rest.
+        maxWidth: 350,
+        minWidth: 250,
+      }}
     >
-      <Card className="backdrop-blur-md bg-white/80 border-0 rounded-2xl shadow-2xl animate-fade-in pointer-events-auto">
+      <Card
+        className="
+          backdrop-blur-md bg-white/80 border-0 rounded-2xl shadow-2xl 
+          animate-fade-in pointer-events-auto
+          transition-shadow hover:shadow-2xl
+        "
+        style={{
+          cursor: "grab",
+        }}
+      >
+        {/* Drag handle (top area with move icon) */}
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-300/40 cursor-grab select-none rounded-t-2xl bg-gradient-to-r from-blue-50 to-indigo-50"
+          style={{ touchAction: "none" }}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          // Accessibility: reset on double click/tap
+          onDoubleClick={resetPosition}
+          title="Drag to move overlay. Double-click to reset position."
+        >
+          <Move className="w-4 h-4 text-gray-400" />
+          <span className="text-xs font-medium text-gray-700 flex-1 truncate">
+            Voice Collaboration Status
+          </span>
+          <button
+            className="text-[10px] px-2 ml-auto bg-white/40 rounded hover:bg-white/70 border border-gray-200 text-gray-500"
+            aria-label="Reset position"
+            tabIndex={0}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              resetPosition();
+            }}
+          >
+            Reset
+          </button>
+        </div>
         <CardContent className="flex items-center gap-3 p-4">
           <div
             className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-lg
