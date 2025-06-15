@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
@@ -59,12 +58,7 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
   };
 
   const filteredMenuItems = React.useMemo(() => {
-    console.log('[MatchAnalysisSidebar] Recalculating filtered menu items...');
-    console.log('[MatchAnalysisSidebar] Permissions loading:', permissionsLoading);
-    console.log('[MatchAnalysisSidebar] Permissions object:', permissions);
-
     if (permissionsLoading || !permissions) {
-      console.log('[MatchAnalysisSidebar] Permissions not ready, returning empty menu.');
       return [];
     }
     const filtered = menuItems.filter(item => {
@@ -73,15 +67,9 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
         return true;
       }
       // If permission is required, check if the user has it.
-      const hasPermission = permissions[item.permission];
-      // console.log(`[MatchAnalysisSidebar] Checking permission for "${item.label}": required: ${item.permission}, has: ${hasPermission}`);
-      return hasPermission;
+      return permissions[item.permission];
     });
-
-    console.log('[MatchAnalysisSidebar] All menu items:', menuItems.map(i => ({label: i.label, permission: i.permission})));
-    console.log('[MatchAnalysisSidebar] Final filtered menu items:', filtered.map(i => i.label));
     return filtered;
-
   }, [menuItems, permissions, permissionsLoading]);
 
   if (!user) {

@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | string;
 
@@ -131,8 +131,9 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let channel: RealtimeChannel | null = null;
+
     if (!targetUserId) {
-      console.log('[useUserPermissions] No targetUserId, using guest role.');
       const guestRole: UserRole = 'user';
       setRole(guestRole);
       setPermissions(defaultPermissions[guestRole] || defaultPermissions.default);
@@ -141,12 +142,11 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
     }
 
     const fetchPermissions = async () => {
-      setIsLoading(true);
+      // Don't set loading to true on refetch, to avoid UI flicker
+      // setIsLoading(true); 
       setError(null);
 
       try {
-        console.log(`[useUserPermissions] Fetching permissions for userId: ${targetUserId}`);
-
         // Fetch the user's profile, including role and custom permissions
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -155,32 +155,23 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
           .single();
 
         if (profileError && profileError.code !== 'PGRST116') { // PGRST116: row not found
-          console.error('[useUserPermissions] Error fetching user profile:', profileError);
           throw new Error(`Failed to fetch user profile: ${profileError.message}`);
         }
-
-        console.log('[useUserPermissions] Fetched profile:', profile);
 
         if (profile) {
           const userRole = (profile.role as UserRole) || 'user';
           setRole(userRole);
-          console.log(`[useUserPermissions] User role from profile: ${userRole}`);
 
           const roleDefaults = defaultPermissions[userRole] || defaultPermissions.default;
-          console.log('[useUserPermissions] Defaults for role:', roleDefaults);
 
           // If custom permissions exist, use them. Otherwise, use role defaults.
           if (profile.custom_permissions) {
-            console.log('[useUserPermissions] Found custom permissions:', profile.custom_permissions);
             const finalPermissions = { ...roleDefaults, ...(profile.custom_permissions as unknown as RolePermissions) };
             setPermissions(finalPermissions);
-            console.log('[useUserPermissions] Final merged permissions:', finalPermissions);
           } else {
-            console.log('[useUserPermissions] No custom permissions found, using role defaults.');
             setPermissions(defaultPermissions[userRole] || defaultPermissions.default);
           }
         } else {
-            console.log('[useUserPermissions] No profile found in "profiles" table. Falling back to RPC call for role.');
             // Fallback for users that exist in auth but not in profiles table yet
             const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_role_from_auth', {
                 user_id_param: targetUserId
@@ -188,10 +179,8 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
             if (rpcError) throw new Error(`Failed to fetch user role: ${rpcError.message}`);
             
             const userRole = (rpcData as UserRole) || 'user';
-            console.log(`[useUserPermissions] User role from RPC: ${userRole}`);
             setRole(userRole);
             setPermissions(defaultPermissions[userRole] || defaultPermissions.default);
-            console.log('[useUserPermissions] Permissions from RPC fallback:', defaultPermissions[userRole] || defaultPermissions.default);
         }
 
       } catch (e: any) {
@@ -205,6 +194,35 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
     };
 
     fetchPermissions();
+
+    // Subscribe to real-time updates on the user's profile
+    channel = supabase
+      .channel(`profile-changes-for:${targetUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${targetUserId}`,
+        },
+        (payload) => {
+          console.log('[useUserPermissions] Profile updated in real-time. Refetching permissions.', payload.new);
+          fetchPermissions();
+        }
+      )
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('[useUserPermissions] Realtime subscription failed:', err);
+        }
+      });
+
+    // Cleanup subscription on component unmount
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [targetUserId]);
 
   return { permissions, role, isLoading, error };
