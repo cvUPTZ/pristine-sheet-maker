@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
 import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target, Loader2 } from 'lucide-react';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface Match {
   id: string;
@@ -22,33 +23,36 @@ interface Match {
 
 const Index = () => {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { userRole } = useAuth();
+  const [matchesLoading, setMatchesLoading] = useState(true);
+  const { role: userRole, isLoading: permissionsLoading } = useUserPermissions();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const menuItems = [
-    { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' }
-  ];
-
-  if (userRole === 'admin' || userRole === 'tracker') {
-    menuItems.push({ value: 'new-match', label: 'New Match', icon: Play, path: '/match' });
-  }
-  if (userRole === 'admin' || userRole === 'manager') {
-    menuItems.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
-  }
-  if (userRole === 'admin' || userRole === 'manager' || userRole === 'teacher') {
-    menuItems.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
-  }
-  if (userRole === 'admin' || userRole === 'manager') {
-    menuItems.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
-  }
-  if (userRole === 'admin') {
-    menuItems.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
-  }
+  const menuItems = useMemo(() => {
+    const items = [
+      { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' }
+    ];
+  
+    if (userRole === 'admin' || userRole === 'tracker') {
+      items.push({ value: 'new-match', label: 'New Match', icon: Play, path: '/match' });
+    }
+    if (userRole === 'admin' || userRole === 'manager') {
+      items.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
+    }
+    if (userRole === 'admin' || userRole === 'manager' || userRole === 'teacher') {
+      items.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
+    }
+    if (userRole === 'admin' || userRole === 'manager') {
+      items.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
+    }
+    if (userRole === 'admin') {
+      items.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
+    }
+    return items;
+  }, [userRole]);
 
   const fetchMatches = useCallback(async () => {
-    setLoading(true); // Ensure loading is true at the start of fetch
+    setMatchesLoading(true); // Ensure loading is true at the start of fetch
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -69,7 +73,7 @@ const Index = () => {
     } catch (error) {
       console.error('Error in fetchMatches:', error);
     } finally {
-      setLoading(false);
+      setMatchesLoading(false);
     }
   }, [toast]); // Added toast as it's used inside
 
@@ -91,6 +95,8 @@ const Index = () => {
     }
   };
 
+  const isLoading = matchesLoading || permissionsLoading;
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex w-full">
@@ -102,7 +108,7 @@ const Index = () => {
               <h1 className="text-2xl sm:text-3xl font-bold">Football Matches</h1>
             </div>
             
-            {loading ? (
+            {isLoading ? (
               <div className="flex justify-center items-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               </div>
@@ -158,7 +164,7 @@ const Index = () => {
                   ))}
                 </div>
 
-                {matches.length === 0 && !loading && (
+                {matches.length === 0 && !isLoading && (
                   <Card>
                     <CardContent className="text-center py-6">
                       <p className="text-muted-foreground text-sm sm:text-base">No matches found. Create your first match to get started!</p>

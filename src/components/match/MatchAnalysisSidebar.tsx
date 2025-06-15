@@ -35,8 +35,8 @@ interface MatchAnalysisSidebarProps {
 const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView, menuItems, groupLabel = "Tools" }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut, userRole } = useAuth();
-  const { permissions, isLoading: permissionsLoading } = useUserPermissions();
+  const { user, signOut } = useAuth();
+  const { permissions, role, isLoading: permissionsLoading } = useUserPermissions();
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -119,7 +119,7 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="gap-2">
-                {userRole === 'admin' && (
+                {role === 'admin' && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -151,9 +151,9 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
               <User size={24} className="shrink-0 rounded-full bg-white/10 p-1" />
               <div className="truncate flex-1">
                 <div className="font-semibold truncate" title={user.email || ''}>{user.email}</div>
-                {userRole && (
+                {role && (
                   <Badge variant="secondary" className="text-xs font-medium bg-white/10 text-white border-transparent mt-1">
-                    {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
                   </Badge>
                 )}
               </div>
