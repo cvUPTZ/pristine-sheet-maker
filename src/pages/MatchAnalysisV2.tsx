@@ -408,6 +408,8 @@ const MatchAnalysisV2: React.FC = () => {
           groupLabel="Match Tools"
         />
         <SidebarInset>
+          {/* WRAP THE MAIN MATCH CONTENT WITH THE VOICE PROVIDER */}
+          <VoiceCollaborationProvider>
           <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
             {/* Modern Header */}
             <div className="flex items-center gap-4 mb-8">
@@ -492,6 +494,7 @@ const MatchAnalysisV2: React.FC = () => {
               </Card>
             </div>
           </div>
+          </VoiceCollaborationProvider>
         </SidebarInset>
       </div>
     </SidebarProvider>

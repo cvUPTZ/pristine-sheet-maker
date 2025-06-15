@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
+import { useVoiceCollaborationContext } from '@/context/VoiceCollaborationContext'; // NEW
 import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,19 @@ interface EnhancedVoiceChatProps {
   userId: string;
   userRole: string;
   userName: string;
+  voiceCollabCtx?: ReturnType<typeof useVoiceCollaborationContext>;
 }
 
-export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({ 
+export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
   matchId, 
   userId, 
   userRole, 
-  userName 
+  userName,
+  voiceCollabCtx
 }) => {
+  // Consume the context. If a prop (from VoiceCollaborationWithTest), use it; else useContext (fallback).
+  const ctx = voiceCollabCtx || useVoiceCollaborationContext();
+
   const {
     availableRooms,
     currentRoomId,
@@ -37,7 +42,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
     fetchAvailableRooms,
     moderateMuteParticipant,
     getAudioLevel,
-  } = useNewVoiceCollaboration();
+  } = ctx;
 
   const [allMuted, setAllMuted] = useState(false);
   const lastShownErrorRef = useRef<Error | null>(null);

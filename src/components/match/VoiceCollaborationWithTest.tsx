@@ -5,6 +5,7 @@ import { EnhancedVoiceChat } from '@/components/voice/EnhancedVoiceChat';
 import VoiceAudioTest from '../VoiceAudioTest';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useVoiceCollaborationContext } from '@/context/VoiceCollaborationContext'; // NEW
 
 interface VoiceCollaborationWithTestProps {
   matchId: string;
@@ -18,6 +19,8 @@ const VoiceCollaborationWithTest: React.FC<VoiceCollaborationWithTestProps> = ({
   className = ''
 }) => {
   const { user, userRole, loading: authLoading } = useAuth();
+  // Pull from context to ensure singleton manager
+  const voiceCollabCtx = useVoiceCollaborationContext();
 
   if (authLoading) {
     return (
@@ -46,13 +49,16 @@ const VoiceCollaborationWithTest: React.FC<VoiceCollaborationWithTestProps> = ({
     <div className={`space-y-4 ${className}`}>
       {/* Separate Audio Test Component */}
       <VoiceAudioTest />
-      
-      {/* Main Voice Collaboration */}
+
+      {/* Main Voice Collaboration
+          Hand all context props to EnhancedVoiceChat here  
+       */}
       <EnhancedVoiceChat
         matchId={matchId}
         userId={userId}
         userRole={userRole}
         userName={participantName}
+        voiceCollabCtx={voiceCollabCtx}
       />
     </div>
   );
