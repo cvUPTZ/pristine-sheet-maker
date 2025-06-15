@@ -42,4 +42,3 @@ DROP POLICY IF EXISTS "Users can delete their own flags" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own flag" ON storage.objects;
 CREATE POLICY "Users can delete their own flag" ON storage.objects
   FOR DELETE USING (auth.uid() = owner);
-
