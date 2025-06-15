@@ -60,6 +60,21 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
     }
   }, [fetchAvailableRooms, matchId]);
 
+  // Helper: check if participant metadata implies tracker role
+  function isTrackerParticipant(participant: Participant): boolean {
+    const { metadata, name } = participant;
+    if (!metadata) return false;
+    if (metadata === 'tracker') return true;
+    try {
+      const parsed = JSON.parse(metadata);
+      if (parsed && typeof parsed === 'object' && parsed.role === 'tracker') {
+        return true;
+      }
+    } catch {}
+    if (name && name.toLowerCase().includes('tracker')) return true;
+    return false;
+  }
+
   const handleJoinRoom = async (roomId: string) => {
     await joinRoom(roomId, userId, userRole, userName);
   };
@@ -87,7 +102,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
 
   // Find all tracker participants (excluding self)
   const trackerParticipants = participants.filter(
-    p => !p.isLocal && (p.metadata?.role === 'tracker' || p.metadata === 'tracker' || p.name?.toLowerCase().includes('tracker'))
+    p => !p.isLocal && isTrackerParticipant(p)
   );
 
   // Fix: Mute self button works reliably
@@ -107,7 +122,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
 
     let errors = 0;
     for (const participant of participants) {
-      if (!participant.isLocal && (participant.metadata?.role === 'tracker' || participant.metadata === 'tracker' || participant.name?.toLowerCase().includes('tracker'))) {
+      if (!participant.isLocal && isTrackerParticipant(participant)) {
         const ok = await moderateMuteParticipant(participant.identity, newMuteState);
         if (!ok) errors++;
       }
@@ -270,7 +285,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
                   {participant.isLocal && <Badge variant="secondary" className="mt-1 px-2 py-0.5 text-xs">You</Badge>}
                 
                   {/* Moderation for non-local tracker participants only */}
-                  {canModerate && !participant.isLocal && (
+                  {canModerate && !participant.isLocal && isTrackerParticipant(participant) && (
                     <Button
                       onClick={() => moderateMuteParticipant(participant.identity, !isMuted)}
                       variant="ghost"
