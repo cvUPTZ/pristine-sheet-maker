@@ -14,14 +14,16 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
+import { useUserPermissions, RolePermissions } from '@/hooks/useUserPermissions';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, User, Shield } from 'lucide-react';
+import { LogOut, User, Shield, Loader2 } from 'lucide-react';
 
 interface MenuItem {
   value: string;
   label: string;
   icon: React.ElementType;
   path?: string;
+  permission?: keyof RolePermissions;
 }
 
 interface MatchAnalysisSidebarProps {
@@ -35,6 +37,7 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut, userRole } = useAuth();
+  const { permissions, isLoading: permissionsLoading } = useUserPermissions();
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -55,6 +58,20 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
     return activeView === item.value;
   };
 
+  const filteredMenuItems = React.useMemo(() => {
+    if (permissionsLoading || !permissions) {
+      return [];
+    }
+    return menuItems.filter(item => {
+      // If no permission is required, show the item.
+      if (!item.permission) {
+        return true;
+      }
+      // If permission is required, check if the user has it.
+      return permissions[item.permission];
+    });
+  }, [menuItems, permissions, permissionsLoading]);
+
   if (!user) {
     return null;
   }
@@ -71,26 +88,32 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel className="!text-gray-300">{groupLabel}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-2">
-                {menuItems.map((item) => (
-                  <SidebarMenuItem key={item.value}>
-                    <SidebarMenuButton
-                      onClick={() => handleItemClick(item)}
-                      isActive={isItemActive(item)}
-                      tooltip={item.label}
-                      className="h-10 justify-start group-data-[state=collapsed]:justify-center !bg-transparent text-white hover:!bg-white/10 data-[active=true]:!bg-white/20"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {permissionsLoading ? (
+            <div className="flex justify-center items-center h-full p-4">
+              <Loader2 className="h-5 w-5 animate-spin text-white" />
+            </div>
+          ) : (
+            <SidebarGroup>
+              <SidebarGroupLabel className="!text-gray-300">{groupLabel}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-2">
+                  {filteredMenuItems.map((item) => (
+                    <SidebarMenuItem key={item.value}>
+                      <SidebarMenuButton
+                        onClick={() => handleItemClick(item)}
+                        isActive={isItemActive(item)}
+                        tooltip={item.label}
+                        className="h-10 justify-start group-data-[state=collapsed]:justify-center !bg-transparent text-white hover:!bg-white/10 data-[active=true]:!bg-white/20"
+                      >
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
         </SidebarContent>
         <SidebarFooter className="mt-auto border-t border-white/10 bg-black/10 p-2">
           <SidebarGroup>
