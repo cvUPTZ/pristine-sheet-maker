@@ -59,17 +59,29 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
   };
 
   const filteredMenuItems = React.useMemo(() => {
+    console.log('[MatchAnalysisSidebar] Recalculating filtered menu items...');
+    console.log('[MatchAnalysisSidebar] Permissions loading:', permissionsLoading);
+    console.log('[MatchAnalysisSidebar] Permissions object:', permissions);
+
     if (permissionsLoading || !permissions) {
+      console.log('[MatchAnalysisSidebar] Permissions not ready, returning empty menu.');
       return [];
     }
-    return menuItems.filter(item => {
+    const filtered = menuItems.filter(item => {
       // If no permission is required, show the item.
       if (!item.permission) {
         return true;
       }
       // If permission is required, check if the user has it.
-      return permissions[item.permission];
+      const hasPermission = permissions[item.permission];
+      // console.log(`[MatchAnalysisSidebar] Checking permission for "${item.label}": required: ${item.permission}, has: ${hasPermission}`);
+      return hasPermission;
     });
+
+    console.log('[MatchAnalysisSidebar] All menu items:', menuItems.map(i => ({label: i.label, permission: i.permission})));
+    console.log('[MatchAnalysisSidebar] Final filtered menu items:', filtered.map(i => i.label));
+    return filtered;
+
   }, [menuItems, permissions, permissionsLoading]);
 
   if (!user) {
