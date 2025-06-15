@@ -262,7 +262,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     <div className="space-y-2 p-1 sm:p-2">
       {recentEvents.length > 0 && (
         <Card className="my-2 bg-white/60 backdrop-blur-xl border-slate-200/80 shadow-lg rounded-xl overflow-hidden transition-all animate-fade-in">
-          <CardHeader className="pb-3 border-b border-slate-200/80 bg-slate-50/30">
+          <CardHeader className="pb-3 border-b border-slate-200/80 bg-slate-80/50">
             <CardTitle className="text-base text-slate-800">Recent Events (Click to Cancel)</CardTitle>
           </CardHeader>
           <CardContent className="p-3">
