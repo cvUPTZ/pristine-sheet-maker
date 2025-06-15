@@ -142,25 +142,43 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
     const fetchPermissions = async () => {
       setIsLoading(true);
       setError(null);
-      setPermissions(null);
-      setRole(null);
 
       try {
-        // Use the new function to get user role from auth metadata
-        const { data, error: roleError } = await supabase.rpc('get_user_role_from_auth', {
-          user_id_param: targetUserId
-        });
+        // Fetch the user's profile, including role and custom permissions
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, custom_permissions')
+          .eq('id', targetUserId)
+          .single();
 
-        if (roleError) {
-          console.error('Error fetching user role for permissions:', roleError);
-          throw new Error(`Failed to fetch user role: ${roleError.message}`);
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: row not found
+          console.error('Error fetching user profile for permissions:', profileError);
+          throw new Error(`Failed to fetch user profile: ${profileError.message}`);
         }
 
-        const userRole = (data as UserRole) || 'user';
-        setRole(userRole);
+        if (profile) {
+          const userRole = (profile.role as UserRole) || 'user';
+          setRole(userRole);
 
-        const roleSpecificPermissions = defaultPermissions[userRole] || defaultPermissions.default;
-        setPermissions(roleSpecificPermissions);
+          // If custom permissions exist, use them. Otherwise, use role defaults.
+          if (profile.custom_permissions) {
+            const roleDefaults = defaultPermissions[userRole] || defaultPermissions.default;
+            const finalPermissions = { ...roleDefaults, ...(profile.custom_permissions as RolePermissions) };
+            setPermissions(finalPermissions);
+          } else {
+            setPermissions(defaultPermissions[userRole] || defaultPermissions.default);
+          }
+        } else {
+            // Fallback for users that exist in auth but not in profiles table yet
+            const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_role_from_auth', {
+                user_id_param: targetUserId
+            });
+            if (rpcError) throw new Error(`Failed to fetch user role: ${rpcError.message}`);
+            
+            const userRole = (rpcData as UserRole) || 'user';
+            setRole(userRole);
+            setPermissions(defaultPermissions[userRole] || defaultPermissions.default);
+        }
 
       } catch (e: any) {
         console.error('useUserPermissions error:', e);

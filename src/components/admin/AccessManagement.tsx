@@ -19,6 +19,10 @@ interface RolePermissions {
   analytics: boolean;
   ballTracking: boolean;
   liveEvents: boolean;
+  dashboard: boolean;
+  matchManagement: boolean;
+  timerControl: boolean;
+  reportGeneration: boolean;
 }
 
 interface UserProfile {
@@ -28,64 +32,17 @@ interface UserProfile {
   role: string | null;
   created_at: string;
   updated_at: string | null;
+  custom_permissions: RolePermissions | null;
   effective_permissions?: RolePermissions;
 }
 
 const defaultPermissions: Record<UserRole, RolePermissions> = {
-  admin: {
-    pitchView: true,
-    pianoInput: true,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: true,
-    liveEvents: true,
-  },
-  manager: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: false,
-    liveEvents: false,
-  },
-  tracker: {
-    pitchView: false,
-    pianoInput: true,
-    statistics: false,
-    timeline: false,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-  },
-  teacher: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: false,
-    liveEvents: false,
-  },
-  user: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-  },
-  viewer: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-  },
+  admin: { pitchView: true, pianoInput: true, statistics: true, timeline: true, analytics: true, ballTracking: true, liveEvents: true, dashboard: true, matchManagement: true, timerControl: true, reportGeneration: true },
+  manager: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: true, timerControl: false, reportGeneration: true },
+  tracker: { pitchView: false, pianoInput: true, statistics: false, timeline: false, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
+  teacher: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
+  user: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
+  viewer: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
 };
 
 const AccessManagement: React.FC = () => {
@@ -105,10 +62,9 @@ const AccessManagement: React.FC = () => {
     try {
       setError(null);
       
-      // Query the profiles table directly with available columns
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, role, created_at, updated_at')
+        .select('id, email, full_name, role, created_at, updated_at, custom_permissions')
         .order('email');
 
       if (error) throw error;
@@ -122,10 +78,15 @@ const AccessManagement: React.FC = () => {
         const userRole = (user.role || 'user') as UserRole;
         const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
         
+        const effective_permissions = user.custom_permissions 
+          ? { ...roleDefaults, ...(user.custom_permissions as RolePermissions) }
+          : roleDefaults;
+        
         return {
           ...user,
           role: user.role || 'user',
-          effective_permissions: roleDefaults
+          custom_permissions: (user.custom_permissions as RolePermissions) || null,
+          effective_permissions: effective_permissions
         };
       });
 
@@ -141,9 +102,10 @@ const AccessManagement: React.FC = () => {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
+      // When changing role, reset custom permissions to inherit new role's defaults
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role: newRole, custom_permissions: null })
         .eq('id', userId);
 
       if (error) throw error;
@@ -155,13 +117,19 @@ const AccessManagement: React.FC = () => {
           return { 
             ...user, 
             role: newRole,
+            custom_permissions: null,
             effective_permissions: newRolePermissions
           };
         }
         return user;
       }));
+      
+      if (selectedUser === userId) {
+        setPermissions(defaultPermissions[newRole]);
+        setHasUnsavedChanges(false);
+      }
 
-      toast.success('User role updated successfully');
+      toast.success('User role updated. Custom permissions reset to new role defaults.');
     } catch (error) {
       console.error('Error updating user role:', error);
       toast.error('Failed to update user role');
@@ -171,22 +139,26 @@ const AccessManagement: React.FC = () => {
   const savePermissions = async (userId: string, newPermissions: RolePermissions) => {
     setSaving(true);
     try {
-      // For now, we'll just store this in local state since custom_permissions column doesn't exist
-      // In a real implementation, you'd need to add this column to the database
-      console.log('Would save permissions for user:', userId, newPermissions);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ custom_permissions: newPermissions })
+        .eq('id', userId);
+
+      if (error) throw error;
 
       // Update local state
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { 
               ...user, 
-              effective_permissions: newPermissions
+              custom_permissions: newPermissions,
+              effective_permissions: newPermissions,
             }
           : user
       ));
 
       setHasUnsavedChanges(false);
-      toast.success('Permissions updated (note: custom permissions require database setup)');
+      toast.success('Custom permissions saved successfully!');
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast.error('Failed to save permissions');
@@ -201,6 +173,14 @@ const AccessManagement: React.FC = () => {
 
     setSaving(true);
     try {
+      // To reset, we set custom_permissions to NULL in the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ custom_permissions: null })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
       const userRole = (user.role || 'user') as UserRole;
       const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
       
@@ -209,6 +189,7 @@ const AccessManagement: React.FC = () => {
         u.id === userId 
           ? { 
               ...u, 
+              custom_permissions: null,
               effective_permissions: roleDefaults
             }
           : u
@@ -362,7 +343,7 @@ const AccessManagement: React.FC = () => {
                 
                 <Button
                   onClick={() => resetToRoleDefaults(selectedUser)}
-                  disabled={saving}
+                  disabled={saving || !selectedUserData.custom_permissions}
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-2"
@@ -381,7 +362,10 @@ const AccessManagement: React.FC = () => {
                   }
                 </p>
                 <p className="text-gray-600">
-                  Role: {selectedUserData.role || 'user'} | Using {selectedUserData.role || 'user'} role default permissions
+                  Role: {selectedUserData.role || 'user'} | 
+                  <span className={selectedUserData.custom_permissions ? 'text-purple-600 font-semibold' : ''}>
+                    {selectedUserData.custom_permissions ? ' Using Custom Permissions' : ' Using Role Defaults'}
+                  </span>
                 </p>
               </div>
 
@@ -430,9 +414,13 @@ const getPermissionDescription = (permission: keyof RolePermissions): string => 
     analytics: 'View advanced analytics and data visualizations',
     ballTracking: 'Track ball movement and positioning data',
     liveEvents: 'View real-time match events and updates',
+    dashboard: 'Access to the main dashboard view',
+    matchManagement: 'Create, edit, and delete matches',
+    timerControl: 'Control the match timer (start, stop, pause)',
+    reportGeneration: 'Generate and download match reports',
   };
   
-  return descriptions[permission] || '';
+  return descriptions[permission] || 'No description available.';
 };
 
 export default AccessManagement;
