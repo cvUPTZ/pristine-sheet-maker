@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { NewVoiceChatManager } from '@/services/NewVoiceChatManager';
 import { Participant, ConnectionState } from 'livekit-client';
@@ -43,8 +42,22 @@ export const useNewVoiceCollaboration = (): UseNewVoiceCollaborationReturn => {
   useEffect(() => {
     manager.onParticipantsChanged = (newParticipants: Participant[]) => {
       console.log('[useNewVoiceCollaboration] Participants updated:', newParticipants.length);
-      setParticipants(newParticipants);
-      setLocalParticipant(manager.getLocalParticipant());
+      // Always provide new object refs for participants
+      // Shallow copy each participant object
+      const cloned = newParticipants.map(p =>
+        Object.assign(
+          Object.create(Object.getPrototypeOf(p)),
+          p
+        )
+      );
+      setParticipants(cloned);
+      setLocalParticipant(manager.getLocalParticipant()
+        ? Object.assign(
+            Object.create(Object.getPrototypeOf(manager.getLocalParticipant()!)),
+            manager.getLocalParticipant()!
+          )
+        : null
+      );
     };
 
     manager.onConnectionStateChanged = (state: ConnectionState) => {
