@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,10 +54,32 @@ import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventT
 import { aggregateMatchEvents, AggregatedStats } from '@/lib/analytics/eventAggregator'; // AggregatedStats import
 import { segmentEventsByTime } from '@/lib/analytics/timeSegmenter';
 import { aggregateStatsForSegments } from '@/lib/analytics/timeSegmentedStatsAggregator';
+import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 
 const Statistics = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { hasPermission, isLoading: permissionsLoading, role } = usePermissionChecker();
+
+  // Display access denied if user does NOT have statistics permission.
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="text-lg font-medium">Checking permissions...</span>
+      </div>
+    );
+  }
+  if (!hasPermission('statistics')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+        <p className="text-gray-600">You don't have permission to access this page.</p>
+        <p className="text-gray-600">Required permission: <span className="font-mono">statistics</span></p>
+        <p className="text-gray-600">Your role: {role || 'none'}</p>
+      </div>
+    );
+  }
+
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [selectedMatchFullData, setSelectedMatchFullData] = useState<any>(null);
