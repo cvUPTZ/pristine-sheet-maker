@@ -561,6 +561,19 @@ const Statistics = () => {
     }
   };
 
+  // --- new addition: fallback for no matches or no data ---
+  if (!loading && (!matches || matches.length === 0)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">No Matches Available</h1>
+          <p className="text-gray-600">No matches found. Please create a match to view statistics.</p>
+        </div>
+      </div>
+    );
+  }
+  // --- end addition ---
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -575,6 +588,24 @@ const Statistics = () => {
       </div>
     );
   }
+
+  // --- new addition: fallback for fetching fullData error or delay ---
+  // If matches exist but selectedMatchFullData is still not available after loading, show a consistent placeholder.
+  if (!loading && matches.length > 0 && !selectedMatchFullData) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Match Statistics</h1>
+        </div>
+        <div className="text-center py-8">Please select a match to view analytics.</div>
+      </div>
+    );
+  }
+  // --- end addition ---
 
   return (
     <SidebarProvider>
@@ -605,8 +636,8 @@ const Statistics = () => {
                 <SelectContent>
                   {matches.map((match) => (
                     <SelectItem key={match.id} value={match.id}>
-                      {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                      {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
+                      {(match.name || `${match.home_team_name} vs ${match.away_team_name}`) +
+                        (match.match_date ? ` - ${new Date(match.match_date).toLocaleDateString()}` : '')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -621,9 +652,9 @@ const Statistics = () => {
                   <CardHeader className="relative z-10">
                     <CardTitle>{selectedMatchFullData.name || `${selectedMatchFullData.home_team_name} vs ${selectedMatchFullData.away_team_name}`}</CardTitle>
                     <CardDescription className="text-gray-200">
-                      {selectedMatchFullData.match_date && `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}`}
-                      {selectedMatchFullData.status && ` • Status: ${selectedMatchFullData.status}`}
-                      {` • ${events.length} events recorded`}
+                      {(selectedMatchFullData.match_date ? `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}` : "") +
+                        (selectedMatchFullData.status ? ` • Status: ${selectedMatchFullData.status}` : "") +
+                        ` • ${events.length} events recorded`}
                     </CardDescription>
                   </CardHeader>
                 </Card>
