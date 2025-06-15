@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,10 +30,22 @@ const Index = () => {
     isAdmin,
     isTracker,
     hasManagerAccess,
-    hasTeacherAccess
+    hasTeacherAccess,
+    permissions,
+    role
   } = usePermissionChecker();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Debug logging
+  console.log('Index component - permissions state:', {
+    permissionsLoading,
+    permissions,
+    role,
+    hasStatistics: hasPermission('statistics'),
+    hasAnalytics: hasPermission('analytics'),
+    hasMatchManagement: hasPermission('matchManagement')
+  });
 
   const menuItems = useMemo(() => {
     const items = [
@@ -96,9 +107,11 @@ const Index = () => {
         permission: 'dashboard' as const
       });
     }
+
+    console.log('Menu items generated:', items);
     
     return items;
-  }, [hasPermission, isAdmin, hasManagerAccess, hasTeacherAccess]);
+  }, [hasPermission, isAdmin, hasManagerAccess, hasTeacherAccess, permissions, role]);
 
   const fetchMatches = useCallback(async () => {
     setMatchesLoading(true);

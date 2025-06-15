@@ -72,9 +72,11 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({
       if (!item.permission) {
         return true;
       }
-      return hasPermission(item.permission);
+      const hasAccess = hasPermission(item.permission);
+      console.log(`Permission check for ${item.label}: ${item.permission} = ${hasAccess}`, { permissions, role });
+      return hasAccess;
     });
-  }, [menuItems, permissions, isLoading, hasPermission]);
+  }, [menuItems, permissions, isLoading, hasPermission, role]);
 
   if (!user) {
     return null;
