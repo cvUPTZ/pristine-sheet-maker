@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -41,7 +42,16 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   name,
   status,
 }) => {
+  // Add internal state to control image load status for fallback
+  const [homeFlagError, setHomeFlagError] = useState(false);
+  const [awayFlagError, setAwayFlagError] = useState(false);
+
   console.log("MatchHeader props:", { homeTeam, awayTeam });
+  console.log("Flag image URLs:", {
+    home: homeTeam.flagUrl,
+    away: awayTeam.flagUrl,
+  });
+
   const homeColor = generateColorFromString(homeTeam.name);
   const awayColor = generateColorFromString(awayTeam.name);
 
@@ -54,16 +64,21 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
       <CardContent className="relative p-4 sm:p-5">
         <div className="flex justify-between items-center">
+          {/* Home Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              <AvatarImage 
-                src={homeTeam.flagUrl || ''} 
-                alt={`${homeTeam.name} flag`}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-white/20 text-white">
-                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-              </AvatarFallback>
+              {homeTeam.flagUrl && !homeFlagError ? (
+                <AvatarImage 
+                  src={homeTeam.flagUrl} 
+                  alt={`${homeTeam.name} flag`}
+                  className="object-cover"
+                  onError={() => setHomeFlagError(true)}
+                />
+              ) : (
+                <AvatarFallback className="bg-white/20 text-white">
+                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
@@ -85,20 +100,25 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
             )}
           </div>
 
+          {/* Away Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-right justify-end">
             <div>
               <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>{awayTeam.name}</h2>
               <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
             </div>
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              <AvatarImage 
-                src={awayTeam.flagUrl || ''} 
-                alt={`${awayTeam.name} flag`}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-white/20 text-white">
-                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-              </AvatarFallback>
+              {awayTeam.flagUrl && !awayFlagError ? (
+                <AvatarImage 
+                  src={awayTeam.flagUrl} 
+                  alt={`${awayTeam.name} flag`}
+                  className="object-cover"
+                  onError={() => setAwayFlagError(true)}
+                />
+              ) : (
+                <AvatarFallback className="bg-white/20 text-white">
+                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                </AvatarFallback>
+              )}
             </Avatar>
           </div>
         </div>
