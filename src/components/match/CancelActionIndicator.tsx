@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { EventType } from '@/types';
 
@@ -18,23 +18,31 @@ const CancelActionIndicator: React.FC<CancelActionIndicatorProps> = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isExpired, setIsExpired] = useState(false);
+  const hasExpiredCalledRef = useRef(false);
 
   useEffect(() => {
+    if (isExpired) return;
+
     const interval = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 100) {
+        const next = prev - 100;
+        if (next <= 0 && !hasExpiredCalledRef.current) {
+          hasExpiredCalledRef.current = true;
           setIsExpired(true);
           onExpire();
+          clearInterval(interval);
           return 0;
         }
-        return prev - 100;
+        return next > 0 ? next : 0;
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [onExpire]);
+    // Don't include onExpire in deps to avoid effect loop
+    // eslint-disable-next-line
+  }, [isExpired]);
 
-  const progress = (timeLeft / duration) * 100;
+  const progress = Math.max(0, (timeLeft / duration) * 100);
   const circumference = 2 * Math.PI * 18;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
@@ -60,13 +68,14 @@ const CancelActionIndicator: React.FC<CancelActionIndicatorProps> = ({
           strokeWidth="2"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          className="transition-all duration-100 ease-linear"
+          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
         />
       </svg>
       <button
         onClick={onCancel}
         className="relative z-10 flex items-center justify-center w-6 h-6 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
         title={`Cancel ${eventType} event`}
+        disabled={isExpired}
       >
         <X size={12} />
       </button>
