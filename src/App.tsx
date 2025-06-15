@@ -1,4 +1,5 @@
 // src/App.tsx
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,12 +21,12 @@ import ProfileListPage from './pages/Admin/ProfileListPage';
 import TrackerInterface from "./pages/TrackerInterface";
 import LandingPage from "./pages/LandingPage";
 import MatchTimerPage from "./pages/MatchTimerPage";
-import VideoAnalysis from "./pages/VideoAnalysis"; // The job-based one
-import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer'; // New Direct Analyzer
+import VideoAnalysis from "./pages/VideoAnalysis";
+import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer';
 import Settings from "./pages/Settings";
 import NewVoiceChatPage from '@/pages/NewVoiceChatPage'; 
 import Header from "./components/Header";
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,7 +45,7 @@ interface MatchPayload {
   [key: string]: any;
 }
 
-const AppContent = () => {
+const AppContent: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -164,7 +165,7 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
+const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
