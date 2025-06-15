@@ -61,7 +61,13 @@ const Dashboard = () => {
     hasPermission('statistics')
   ) {
     if (!menuItems.some(item => item.value === 'statistics')) {
-      menuItems.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
+      menuItems.push({
+        value: 'statistics',
+        label: 'Statistics',
+        icon: BarChart3,
+        path: '/statistics',
+        permission: 'statistics'
+      });
     }
   }
   if (userRole === 'admin' || userRole === 'manager') {
