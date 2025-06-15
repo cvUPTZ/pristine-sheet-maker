@@ -54,7 +54,7 @@ const Index = () => {
         label: 'Dashboard', 
         icon: LayoutDashboard, 
         path: '/',
-        permission: 'dashboard' as const
+        permission: 'dashboard'
       }
     ];
   
@@ -64,7 +64,7 @@ const Index = () => {
         label: 'New Match', 
         icon: Play, 
         path: '/match',
-        permission: 'matchManagement' as const
+        permission: 'matchManagement'
       });
     }
     
@@ -74,7 +74,7 @@ const Index = () => {
         label: 'Match History', 
         icon: Calendar, 
         path: '/matches',
-        permission: 'dashboard' as const
+        permission: 'dashboard'
       });
     }
     
@@ -84,7 +84,7 @@ const Index = () => {
         label: 'Statistics', 
         icon: BarChart3, 
         path: '/statistics',
-        permission: 'statistics' as const
+        permission: 'statistics'
       });
     }
     
@@ -94,7 +94,7 @@ const Index = () => {
         label: 'Analytics', 
         icon: TrendingUp, 
         path: '/analytics',
-        permission: 'analytics' as const
+        permission: 'analytics'
       });
     }
     
@@ -104,7 +104,7 @@ const Index = () => {
         label: 'Admin Panel', 
         icon: Target, 
         path: '/admin',
-        permission: 'dashboard' as const
+        permission: 'dashboard'
       });
     }
 
