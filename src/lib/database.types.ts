@@ -143,6 +143,7 @@ export type Database = {
           role: string | null;
           created_at: string;
           updated_at: string | null;
+          custom_permissions: Json | null;
         };
         Insert: {
           id: string;
@@ -151,6 +152,7 @@ export type Database = {
           role?: string | null;
           created_at?: string;
           updated_at?: string | null;
+          custom_permissions?: Json | null;
         };
         Update: {
           id?: string;
@@ -159,6 +161,7 @@ export type Database = {
           role?: string | null;
           created_at?: string;
           updated_at?: string | null;
+          custom_permissions?: Json | null;
         };
         Relationships: [];
       };
