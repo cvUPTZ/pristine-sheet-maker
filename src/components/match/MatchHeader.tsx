@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -63,11 +62,9 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
                   className="object-cover"
                 />
               )}
-              {!homeTeam.flagUrl && (
-                <AvatarFallback className="bg-white/20 text-white">
-                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-                </AvatarFallback>
-              )}
+              <AvatarFallback className="bg-white/20 text-white">
+                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+              </AvatarFallback>
             </Avatar>
             <div>
               <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
@@ -102,11 +99,9 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
                   className="object-cover"
                 />
               )}
-              {!awayTeam.flagUrl && (
-                <AvatarFallback className="bg-white/20 text-white">
-                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-                </AvatarFallback>
-              )}
+              <AvatarFallback className="bg-white/20 text-white">
+                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+              </AvatarFallback>
             </Avatar>
           </div>
         </div>
