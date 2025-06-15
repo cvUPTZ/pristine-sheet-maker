@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Flag } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TeamHeaderData {
   name: string;
@@ -23,6 +24,7 @@ interface MatchHeaderProps {
   userRole?: string | null;
   onToggleTracking?: () => void;
   onSave?: () => void;
+  matchId?: string;
 }
 
 // Helper function to generate a vibrant color from a string
@@ -41,15 +43,56 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   awayTeam,
   name,
   status,
+  matchId,
 }) => {
   // Add internal state to control image load status for fallback
   const [homeFlagError, setHomeFlagError] = useState(false);
   const [awayFlagError, setAwayFlagError] = useState(false);
+  const [teamFlags, setTeamFlags] = useState<{
+    homeTeamFlagUrl?: string | null;
+    awayTeamFlagUrl?: string | null;
+  }>({});
+
+  // Fetch flag URLs from database when matchId is provided
+  useEffect(() => {
+    const fetchFlagUrls = async () => {
+      if (!matchId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('matches')
+          .select('home_team_flag_url, away_team_flag_url')
+          .eq('id', matchId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching flag URLs:', error);
+          return;
+        }
+
+        if (data) {
+          console.log('Fetched flag URLs from database:', data);
+          setTeamFlags({
+            homeTeamFlagUrl: data.home_team_flag_url,
+            awayTeamFlagUrl: data.away_team_flag_url,
+          });
+        }
+      } catch (error) {
+        console.error('Error in fetchFlagUrls:', error);
+      }
+    };
+
+    fetchFlagUrls();
+  }, [matchId]);
+
+  // Use database flag URLs if available, otherwise fall back to props
+  const homeFlagUrl = teamFlags.homeTeamFlagUrl || homeTeam.flagUrl;
+  const awayFlagUrl = teamFlags.awayTeamFlagUrl || awayTeam.flagUrl;
 
   console.log("MatchHeader props:", { homeTeam, awayTeam });
   console.log("Flag image URLs:", {
-    home: homeTeam.flagUrl,
-    away: awayTeam.flagUrl,
+    home: homeFlagUrl,
+    away: awayFlagUrl,
   });
 
   const homeColor = generateColorFromString(homeTeam.name);
@@ -67,9 +110,9 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
           {/* Home Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {homeTeam.flagUrl && !homeFlagError ? (
+              {homeFlagUrl && !homeFlagError ? (
                 <AvatarImage 
-                  src={homeTeam.flagUrl} 
+                  src={homeFlagUrl} 
                   alt={`${homeTeam.name} flag`}
                   className="object-cover"
                   onError={() => setHomeFlagError(true)}
@@ -107,9 +150,9 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
             </div>
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {awayTeam.flagUrl && !awayFlagError ? (
+              {awayFlagUrl && !awayFlagError ? (
                 <AvatarImage 
-                  src={awayTeam.flagUrl} 
+                  src={awayFlagUrl} 
                   alt={`${awayTeam.name} flag`}
                   className="object-cover"
                   onError={() => setAwayFlagError(true)}
