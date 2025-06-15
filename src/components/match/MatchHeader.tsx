@@ -56,16 +56,18 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         <div className="flex justify-between items-center">
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {homeTeam.flagUrl ? (
+              {homeTeam.flagUrl && (
                 <AvatarImage 
                   src={homeTeam.flagUrl} 
                   alt={`${homeTeam.name} flag`}
                   className="object-cover"
                 />
-              ) : null}
-              <AvatarFallback className="bg-white/20 text-white">
-                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-              </AvatarFallback>
+              )}
+              {!homeTeam.flagUrl && (
+                <AvatarFallback className="bg-white/20 text-white">
+                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
@@ -93,16 +95,18 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
             </div>
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {awayTeam.flagUrl ? (
+              {awayTeam.flagUrl && (
                 <AvatarImage 
                   src={awayTeam.flagUrl} 
                   alt={`${awayTeam.name} flag`}
                   className="object-cover"
                 />
-              ) : null}
-              <AvatarFallback className="bg-white/20 text-white">
-                <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
-              </AvatarFallback>
+              )}
+              {!awayTeam.flagUrl && (
+                <AvatarFallback className="bg-white/20 text-white">
+                  <Flag className="h-5 w-5 sm:h-6 sm:w-6" />
+                </AvatarFallback>
+              )}
             </Avatar>
           </div>
         </div>
