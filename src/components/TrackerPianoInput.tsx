@@ -279,7 +279,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
           </CardContent>
         </Card>
       )}
-
+{/* 
       <AnimatePresence>
         {selectedPlayer && (
           <motion.div initial={{ opacity: 0, y: -16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16, scale: 0.97 }} transition={{ duration: 0.25 }}>
@@ -306,7 +306,7 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
             </Card>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence> */}
 
       {/* <AnimatePresence>
         {lastRecordedEvent && (
