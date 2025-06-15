@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React from 'react';
 console.log("React version:", React.version);
@@ -148,11 +149,7 @@ const AppContent: React.FC = () => {
         <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
         <Route path="/matches" element={<RequireAuth requiredRoles={['admin', 'manager']}><Matches /></RequireAuth>} />
-        <Route path="/statistics" element={
-          <RequireAuth>
-            <Statistics />
-          </RequireAuth>
-        } />
+        <Route path="/statistics" element={<RequireAuth requiredRoles={['admin', 'manager']}><Statistics /></RequireAuth>} />
         <Route path="/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
         <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
@@ -188,3 +185,4 @@ const App: React.FC = () => (
 );
 
 export default App;
+
