@@ -44,35 +44,34 @@ const Dashboard = () => {
 
   const cardStyle = "bg-white/60 backdrop-blur-lg border-slate-200/80 shadow-lg hover:shadow-xl rounded-2xl transition-all transform hover:-translate-y-1";
 
+  // Sidebar menu items are only generated based on permissions, not roles!
   const menuItems = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' }
   ];
 
-  if (userRole === 'admin' || userRole === 'tracker') {
+  // New Match visible if user has matchManagement permission
+  if (hasPermission('matchManagement')) {
     menuItems.push({ value: 'new-match', label: 'New Match', icon: Play, path: '/match' });
   }
-  if (userRole === 'admin' || userRole === 'manager') {
+  // Match History visible if user has dashboard permission (to keep demo similar to original logic)
+  if (hasPermission('dashboard')) {
     menuItems.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
   }
-  if (
-    userRole === 'admin' ||
-    userRole === 'manager' ||
-    userRole === 'teacher' ||
-    hasPermission('statistics')
-  ) {
-    if (!menuItems.some(item => item.value === 'statistics')) {
-      menuItems.push({
-        value: 'statistics',
-        label: 'Statistics',
-        icon: BarChart3,
-        path: '/statistics'
-      });
-    }
+  // Statistics link is now ONLY shown if user has been granted 'statistics' permission in AccessManagement
+  if (hasPermission('statistics')) {
+    menuItems.push({
+      value: 'statistics',
+      label: 'Statistics',
+      icon: BarChart3,
+      path: '/statistics'
+    });
   }
-  if (userRole === 'admin' || userRole === 'manager') {
+  // Analytics shown if user has analytics permission
+  if (hasPermission('analytics')) {
     menuItems.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
   }
-  if (userRole === 'admin') {
+  // Admin panel if user has dashboard permission (typical for admins only)
+  if (hasPermission('dashboard') && userRole === 'admin') {
     menuItems.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
   }
 
