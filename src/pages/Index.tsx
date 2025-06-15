@@ -23,20 +23,28 @@ interface Match {
   created_at: string | null;
 }
 
-const Index = () => {
+const Index: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
+  
+  // Add error boundary for permission checker
+  const permissionChecker = usePermissionChecker();
   const { 
     isLoading: permissionsLoading, 
     hasPermission,
     permissions,
     role
-  } = usePermissionChecker();
+  } = permissionChecker || {
+    isLoading: true,
+    hasPermission: () => false,
+    permissions: null,
+    role: null
+  };
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   const menuItems = useMenuItems();
 
-  // Debug logging
   console.log('Index component - permissions state:', {
     permissionsLoading,
     permissions,
