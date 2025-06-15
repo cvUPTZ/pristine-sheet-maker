@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -33,6 +34,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus'; 
+import { ThemeProvider } from "next-themes"; // <-- ADD THIS LINE
 
 const queryClient = new QueryClient();
 
@@ -166,17 +168,20 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
+
