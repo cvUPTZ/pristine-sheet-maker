@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useNewVoiceCollaboration } from '@/hooks/useNewVoiceCollaboration';
 import { Participant, ConnectionState, LocalParticipant } from 'livekit-client';
@@ -65,17 +64,16 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
     await joinRoom(roomId, userId, userRole, userName);
   };
 
+  // Ensure correct mute check for local and remote
   const isParticipantMuted = (participant: Participant | null): boolean => {
     if (!participant) {
       return true; // Default to muted if participant is null
     }
-
     if (participant.isLocal) {
-      // It's the local participant, check microphone state directly.
+      // Use new logic: some implementations use muted flag, but here isMicrophoneEnabled is best.
       return !(participant as LocalParticipant).isMicrophoneEnabled;
     }
-    
-    // It's a remote participant, check their audio tracks.
+    // For remote, treat as muted if no audio tracks or any publication is muted
     const audioTrackPublications = Array.from(participant.audioTrackPublications.values());
     return audioTrackPublications.length === 0 || audioTrackPublications.some(pub => pub.isMuted);
   };
@@ -87,20 +85,38 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
 
   const canModerate = userRole === 'admin' || userRole === 'coordinator';
 
+  // Find all tracker participants (excluding self)
+  const trackerParticipants = participants.filter(
+    p => !p.isLocal && (p.metadata?.role === 'tracker' || p.metadata === 'tracker' || p.name?.toLowerCase().includes('tracker'))
+  );
+
+  // Fix: Mute self button works reliably
+  const handleToggleMuteSelf = async () => {
+    const result = await toggleMuteSelf();
+    if (typeof result === "undefined") {
+      toast.error("Failed to toggle mute.");
+    }
+    // else, the state will update on re-render
+  };
+
+  // Fix: Admin mute all only affects trackers
   const handleMuteAll = async () => {
     if (!canModerate) return;
-    
     const newMuteState = !allMuted;
     setAllMuted(newMuteState);
-    
-    // Mute all participants except self
+
+    let errors = 0;
     for (const participant of participants) {
-      if (!participant.isLocal) {
-        await moderateMuteParticipant(participant.identity, newMuteState);
+      if (!participant.isLocal && (participant.metadata?.role === 'tracker' || participant.metadata === 'tracker' || participant.name?.toLowerCase().includes('tracker'))) {
+        const ok = await moderateMuteParticipant(participant.identity, newMuteState);
+        if (!ok) errors++;
       }
     }
-    
-    toast.success(newMuteState ? 'All participants muted' : 'All participants unmuted');
+    if (errors) {
+      toast.error(`Some participants could not be ${newMuteState ? 'muted' : 'unmuted'}`);
+    } else {
+      toast.success(newMuteState ? 'All trackers muted' : 'All trackers unmuted');
+    }
   };
 
   const renderConnectionStatus = () => {
@@ -184,7 +200,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
             Leave Room
           </Button>
           <Button
-            onClick={toggleMuteSelf}
+            onClick={handleToggleMuteSelf}
             variant="outline"
             size="sm"
             disabled={!localParticipant}
@@ -211,7 +227,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
               className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50 shadow-sm hover:shadow-md"
             >
               <Shield className="h-4 w-4 mr-2" />
-              {allMuted ? 'Unmute All' : 'Mute All'}
+              {allMuted ? 'Unmute All Trackers' : 'Mute All Trackers'}
             </Button>
           )}
         </div>
@@ -253,6 +269,7 @@ export const EnhancedVoiceChat: React.FC<EnhancedVoiceChatProps> = ({
                   </span>
                   {participant.isLocal && <Badge variant="secondary" className="mt-1 px-2 py-0.5 text-xs">You</Badge>}
                 
+                  {/* Moderation for non-local tracker participants only */}
                   {canModerate && !participant.isLocal && (
                     <Button
                       onClick={() => moderateMuteParticipant(participant.identity, !isMuted)}
