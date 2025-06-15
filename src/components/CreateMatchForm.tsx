@@ -210,7 +210,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         location: matchData.location || '',
         competition: matchData.competition || '',
         matchType: matchData.match_type || 'regular',
-        status: matchData.status || 'draft',
+        status: (matchData.status as MatchStatus) || 'draft',
         notes: matchData.notes || ''
       });
 
@@ -532,7 +532,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <Select value={formData.status} onValueChange={(value: MatchStatus) => setFormData({ ...formData, status: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

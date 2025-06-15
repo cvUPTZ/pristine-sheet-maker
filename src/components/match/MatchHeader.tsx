@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,18 @@ interface MatchHeaderProps {
   handleSave?: () => void;
 }
 
+// Design system color palette for team logos
+const DESIGN_COLORS = [
+  { primary: '#2563eb', secondary: '#3b82f6', accent: '#60a5fa' }, // Blue
+  { primary: '#dc2626', secondary: '#ef4444', accent: '#f87171' }, // Red
+  { primary: '#059669', secondary: '#10b981', accent: '#34d399' }, // Green
+  { primary: '#7c3aed', secondary: '#8b5cf6', accent: '#a78bfa' }, // Purple
+  { primary: '#ea580c', secondary: '#f97316', accent: '#fb923c' }, // Orange
+  { primary: '#0891b2', secondary: '#06b6d4', accent: '#22d3ee' }, // Cyan
+  { primary: '#be123c', secondary: '#e11d48', accent: '#f43f5e' }, // Rose
+  { primary: '#4338ca', secondary: '#6366f1', accent: '#818cf8' }, // Indigo
+];
+
 // Helper function to generate a vibrant color from a string
 const generateColorFromString = (str: string): string => {
   if (!str) return '#333333';
@@ -37,32 +50,19 @@ const generateColorFromString = (str: string): string => {
   return `hsl(${h}, 60%, 35%)`; // Darker, saturated colors for background
 };
 
-// Helper function to generate a team logo color
-const generateTeamColor = (teamName: string): string => {
-  if (!teamName) return '#3b82f6';
+// Helper function to get design system colors for a team
+const getTeamColors = (teamName: string) => {
+  if (!teamName) return DESIGN_COLORS[0];
   let hash = 0;
   for (let i = 0; i < teamName.length; i++) {
     hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const h = hash % 360;
-  return `hsl(${h}, 70%, 50%)`;
+  return DESIGN_COLORS[Math.abs(hash) % DESIGN_COLORS.length];
 };
 
-// Helper function to generate a secondary color
-const generateSecondaryColor = (teamName: string): string => {
-  if (!teamName) return '#1d4ed8';
-  let hash = 0;
-  for (let i = 0; i < teamName.length; i++) {
-    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = (hash % 360 + 180) % 360; // Offset by 180 degrees for contrast
-  return `hsl(${h}, 60%, 40%)`;
-};
-
-// Component to render unique team SVG logo
+// Component to render unique team SVG logo with design system approach
 const TeamLogo: React.FC<{ teamName: string; size?: number }> = ({ teamName, size = 48 }) => {
-  const primaryColor = generateTeamColor(teamName);
-  const secondaryColor = generateSecondaryColor(teamName);
+  const colors = getTeamColors(teamName);
   const initials = teamName
     .split(' ')
     .map(word => word.charAt(0))
@@ -70,60 +70,97 @@ const TeamLogo: React.FC<{ teamName: string; size?: number }> = ({ teamName, siz
     .toUpperCase()
     .slice(0, 2);
 
-  // Generate pattern based on team name
-  const pattern = teamName.length % 4;
+  // Generate pattern based on team name hash
+  const pattern = Math.abs(teamName.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % 4;
 
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" className="rounded-full">
+    <svg width={size} height={size} viewBox="0 0 48 48" className="rounded-full shadow-sm">
       <defs>
-        <linearGradient id={`grad-${teamName}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={primaryColor} />
-          <stop offset="100%" stopColor={secondaryColor} />
+        <linearGradient id={`grad-${teamName.replace(/\s+/g, '')}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={colors.primary} />
+          <stop offset="50%" stopColor={colors.secondary} />
+          <stop offset="100%" stopColor={colors.accent} />
         </linearGradient>
+        <filter id={`shadow-${teamName.replace(/\s+/g, '')}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.1"/>
+        </filter>
       </defs>
       
-      {/* Background circle */}
-      <circle cx="24" cy="24" r="24" fill={`url(#grad-${teamName})`} />
+      {/* Background circle with gradient */}
+      <circle 
+        cx="24" 
+        cy="24" 
+        r="23" 
+        fill={`url(#grad-${teamName.replace(/\s+/g, '')})`}
+        filter={`url(#shadow-${teamName.replace(/\s+/g, '')})`}
+      />
+      
+      {/* Inner border */}
+      <circle 
+        cx="24" 
+        cy="24" 
+        r="20" 
+        fill="none" 
+        stroke="rgba(255,255,255,0.2)" 
+        strokeWidth="1"
+      />
       
       {/* Pattern overlay based on team name */}
       {pattern === 0 && (
-        <>
-          <circle cx="24" cy="24" r="18" fill="none" stroke="white" strokeWidth="2" opacity="0.3" />
-          <circle cx="24" cy="24" r="12" fill="none" stroke="white" strokeWidth="1.5" opacity="0.4" />
-        </>
+        <g opacity="0.15">
+          <circle cx="24" cy="24" r="16" fill="none" stroke="white" strokeWidth="1.5" />
+          <circle cx="24" cy="24" r="10" fill="none" stroke="white" strokeWidth="1" />
+        </g>
       )}
       
       {pattern === 1 && (
-        <>
-          <polygon points="24,8 35,20 35,28 24,40 13,28 13,20" fill="white" opacity="0.2" />
-          <polygon points="24,12 31,20 31,26 24,36 17,26 17,20" fill="white" opacity="0.1" />
-        </>
+        <g opacity="0.15">
+          <polygon 
+            points="24,10 32,18 32,30 24,38 16,30 16,18" 
+            fill="none" 
+            stroke="white" 
+            strokeWidth="1.5"
+          />
+        </g>
       )}
       
       {pattern === 2 && (
-        <>
-          <rect x="12" y="12" width="24" height="24" rx="4" fill="white" opacity="0.2" />
-          <rect x="16" y="16" width="16" height="16" rx="2" fill="white" opacity="0.1" />
-        </>
+        <g opacity="0.15">
+          <rect 
+            x="14" 
+            y="14" 
+            width="20" 
+            height="20" 
+            rx="3" 
+            fill="none" 
+            stroke="white" 
+            strokeWidth="1.5"
+          />
+        </g>
       )}
       
       {pattern === 3 && (
-        <>
-          <path d="M24 8 L36 24 L24 40 L12 24 Z" fill="white" opacity="0.2" />
-          <path d="M24 12 L32 24 L24 36 L16 24 Z" fill="white" opacity="0.1" />
-        </>
+        <g opacity="0.15">
+          <path 
+            d="M24 12 L32 20 L32 28 L24 36 L16 28 L16 20 Z" 
+            fill="none" 
+            stroke="white" 
+            strokeWidth="1.5"
+          />
+        </g>
       )}
       
-      {/* Team initials */}
+      {/* Team initials with better typography */}
       <text 
         x="24" 
         y="24" 
         textAnchor="middle" 
         dominantBaseline="central" 
         fill="white" 
-        fontSize="14" 
-        fontWeight="bold" 
-        fontFamily="system-ui, sans-serif"
+        fontSize="13" 
+        fontWeight="600" 
+        fontFamily="system-ui, -apple-system, sans-serif"
+        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
       >
         {initials}
       </text>
@@ -216,7 +253,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         <div className="flex justify-between items-center">
           {/* Home Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/30 shadow-lg">
               {homeFlagUrl ? (
                 <AvatarImage 
                   src={homeFlagUrl} 
@@ -279,7 +316,7 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
                 {awayTeam.formation || '4-3-3'}
               </p>
             </div>
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/30 shadow-lg">
               {awayFlagUrl ? (
                 <AvatarImage 
                   src={awayFlagUrl} 
