@@ -19,6 +19,7 @@ import { MatchSpecificEventData, ShotEventData, PassEventData, TackleEventData, 
 import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
 import { Activity, Piano, Users, Settings, Mic, Zap, LayoutDashboard } from 'lucide-react';
+import { VoiceCollaborationProvider } from '@/context/VoiceCollaborationContext';
 
 // Type for TrackerVoiceInput players
 interface VoiceInputPlayer {
