@@ -43,7 +43,19 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
   teacher: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
   user: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
   viewer: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
-  special: { pitchView: false, pianoInput: false, statistics: false, timeline: false, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
+  special: { 
+    pitchView: false, 
+    pianoInput: false, 
+    statistics: true, // Allow access to statistics
+    timeline: false, 
+    analytics: false, 
+    ballTracking: false, 
+    liveEvents: false, 
+    dashboard: false, 
+    matchManagement: false, 
+    timerControl: false, 
+    reportGeneration: false 
+  },
 };
 
 const AccessManagement: React.FC = () => {

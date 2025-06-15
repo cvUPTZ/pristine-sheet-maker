@@ -52,9 +52,17 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
     dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false,
   },
   special: {
-    pitchView: false, pianoInput: false, statistics: false, timeline: false,
-    analytics: false, ballTracking: false, liveEvents: false,
-    dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false,
+    pitchView: false,
+    pianoInput: false,
+    statistics: true, // Allow access to statistics
+    timeline: false,
+    analytics: false,
+    ballTracking: false,
+    liveEvents: false,
+    dashboard: false,
+    matchManagement: false,
+    timerControl: false,
+    reportGeneration: false,
   },
   default: {
     pitchView: false, pianoInput: false, statistics: false, timeline: false,
