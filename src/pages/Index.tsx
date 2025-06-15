@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
 import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target, Loader2 } from 'lucide-react';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 
 interface Match {
   id: string;
@@ -24,35 +25,83 @@ interface Match {
 const Index = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
-  const { role: userRole, isLoading: permissionsLoading } = useUserPermissions();
+  const { 
+    isLoading: permissionsLoading, 
+    hasPermission,
+    isAdmin,
+    isTracker,
+    hasManagerAccess,
+    hasTeacherAccess
+  } = usePermissionChecker();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const menuItems = useMemo(() => {
     const items = [
-      { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' }
+      { 
+        value: 'dashboard', 
+        label: 'Dashboard', 
+        icon: LayoutDashboard, 
+        path: '/',
+        permission: 'dashboard' as const
+      }
     ];
   
-    if (userRole === 'admin' || userRole === 'tracker') {
-      items.push({ value: 'new-match', label: 'New Match', icon: Play, path: '/match' });
+    if (hasPermission('matchManagement')) {
+      items.push({ 
+        value: 'new-match', 
+        label: 'New Match', 
+        icon: Play, 
+        path: '/match',
+        permission: 'matchManagement' as const
+      });
     }
-    if (userRole === 'admin' || userRole === 'manager') {
-      items.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
+    
+    if (hasManagerAccess()) {
+      items.push({ 
+        value: 'match-history', 
+        label: 'Match History', 
+        icon: Calendar, 
+        path: '/matches',
+        permission: 'dashboard' as const
+      });
     }
-    if (userRole === 'admin' || userRole === 'manager' || userRole === 'teacher') {
-      items.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
+    
+    if (hasPermission('statistics')) {
+      items.push({ 
+        value: 'statistics', 
+        label: 'Statistics', 
+        icon: BarChart3, 
+        path: '/statistics',
+        permission: 'statistics' as const
+      });
     }
-    if (userRole === 'admin' || userRole === 'manager') {
-      items.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
+    
+    if (hasPermission('analytics')) {
+      items.push({ 
+        value: 'analytics', 
+        label: 'Analytics', 
+        icon: TrendingUp, 
+        path: '/analytics',
+        permission: 'analytics' as const
+      });
     }
-    if (userRole === 'admin') {
-      items.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
+    
+    if (isAdmin()) {
+      items.push({ 
+        value: 'admin', 
+        label: 'Admin Panel', 
+        icon: Target, 
+        path: '/admin',
+        permission: 'dashboard' as const
+      });
     }
+    
     return items;
-  }, [userRole]);
+  }, [hasPermission, isAdmin, hasManagerAccess, hasTeacherAccess]);
 
   const fetchMatches = useCallback(async () => {
-    setMatchesLoading(true); // Ensure loading is true at the start of fetch
+    setMatchesLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -75,11 +124,11 @@ const Index = () => {
     } finally {
       setMatchesLoading(false);
     }
-  }, [toast]); // Added toast as it's used inside
+  }, [toast]);
 
   useEffect(() => {
     fetchMatches();
-  }, [fetchMatches]); // Now correctly depends on fetchMatches
+  }, [fetchMatches]);
 
   const handleMatchCreated = (newMatch: Match) => {
     setMatches(prev => [newMatch, ...prev]);
@@ -96,6 +145,7 @@ const Index = () => {
   };
 
   const isLoading = matchesLoading || permissionsLoading;
+  const canCreateMatch = hasPermission('matchManagement');
 
   return (
     <SidebarProvider>
@@ -114,7 +164,7 @@ const Index = () => {
               </div>
             ) : (
               <>
-                {(userRole === 'admin' || userRole === 'tracker') && (
+                {canCreateMatch && (
                   <Card className="mb-3">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base sm:text-lg">Create New Match</CardTitle>

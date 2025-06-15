@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
@@ -13,7 +14,8 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
-import { useUserPermissions, RolePermissions } from '@/hooks/useUserPermissions';
+import { usePermissionChecker } from '@/hooks/usePermissionChecker';
+import { RolePermissions } from '@/hooks/useUserPermissions';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, User, Shield, Loader2 } from 'lucide-react';
 
@@ -32,11 +34,16 @@ interface MatchAnalysisSidebarProps {
   groupLabel?: string;
 }
 
-const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView, setActiveView, menuItems, groupLabel = "Tools" }) => {
+const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ 
+  activeView, 
+  setActiveView, 
+  menuItems, 
+  groupLabel = "Tools" 
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const { permissions, role, isLoading: permissionsLoading } = useUserPermissions();
+  const { permissions, role, isLoading, hasPermission, isAdmin } = usePermissionChecker();
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -48,7 +55,6 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
 
   const isItemActive = (item: MenuItem) => {
     if (item.path) {
-      // Exact match for root, startsWith for others
       if (item.path === '/') {
         return location.pathname === '/';
       }
@@ -58,19 +64,17 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
   };
 
   const filteredMenuItems = React.useMemo(() => {
-    if (permissionsLoading || !permissions) {
+    if (isLoading || !permissions) {
       return [];
     }
-    const filtered = menuItems.filter(item => {
-      // If no permission is required, show the item.
+    
+    return menuItems.filter(item => {
       if (!item.permission) {
         return true;
       }
-      // If permission is required, check if the user has it.
-      return permissions[item.permission];
+      return hasPermission(item.permission);
     });
-    return filtered;
-  }, [menuItems, permissions, permissionsLoading]);
+  }, [menuItems, permissions, isLoading, hasPermission]);
 
   if (!user) {
     return null;
@@ -87,8 +91,9 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
             Analytics
           </Link>
         </SidebarHeader>
+        
         <SidebarContent>
-          {permissionsLoading ? (
+          {isLoading ? (
             <div className="flex justify-center items-center h-full p-4">
               <Loader2 className="h-5 w-5 animate-spin text-white" />
             </div>
@@ -115,11 +120,12 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
             </SidebarGroup>
           )}
         </SidebarContent>
+        
         <SidebarFooter className="mt-auto border-t border-white/10 bg-black/10 p-2">
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="gap-2">
-                {role === 'admin' && (
+                {isAdmin() && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -148,16 +154,16 @@ const MatchAnalysisSidebar: React.FC<MatchAnalysisSidebarProps> = ({ activeView,
           </SidebarGroup>
           <div className="border-t border-white/10 my-2 group-data-[state=collapsed]:hidden" />
           <div className="flex items-center gap-3 p-2 text-sm text-gray-300 group-data-[state=collapsed]:hidden">
-              <User size={24} className="shrink-0 rounded-full bg-white/10 p-1" />
-              <div className="truncate flex-1">
-                <div className="font-semibold truncate" title={user.email || ''}>{user.email}</div>
-                {role && (
-                  <Badge variant="secondary" className="text-xs font-medium bg-white/10 text-white border-transparent mt-1">
-                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                  </Badge>
-                )}
-              </div>
+            <User size={24} className="shrink-0 rounded-full bg-white/10 p-1" />
+            <div className="truncate flex-1">
+              <div className="font-semibold truncate" title={user.email || ''}>{user.email}</div>
+              {role && (
+                <Badge variant="secondary" className="text-xs font-medium bg-white/10 text-white border-transparent mt-1">
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </Badge>
+              )}
             </div>
+          </div>
         </SidebarFooter>
       </div>
     </Sidebar>

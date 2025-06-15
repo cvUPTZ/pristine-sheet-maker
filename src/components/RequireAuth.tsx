@@ -2,6 +2,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 import { Loader2 } from 'lucide-react';
 
 export const RequireAuth: React.FC<{ 
@@ -11,10 +12,13 @@ export const RequireAuth: React.FC<{
   children, 
   requiredRoles 
 }) => {
-  const { user, loading, userRole } = useAuth();
+  const { user, loading } = useAuth();
+  const { role, isLoading: permissionsLoading } = usePermissionChecker();
   const location = useLocation();
 
-  if (loading) {
+  const isLoading = loading || permissionsLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -30,13 +34,13 @@ export const RequireAuth: React.FC<{
 
   // If specific roles are required, check user's role
   if (requiredRoles && requiredRoles.length > 0) {
-    if (!userRole || !requiredRoles.includes(userRole as 'admin' | 'tracker' | 'viewer' | 'user' | 'manager' | 'teacher')) {
+    if (!role || !requiredRoles.includes(role as any)) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-gray-600">You don't have permission to access this page.</p>
           <p className="text-gray-600">Required roles: {requiredRoles.join(', ')}</p>
-          <p className="text-gray-600">Your role: {userRole || 'none'}</p>
+          <p className="text-gray-600">Your role: {role || 'none'}</p>
         </div>
       );
     }
