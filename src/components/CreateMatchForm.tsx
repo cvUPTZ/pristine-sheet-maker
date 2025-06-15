@@ -321,20 +321,20 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
       if (homeTeamFlagFile) {
         const fileExt = homeTeamFlagFile.name.split('.').pop();
-        const filePath = `flags/${match.id}-home.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('match-assets').upload(filePath, homeTeamFlagFile, { upsert: true });
+        const filePath = `${match.id}/home-flag.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('flag').upload(filePath, homeTeamFlagFile, { upsert: true });
         if (uploadError) throw new Error(`Home flag upload failed: ${uploadError.message}`);
-        const { data: urlData } = supabase.storage.from('match-assets').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('flag').getPublicUrl(filePath);
         flagUpdatePayload.home_team_flag_url = urlData.publicUrl;
         needsFlagUpdate = true;
       }
 
       if (awayTeamFlagFile) {
         const fileExt = awayTeamFlagFile.name.split('.').pop();
-        const filePath = `flags/${match.id}-away.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('match-assets').upload(filePath, awayTeamFlagFile, { upsert: true });
+        const filePath = `${match.id}/away-flag.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('flag').upload(filePath, awayTeamFlagFile, { upsert: true });
         if (uploadError) throw new Error(`Away flag upload failed: ${uploadError.message}`);
-        const { data: urlData } = supabase.storage.from('match-assets').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('flag').getPublicUrl(filePath);
         flagUpdatePayload.away_team_flag_url = urlData.publicUrl;
         needsFlagUpdate = true;
       }
