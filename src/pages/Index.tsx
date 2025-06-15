@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
-import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { usePermissionChecker } from '@/hooks/usePermissionChecker';
+import { useMenuItems } from '@/hooks/useMenuItems';
 
 interface Match {
   id: string;
@@ -26,16 +27,11 @@ const Index = () => {
   const [matchesLoading, setMatchesLoading] = useState(true);
   const { 
     isLoading: permissionsLoading, 
-    hasPermission,
-    isAdmin,
-    isTracker,
-    hasManagerAccess,
-    hasTeacherAccess,
-    permissions,
-    role
+    hasPermission
   } = usePermissionChecker();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const menuItems = useMenuItems();
 
   // Debug logging
   console.log('Index component - permissions state:', {
@@ -46,72 +42,6 @@ const Index = () => {
     hasAnalytics: hasPermission('analytics'),
     hasMatchManagement: hasPermission('matchManagement')
   });
-
-  const menuItems = useMemo(() => {
-    const items = [
-      { 
-        value: 'dashboard', 
-        label: 'Dashboard', 
-        icon: LayoutDashboard, 
-        path: '/',
-        permission: 'dashboard'
-      }
-    ];
-  
-    if (hasPermission('matchManagement')) {
-      items.push({ 
-        value: 'new-match', 
-        label: 'New Match', 
-        icon: Play, 
-        path: '/match',
-        permission: 'matchManagement'
-      });
-    }
-    
-    if (hasManagerAccess()) {
-      items.push({ 
-        value: 'match-history', 
-        label: 'Match History', 
-        icon: Calendar, 
-        path: '/matches',
-        permission: 'dashboard'
-      });
-    }
-    
-    if (hasPermission('statistics')) {
-      items.push({ 
-        value: 'statistics', 
-        label: 'Statistics', 
-        icon: BarChart3, 
-        path: '/statistics',
-        permission: 'statistics'
-      });
-    }
-    
-    if (hasPermission('analytics')) {
-      items.push({ 
-        value: 'analytics', 
-        label: 'Analytics', 
-        icon: TrendingUp, 
-        path: '/analytics',
-        permission: 'analytics'
-      });
-    }
-    
-    if (isAdmin()) {
-      items.push({ 
-        value: 'admin', 
-        label: 'Admin Panel', 
-        icon: Target, 
-        path: '/admin',
-        permission: 'dashboard'
-      });
-    }
-
-    console.log('Menu items generated:', items);
-    
-    return items;
-  }, [hasPermission, isAdmin, hasManagerAccess, hasTeacherAccess, permissions, role]);
 
   const fetchMatches = useCallback(async () => {
     setMatchesLoading(true);
