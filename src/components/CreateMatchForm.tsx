@@ -815,10 +815,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                                 <div className="flex items-center space-x-2 p-2 rounded-md border">
                                   <Checkbox
                                     checked={categoryState === 'all'}
-                                    ref={(el: HTMLInputElement | null) => {
-                                      if (el) el.indeterminate = categoryState === 'some';
-                                    }}
                                     onCheckedChange={(checked) => handleCategoryToggle(category, !!checked, index)}
+                                    className={categoryState === 'some' ? 'data-[state=checked]:bg-blue-300' : ''}
                                   />
                                   <Badge variant="outline" style={{ backgroundColor: category.color, color: 'white', borderColor: category.color }}>
                                     {category.label}
