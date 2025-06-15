@@ -1,4 +1,3 @@
-
 // src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -26,7 +25,7 @@ import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer'; // New Direct Ana
 import Settings from "./pages/Settings";
 import NewVoiceChatPage from '@/pages/NewVoiceChatPage'; 
 import Header from "./components/Header";
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
