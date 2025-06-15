@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AIProcessingService, AIPlayerInfo } from '@/services/aiProcessingService';
 import { Plus, Trash2, ChevronDown, ChevronRight, Target, Upload } from 'lucide-react';
+import MatchHeader from '@/components/match/MatchHeader';
 
 interface CreateMatchFormProps {
   matchId?: string;
@@ -367,7 +368,6 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     }
   };
   
-  // ... (rest of the helper functions: addTrackerAssignment, updatePlayer, etc. remain the same)
   const addTrackerAssignment = () => setTrackerAssignments([...trackerAssignments, { tracker_user_id: '', assigned_event_types: [], player_ids: [] }]);
   const removeTrackerAssignment = (index: number) => setTrackerAssignments(trackerAssignments.filter((_, i) => i !== index));
   const updateTrackerAssignment = (index: number, field: keyof TrackerAssignment, value: any) => { const u = [...trackerAssignments]; u[index] = { ...u[index], [field]: value }; setTrackerAssignments(u); };
@@ -431,14 +431,208 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
             <TabsTrigger value="teams">Teams & Players</TabsTrigger>
             <TabsTrigger value="trackers">Tracker Assignments</TabsTrigger>
           </TabsList>
-          {/* Basic Info Tab remains the same */}
+          
           <TabsContent value="basic" className="space-y-4">
-             {/* ... */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Match Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="match-name">Match Name (Optional)</Label>
+                    <Input
+                      id="match-name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Will be auto-generated if empty"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="match-date">Match Date</Label>
+                    <Input
+                      id="match-date"
+                      type="datetime-local"
+                      value={formData.matchDate}
+                      onChange={(e) => setFormData({ ...formData, matchDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="home-team-name">Home Team Name</Label>
+                    <Input
+                      id="home-team-name"
+                      value={formData.homeTeamName}
+                      onChange={(e) => setFormData({ ...formData, homeTeamName: e.target.value })}
+                      placeholder="Enter home team name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="away-team-name">Away Team Name</Label>
+                    <Input
+                      id="away-team-name"
+                      value={formData.awayTeamName}
+                      onChange={(e) => setFormData({ ...formData, awayTeamName: e.target.value })}
+                      placeholder="Enter away team name"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Stadium or venue"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="competition">Competition</Label>
+                    <Input
+                      id="competition"
+                      value={formData.competition}
+                      onChange={(e) => setFormData({ ...formData, competition: e.target.value })}
+                      placeholder="League, cup, etc."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="match-type">Match Type</Label>
+                    <Select value={formData.matchType} onValueChange={(value) => setFormData({ ...formData, matchType: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular</SelectItem>
+                        <SelectItem value="friendly">Friendly</SelectItem>
+                        <SelectItem value="cup">Cup</SelectItem>
+                        <SelectItem value="playoff">Playoff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Additional match details"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Internal notes"
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Match Preview */}
+            {(formData.homeTeamName || formData.awayTeamName) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Match Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MatchHeader
+                    mode="piano"
+                    setMode={() => {}}
+                    homeTeam={{
+                      name: formData.homeTeamName || "Home Team",
+                      formation: formData.homeTeamFormation,
+                      flagUrl: formData.homeTeamFlagUrl || null
+                    }}
+                    awayTeam={{
+                      name: formData.awayTeamName || "Away Team", 
+                      formation: formData.awayTeamFormation,
+                      flagUrl: formData.awayTeamFlagUrl || null
+                    }}
+                    name={formData.name || `${formData.homeTeamName || "Home"} vs ${formData.awayTeamName || "Away"}`}
+                    status={formData.status}
+                    handleToggleTracking={() => {}}
+                    handleSave={() => {}}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
+
           <TabsContent value="teams" className="space-y-4">
-            {/* ... AI Image Processing Card remains the same */}
+            {/* AI Image Processing Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  AI Player Detection
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="image-upload">Upload Team Sheet Image</Label>
+                  <Input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="mt-2"
+                  />
+                </div>
+                {selectedImageFile && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleProcessImage('home')}
+                      disabled={isProcessingImage}
+                      className="flex-1"
+                    >
+                      {isProcessingImage ? 'Processing...' : 'Process for Home Team'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleProcessImage('away')}
+                      disabled={isProcessingImage}
+                      className="flex-1"
+                    >
+                      {isProcessingImage ? 'Processing...' : 'Process for Away Team'}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* HOME TEAM CARD - UPDATED */}
+              {/* HOME TEAM CARD */}
               <Card>
                 <CardHeader>
                   <CardTitle>Home Team</CardTitle>
@@ -457,7 +651,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           id="home-team-flag-url"
                           type="text"
                           value={formData.homeTeamFlagUrl.startsWith('blob:') ? '' : formData.homeTeamFlagUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, homeTeamFlagUrl: e.target.value, homeTeamFlagFile: null }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, homeTeamFlagUrl: e.target.value }))}
                           placeholder="Paste image URL or upload"
                           className="flex-grow"
                         />
@@ -497,7 +691,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 </CardContent>
               </Card>
 
-              {/* AWAY TEAM CARD - UPDATED */}
+              {/* AWAY TEAM CARD */}
               <Card>
                 <CardHeader>
                   <CardTitle>Away Team</CardTitle>
@@ -516,7 +710,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                           id="away-team-flag-url"
                           type="text"
                           value={formData.awayTeamFlagUrl.startsWith('blob:') ? '' : formData.awayTeamFlagUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, awayTeamFlagUrl: e.target.value, awayTeamFlagFile: null }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, awayTeamFlagUrl: e.target.value }))}
                           placeholder="Paste image URL or upload"
                           className="flex-grow"
                         />
@@ -557,12 +751,177 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
               </Card>
             </div>
           </TabsContent>
-          {/* Tracker Tab remains the same */}
+
           <TabsContent value="trackers" className="space-y-4">
-            {/* ... */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  Tracker Assignments
+                  <Button type="button" onClick={addTrackerAssignment} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Assignment
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {trackerAssignments.map((assignment, index) => (
+                  <Card key={index} className="border-dashed">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">Assignment #{index + 1}</CardTitle>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTrackerAssignment(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label>Tracker</Label>
+                        <Select
+                          value={assignment.tracker_user_id}
+                          onValueChange={(value) => updateTrackerAssignment(index, 'tracker_user_id', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a tracker" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {trackers.map((tracker) => (
+                              <SelectItem key={tracker.id} value={tracker.id}>
+                                {tracker.full_name} ({tracker.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Event Type Selection */}
+                      <div>
+                        <Label className="text-base font-medium">Event Types</Label>
+                        <div className="space-y-2 mt-2">
+                          {EVENT_TYPE_CATEGORIES.map((category) => {
+                            const categoryState = getCategoryState(category, index);
+                            return (
+                              <Collapsible
+                                key={category.key}
+                                open={openCategories.includes(category.key)}
+                                onOpenChange={() => toggleCategory(category.key)}
+                              >
+                                <div className="flex items-center space-x-2 p-2 rounded-md border">
+                                  <Checkbox
+                                    checked={categoryState === 'all'}
+                                    ref={(el) => {
+                                      if (el) el.indeterminate = categoryState === 'some';
+                                    }}
+                                    onCheckedChange={(checked) => handleCategoryToggle(category, !!checked, index)}
+                                  />
+                                  <Badge variant="outline" style={{ backgroundColor: category.color, color: 'white', borderColor: category.color }}>
+                                    {category.label}
+                                  </Badge>
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="ml-auto p-0 h-auto">
+                                      {openCategories.includes(category.key) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                </div>
+                                <CollapsibleContent className="ml-6 mt-2 space-y-1">
+                                  {category.events.map((event) => (
+                                    <div key={event.key} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        checked={assignment.assigned_event_types.includes(event.key)}
+                                        onCheckedChange={(checked) => handleEventTypeChange(event.key, !!checked, index)}
+                                      />
+                                      <span className="text-sm">{event.label}</span>
+                                    </div>
+                                  ))}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Player Assignment */}
+                      <div>
+                        <Label>Assigned Players</Label>
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={selectedTeamForAssignment[index] === 'home' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTeamFilterChange(index, 'home')}
+                            >
+                              Home
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={selectedTeamForAssignment[index] === 'away' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTeamFilterChange(index, 'away')}
+                            >
+                              Away
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={selectedTeamForAssignment[index] === 'both' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTeamFilterChange(index, 'both')}
+                            >
+                              Both
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['home', 'away'] as const).map((team) => {
+                              const filteredPlayers = getFilteredPlayers(index, team);
+                              if (filteredPlayers.length === 0) return null;
+                              return (
+                                <div key={team}>
+                                  <h4 className="font-medium text-sm mb-2 capitalize">{team} Team</h4>
+                                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                                    {filteredPlayers.map((player) => (
+                                      <div key={player.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          checked={assignment.player_ids.includes(player.id)}
+                                          onCheckedChange={(checked) => {
+                                            const newPlayerIds = checked
+                                              ? [...assignment.player_ids, player.id]
+                                              : assignment.player_ids.filter(id => id !== player.id);
+                                            updateTrackerAssignment(index, 'player_ids', newPlayerIds);
+                                          }}
+                                        />
+                                        <span className="text-sm">
+                                          {player.number ? `#${player.number}` : ''} {player.name || `Player ${player.id}`}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {trackerAssignments.length === 0 && (
+                  <div className="text-center text-muted-foreground py-6">
+                    No tracker assignments yet. Click "Add Assignment" to get started.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
+
           <div className="flex justify-end space-x-2 mt-6">
-            <Button type="submit" disabled={loading}>{loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Match' : 'Create Match')}
+            </Button>
           </div>
         </Tabs>
       </form>
