@@ -296,6 +296,8 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
         away_team_players: awayPlayersJson,
         home_team_formation: formData.homeTeamFormation,
         away_team_formation: formData.awayTeamFormation,
+        home_team_flag_url: formData.homeTeamFlagUrl,
+        away_team_flag_url: formData.awayTeamFlagUrl,
         match_date: formData.matchDate,
         location: formData.location,
         competition: formData.competition,
@@ -562,21 +564,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 <CardHeader>
                     <CardTitle>Home Team</CardTitle>
                     <div className="mt-4 space-y-2">
-                      <Label htmlFor="home-team-flag">Team Flag</Label>
-                      <div className="flex items-center gap-4">
-                        {formData.homeTeamFlagUrl ? 
-                          <img src={formData.homeTeamFlagUrl} alt="Home team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" /> :
-                          <div className="w-16 h-12 rounded-md border bg-muted flex items-center justify-center text-muted-foreground">
-                            <Upload className="h-6 w-6" />
-                          </div>
-                        }
-                        <Input id="home-team-flag" type="file" accept="image/*" onChange={(e) => handleFlagChange(e, 'home')} className="hidden" />
-                        <Button type="button" asChild variant="outline">
-                          <Label htmlFor="home-team-flag" className="cursor-pointer">
-                            {homeTeamFlagFile ? 'Change Flag' : 'Upload Flag'}
-                          </Label>
-                        </Button>
-                      </div>
+                      <Label htmlFor="home-team-flag-url">Team Flag URL</Label>
+                      {formData.homeTeamFlagUrl && (
+                        <img src={formData.homeTeamFlagUrl} alt="Home team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" />
+                      )}
+                      <Input
+                        id="home-team-flag-url"
+                        type="text"
+                        value={formData.homeTeamFlagUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, homeTeamFlagUrl: e.target.value }))}
+                        placeholder="Paste image URL here"
+                      />
                     </div>
                     <div>
                         <Label>Formation</Label>
@@ -605,21 +603,17 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 <CardHeader>
                     <CardTitle>Away Team</CardTitle>
                     <div className="mt-4 space-y-2">
-                      <Label htmlFor="away-team-flag">Team Flag</Label>
-                      <div className="flex items-center gap-4">
-                        {formData.awayTeamFlagUrl ? 
-                          <img src={formData.awayTeamFlagUrl} alt="Away team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" /> :
-                          <div className="w-16 h-12 rounded-md border bg-muted flex items-center justify-center text-muted-foreground">
-                            <Upload className="h-6 w-6" />
-                          </div>
-                        }
-                        <Input id="away-team-flag" type="file" accept="image/*" onChange={(e) => handleFlagChange(e, 'away')} className="hidden" />
-                        <Button type="button" asChild variant="outline">
-                          <Label htmlFor="away-team-flag" className="cursor-pointer">
-                            {awayTeamFlagFile ? 'Change Flag' : 'Upload Flag'}
-                          </Label>
-                        </Button>
-                      </div>
+                      <Label htmlFor="away-team-flag-url">Team Flag URL</Label>
+                      {formData.awayTeamFlagUrl && (
+                        <img src={formData.awayTeamFlagUrl} alt="Away team flag" className="w-16 h-12 object-contain rounded-md border bg-muted" />
+                      )}
+                      <Input
+                        id="away-team-flag-url"
+                        type="text"
+                        value={formData.awayTeamFlagUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, awayTeamFlagUrl: e.target.value }))}
+                        placeholder="Paste image URL here"
+                      />
                     </div>
                     <div>
                         <Label>Formation</Label>
