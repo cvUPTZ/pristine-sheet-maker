@@ -20,6 +20,7 @@ import { PlayerForPianoInput, AssignedPlayers } from '@/components/match/types';
 import { useIsMobile, useBreakpoint } from '@/hooks/use-mobile';
 import { Activity, Piano, Users, Settings, Mic, Zap, LayoutDashboard } from 'lucide-react';
 import { VoiceCollaborationProvider } from '@/context/VoiceCollaborationContext';
+import VoiceCollaborationOverlay from "@/components/match/VoiceCollaborationOverlay";
 
 // Type for TrackerVoiceInput players
 interface VoiceInputPlayer {
@@ -455,10 +456,13 @@ const MatchAnalysisV2: React.FC = () => {
                   )}
 
                   {activeView === 'piano' && (
-                    <TrackerPianoInput 
-                      matchId={matchId} 
-                      onRecordEvent={handleRecordEvent}
-                    />
+                    <>
+                      <TrackerPianoInput 
+                        matchId={matchId} 
+                        onRecordEvent={handleRecordEvent}
+                      />
+                      <VoiceCollaborationOverlay />
+                    </>
                   )}
 
                   {activeView === 'voice-collab' && canShowVoiceCollab && (
