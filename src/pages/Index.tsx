@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,9 @@ const Index = () => {
   const [matchesLoading, setMatchesLoading] = useState(true);
   const { 
     isLoading: permissionsLoading, 
-    hasPermission
+    hasPermission,
+    permissions,
+    role
   } = usePermissionChecker();
   const navigate = useNavigate();
   const { toast } = useToast();
