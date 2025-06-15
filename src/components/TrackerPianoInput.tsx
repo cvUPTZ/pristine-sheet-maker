@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -9,17 +9,17 @@ import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { useUnifiedTrackerConnection } from '@/hooks/useUnifiedTrackerConnection';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventTypeSvg from '@/components/match/EventTypeSvg';
-import { Undo } from 'lucide-react';
+import CancelActionIndicator from '@/components/match/CancelActionIndicator';
 
 // Define interfaces for type safety
 interface TrackerPianoInputProps {
   matchId: string;
-  onRecordEvent: ( // Added prop
+  onRecordEvent: (
     eventTypeKey: string,
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
-  ) => Promise<void>;
+  ) => Promise<any | null>;
 }
 
 export interface PlayerForPianoInput {
@@ -140,23 +140,36 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
   useEffect(() => { fetchMatchDetails(); }, [fetchMatchDetails]);
   useEffect(() => { if (fullMatchRoster) fetchAssignments(); }, [fetchAssignments, fullMatchRoster]);
 
-  const undoLastAction = async () => {
-    if (recentEvents.length === 0) {
-      toast({ title: "Aucune action à annuler", description: "Il n'y a pas d'action récente à annuler", variant: "destructive"});
-      return;
-    }
-    const lastEvent = recentEvents[0];
+  const handleCancelEvent = useCallback(async (eventId: string, eventTypeKey: string) => {
     try {
-      const { error } = await supabase.from('match_events').delete().eq('id', lastEvent.id);
-      if (error) throw error;
-      setRecentEvents(prev => prev.slice(1));
-      setLastRecordedEvent(null);
-      toast({ title: "Action annulée", description: `L'événement ${lastEvent.eventType.label} a été supprimé` });
-    } catch (e: any) {
-      console.error('Error undoing last action:', e);
-      toast({ title: "Erreur", description: "Impossible d'annuler la dernière action", variant: "destructive"});
+      setRecentEvents(prev => prev.filter(event => event.id !== eventId));
+      
+      const { error } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('id', eventId);
+      
+      if (error) {
+        console.error('Error cancelling event in database:', error);
+      }
+      
+      toast({
+        title: "Event Cancelled",
+        description: `${eventTypeKey} event has been cancelled.`,
+      });
+    } catch (error) {
+      console.error('Error cancelling event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel event",
+        variant: "destructive"
+      });
     }
-  };
+  }, [toast]);
+
+  const handleEventExpire = useCallback((eventId: string) => {
+    setRecentEvents(prev => prev.filter(event => event.id !== eventId));
+  }, []);
 
   const handleEventTypeClick = async (eventType: EnhancedEventType) => {
     setIsRecording(true);
@@ -164,11 +177,25 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
     broadcastStatus({ status: 'recording', timestamp: Date.now() });
     let teamCtx = (selectedPlayer && selectedTeam) ? selectedTeam : undefined;
     try {
-      await onRecordEvent(eventType.key, selectedPlayer?.id, teamCtx, { recorded_via: 'piano' });
-      const eventInfo = { id: `local-${Date.now()}-${eventType.key}`, eventType, player: selectedPlayer, timestamp: Date.now() };
-      setLastRecordedEvent(eventInfo);
-      setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]);
-    } catch (e: any) { console.error('Error in onRecordEvent:', e); }
+      const newEvent = await onRecordEvent(eventType.key, selectedPlayer?.id, teamCtx, { recorded_via: 'piano' });
+      if (newEvent) {
+        const eventInfo = { 
+          id: newEvent.id, 
+          eventType: { key: newEvent.event_type, label: newEvent.event_type }, 
+          player: selectedPlayer, 
+          timestamp: Date.now() 
+        };
+        setLastRecordedEvent(eventInfo);
+        setRecentEvents(prev => [eventInfo, ...prev.slice(0, 4)]);
+      }
+    } catch (e: any) { 
+      console.error('Error in onRecordEvent:', e); 
+      toast({
+        title: "Error recording event",
+        description: e.message || "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
     finally { setIsRecording(false); setRecordingEventType(null); broadcastStatus({ status: 'active', timestamp: Date.now() }); }
   };
 
@@ -233,11 +260,25 @@ const TrackerPianoInput: React.FC<TrackerPianoInputProps> = ({ matchId, onRecord
 
   return (
     <div className="space-y-2 p-1 sm:p-2">
-      <motion.div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-50" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}>
-        <Button onClick={undoLastAction} disabled={recentEvents.length === 0} variant="outline" className="bg-red-50 border-red-300 text-red-600 hover:bg-red-100 shadow h-9 sm:h-10 px-3 text-sm">
-          <Undo className="h-4 w-4 mr-2" /> Annuler Dernière Action
-        </Button>
-      </motion.div>
+      {recentEvents.length > 0 && (
+        <Card className="my-2 bg-white/60 backdrop-blur-xl border-slate-200/80 shadow-lg rounded-xl overflow-hidden transition-all animate-fade-in">
+          <CardHeader className="pb-3 border-b border-slate-200/80 bg-slate-50/30">
+            <CardTitle className="text-base text-slate-800">Recent Events (Click to Cancel)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="flex flex-wrap gap-2 justify-start">
+              {recentEvents.map((event) => (
+                <CancelActionIndicator
+                  key={event.id}
+                  eventType={event.eventType.key}
+                  onCancel={() => handleCancelEvent(event.id, event.eventType.key)}
+                  onExpire={() => handleEventExpire(event.id)}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <AnimatePresence>
         {selectedPlayer && (

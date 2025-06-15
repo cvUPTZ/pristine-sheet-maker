@@ -122,10 +122,10 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
-  ) => {
+  ): Promise<any | null> => {
     if (isRecordingEvent) {
       console.log("Event recording already in progress, skipping...");
-      return;
+      return null;
     }
 
     setIsRecordingEvent(true);
@@ -151,7 +151,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
 
       console.log("Inserting event via TrackerInterface:", eventToInsert);
 
-      const { error: dbError } = await supabase
+      const { data: newEvent, error: dbError } = await supabase
         .from('match_events')
         .insert([eventToInsert])
         .select()
@@ -170,6 +170,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
           title: 'Event Recorded',
           description: `${eventType} event recorded successfully.`,
         });
+        return newEvent;
       }
     } catch (error: any) {
       console.error('Error in TrackerInterface handleRecordEvent:', error);
@@ -178,6 +179,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
         description: 'Please check your connection and try again.',
         variant: 'destructive',
       });
+      return null;
     } finally {
       setIsRecordingEvent(false);
     }

@@ -257,7 +257,7 @@ const MatchAnalysisV2: React.FC = () => {
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
-  ) => {
+  ): Promise<any | null> => {
     console.log("MatchAnalysisV2: handleRecordEvent called with:", { eventTypeKey, playerId, teamContext, details });
 
     if (!matchId) {
@@ -267,7 +267,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: 'Match ID is missing',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     if (!user?.id) {
@@ -277,7 +277,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: 'User not authenticated',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     if (!eventTypeKey) {
@@ -287,7 +287,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: 'Event type is missing',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     try {
@@ -310,7 +310,7 @@ const MatchAnalysisV2: React.FC = () => {
       console.log("Inserting event via MatchAnalysisV2:", eventToInsert);
 
       // Use upsert with conflict resolution for better performance
-      const { error: dbError } = await supabase
+      const { data: newEvent, error: dbError } = await supabase
         .from('match_events')
         .insert([eventToInsert])
         .select()
@@ -327,8 +327,9 @@ const MatchAnalysisV2: React.FC = () => {
       } else {
         toast({
           title: 'Event Recorded',
-          description: `${eventTypeKey} event recorded successfully.`,
+          description: `${eventTypeKey} event recorded successfully. You have 10 seconds to cancel.`,
         });
+        return newEvent;
       }
     } catch (error: any) {
       console.error("Error in handleRecordEvent:", error);
@@ -337,6 +338,7 @@ const MatchAnalysisV2: React.FC = () => {
         description: 'Please check your connection and try again.',
         variant: 'destructive',
       });
+      return null;
     }
   }, [matchId, user?.id, toast]);
 

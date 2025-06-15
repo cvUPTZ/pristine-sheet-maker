@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +14,7 @@ interface RecordedEvent {
 }
 
 interface EnhancedPianoInputProps {
-  onEventRecord: (eventType: EventType) => void;
+  onEventRecord: (eventType: EventType) => Promise<any | null>;
   matchId: string;
 }
 
@@ -35,39 +34,45 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
     }
 
     setIsRecording(true);
+    const tempId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
-      // Generate unique event ID immediately
-      const eventId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newEvent: RecordedEvent = {
-        id: eventId,
+      // Create a temporary event for immediate UI feedback
+      const tempEvent: RecordedEvent = {
+        id: tempId,
         eventType,
         timestamp: Date.now()
       };
       
-      // Update UI immediately for responsive feedback
-      setRecentEvents(prev => [newEvent, ...prev.slice(0, 9)]);
+      setRecentEvents(prev => [tempEvent, ...prev.slice(0, 9)]);
       
-      // Show immediate feedback
       toast({
         title: "Recording Event...",
         description: `${eventType} event is being recorded.`,
       });
 
-      // Call the parent's event record function (fire and forget)
-      onEventRecord(eventType);
+      // Call the parent's event record function
+      const newEvent = await onEventRecord(eventType);
       
-      // Update success message
-      toast({
-        title: "Event Recorded",
-        description: `${eventType} event recorded successfully. You have 10 seconds to cancel.`,
-      });
+      if (newEvent) {
+        // Update the temporary event with the real ID from the database
+        setRecentEvents(prev => prev.map(e => e.id === tempId ? { ...e, id: newEvent.id } : e));
+        
+        toast({
+          title: "Event Recorded",
+          description: `${eventType} event recorded successfully. You have 10 seconds to cancel.`,
+        });
+      } else {
+        // Remove the temporary event if recording failed
+        setRecentEvents(prev => prev.filter(event => event.id !== tempId));
+        throw new Error("Failed to get new event from server");
+      }
       
     } catch (error) {
       console.error('Error recording event:', error);
       
-      // Remove the event from recent events on error
-      setRecentEvents(prev => prev.filter(event => event.eventType !== eventType || event.timestamp !== Date.now()));
+      // Ensure temporary event is removed on error
+      setRecentEvents(prev => prev.filter(event => event.id !== tempId));
       
       toast({
         title: "Error",
@@ -81,17 +86,13 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
 
   const handleCancelEvent = useCallback(async (eventId: string, eventType: EventType) => {
     try {
-      // Remove from recent events immediately
       setRecentEvents(prev => prev.filter(event => event.id !== eventId));
       
-      // Optimistic cancellation - try to cancel in database
+      // Use the specific event ID to delete
       const { error } = await supabase
         .from('match_events')
         .delete()
-        .eq('match_id', matchId)
-        .eq('event_type', eventType)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('id', eventId);
       
       if (error) {
         console.error('Error cancelling event in database:', error);
@@ -110,7 +111,7 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         variant: "destructive"
       });
     }
-  }, [toast, matchId]);
+  }, [toast]);
 
   const handleEventExpire = useCallback((eventId: string) => {
     setRecentEvents(prev => prev.filter(event => event.id !== eventId));
