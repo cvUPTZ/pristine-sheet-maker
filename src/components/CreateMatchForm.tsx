@@ -388,6 +388,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const handleTeamFilterChange = (index: number, team: 'home' | 'away' | 'both') => setSelectedTeamForAssignment(p => ({ ...p, [index]: team }));
   const getFilteredPlayers = (index: number, team: 'home' | 'away') => { const filter = selectedTeamForAssignment[index]; if (filter && filter !== 'both' && filter !== team) return []; return team === 'home' ? homeTeamPlayers : awayTeamPlayers; };
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => { if (event.target.files && event.target.files[0]) { setSelectedImageFile(event.target.files[0]); } else { setSelectedImageFile(null); } };
+
   const handleProcessImage = async (team: 'home' | 'away') => {
     if (!selectedImageFile) { toast({ title: "No Image Selected", description: "Please select an image file first.", variant: "destructive" }); return; }
     setIsProcessingImage(true);
@@ -814,7 +815,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                                 <div className="flex items-center space-x-2 p-2 rounded-md border">
                                   <Checkbox
                                     checked={categoryState === 'all'}
-                                    ref={(el) => {
+                                    ref={(el: HTMLInputElement | null) => {
                                       if (el) el.indeterminate = categoryState === 'some';
                                     }}
                                     onCheckedChange={(checked) => handleCategoryToggle(category, !!checked, index)}
