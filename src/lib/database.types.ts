@@ -364,21 +364,21 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          role: 'admin' | 'manager' | 'tracker' | 'user';
+          role: 'admin' | 'manager' | 'tracker' | 'teacher' | 'user' | 'viewer' | 'special' | string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          role: 'admin' | 'manager' | 'tracker' | 'user';
+          role: 'admin' | 'manager' | 'tracker' | 'teacher' | 'user' | 'viewer' | 'special' | string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          role?: 'admin' | 'manager' | 'tracker' | 'user';
+          role?: 'admin' | 'manager' | 'tracker' | 'teacher' | 'user' | 'viewer' | 'special' | string;
           created_at?: string;
           updated_at?: string;
         };
@@ -433,13 +433,15 @@ export type Database = {
     };
     Enums: {
       job_status: 'pending' | 'processing' | 'completed' | 'failed';
-      user_role: 'admin' | 'manager' | 'tracker' | 'user';
+      user_role: 'admin' | 'manager' | 'tracker' | 'user' | 'special';
     };
     CompositeTypes: {
       [_ in never]: never;
     };
   };
 };
+
+export type UserRole = 'admin' | 'manager' | 'tracker' | 'teacher' | 'user' | 'viewer' | 'special' | string;
 
 export type Tables<
   PublicTableNameOrOptions extends

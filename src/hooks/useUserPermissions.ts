@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | string;
+export type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | 'special' | string;
 
 export interface RolePermissions {
   pitchView: boolean;
@@ -23,95 +22,44 @@ export interface RolePermissions {
 
 const defaultPermissions: Record<UserRole, RolePermissions> = {
   admin: {
-    pitchView: true,
-    pianoInput: true,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: true,
-    liveEvents: true,
-    dashboard: true,
-    matchManagement: true,
-    timerControl: true,
-    reportGeneration: true,
+    pitchView: true, pianoInput: true, statistics: true, timeline: true,
+    analytics: true, ballTracking: true, liveEvents: true,
+    dashboard: true, matchManagement: true, timerControl: true, reportGeneration: true,
   },
   manager: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: true,
-    matchManagement: true,
-    timerControl: false,
-    reportGeneration: true,
+    pitchView: true, pianoInput: false, statistics: true, timeline: true,
+    analytics: true, ballTracking: false, liveEvents: false, dashboard: true,
+    matchManagement: true, timerControl: false, reportGeneration: true,
   },
   tracker: {
-    pitchView: false,
-    pianoInput: true,
-    statistics: false,
-    timeline: false,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: true,
-    matchManagement: false,
-    timerControl: false,
-    reportGeneration: false,
+    pitchView: false, pianoInput: true, statistics: false, timeline: false,
+    analytics: false, ballTracking: false, liveEvents: false, dashboard: true,
+    matchManagement: false, timerControl: false, reportGeneration: false,
   },
   teacher: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: true,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: true,
-    matchManagement: false,
-    timerControl: false,
-    reportGeneration: false,
+    pitchView: true, pianoInput: false, statistics: true, timeline: true,
+    analytics: true, ballTracking: false, liveEvents: false, dashboard: true,
+    matchManagement: false, timerControl: false, reportGeneration: false,
   },
   user: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: true,
-    matchManagement: false,
-    timerControl: false,
-    reportGeneration: false,
+    pitchView: true, pianoInput: false, statistics: true, timeline: true,
+    analytics: false, ballTracking: false, liveEvents: false, dashboard: true,
+    matchManagement: false, timerControl: false, reportGeneration: false,
   },
   viewer: {
-    pitchView: true,
-    pianoInput: false,
-    statistics: true,
-    timeline: true,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: false,
-    matchManagement: false,
-    timerControl: false,
-    reportGeneration: false,
+    pitchView: true, pianoInput: false, statistics: true, timeline: true,
+    analytics: false, ballTracking: false, liveEvents: false,
+    dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false,
   },
-  default: { 
-    pitchView: false,
-    pianoInput: false,
-    statistics: false,
-    timeline: false,
-    analytics: false,
-    ballTracking: false,
-    liveEvents: false,
-    dashboard: false,
-    matchManagement: false,
-    timerControl: false,
-    reportGeneration: false,
+  special: {
+    pitchView: false, pianoInput: false, statistics: false, timeline: false,
+    analytics: false, ballTracking: false, liveEvents: false,
+    dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false,
+  },
+  default: {
+    pitchView: false, pianoInput: false, statistics: false, timeline: false,
+    analytics: false, ballTracking: false, liveEvents: false, dashboard: false,
+    matchManagement: false, timerControl: false, reportGeneration: false,
   }
 };
 

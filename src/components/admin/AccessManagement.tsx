@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { Users, Settings, Shield, Eye, Save, RotateCcw, AlertCircle } from 'luci
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer';
+type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | 'special';
 
 interface RolePermissions {
   pitchView: boolean;
@@ -44,6 +43,7 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
   teacher: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
   user: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
   viewer: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
+  special: { pitchView: false, pianoInput: false, statistics: false, timeline: false, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
 };
 
 const AccessManagement: React.FC = () => {
@@ -232,6 +232,7 @@ const AccessManagement: React.FC = () => {
       case 'teacher': return 'bg-green-100 text-green-800';
       case 'user': return 'bg-gray-100 text-gray-800';
       case 'viewer': return 'bg-orange-100 text-orange-800';
+      case 'special': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -306,6 +307,7 @@ const AccessManagement: React.FC = () => {
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="special">Special</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

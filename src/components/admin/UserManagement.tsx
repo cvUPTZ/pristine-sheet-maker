@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import CreateUserDialog from './CreateUserDialog';
 
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager';
+type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'special';
 
 interface UserProfile {
   id: string;
@@ -212,6 +212,7 @@ const UserManagement: React.FC = () => {
                           <SelectItem value="tracker">Tracker</SelectItem>
                           <SelectItem value="teacher">Teacher</SelectItem>
                           <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="special" className="text-blue-700 font-bold">Special</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
