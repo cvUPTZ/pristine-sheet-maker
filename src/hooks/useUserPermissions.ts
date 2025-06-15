@@ -54,7 +54,7 @@ const defaultPermissions: Record<UserRole, RolePermissions> = {
   special: {
     pitchView: false,
     pianoInput: false,
-    statistics: true, // Allow access to statistics
+    statistics: false,
     timeline: false,
     analytics: false,
     ballTracking: false,
