@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,18 +11,14 @@ interface TeamHeaderData {
   score?: number;
   flagUrl?: string | null;
 }
+
+type MatchStatus = 'live' | 'upcoming' | 'finished' | 'postponed';
+
 interface MatchHeaderProps {
-  mode: 'piano' | 'tracking';
-  setMode: (mode: 'piano' | 'tracking') => void;
   homeTeam: TeamHeaderData;
   awayTeam: TeamHeaderData;
-  handleToggleTracking: () => void;
-  handleSave: () => void;
   name?: string;
-  status?: string;
-  userRole?: string | null;
-  onToggleTracking?: () => void;
-  onSave?: () => void;
+  status?: MatchStatus;
   matchId?: string;
 }
 
@@ -45,19 +40,24 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   status,
   matchId,
 }) => {
-  // Add internal state to control image load status for fallback
-  const [homeFlagError, setHomeFlagError] = useState(false);
-  const [awayFlagError, setAwayFlagError] = useState(false);
+  const [flagErrors, setFlagErrors] = useState<{
+    home: boolean;
+    away: boolean;
+  }>({ home: false, away: false });
+  
   const [teamFlags, setTeamFlags] = useState<{
     homeTeamFlagUrl?: string | null;
     awayTeamFlagUrl?: string | null;
   }>({});
+  
+  const [isLoading, setIsLoading] = useState(false);
 
   // Fetch flag URLs from database when matchId is provided
   useEffect(() => {
     const fetchFlagUrls = async () => {
       if (!matchId) return;
 
+      setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('matches')
@@ -71,7 +71,6 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         }
 
         if (data) {
-          console.log('Fetched flag URLs from database:', data);
           setTeamFlags({
             homeTeamFlagUrl: data.home_team_flag_url,
             awayTeamFlagUrl: data.away_team_flag_url,
@@ -79,6 +78,8 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
         }
       } catch (error) {
         console.error('Error in fetchFlagUrls:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -89,17 +90,30 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
   const homeFlagUrl = teamFlags.homeTeamFlagUrl || homeTeam.flagUrl;
   const awayFlagUrl = teamFlags.awayTeamFlagUrl || awayTeam.flagUrl;
 
-  console.log("MatchHeader props:", { homeTeam, awayTeam });
-  console.log("Flag image URLs:", {
-    home: homeFlagUrl,
-    away: awayFlagUrl,
-  });
-
   const homeColor = generateColorFromString(homeTeam.name);
   const awayColor = generateColorFromString(awayTeam.name);
 
   const gradientStyle = {
     background: `linear-gradient(90deg, ${homeColor} 0%, ${awayColor} 100%)`,
+  };
+
+  const handleFlagError = (team: 'home' | 'away') => {
+    setFlagErrors(prev => ({ ...prev, [team]: true }));
+  };
+
+  const getStatusColor = (status?: MatchStatus): string => {
+    switch (status) {
+      case 'live':
+        return 'bg-red-500/80 text-white';
+      case 'finished':
+        return 'bg-gray-500/80 text-white';
+      case 'upcoming':
+        return 'bg-blue-500/80 text-white';
+      case 'postponed':
+        return 'bg-yellow-500/80 text-black';
+      default:
+        return 'bg-white/20 text-white';
+    }
   };
 
   return (
@@ -110,12 +124,12 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
           {/* Home Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-left">
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {homeFlagUrl && !homeFlagError ? (
+              {homeFlagUrl && !flagErrors.home ? (
                 <AvatarImage 
                   src={homeFlagUrl} 
                   alt={`${homeTeam.name} flag`}
                   className="object-cover"
-                  onError={() => setHomeFlagError(true)}
+                  onError={() => handleFlagError('home')}
                 />
               ) : (
                 <AvatarFallback className="bg-white/20 text-white">
@@ -124,38 +138,62 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
               )}
             </Avatar>
             <div>
-              <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>{homeTeam.name}</h2>
-              <p className="text-xs sm:text-sm opacity-80">{homeTeam.formation || '4-4-2'}</p>
+              <h2 className="text-lg sm:text-2xl font-bold truncate" title={homeTeam.name}>
+                {homeTeam.name}
+              </h2>
+              <p className="text-xs sm:text-sm opacity-80">
+                {homeTeam.formation || '4-4-2'}
+              </p>
             </div>
           </div>
 
+          {/* Center Section - Score and Match Info */}
           <div className="flex-1 text-center px-2">
+            {/* Score Display */}
+            {(homeTeam.score !== undefined || awayTeam.score !== undefined) && (
+              <div className="text-2xl sm:text-3xl font-bold mb-1">
+                {homeTeam.score ?? 0} - {awayTeam.score ?? 0}
+              </div>
+            )}
+            
+            {/* Match Name */}
             <h1 className="text-sm sm:text-lg font-semibold truncate hidden sm:block" title={name}>
               {name || 'Match'}
             </h1>
+            
+            {/* Status Badge */}
             {status && (
               <Badge
                 variant="secondary"
-                className="mt-1 bg-white/20 text-white border-none text-xs backdrop-blur-sm"
+                className={`mt-1 border-none text-xs backdrop-blur-sm ${getStatusColor(status)}`}
               >
                 {status.toUpperCase()}
               </Badge>
+            )}
+            
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="text-xs opacity-70 mt-1">Loading...</div>
             )}
           </div>
 
           {/* Away Team */}
           <div className="flex flex-1 items-center gap-3 sm:gap-4 text-right justify-end">
             <div>
-              <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>{awayTeam.name}</h2>
-              <p className="text-xs sm:text-sm opacity-80">{awayTeam.formation || '4-3-3'}</p>
+              <h2 className="text-lg sm:text-2xl font-bold truncate" title={awayTeam.name}>
+                {awayTeam.name}
+              </h2>
+              <p className="text-xs sm:text-sm opacity-80">
+                {awayTeam.formation || '4-3-3'}
+              </p>
             </div>
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white/50">
-              {awayFlagUrl && !awayFlagError ? (
+              {awayFlagUrl && !flagErrors.away ? (
                 <AvatarImage 
                   src={awayFlagUrl} 
                   alt={`${awayTeam.name} flag`}
                   className="object-cover"
-                  onError={() => setAwayFlagError(true)}
+                  onError={() => handleFlagError('away')}
                 />
               ) : (
                 <AvatarFallback className="bg-white/20 text-white">
@@ -165,6 +203,8 @@ const MatchHeader: React.FC<MatchHeaderProps> = ({
             </Avatar>
           </div>
         </div>
+        
+        {/* Mobile Match Name */}
         {name && (
           <h1 className="text-center text-md font-semibold truncate sm:hidden mt-2" title={name}>
             {name}
