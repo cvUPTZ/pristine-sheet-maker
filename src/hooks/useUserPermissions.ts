@@ -163,7 +163,7 @@ export const useUserPermissions = (userId?: string): UseUserPermissionsReturn =>
           // If custom permissions exist, use them. Otherwise, use role defaults.
           if (profile.custom_permissions) {
             const roleDefaults = defaultPermissions[userRole] || defaultPermissions.default;
-            const finalPermissions = { ...roleDefaults, ...(profile.custom_permissions as RolePermissions) };
+            const finalPermissions = { ...roleDefaults, ...(profile.custom_permissions as unknown as RolePermissions) };
             setPermissions(finalPermissions);
           } else {
             setPermissions(defaultPermissions[userRole] || defaultPermissions.default);

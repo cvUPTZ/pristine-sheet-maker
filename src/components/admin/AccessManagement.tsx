@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,13 +80,13 @@ const AccessManagement: React.FC = () => {
         const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
         
         const effective_permissions = user.custom_permissions 
-          ? { ...roleDefaults, ...(user.custom_permissions as RolePermissions) }
+          ? { ...roleDefaults, ...(user.custom_permissions as unknown as RolePermissions) }
           : roleDefaults;
         
         return {
           ...user,
           role: user.role || 'user',
-          custom_permissions: (user.custom_permissions as RolePermissions) || null,
+          custom_permissions: (user.custom_permissions as unknown as RolePermissions) || null,
           effective_permissions: effective_permissions
         };
       });
@@ -141,7 +142,7 @@ const AccessManagement: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ custom_permissions: newPermissions })
+        .update({ custom_permissions: newPermissions as any })
         .eq('id', userId);
 
       if (error) throw error;
