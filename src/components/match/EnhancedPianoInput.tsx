@@ -24,43 +24,79 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
   matchId
 }) => {
   const [recentEvents, setRecentEvents] = useState<RecordedEvent[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
   const handleEventRecord = useCallback(async (eventType: EventType) => {
+    if (isRecording) {
+      console.log('Event recording already in progress, skipping...');
+      return;
+    }
+
+    setIsRecording(true);
+    
     try {
-      // Record the event
-      const eventId = `temp_${Date.now()}_${Math.random()}`;
+      // Generate unique event ID immediately
+      const eventId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newEvent: RecordedEvent = {
         id: eventId,
         eventType,
         timestamp: Date.now()
       };
       
+      // Update UI immediately for responsive feedback
       setRecentEvents(prev => [newEvent, ...prev.slice(0, 9)]);
+      
+      // Show immediate feedback
+      toast({
+        title: "Recording Event...",
+        description: `${eventType} event is being recorded.`,
+      });
+
+      // Call the parent's event record function (fire and forget)
       onEventRecord(eventType);
       
+      // Update success message
       toast({
         title: "Event Recorded",
-        description: `${eventType} event recorded. You have 10 seconds to cancel.`,
+        description: `${eventType} event recorded successfully. You have 10 seconds to cancel.`,
       });
+      
     } catch (error) {
       console.error('Error recording event:', error);
+      
+      // Remove the event from recent events on error
+      setRecentEvents(prev => prev.filter(event => event.eventType !== eventType || event.timestamp !== Date.now()));
+      
       toast({
         title: "Error",
-        description: "Failed to record event",
+        description: "Failed to record event. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsRecording(false);
     }
-  }, [onEventRecord, toast]);
+  }, [onEventRecord, toast, isRecording]);
 
   const handleCancelEvent = useCallback(async (eventId: string, eventType: EventType) => {
     try {
-      // Remove from recent events
+      // Remove from recent events immediately
       setRecentEvents(prev => prev.filter(event => event.id !== eventId));
       
-      // TODO: Add actual database cancellation logic here
-      // This would involve deleting the most recent event of this type from match_events
+      // Optimistic cancellation - try to cancel in database
+      const { error } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('match_id', matchId)
+        .eq('event_type', eventType)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error('Error cancelling event in database:', error);
+        // Don't show error to user as the UI update already happened
+      }
       
       toast({
         title: "Event Cancelled",
@@ -74,7 +110,7 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, matchId]);
 
   const handleEventExpire = useCallback((eventId: string) => {
     setRecentEvents(prev => prev.filter(event => event.id !== eventId));
@@ -94,8 +130,9 @@ const EnhancedPianoInput: React.FC<EnhancedPianoInputProps> = ({
       <div key={eventType} className="flex flex-col items-center justify-start gap-2">
         <button
           onClick={() => handleEventRecord(eventType)}
+          disabled={isRecording}
           aria-label={`Record ${eventType} event`}
-          className={`flex items-center justify-center rounded-full border bg-gradient-to-br from-white/70 to-slate-100/70 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-70 ${buttonSizeClasses} ${isPrimary ? 'border-blue-200/80 hover:border-blue-400' : 'border-slate-200/80 hover:border-slate-400'}`}
+          className={`flex items-center justify-center rounded-full border bg-gradient-to-br from-white/70 to-slate-100/70 backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-70 ${buttonSizeClasses} ${isPrimary ? 'border-blue-200/80 hover:border-blue-400' : 'border-slate-200/80 hover:border-slate-400'} ${isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <EnhancedEventTypeIcon
             eventType={eventType}

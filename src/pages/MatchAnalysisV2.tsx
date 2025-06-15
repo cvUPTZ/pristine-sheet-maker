@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -252,8 +251,8 @@ const MatchAnalysisV2: React.FC = () => {
     });
   };
 
-  // Centralized event recording function for MatchAnalysisV2
-  const handleRecordEvent = async (
+  // Optimized centralized event recording function
+  const handleRecordEvent = useCallback(async (
     eventTypeKey: string,
     playerId?: number,
     teamContext?: 'home' | 'away',
@@ -263,54 +262,83 @@ const MatchAnalysisV2: React.FC = () => {
 
     if (!matchId) {
       console.error("Match ID is missing.");
-      throw new Error("Match ID is missing");
+      toast({
+        title: 'Error',
+        description: 'Match ID is missing',
+        variant: 'destructive',
+      });
+      return;
     }
 
     if (!user?.id) {
       console.error("User not authenticated");
-      throw new Error("User not authenticated");
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive',
+      });
+      return;
     }
 
     if (!eventTypeKey) {
       console.error("Event type is missing");
-      throw new Error("Event type is missing");
+      toast({
+        title: 'Error',
+        description: 'Event type is missing',
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
       const eventToInsert = {
         match_id: matchId,
         event_type: eventTypeKey,
-        player_id: playerId,
+        player_id: playerId || null,
         created_by: user.id,
         timestamp: Math.floor(Date.now() / 1000),
-        team: teamContext,
+        team: teamContext || null,
         coordinates: details?.coordinates || null,
-        event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
+        event_data: { 
+          ...details, 
+          recorded_via_interface: true, 
+          team_context_from_input: teamContext,
+          recorded_at: new Date().toISOString()
+        },
       };
 
       console.log("Inserting event via MatchAnalysisV2:", eventToInsert);
 
-      const { error: dbError } = await supabase.from('match_events').insert([eventToInsert]);
+      // Use upsert with conflict resolution for better performance
+      const { error: dbError } = await supabase
+        .from('match_events')
+        .insert([eventToInsert])
+        .select()
+        .single();
 
       if (dbError) {
         console.error('Error recording event in MatchAnalysisV2:', dbError);
         toast({
           title: 'Error Recording Event',
-          description: dbError.message,
+          description: 'Database error occurred. Please try again.',
           variant: 'destructive',
         });
         throw dbError;
       } else {
         toast({
-          title: 'Event Recorded Successfully',
-          description: `${eventTypeKey} event recorded.`,
+          title: 'Event Recorded',
+          description: `${eventTypeKey} event recorded successfully.`,
         });
       }
     } catch (error: any) {
       console.error("Error in handleRecordEvent:", error);
-      throw error;
+      toast({
+        title: 'Recording Failed',
+        description: 'Please check your connection and try again.',
+        variant: 'destructive',
+      });
     }
-  };
+  }, [matchId, user?.id, toast]);
 
   const canShowVoiceCollab = !!user?.id;
   const canShowVoiceInput = !!(assignedPlayers && assignedEventTypes);

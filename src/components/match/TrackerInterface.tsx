@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { EnhancedVoiceChat } from '@/components/voice/EnhancedVoiceChat';
 import { useToast } from '@/components/ui/use-toast';
@@ -33,6 +32,7 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchData | null>(null);
+  const [isRecordingEvent, setIsRecordingEvent] = useState(false);
   const isMobile = useIsMobile();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -116,46 +116,72 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
     };
   }, [trackerUserId, matchId]);
 
-  // --- Centralized Event Recording Function ---
-  const handleRecordEvent = async (
+  // Optimized event recording function
+  const handleRecordEvent = useCallback(async (
     eventType: EventType,
     playerId?: number,
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
   ) => {
+    if (isRecordingEvent) {
+      console.log("Event recording already in progress, skipping...");
+      return;
+    }
+
+    setIsRecordingEvent(true);
     console.log("TrackerInterface: handleRecordEvent called with:", { eventType, playerId, teamContext, details });
 
-    const eventToInsert = {
-      match_id: matchId,
-      event_type: eventType,
-      player_id: playerId,
-      created_by: trackerUserId,
-      timestamp: Math.floor(Date.now() / 1000),
-      team: teamContext,
-      coordinates: details?.coordinates || null,
-      event_data: { ...details, recorded_via_interface: true, team_context_from_input: teamContext },
-    };
+    try {
+      const eventToInsert = {
+        match_id: matchId,
+        event_type: eventType,
+        player_id: playerId || null,
+        created_by: trackerUserId,
+        timestamp: Math.floor(Date.now() / 1000),
+        team: teamContext || null,
+        coordinates: details?.coordinates || null,
+        event_data: { 
+          ...details, 
+          recorded_via_interface: true, 
+          team_context_from_input: teamContext,
+          tracker_id: trackerUserId,
+          recorded_at: new Date().toISOString()
+        },
+      };
 
-    console.log("Inserting event via TrackerInterface:", eventToInsert);
+      console.log("Inserting event via TrackerInterface:", eventToInsert);
 
-    const { error: dbError } = await supabase.from('match_events').insert([eventToInsert]);
+      const { error: dbError } = await supabase
+        .from('match_events')
+        .insert([eventToInsert])
+        .select()
+        .single();
 
-    if (dbError) {
-      console.error('Error recording event in TrackerInterface:', dbError);
+      if (dbError) {
+        console.error('Error recording event in TrackerInterface:', dbError);
+        toast({
+          title: 'Error Recording Event',
+          description: 'Database error occurred. Please try again.',
+          variant: 'destructive',
+        });
+        throw dbError;
+      } else {
+        toast({
+          title: 'Event Recorded',
+          description: `${eventType} event recorded successfully.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error in TrackerInterface handleRecordEvent:', error);
       toast({
-        title: 'Error Recording Event',
-        description: dbError.message,
+        title: 'Recording Failed',
+        description: 'Please check your connection and try again.',
         variant: 'destructive',
       });
-      throw dbError;
-    } else {
-      toast({
-        title: 'Event Recorded Successfully',
-        description: `${eventType} event recorded.`,
-      });
+    } finally {
+      setIsRecordingEvent(false);
     }
-  };
-  // --- End Centralized Event Recording ---
+  }, [matchId, trackerUserId, toast, isRecordingEvent]);
 
   // Enhanced status broadcasting with battery and network info
   useEffect(() => {
@@ -256,6 +282,9 @@ export function TrackerInterface({ trackerUserId, matchId }: TrackerInterfacePro
                 <span className={`font-medium ${batteryStatus.level <= 20 ? 'text-red-600' : 'text-green-600'}`}>
                   Battery: {batteryStatus.level}% {batteryStatus.charging ? '⚡' : '🔋'}
                 </span>
+              )}
+              {isRecordingEvent && (
+                <span className="text-blue-600 font-medium">Recording...</span>
               )}
             </div>
           </div>
