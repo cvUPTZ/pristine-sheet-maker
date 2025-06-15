@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import DashboardChart from '@/components/dashboard/DashboardChart';
 import DashboardMetricsGrid from '@/components/dashboard/DashboardMetricsGrid';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
+import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 
 const fetchMatches = async () => {
   const { data, error } = await supabase
@@ -34,6 +34,7 @@ const fetchMatches = async () => {
 
 const Dashboard = () => {
   const { userRole } = useAuth();
+  const { hasPermission } = usePermissionChecker();
 
   const { data: matches, isLoading: isLoadingMatches, isError: isErrorMatches } = useQuery({
     queryKey: ['dashboardMatches'],
@@ -53,8 +54,15 @@ const Dashboard = () => {
   if (userRole === 'admin' || userRole === 'manager') {
     menuItems.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
   }
-  if (userRole === 'admin' || userRole === 'manager' || userRole === 'teacher') {
-    menuItems.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
+  if (
+    userRole === 'admin' ||
+    userRole === 'manager' ||
+    userRole === 'teacher' ||
+    hasPermission('statistics')
+  ) {
+    if (!menuItems.some(item => item.value === 'statistics')) {
+      menuItems.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
+    }
   }
   if (userRole === 'admin' || userRole === 'manager') {
     menuItems.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
