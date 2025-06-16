@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,7 +105,7 @@ const AnalyticsDashboard = () => {
 
       const formattedEvents: MatchEvent[] = (eventsData || []).map(event => ({
         id: event.id, match_id: event.match_id, timestamp: event.timestamp || 0,
-        type: event.event_type as EventType, event_data: event.event_data || {},
+        type: event.event_type as EventType, event_data: {},
         created_at: event.created_at, tracker_id: null, team_id: null,
         player_id: event.player_id, team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
         coordinates: typeof event.coordinates === 'object' && event.coordinates !== null ? event.coordinates as { x: number; y: number } : { x: 0, y: 0 },
@@ -214,8 +215,8 @@ const AnalyticsDashboard = () => {
                               <div className="p-4 bg-white/50 rounded-lg">
                                 <h4 className="font-semibold text-blue-800 mb-2">Attacking Efficiency</h4>
                                 <p className="text-sm text-blue-700">
-                                  {selectedMatchData.home_team_name} had a shot accuracy of {statistics.home.shotAccuracy.toFixed(1)}%, 
-                                  while {selectedMatchData.away_team_name} had {statistics.away.shotAccuracy.toFixed(1)}%.
+                                  {selectedMatchData.home_team_name} had a shot accuracy of {statistics.home.shots > 0 ? ((statistics.home.shotsOnTarget / statistics.home.shots) * 100).toFixed(1) : 0}%, 
+                                  while {selectedMatchData.away_team_name} had {statistics.away.shots > 0 ? ((statistics.away.shotsOnTarget / statistics.away.shots) * 100).toFixed(1) : 0}%.
                                 </p>
                               </div>
                             </CardContent>
