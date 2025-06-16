@@ -146,7 +146,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
     
     // Analytics & Statistics
     canViewAnalytics: false,
-    canViewStatistics: true,
+    canViewStatistics: false,
     canExportData: false,
     canViewReports: false,
     
