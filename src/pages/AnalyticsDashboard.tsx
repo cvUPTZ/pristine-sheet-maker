@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +15,7 @@ import RealTimeStatsWidget from '@/components/analytics/RealTimeStatsWidget';
 import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
+import PermissionDebugger from './PermissionDebugger';
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
@@ -43,10 +43,10 @@ const AnalyticsDashboard = () => {
     if (['admin', 'manager'].includes(role || '') || hasPermission('canViewMatches')) {
       items.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
     }
-    if (['admin', 'manager', 'tracker'].includes(role || '') || hasPermission('canViewStatistics')) {
+    if (['admin', 'manager', 'teacher'].includes(role || '') || hasPermission('canViewStatistics')) {
       items.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
     }
-    if (['admin', 'manager', 'tracker'].includes(role || '') || hasPermission('canViewAnalytics')) {
+    if (['admin', 'manager'].includes(role || '') || hasPermission('canViewAnalytics')) {
       items.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
     }
     if (role === 'admin' || hasPermission('canAccessAdmin')) {
@@ -140,6 +140,9 @@ const AnalyticsDashboard = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex w-full">
+        {/* Add Permission Debugger in development mode */}
+        <PermissionDebugger />
+        
         <MatchAnalysisSidebar menuItems={menuItems} groupLabel="Navigation" />
         <SidebarInset>
             <div className="container mx-auto p-6 space-y-6">
