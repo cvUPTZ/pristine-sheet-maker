@@ -15,7 +15,7 @@ import RealTimeStatsWidget from '@/components/analytics/RealTimeStatsWidget';
 import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
-import PermissionDebugger from './PermissionDebugger';
+import PermissionDebugger from '@components/PermissionDebugger';
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
