@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -14,6 +15,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { ThemeProvider } from "next-themes";
+
+// Import all the page components
+import Header from './components/Header';
+import LandingPage from './pages/LandingPage';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+import Index from './pages/Index';
+import MatchAnalysisV2 from './pages/MatchAnalysisV2';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import CreateMatch from './pages/CreateMatch';
+import MatchTimerPage from './pages/MatchTimerPage';
+import VideoAnalysis from './pages/VideoAnalysis';
+import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer';
+import TrackerInterface from './pages/TrackerInterface';
+import Matches from './pages/Matches';
+import Statistics from './pages/Statistics';
+import Admin from './pages/Admin';
+import ProfileListPage from './pages/Admin/ProfileListPage';
+import NewVoiceChatPage from './pages/NewVoiceChatPage';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 

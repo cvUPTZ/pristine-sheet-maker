@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MatchEvent, Statistics, PlayerStatistics } from '@/types';
+import { MatchEvent, Statistics, PlayerStatistics, EventType } from '@/types';
 import { aggregateMatchEvents } from '@/lib/analytics/eventAggregator';
 
 export interface MatchState {
@@ -32,6 +33,7 @@ export const useMatchState = (matchId: string | undefined) => {
         crosses: 0,
         clearances: 0,
         blocks: 0,
+        possession: 0,
         totalXg: 0,
         supportPasses: 0,
         offensivePasses: 0,
@@ -84,6 +86,7 @@ export const useMatchState = (matchId: string | undefined) => {
         crosses: 0,
         clearances: 0,
         blocks: 0,
+        possession: 0,
         totalXg: 0,
         supportPasses: 0,
         offensivePasses: 0,
@@ -156,14 +159,53 @@ export const useMatchState = (matchId: string | undefined) => {
         }
 
         // Parse player data from the match details
-        const homeTeamPlayers = matchData?.home_team_players ? JSON.parse(matchData.home_team_players) : [];
-        const awayTeamPlayers = matchData?.away_team_players ? JSON.parse(matchData.away_team_players) : [];
+        const homeTeamPlayers = matchData?.home_team_players 
+          ? (typeof matchData.home_team_players === 'string' 
+              ? JSON.parse(matchData.home_team_players) 
+              : matchData.home_team_players)
+          : [];
+        const awayTeamPlayers = matchData?.away_team_players 
+          ? (typeof matchData.away_team_players === 'string' 
+              ? JSON.parse(matchData.away_team_players) 
+              : matchData.away_team_players)
+          : [];
 
-        const aggregatedData = aggregateMatchEvents(eventsData || [], homeTeamPlayers, awayTeamPlayers);
+        // Transform raw events data to MatchEvent format
+        const formattedEvents: MatchEvent[] = (eventsData || []).map(event => {
+          let coordinates = { x: 0, y: 0 };
+          if (event.coordinates) {
+            try {
+              if (typeof event.coordinates === 'string') {
+                coordinates = JSON.parse(event.coordinates);
+              } else if (typeof event.coordinates === 'object' && event.coordinates !== null) {
+                coordinates = event.coordinates as { x: number; y: number };
+              }
+            } catch (e) {
+              console.warn('Failed to parse coordinates:', event.coordinates);
+            }
+          }
+
+          return {
+            id: event.id,
+            match_id: event.match_id,
+            timestamp: event.timestamp || 0,
+            type: (event.event_type || 'pass') as EventType,
+            event_data: event.event_data || null,
+            created_at: event.created_at,
+            tracker_id: event.tracker_id,
+            team_id: event.team_id,
+            player_id: event.player_id,
+            team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
+            coordinates,
+            created_by: event.created_by,
+          };
+        });
+
+        const aggregatedData = aggregateMatchEvents(formattedEvents, homeTeamPlayers, awayTeamPlayers);
 
         setState(prevState => ({
           ...prevState,
-          events: eventsData || [],
+          events: formattedEvents,
           statistics: {
             home: aggregatedData.homeTeamStats,
             away: aggregatedData.awayTeamStats,
