@@ -258,7 +258,7 @@ const AppContent: React.FC = () => {
         
         <Route path="/analytics" element={
           <RequireAuth 
-            requiredRoles={['admin', 'manager']}
+            requiredRoles={['admin', 'manager','tracker']}
             requiredPermissions={['canViewAnalytics']}
           >
             <AnalyticsDashboard />
