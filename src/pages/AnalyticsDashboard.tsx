@@ -43,7 +43,7 @@ const AnalyticsDashboard = () => {
     if (['admin', 'manager'].includes(role || '') || hasPermission('canViewMatches')) {
       items.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
     }
-    if (['admin', 'manager', 'teacher'].includes(role || '') || hasPermission('canViewStatistics')) {
+    if (['admin', 'manager', 'tracker'].includes(role || '') || hasPermission('canViewStatistics')) {
       items.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
     }
     if (['admin', 'manager'].includes(role || '') || hasPermission('canViewAnalytics')) {
