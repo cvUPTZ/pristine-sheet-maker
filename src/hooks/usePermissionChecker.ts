@@ -1,10 +1,10 @@
 
 // hooks/usePermissionChecker.ts
 import { useMemo } from 'react';
-import { useUserPermissions, RolePermissions, UserRole } from './useUserPermissions';
+import { useUserPermissions, type RolePermissions, type UserRole } from './useUserPermissions';
 import { useAuth } from '@/context/AuthContext';
 
-export { RolePermissions, UserRole } from './useUserPermissions';
+export type { RolePermissions, UserRole } from './useUserPermissions';
 
 export const usePermissionChecker = (userId?: string) => {
   const { user } = useAuth();

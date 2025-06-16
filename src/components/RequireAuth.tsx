@@ -2,18 +2,20 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { usePermissionChecker } from '@/hooks/usePermissionChecker';
+import { usePermissionChecker, type RolePermissions } from '@/hooks/usePermissionChecker';
 import { Loader2 } from 'lucide-react';
 
 export const RequireAuth: React.FC<{ 
   children: React.ReactNode;
   requiredRoles?: Array<'admin' | 'tracker' | 'viewer' | 'user' | 'manager' | 'teacher'>;
+  requiredPermissions?: Array<keyof RolePermissions>;
 }> = ({ 
   children, 
-  requiredRoles 
+  requiredRoles,
+  requiredPermissions
 }) => {
   const { user, loading } = useAuth();
-  const { role, isLoading: permissionsLoading } = usePermissionChecker();
+  const { role, hasPermission, isLoading: permissionsLoading } = usePermissionChecker();
   const location = useLocation();
 
   const isLoading = loading || permissionsLoading;
@@ -35,17 +37,37 @@ export const RequireAuth: React.FC<{
   // If specific roles are required, check user's role
   if (requiredRoles && requiredRoles.length > 0) {
     if (!role || !requiredRoles.includes(role as any)) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-screen">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
-          <p className="text-gray-600">Required roles: {requiredRoles.join(', ')}</p>
-          <p className="text-gray-600">Your role: {role || 'none'}</p>
-        </div>
-      );
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
+
+  // If specific permissions are required, check user's permissions
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    const hasAllPermissions = requiredPermissions.every(permission => hasPermission(permission));
+    if (!hasAllPermissions) {
+      return <Navigate to="/unauthorized" replace />;
     }
   }
 
   // User is authenticated and has required role (if any)
   return <>{children}</>;
 };
+
+// Helper components for specific access levels
+export const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <RequireAuth requiredRoles={['admin']}>
+    {children}
+  </RequireAuth>
+);
+
+export const ManagerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <RequireAuth requiredRoles={['admin', 'manager']}>
+    {children}
+  </RequireAuth>
+);
+
+export const TrackerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <RequireAuth requiredRoles={['admin', 'tracker']}>
+    {children}
+  </RequireAuth>
+);

@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target } from 'lucide-react';
 import { usePermissionChecker } from './usePermissionChecker';
-import { RolePermissions } from './useUserPermissions';
+import { type RolePermissions } from './useUserPermissions';
 
 interface MenuItem {
   value: string;
@@ -22,17 +22,17 @@ export const useMenuItems = () => {
         label: 'Dashboard', 
         icon: LayoutDashboard, 
         path: '/',
-        permission: 'dashboard'
+        permission: 'canViewDashboard'
       }
     ];
   
-    if (hasPermission('matchManagement')) {
+    if (hasPermission('canViewMatches')) {
       items.push({ 
         value: 'new-match', 
         label: 'New Match', 
         icon: Play, 
         path: '/match',
-        permission: 'matchManagement'
+        permission: 'canViewMatches'
       });
     }
     
@@ -42,27 +42,27 @@ export const useMenuItems = () => {
         label: 'Match History', 
         icon: Calendar, 
         path: '/matches',
-        permission: 'dashboard'
+        permission: 'canViewMatches'
       });
     }
     
-    if (hasPermission('statistics')) {
+    if (hasPermission('canViewStatistics')) {
       items.push({ 
         value: 'statistics', 
         label: 'Statistics', 
         icon: BarChart3, 
         path: '/statistics',
-        permission: 'statistics'
+        permission: 'canViewStatistics'
       });
     }
     
-    if (hasPermission('analytics')) {
+    if (hasPermission('canViewAnalytics')) {
       items.push({ 
         value: 'analytics', 
         label: 'Analytics', 
         icon: TrendingUp, 
         path: '/analytics',
-        permission: 'analytics'
+        permission: 'canViewAnalytics'
       });
     }
     
@@ -72,7 +72,7 @@ export const useMenuItems = () => {
         label: 'Admin Panel', 
         icon: Target, 
         path: '/admin',
-        permission: 'dashboard'
+        permission: 'canAccessAdmin'
       });
     }
 
