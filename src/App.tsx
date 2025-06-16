@@ -1,4 +1,3 @@
-
 // src/App.tsx
 import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -7,13 +6,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { RequireAuth } from "./components/RequireAuth";
+import { RequireAuth, AdminOnly, ManagerAccess, TrackerAccess } from "./components/RequireAuth";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { usePermissionChecker } from './hooks/usePermissionChecker';
 import { ThemeProvider } from "next-themes";
 
 // Import all the page components
@@ -54,6 +54,7 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnline = useNetworkStatus();
+  const { hasTrackerAccess, hasPermission } = usePermissionChecker();
 
   useEffect(() => {
     console.log(`App component: Network is currently ${isOnline ? 'Online' : 'Offline'}`);
@@ -79,8 +80,9 @@ const AppContent: React.FC = () => {
     }
   }, []); 
 
+  // Enhanced match live notifications with permission checking
   useEffect(() => {
-    if (user && user.app_metadata?.role === 'tracker') {
+    if (user && (hasTrackerAccess() || hasPermission('canTrackMatches'))) {
       const channel = supabase
         .channel('match-live-notifications')
         .on(
@@ -98,6 +100,7 @@ const AppContent: React.FC = () => {
               const matchId = newMatch.id;
               const matchName = newMatch.name || `${newMatch.home_team_name || 'Home'} vs ${newMatch.away_team_name || 'Away'}`;
 
+              // Don't show notification if user is already on the match page
               if (location.pathname === `/match/${matchId}`) {
                 return;
               }
@@ -125,47 +128,196 @@ const AppContent: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user, toast, navigate, location]);
+  }, [user, toast, navigate, location, hasTrackerAccess, hasPermission]);
 
   return (
     <>
       <Header />
       <Routes>
+        {/* Public routes */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-        <Route path="/match" element={<RequireAuth requiredRoles={['admin', 'tracker']}><Index /></RequireAuth>} />
-        <Route path="/match/:matchId" element={<RequireAuth requiredRoles={['admin', 'tracker']}><MatchAnalysisV2 /></RequireAuth>} /> 
-        <Route path="/match/:matchId/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
-        <Route path="/match/:matchId/edit" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
-        <Route path="/match/:matchId/timer" element={<RequireAuth requiredRoles={['admin']}><MatchTimerPage /></RequireAuth>} />
         
-        {/* Original Video Analysis (Job-based) - kept for now */}
-        <Route path="/video-analysis" element={<RequireAuth requiredRoles={['admin', 'manager']}><VideoAnalysis /></RequireAuth>} />
-        {/* New Direct Video Analyzer */}
-        <Route path="/direct-analyzer" element={<RequireAuth><DirectVideoAnalyzer /></RequireAuth>} /> 
-
-        <Route path="/tracker" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
-        <Route path="/tracker-interface" element={<RequireAuth requiredRoles={['tracker']}><TrackerInterface /></RequireAuth>} />
-        <Route path="/matches" element={<RequireAuth requiredRoles={['admin', 'manager']}><Matches /></RequireAuth>} />
-        <Route path="/statistics" element={
+        {/* Protected routes - General Access */}
+        <Route path="/" element={
           <RequireAuth>
+            <Dashboard />
+          </RequireAuth>
+        } />
+        
+        <Route path="/settings" element={
+          <RequireAuth>
+            <Settings />
+          </RequireAuth>
+        } />
+        
+        {/* Match Management Routes */}
+        <Route path="/match" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'tracker']}
+            requiredPermissions={['canViewMatches']}
+          >
+            <Index />
+          </RequireAuth>
+        } />
+        
+        <Route path="/match/:matchId" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'tracker']}
+            requiredPermissions={['canTrackMatches']}
+          >
+            <MatchAnalysisV2 />
+          </RequireAuth>
+        } />
+        
+        <Route path="/match/:matchId/analytics" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'manager']}
+            requiredPermissions={['canViewAnalytics']}
+          >
+            <AnalyticsDashboard />
+          </RequireAuth>
+        } />
+        
+        <Route path="/match/:matchId/edit" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canEditMatches']}
+          >
+            <CreateMatch />
+          </RequireAuth>
+        } />
+        
+        <Route path="/match/:matchId/timer" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canManageMatchTimer']}
+          >
+            <MatchTimerPage />
+          </RequireAuth>
+        } />
+        
+        {/* Video Analysis Routes */}
+        <Route path="/video-analysis" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'manager']}
+            requiredPermissions={['canAnalyzeVideos']}
+          >
+            <VideoAnalysis />
+          </RequireAuth>
+        } />
+        
+        <Route path="/direct-analyzer" element={
+          <RequireAuth 
+            requiredPermissions={['canAnalyzeVideos']}
+          >
+            <DirectVideoAnalyzer />
+          </RequireAuth>
+        } />
+        
+        {/* Tracker Routes */}
+        <Route path="/tracker" element={
+          <TrackerAccess>
+            <TrackerInterface />
+          </TrackerAccess>
+        } />
+        
+        <Route path="/tracker-interface" element={
+          <TrackerAccess>
+            <TrackerInterface />
+          </TrackerAccess>
+        } />
+        
+        {/* Management Routes */}
+        <Route path="/matches" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'manager']}
+            requiredPermissions={['canViewMatches']}
+          >
+            <Matches />
+          </RequireAuth>
+        } />
+        
+        <Route path="/create-match" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canCreateMatches']}
+          >
+            <CreateMatch />
+          </RequireAuth>
+        } />
+        
+        {/* Analytics & Statistics */}
+        <Route path="/statistics" element={
+          <RequireAuth 
+            requiredPermissions={['canViewStatistics']}
+          >
             <Statistics />
           </RequireAuth>
         } />
-        <Route path="/analytics" element={<RequireAuth requiredRoles={['admin', 'manager']}><AnalyticsDashboard /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth requiredRoles={['admin']}><Admin /></RequireAuth>} />
-        <Route path="/create-match" element={<RequireAuth requiredRoles={['admin']}><CreateMatch /></RequireAuth>} />
-        <Route 
-          path="/admin/profiles" 
-          element={
-            <RequireAuth requiredRoles={['admin']}>
-              <ProfileListPage />
-            </RequireAuth>
-          } 
-        />
-        <Route path="/match/:matchId/voice-chat" element={<NewVoiceChatPage />} />
+        
+        <Route path="/analytics" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'manager']}
+            requiredPermissions={['canViewAnalytics']}
+          >
+            <AnalyticsDashboard />
+          </RequireAuth>
+        } />
+        
+        {/* Administrative Routes */}
+        <Route path="/admin" element={
+          <AdminOnly>
+            <Admin />
+          </AdminOnly>
+        } />
+        
+        <Route path="/admin/profiles" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canManageUsers']}
+          >
+            <ProfileListPage />
+          </RequireAuth>
+        } />
+        
+        {/* Communication Routes */}
+        <Route path="/match/:matchId/voice-chat" element={
+          <RequireAuth 
+            requiredPermissions={['canUseVoiceChat']}
+          >
+            <NewVoiceChatPage />
+          </RequireAuth>
+        } />
+        
+        {/* Fallback Routes */}
+        <Route path="/unauthorized" element={
+          <div className="flex items-center justify-center min-h-screen bg-background">
+            <div className="text-center space-y-4 p-8">
+              <h1 className="text-4xl font-bold text-foreground">403</h1>
+              <h2 className="text-2xl font-semibold text-muted-foreground">Unauthorized</h2>
+              <p className="text-muted-foreground max-w-md">
+                You don't have permission to access this resource. 
+                Please contact your administrator if you believe this is an error.
+              </p>
+              <div className="flex gap-4 justify-center mt-6">
+                <button 
+                  onClick={() => window.history.back()}
+                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80"
+                >
+                  Go Back
+                </button>
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        } />
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
