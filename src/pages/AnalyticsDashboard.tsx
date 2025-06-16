@@ -46,7 +46,7 @@ const AnalyticsDashboard = () => {
     if (['admin', 'manager', 'tracker'].includes(role || '') || hasPermission('canViewStatistics')) {
       items.push({ value: 'statistics', label: 'Statistics', icon: BarChart3, path: '/statistics' });
     }
-    if (['admin', 'manager'].includes(role || '') || hasPermission('canViewAnalytics')) {
+    if (['admin', 'manager', 'tracker'].includes(role || '') || hasPermission('canViewAnalytics')) {
       items.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
     }
     if (role === 'admin' || hasPermission('canAccessAdmin')) {
