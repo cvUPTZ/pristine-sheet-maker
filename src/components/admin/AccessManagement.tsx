@@ -5,25 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Users, Settings, Shield, Eye, Save, RotateCcw, AlertCircle } from 'lucide-react';
+import { Users, Settings, Eye, Save, RotateCcw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-type UserRole = 'admin' | 'tracker' | 'teacher' | 'user' | 'manager' | 'viewer' | 'special';
-
-interface RolePermissions {
-  pitchView: boolean;
-  pianoInput: boolean;
-  statistics: boolean;
-  timeline: boolean;
-  analytics: boolean;
-  ballTracking: boolean;
-  liveEvents: boolean;
-  dashboard: boolean;
-  matchManagement: boolean;
-  timerControl: boolean;
-  reportGeneration: boolean;
-}
+// Import the official permission definitions from the central hook
+import { RolePermissions, UserRole, DEFAULT_PERMISSIONS as defaultPermissions } from '@/hooks/useUserPermissions';
 
 interface UserProfile {
   id: string;
@@ -32,30 +18,55 @@ interface UserProfile {
   role: string | null;
   created_at: string;
   updated_at: string | null;
-  custom_permissions: RolePermissions | null;
+  custom_permissions: Partial<RolePermissions> | null;
   effective_permissions?: RolePermissions;
 }
 
-const defaultPermissions: Record<UserRole, RolePermissions> = {
-  admin: { pitchView: true, pianoInput: true, statistics: true, timeline: true, analytics: true, ballTracking: true, liveEvents: true, dashboard: true, matchManagement: true, timerControl: true, reportGeneration: true },
-  manager: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: true, timerControl: false, reportGeneration: true },
-  tracker: { pitchView: false, pianoInput: true, statistics: false, timeline: false, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
-  teacher: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: true, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
-  user: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: true, matchManagement: false, timerControl: false, reportGeneration: false },
-  viewer: { pitchView: true, pianoInput: false, statistics: true, timeline: true, analytics: false, ballTracking: false, liveEvents: false, dashboard: false, matchManagement: false, timerControl: false, reportGeneration: false },
-  special: { 
-    pitchView: false, 
-    pianoInput: false, 
-    statistics: false,
-    timeline: false, 
-    analytics: false, 
-    ballTracking: false, 
-    liveEvents: false, 
-    dashboard: false, 
-    matchManagement: false, 
-    timerControl: false, 
-    reportGeneration: false 
-  },
+const getPermissionDescription = (permission: keyof RolePermissions): string => {
+  const descriptions: Record<keyof RolePermissions, string> = {
+    // Match Management
+    canCreateMatches: 'Allows user to create new match entries.',
+    canEditMatches: 'Allows user to edit details of existing matches.',
+    canDeleteMatches: 'Allows user to delete matches.',
+    canViewMatches: 'Allows user to see the list of matches.',
+    canTrackMatches: 'Allows user to access the live match tracking interface.',
+    canManageMatchTimer: 'Allows user to control the official match timer.',
+    
+    // Analytics & Statistics
+    canViewAnalytics: 'Grants access to advanced analytics dashboards.',
+    canViewStatistics: 'Grants access to the main statistics page.',
+    canExportData: 'Allows user to export match data and reports.',
+    canViewReports: 'Allows user to view generated performance reports.',
+    
+    // Video Analysis
+    canAnalyzeVideos: 'Allows user to use video analysis tools.',
+    canUploadVideos: 'Allows user to upload videos for analysis.',
+    canDeleteVideos: 'Allows user to delete uploaded videos.',
+    canManageVideoJobs: 'Allows user to manage video processing jobs.',
+    
+    // User Management
+    canManageUsers: 'Allows user to edit other users\' roles and permissions.',
+    canViewUserProfiles: 'Allows user to view profiles of other users.',
+    canAssignRoles: 'Allows user to change the role of other users.',
+    canDeleteUsers: 'Allows user to delete user accounts.',
+    
+    // Administrative
+    canAccessAdmin: 'Grants access to the main admin panel.',
+    canManageSettings: 'Allows user to change system-wide settings.',
+    canViewSystemLogs: 'Allows user to view system activity logs.',
+    canManageDatabase: 'Grants direct database management permissions.',
+    
+    // Communication
+    canUseVoiceChat: 'Allows user to join and use voice chat during matches.',
+    canModerateChat: 'Allows user to mute or remove others from chat.',
+    
+    // General Access
+    canViewDashboard: 'Allows user to access the main application dashboard.',
+    canViewOwnProfile: 'Allows user to view their own profile page.',
+    canEditOwnProfile: 'Allows user to edit their own profile details.',
+  };
+  
+  return descriptions[permission] || 'No description available.';
 };
 
 const AccessManagement: React.FC = () => {
@@ -81,7 +92,6 @@ const AccessManagement: React.FC = () => {
         .order('email');
 
       if (error) throw error;
-
       if (!data) {
         setUsers([]);
         return;
@@ -92,13 +102,13 @@ const AccessManagement: React.FC = () => {
         const roleDefaults = defaultPermissions[userRole] || defaultPermissions.user;
         
         const effective_permissions = user.custom_permissions 
-          ? { ...roleDefaults, ...(user.custom_permissions as unknown as RolePermissions) }
+          ? { ...roleDefaults, ...(user.custom_permissions as Partial<RolePermissions>) }
           : roleDefaults;
         
         return {
           ...user,
           role: user.role || 'user',
-          custom_permissions: (user.custom_permissions as unknown as RolePermissions) || null,
+          custom_permissions: (user.custom_permissions as Partial<RolePermissions>) || null,
           effective_permissions: effective_permissions
         };
       });
@@ -152,22 +162,33 @@ const AccessManagement: React.FC = () => {
   const savePermissions = async (userId: string, newPermissions: RolePermissions) => {
     setSaving(true);
     try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      const roleDefaults = defaultPermissions[(user.role || 'user') as UserRole];
+      const customOverrides: Partial<RolePermissions> = {};
+
+      // Only save permissions that differ from the role's default to keep the database clean
+      (Object.keys(newPermissions) as Array<keyof RolePermissions>).forEach(key => {
+        if (newPermissions[key] !== roleDefaults[key]) {
+          customOverrides[key] = newPermissions[key];
+        }
+      });
+
+      const payload = Object.keys(customOverrides).length > 0 ? customOverrides : null;
+
       const { error } = await supabase
         .from('profiles')
-        .update({ custom_permissions: newPermissions as any })
+        .update({ custom_permissions: payload as any })
         .eq('id', userId);
 
       if (error) throw error;
 
-      // Update local state
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
-          ? { 
-              ...user, 
-              custom_permissions: newPermissions,
-              effective_permissions: newPermissions,
-            }
-          : user
+      // Update local state to reflect the change
+      setUsers(prev => prev.map(u => 
+        u.id === userId 
+          ? { ...u, custom_permissions: payload, effective_permissions: newPermissions }
+          : u
       ));
 
       setHasUnsavedChanges(false);
@@ -200,11 +221,7 @@ const AccessManagement: React.FC = () => {
       // Update local state
       setUsers(prev => prev.map(u => 
         u.id === userId 
-          ? { 
-              ...u, 
-              custom_permissions: null,
-              effective_permissions: roleDefaults
-            }
+          ? { ...u, custom_permissions: null, effective_permissions: roleDefaults }
           : u
       ));
 
@@ -244,7 +261,6 @@ const AccessManagement: React.FC = () => {
       case 'teacher': return 'bg-green-100 text-green-800';
       case 'user': return 'bg-gray-100 text-gray-800';
       case 'viewer': return 'bg-orange-100 text-orange-800';
-      case 'special': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -293,7 +309,7 @@ const AccessManagement: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm sm:text-base truncate">
-                      {user.full_name && user.full_name !== 'e' ? user.full_name : user.email || 'No name'}
+                      {user.full_name && user.full_name.trim() !== '' ? user.full_name : user.email || 'No name'}
                     </p>
                     <p className="text-xs sm:text-sm text-gray-600 truncate">
                       {user.email || 'No email'}
@@ -319,7 +335,6 @@ const AccessManagement: React.FC = () => {
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="special">Special</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -344,7 +359,6 @@ const AccessManagement: React.FC = () => {
         <CardContent className="p-4 sm:p-6 pt-0">
           {selectedUser && selectedUserData ? (
             <div className="space-y-4">
-              {/* Action Buttons */}
               <div className="flex flex-wrap gap-2 pb-4 border-b">
                 <Button
                   onClick={() => savePermissions(selectedUser, permissions)}
@@ -368,10 +382,9 @@ const AccessManagement: React.FC = () => {
                 </Button>
               </div>
 
-              {/* User Info */}
               <div className="bg-gray-50 p-3 rounded-lg text-sm">
                 <p className="font-medium">
-                  {selectedUserData.full_name && selectedUserData.full_name !== 'e' 
+                  {selectedUserData.full_name && selectedUserData.full_name.trim() !== '' 
                     ? selectedUserData.full_name 
                     : selectedUserData.email || 'Unnamed User'
                   }
@@ -384,13 +397,12 @@ const AccessManagement: React.FC = () => {
                 </p>
               </div>
 
-              {/* Permissions List */}
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto pr-2">
                 {Object.entries(permissions).map(([key, value]) => (
                   <div key={key} className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <Label htmlFor={key} className="capitalize text-sm sm:text-base">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                        {key.replace(/^can/, '').replace(/([A-Z])/g, ' $1').trim()}
                       </Label>
                       <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         {getPermissionDescription(key as keyof RolePermissions)}
@@ -418,24 +430,6 @@ const AccessManagement: React.FC = () => {
       </Card>
     </div>
   );
-};
-
-const getPermissionDescription = (permission: keyof RolePermissions): string => {
-  const descriptions: Record<keyof RolePermissions, string> = {
-    pitchView: 'Access to the pitch visualization and player tracking',
-    pianoInput: 'Ability to record events using the piano input interface',
-    statistics: 'View match statistics and team performance data',
-    timeline: 'Access to the match events timeline',
-    analytics: 'View advanced analytics and data visualizations',
-    ballTracking: 'Track ball movement and positioning data',
-    liveEvents: 'View real-time match events and updates',
-    dashboard: 'Access to the main dashboard view',
-    matchManagement: 'Create, edit, and delete matches',
-    timerControl: 'Control the match timer (start, stop, pause)',
-    reportGeneration: 'Generate and download match reports',
-  };
-  
-  return descriptions[permission] || 'No description available.';
 };
 
 export default AccessManagement;

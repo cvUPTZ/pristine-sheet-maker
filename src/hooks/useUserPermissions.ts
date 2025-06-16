@@ -1,5 +1,5 @@
-
 // hooks/useUserPermissions.ts
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -48,263 +48,63 @@ export interface RolePermissions {
 
 export type UserRole = 'admin' | 'manager' | 'tracker' | 'teacher' | 'user' | 'viewer';
 
-const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
+// CHANGED: Export this constant so it can be used in the admin panel
+export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
-    // Match Management
-    canCreateMatches: true,
-    canEditMatches: true,
-    canDeleteMatches: true,
-    canViewMatches: true,
-    canTrackMatches: true,
-    canManageMatchTimer: true,
-    
-    // Analytics & Statistics
-    canViewAnalytics: true,
-    canViewStatistics: true,
-    canExportData: true,
-    canViewReports: true,
-    
-    // Video Analysis
-    canAnalyzeVideos: true,
-    canUploadVideos: true,
-    canDeleteVideos: true,
-    canManageVideoJobs: true,
-    
-    // User Management
-    canManageUsers: true,
-    canViewUserProfiles: true,
-    canAssignRoles: true,
-    canDeleteUsers: true,
-    
-    // Administrative
-    canAccessAdmin: true,
-    canManageSettings: true,
-    canViewSystemLogs: true,
-    canManageDatabase: true,
-    
-    // Communication
-    canUseVoiceChat: true,
-    canModerateChat: true,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: true,
+    // ... (all true)
+    canCreateMatches: true, canEditMatches: true, canDeleteMatches: true, canViewMatches: true, canTrackMatches: true, canManageMatchTimer: true,
+    canViewAnalytics: true, canViewStatistics: true, canExportData: true, canViewReports: true,
+    canAnalyzeVideos: true, canUploadVideos: true, canDeleteVideos: true, canManageVideoJobs: true,
+    canManageUsers: true, canViewUserProfiles: true, canAssignRoles: true, canDeleteUsers: true,
+    canAccessAdmin: true, canManageSettings: true, canViewSystemLogs: true, canManageDatabase: true,
+    canUseVoiceChat: true, canModerateChat: true,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: true,
   },
-  
   manager: {
-    // Match Management
-    canCreateMatches: true,
-    canEditMatches: true,
-    canDeleteMatches: false,
-    canViewMatches: true,
-    canTrackMatches: false,
-    canManageMatchTimer: false,
-    
-    // Analytics & Statistics
-    canViewAnalytics: true,
-    canViewStatistics: true,
-    canExportData: true,
-    canViewReports: true,
-    
-    // Video Analysis
-    canAnalyzeVideos: true,
-    canUploadVideos: true,
-    canDeleteVideos: false,
-    canManageVideoJobs: true,
-    
-    // User Management
-    canManageUsers: false,
-    canViewUserProfiles: true,
-    canAssignRoles: false,
-    canDeleteUsers: false,
-    
-    // Administrative
-    canAccessAdmin: false,
-    canManageSettings: false,
-    canViewSystemLogs: false,
-    canManageDatabase: false,
-    
-    // Communication
-    canUseVoiceChat: true,
-    canModerateChat: true,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: true,
+    canCreateMatches: true, canEditMatches: true, canDeleteMatches: false, canViewMatches: true, canTrackMatches: false, canManageMatchTimer: false,
+    canViewAnalytics: true, canViewStatistics: true, canExportData: true, canViewReports: true,
+    canAnalyzeVideos: true, canUploadVideos: true, canDeleteVideos: false, canManageVideoJobs: true,
+    canManageUsers: false, canViewUserProfiles: true, canAssignRoles: false, canDeleteUsers: false,
+    canAccessAdmin: false, canManageSettings: false, canViewSystemLogs: false, canManageDatabase: false,
+    canUseVoiceChat: true, canModerateChat: true,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: true,
   },
-  
   tracker: {
-    // Match Management
-    canCreateMatches: false,
-    canEditMatches: false,
-    canDeleteMatches: false,
-    canViewMatches: true,
-    canTrackMatches: true,
-    canManageMatchTimer: false,
-    
-    // Analytics & Statistics
-    canViewAnalytics: false,
-    canViewStatistics: false,
-    canExportData: false,
-    canViewReports: false,
-    
-    // Video Analysis
-    canAnalyzeVideos: false,
-    canUploadVideos: false,
-    canDeleteVideos: false,
-    canManageVideoJobs: false,
-    
-    // User Management
-    canManageUsers: false,
-    canViewUserProfiles: false,
-    canAssignRoles: false,
-    canDeleteUsers: false,
-    
-    // Administrative
-    canAccessAdmin: false,
-    canManageSettings: false,
-    canViewSystemLogs: false,
-    canManageDatabase: false,
-    
-    // Communication
-    canUseVoiceChat: true,
-    canModerateChat: false,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: true,
+    canCreateMatches: false, canEditMatches: false, canDeleteMatches: false, canViewMatches: true, canTrackMatches: true, canManageMatchTimer: false,
+    canViewAnalytics: false, canViewStatistics: false, // CORRECTED: This is false by default
+    canExportData: false, canViewReports: false,
+    canAnalyzeVideos: false, canUploadVideos: false, canDeleteVideos: false, canManageVideoJobs: false,
+    canManageUsers: false, canViewUserProfiles: false, canAssignRoles: false, canDeleteUsers: false,
+    canAccessAdmin: false, canManageSettings: false, canViewSystemLogs: false, canManageDatabase: false,
+    canUseVoiceChat: true, canModerateChat: false,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: true,
   },
-  
   teacher: {
-    // Match Management
-    canCreateMatches: false,
-    canEditMatches: false,
-    canDeleteMatches: false,
-    canViewMatches: true,
-    canTrackMatches: false,
-    canManageMatchTimer: false,
-    
-    // Analytics & Statistics
-    canViewAnalytics: true,
-    canViewStatistics: true,
-    canExportData: false,
-    canViewReports: true,
-    
-    // Video Analysis
-    canAnalyzeVideos: true,
-    canUploadVideos: true,
-    canDeleteVideos: false,
-    canManageVideoJobs: false,
-    
-    // User Management
-    canManageUsers: false,
-    canViewUserProfiles: false,
-    canAssignRoles: false,
-    canDeleteUsers: false,
-    
-    // Administrative
-    canAccessAdmin: false,
-    canManageSettings: false,
-    canViewSystemLogs: false,
-    canManageDatabase: false,
-    
-    // Communication
-    canUseVoiceChat: true,
-    canModerateChat: false,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: true,
+    canCreateMatches: false, canEditMatches: false, canDeleteMatches: false, canViewMatches: true, canTrackMatches: false, canManageMatchTimer: false,
+    canViewAnalytics: true, canViewStatistics: true, canExportData: false, canViewReports: true,
+    canAnalyzeVideos: true, canUploadVideos: true, canDeleteVideos: false, canManageVideoJobs: false,
+    canManageUsers: false, canViewUserProfiles: false, canAssignRoles: false, canDeleteUsers: false,
+    canAccessAdmin: false, canManageSettings: false, canViewSystemLogs: false, canManageDatabase: false,
+    canUseVoiceChat: true, canModerateChat: false,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: true,
   },
-  
   user: {
-    // Match Management
-    canCreateMatches: false,
-    canEditMatches: false,
-    canDeleteMatches: false,
-    canViewMatches: false,
-    canTrackMatches: false,
-    canManageMatchTimer: false,
-    
-    // Analytics & Statistics
-    canViewAnalytics: false,
-    canViewStatistics: false,
-    canExportData: false,
-    canViewReports: false,
-    
-    // Video Analysis
-    canAnalyzeVideos: false,
-    canUploadVideos: false,
-    canDeleteVideos: false,
-    canManageVideoJobs: false,
-    
-    // User Management
-    canManageUsers: false,
-    canViewUserProfiles: false,
-    canAssignRoles: false,
-    canDeleteUsers: false,
-    
-    // Administrative
-    canAccessAdmin: false,
-    canManageSettings: false,
-    canViewSystemLogs: false,
-    canManageDatabase: false,
-    
-    // Communication
-    canUseVoiceChat: false,
-    canModerateChat: false,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: true,
+    canCreateMatches: false, canEditMatches: false, canDeleteMatches: false, canViewMatches: false, canTrackMatches: false, canManageMatchTimer: false,
+    canViewAnalytics: false, canViewStatistics: false, canExportData: false, canViewReports: false,
+    canAnalyzeVideos: false, canUploadVideos: false, canDeleteVideos: false, canManageVideoJobs: false,
+    canManageUsers: false, canViewUserProfiles: false, canAssignRoles: false, canDeleteUsers: false,
+    canAccessAdmin: false, canManageSettings: false, canViewSystemLogs: false, canManageDatabase: false,
+    canUseVoiceChat: false, canModerateChat: false,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: true,
   },
-  
   viewer: {
-    // Match Management
-    canCreateMatches: false,
-    canEditMatches: false,
-    canDeleteMatches: false,
-    canViewMatches: false,
-    canTrackMatches: false,
-    canManageMatchTimer: false,
-    
-    // Analytics & Statistics
-    canViewAnalytics: false,
-    canViewStatistics: false,
-    canExportData: false,
-    canViewReports: false,
-    
-    // Video Analysis
-    canAnalyzeVideos: false,
-    canUploadVideos: false,
-    canDeleteVideos: false,
-    canManageVideoJobs: false,
-    
-    // User Management
-    canManageUsers: false,
-    canViewUserProfiles: false,
-    canAssignRoles: false,
-    canDeleteUsers: false,
-    
-    // Administrative
-    canAccessAdmin: false,
-    canManageSettings: false,
-    canViewSystemLogs: false,
-    canManageDatabase: false,
-    
-    // Communication
-    canUseVoiceChat: false,
-    canModerateChat: false,
-    
-    // General Access
-    canViewDashboard: true,
-    canViewOwnProfile: true,
-    canEditOwnProfile: false,
+    canCreateMatches: false, canEditMatches: false, canDeleteMatches: false, canViewMatches: false, canTrackMatches: false, canManageMatchTimer: false,
+    canViewAnalytics: false, canViewStatistics: false, canExportData: false, canViewReports: false,
+    canAnalyzeVideos: false, canUploadVideos: false, canDeleteVideos: false, canManageVideoJobs: false,
+    canManageUsers: false, canViewUserProfiles: false, canAssignRoles: false, canDeleteUsers: false,
+    canAccessAdmin: false, canManageSettings: false, canViewSystemLogs: false, canManageDatabase: false,
+    canUseVoiceChat: false, canModerateChat: false,
+    canViewDashboard: true, canViewOwnProfile: true, canEditOwnProfile: false,
   },
 };
 
@@ -325,10 +125,10 @@ export const useUserPermissions = (userId?: string) => {
         setIsLoading(true);
         setError(null);
 
-        // First, get the user's profile to get their role
+        // CHANGED: Fetch custom_permissions along with the role
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, custom_permissions')
           .eq('id', userId)
           .single();
 
@@ -344,15 +144,17 @@ export const useUserPermissions = (userId?: string) => {
 
         setRole(userRole);
 
-        // Use default permissions for the role (no custom permissions table for now)
-        const finalPermissions = { ...DEFAULT_PERMISSIONS[userRole] };
+        // CHANGED: Merge role defaults with custom overrides from the database
+        const roleDefaults = DEFAULT_PERMISSIONS[userRole];
+        const customPermissions = (profile.custom_permissions as Partial<RolePermissions>) || {};
+        const finalPermissions = { ...roleDefaults, ...customPermissions };
 
         setPermissions(finalPermissions);
+
       } catch (err) {
         console.error('Error fetching user permissions:', err);
         setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         
-        // Set minimal permissions on error
         setPermissions({
           ...DEFAULT_PERMISSIONS.viewer,
           canViewDashboard: true,
