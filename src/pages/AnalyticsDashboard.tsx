@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -217,7 +218,7 @@ const AnalyticsDashboard = () => {
                             </CardContent>
                           </Card>
                           <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200">
-                            <CardHeader><CardTitle className="text-green-900">Performance Highlights</CardTitle></Header>
+                            <CardHeader><CardTitle className="text-green-900">Performance Highlights</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                               <div className="p-4 bg-white/50 rounded-lg">
                                 <h4 className="font-semibold text-green-800 mb-2">Top Performer</h4>
