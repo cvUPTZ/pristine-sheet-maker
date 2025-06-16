@@ -34,7 +34,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus'; 
-import { ThemeProvider } from "next-themes"; // <-- ADD THIS LINE
+import { ThemeProvider } from "next-themes";
 
 const queryClient = new QueryClient();
 
