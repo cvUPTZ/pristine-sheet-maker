@@ -13,7 +13,7 @@ interface MenuItem {
 }
 
 export const useMenuItems = () => {
-  const { hasPermission, isAdmin, hasManagerAccess } = usePermissionChecker();
+  const { hasPermission, isAdmin } = usePermissionChecker();
 
   const menuItems = useMemo(() => {
     const items: MenuItem[] = [
@@ -36,7 +36,7 @@ export const useMenuItems = () => {
       });
     }
     
-    if (hasManagerAccess()) {
+    if (hasPermission('canViewMatches')) {
       items.push({ 
         value: 'match-history', 
         label: 'Match History', 
@@ -77,7 +77,7 @@ export const useMenuItems = () => {
     }
 
     return items;
-  }, [hasPermission, isAdmin, hasManagerAccess]);
+  }, [hasPermission, isAdmin]);
 
   return menuItems;
 };
