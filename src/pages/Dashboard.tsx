@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,16 +50,16 @@ const Dashboard = () => {
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' }
   ];
 
-  // New Match visible if user has matchManagement permission
-  if (hasPermission('matchManagement')) {
+  // New Match visible if user has canCreateMatches permission
+  if (hasPermission('canCreateMatches')) {
     menuItems.push({ value: 'new-match', label: 'New Match', icon: Play, path: '/match' });
   }
-  // Match History visible if user has dashboard permission (to keep demo similar to original logic)
-  if (hasPermission('dashboard')) {
+  // Match History visible if user has canViewDashboard permission
+  if (hasPermission('canViewDashboard')) {
     menuItems.push({ value: 'match-history', label: 'Match History', icon: Calendar, path: '/matches' });
   }
-  // Statistics link is now ONLY shown if user has been granted 'statistics' permission in AccessManagement
-  if (hasPermission('statistics')) {
+  // Statistics link is now ONLY shown if user has been granted 'canViewStatistics' permission
+  if (hasPermission('canViewStatistics')) {
     menuItems.push({
       value: 'statistics',
       label: 'Statistics',
@@ -66,12 +67,12 @@ const Dashboard = () => {
       path: '/statistics'
     });
   }
-  // Analytics shown if user has analytics permission
-  if (hasPermission('analytics')) {
+  // Analytics shown if user has canViewAnalytics permission
+  if (hasPermission('canViewAnalytics')) {
     menuItems.push({ value: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/analytics' });
   }
-  // Admin panel if user has dashboard permission (typical for admins only)
-  if (hasPermission('dashboard') && userRole === 'admin') {
+  // Admin panel if user has canViewDashboard permission (typical for admins only)
+  if (hasPermission('canViewDashboard') && userRole === 'admin') {
     menuItems.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
   }
 

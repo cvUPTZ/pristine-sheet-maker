@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -533,12 +534,12 @@ const MatchAnalysis: React.FC = () => {
       </div>
     );
   }
-  if (!hasPermission('statistics')) {
+  if (!hasPermission('canViewStatistics')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
         <p className="text-gray-600">You don't have permission to access this page.</p>
-        <p className="text-gray-600">Required permission: <span className="font-mono">statistics</span></p>
+        <p className="text-gray-600">Required permission: <span className="font-mono">canViewStatistics</span></p>
         <p className="text-gray-600">Your role: {role || 'none'}</p>
       </div>
     );

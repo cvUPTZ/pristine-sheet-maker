@@ -1,3 +1,4 @@
+
 // hooks/useUserPermissions.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -343,27 +344,8 @@ export const useUserPermissions = (userId?: string) => {
 
         setRole(userRole);
 
-        // Check if there are custom permissions in the database
-        const { data: customPermissions, error: permError } = await supabase
-          .from('user_permissions')
-          .select('permission_key, granted')
-          .eq('user_id', userId);
-
-        if (permError && permError.code !== 'PGRST116') { // PGRST116 is "not found"
-          console.warn('Failed to fetch custom permissions:', permError.message);
-        }
-
-        // Start with default permissions for the role
-        let finalPermissions = { ...DEFAULT_PERMISSIONS[userRole] };
-
-        // Apply any custom permissions if they exist
-        if (customPermissions && customPermissions.length > 0) {
-          customPermissions.forEach(customPerm => {
-            if (customPerm.permission_key in finalPermissions) {
-              finalPermissions[customPerm.permission_key as keyof RolePermissions] = customPerm.granted;
-            }
-          });
-        }
+        // Use default permissions for the role (no custom permissions table for now)
+        const finalPermissions = { ...DEFAULT_PERMISSIONS[userRole] };
 
         setPermissions(finalPermissions);
       } catch (err) {

@@ -49,9 +49,9 @@ const Index: React.FC = () => {
     permissionsLoading,
     permissions,
     role,
-    hasStatistics: hasPermission('statistics'),
-    hasAnalytics: hasPermission('analytics'),
-    hasMatchManagement: hasPermission('matchManagement')
+    hasStatistics: hasPermission('canViewStatistics'),
+    hasAnalytics: hasPermission('canViewAnalytics'),
+    hasMatchManagement: hasPermission('canCreateMatches')
   });
 
   const fetchMatches = useCallback(async () => {
@@ -99,7 +99,7 @@ const Index: React.FC = () => {
   };
 
   const isLoading = matchesLoading || permissionsLoading;
-  const canCreateMatch = hasPermission('matchManagement');
+  const canCreateMatch = hasPermission('canCreateMatches');
 
   return (
     <SidebarProvider>
