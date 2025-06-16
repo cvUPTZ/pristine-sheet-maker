@@ -39,7 +39,7 @@ export const usePermissionChecker = (userId?: string) => {
     },
     
     canViewMatchData: () => {
-      return permissions?.canViewMatches || permissions?.canViewAnalytics || permissions?.canViewStatistics || false;
+      return permissions?.canViewMatches || permissions?.canViewAnalytics || permissions?.canViewStatistics || true;
     },
     
     canHandleVideos: () => {
