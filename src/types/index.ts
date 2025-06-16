@@ -257,16 +257,6 @@ export interface PlayerStatistics extends PlayerStatSummary {}
 export interface Statistics {
   home: TeamDetailedStats;
   away: TeamDetailedStats;
-  possession?: { home: number; away: number };
-  shots?: { home: ShotStats; away: ShotStats };
-  passes?: { home: PassStats; away: PassStats };
-  ballsPlayed?: { home: number; away: number };
-  ballsLost?: { home: number; away: number };
-  duels?: { home: DuelStats; away: DuelStats };
-  crosses?: { home: CrossStats; away: CrossStats };
-  corners?: { home: number; away: number };
-  offsides?: { home: number; away: number };
-  fouls?: { home: number; away: number };
 }
 
 export interface TimeSegmentStatistics {

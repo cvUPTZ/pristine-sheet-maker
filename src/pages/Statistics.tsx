@@ -313,15 +313,13 @@ const Statistics = () => {
 
         const aggregatedData: AggregatedStats = aggregateMatchEvents(formattedEvents, homePlayersList, awayPlayersList);
 
-        const homeTeamEventsCount = formattedEvents.filter(e => e.team === 'home').length; // Keep for simple possession proxy if needed
-        const awayTeamEventsCount = formattedEvents.filter(e => e.team === 'away').length; // Keep for simple possession proxy
-
+        // Set statistics with the correct structure
         setStatistics({
-            home: aggregatedData.homeTeamStats,
-            away: aggregatedData.awayTeamStats,
+          home: aggregatedData.homeTeamStats,
+          away: aggregatedData.awayTeamStats,
         });
 
-        setPlayerStats(aggregatedData.playerStats); // This is already PlayerStatSummary[]
+        setPlayerStats(aggregatedData.playerStats);
 
         // Set first player as default for chart, or null if no players
         if (aggregatedData.playerStats && aggregatedData.playerStats.length > 0) {
@@ -713,10 +711,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
+                        {statistics ? (statistics.home?.passesAttempted || 0) + (statistics.away?.passesAttempted || 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
+                        Home: {statistics?.home?.passesAttempted || 0} • Away: {statistics?.away?.passesAttempted || 0}
                       </p>
                     </CardContent>
                   </Card>
@@ -727,10 +725,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
+                        {statistics ? (statistics.home?.shots || 0) + (statistics.away?.shots || 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
+                        Home: {statistics?.home?.shots || 0} • Away: {statistics?.away?.shots || 0}
                       </p>
                     </CardContent>
                   </Card>
