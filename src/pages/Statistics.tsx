@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,13 +55,10 @@ import type { Statistics as StatisticsType, MatchEvent, PlayerStatistics, EventT
 import { aggregateMatchEvents, AggregatedStats } from '@/lib/analytics/eventAggregator'; // AggregatedStats import
 import { segmentEventsByTime } from '@/lib/analytics/timeSegmenter';
 import { aggregateStatsForSegments } from '@/lib/analytics/timeSegmentedStatsAggregator';
-import { usePermissionChecker } from '@/hooks/usePermissionChecker';
 
 const Statistics = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { hasPermission, isLoading: permissionsLoading, role } = usePermissionChecker();
-
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [selectedMatchFullData, setSelectedMatchFullData] = useState<any>(null);
@@ -78,121 +76,9 @@ const Statistics = () => {
   const [matchDuration, setMatchDuration] = useState<number>(90); // Default match duration
   const [activeView, setActiveView] = useState('overview');
 
-  // Diagnostic logging
-  useEffect(() => {
-    console.log("[Statistics.tsx] permissionsLoading:", permissionsLoading);
-    console.log("[Statistics.tsx] hasPermission('statistics'):", hasPermission('statistics'));
-    console.log("[Statistics.tsx] role:", role);
-    console.log("[Statistics.tsx] matches:", matches);
-    console.log("[Statistics.tsx] selectedMatch:", selectedMatch);
-    console.log("[Statistics.tsx] selectedMatchFullData:", selectedMatchFullData);
-    console.log("[Statistics.tsx] statistics:", statistics);
-    console.log("[Statistics.tsx] events:", events);
-  }, [
-    permissionsLoading,
-    hasPermission,
-    role,
-    matches,
-    selectedMatch,
-    selectedMatchFullData,
-    statistics,
-    events
-  ]);
-
-  if (permissionsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <span className="text-lg font-medium">Checking permissions...</span>
-      </div>
-    );
-  }
-  if (!hasPermission('statistics')) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="text-gray-600">You don't have permission to access this page.</p>
-        <p className="text-gray-600">Required permission: <span className="font-mono">statistics</span></p>
-        <p className="text-gray-600">Your role: {role || 'none'}</p>
-      </div>
-    );
-  }
-
-  // Defensive fallback: if matches fails to load or is malformed
-  if (!loading && (!Array.isArray(matches) || matches.length === 0)) {
-    console.error("[Statistics] No matches or matches array is not loaded.");
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No Matches Available</h1>
-          <p className="text-gray-600">No matches found. Please create a match to view statistics.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">Match Statistics</h1>
-        </div>
-        <div className="text-center py-8">Loading statistics...</div>
-      </div>
-    );
-  }
-
-  // Defensive/fallback: if selectedMatchFullData is missing after loading
-  if (!loading && matches.length > 0 && !selectedMatchFullData) {
-    console.error("[Statistics] selectedMatchFullData is null/undefined after loading.");
-    console.log("matches:", matches, "selectedMatch:", selectedMatch, "selectedMatchFullData:", selectedMatchFullData);
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">Match Statistics</h1>
-        </div>
-        <div className="text-center py-8 text-red-600 font-semibold">
-          Error: No match selected or match data could not be loaded.<br />
-          Please check your match data and database.
-        </div>
-      </div>
-    );
-  }
-
-  // Defensive checks for critical properties before children are rendered
-  if (selectedMatchFullData && (
-      !selectedMatchFullData.home_team_name ||
-      !selectedMatchFullData.away_team_name
-    )) {
-    console.error("[Statistics] selectedMatchFullData is missing home_team_name or away_team_name.", selectedMatchFullData);
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center text-red-600 bg-red-100 p-4 rounded">
-          <b>Critical Error:</b> Match data is missing key fields.<br />
-          <pre>
-            {JSON.stringify(selectedMatchFullData, null, 2)}
-          </pre>
-        </div>
-      </div>
-    );
-  }
-
-  // Defensive: don't access nested fields if statistics is null
-  const safeHomeTeamName =
-    selectedMatchFullData && selectedMatchFullData.home_team_name
-      ? selectedMatchFullData.home_team_name
-      : 'Home';
-  const safeAwayTeamName =
-    selectedMatchFullData && selectedMatchFullData.away_team_name
-      ? selectedMatchFullData.away_team_name
-      : 'Away';
+  // No longer needed if PlayerStatSummary is used directly by new components
+  // and PlayerPerformanceChart is updated or replaced.
+  // const convertToPlayerStatistics = (playerStats: AggPlayerStatSummary[]): PlayerStatistics[] => { ... }
 
   useEffect(() => {
     fetchMatches();
@@ -313,13 +199,26 @@ const Statistics = () => {
 
         const aggregatedData: AggregatedStats = aggregateMatchEvents(formattedEvents, homePlayersList, awayPlayersList);
 
-        // Set statistics with the correct structure
+        const homeTeamEventsCount = formattedEvents.filter(e => e.team === 'home').length; // Keep for simple possession proxy if needed
+        const awayTeamEventsCount = formattedEvents.filter(e => e.team === 'away').length; // Keep for simple possession proxy
+
+        // Ensure TeamDetailedStats has possessionPercentage, if not, calculate it here or in aggregator
+        // For now, assuming TeamDetailedStats might not have it, or it's calculated differently.
+        // The Type `TeamDetailedStats` has `possessionPercentage` and `possession` (which can be time or events)
+        // Let's assume `aggregatedData.homeTeamStats.possessionPercentage` is populated by the aggregator.
+        // If not, a simple event count based one can be a fallback:
+        // const totalEventsForPossession = homeTeamEventsCount + awayTeamEventsCount;
+        // const homePossessionPercent = totalEventsForPossession > 0 ? Math.round((homeTeamEventsCount / totalEventsForPossession) * 100) : 50;
+        // aggregatedData.homeTeamStats.possessionPercentage = aggregatedData.homeTeamStats.possessionPercentage || homePossessionPercent;
+        // aggregatedData.awayTeamStats.possessionPercentage = aggregatedData.awayTeamStats.possessionPercentage || (100 - homePossessionPercent);
+
+
         setStatistics({
-          home: aggregatedData.homeTeamStats,
-          away: aggregatedData.awayTeamStats,
+            home: aggregatedData.homeTeamStats,
+            away: aggregatedData.awayTeamStats,
         });
 
-        setPlayerStats(aggregatedData.playerStats);
+        setPlayerStats(aggregatedData.playerStats); // This is already PlayerStatSummary[]
 
         // Set first player as default for chart, or null if no players
         if (aggregatedData.playerStats && aggregatedData.playerStats.length > 0) {
@@ -364,6 +263,8 @@ const Statistics = () => {
     }
   };
 
+  const selectedMatchInfo = matches.find(m => m.id === selectedMatch);
+
   const menuItems = [
     { value: 'overview', label: 'Overview', icon: LayoutDashboard },
     { value: 'detailed', label: 'Detailed', icon: ListChecks },
@@ -388,19 +289,19 @@ const Statistics = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <StatisticsDisplay
                     statistics={statistics}
-                    homeTeamName={safeHomeTeamName}
-                    awayTeamName={safeAwayTeamName}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
                   />
                   <MatchRadarChart
                     statistics={statistics}
-                    homeTeamName={safeHomeTeamName}
-                    awayTeamName={safeAwayTeamName}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
                   />
                 </div>
                 <EventTimelineChart
                   events={events}
-                  homeTeamName={safeHomeTeamName}
-                  awayTeamName={safeAwayTeamName}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
                 />
               </>
             )}
@@ -418,8 +319,8 @@ const Statistics = () => {
                 <CardContent>
                   <DetailedStatsTable
                     statistics={statistics}
-                    homeTeamName={safeHomeTeamName}
-                    awayTeamName={safeAwayTeamName}
+                    homeTeamName={selectedMatchFullData.home_team_name}
+                    awayTeamName={selectedMatchFullData.away_team_name}
                   />
                 </CardContent>
               </Card>
@@ -431,12 +332,12 @@ const Statistics = () => {
           <div className="space-y-6">
             {statistics && statistics.home && statistics.away && (
               <>
-                <TeamComparisonCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                <PerformanceDifferenceAnalysis homeStats={statistics.home} awayStats={statistics.away} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                <AdvancedEfficiencyRatioCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                <PerformanceComparisonGraphs homeStats={statistics.home} awayStats={statistics.away} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                <Card><CardHeader><CardTitle>Home Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.home} teamName={safeHomeTeamName} /></CardContent></Card>
-                <Card><CardHeader><CardTitle>Away Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.away} teamName={safeAwayTeamName} /></CardContent></Card>
+                <TeamComparisonCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <PerformanceDifferenceAnalysis homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <AdvancedEfficiencyRatioCharts homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <PerformanceComparisonGraphs homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                <Card><CardHeader><CardTitle>Home Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} /></CardContent></Card>
+                <Card><CardHeader><CardTitle>Away Team Efficiency</CardTitle></CardHeader><CardContent><EfficiencyMetricsRatios teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} /></CardContent></Card>
               </>
             )}
           </div>
@@ -446,18 +347,18 @@ const Statistics = () => {
           <div className="space-y-6">
             {statistics && statistics.home && statistics.away && (
               <>
-                <TargetOffTargetComparison homeStats={statistics.home} awayStats={statistics.away} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
+                <TargetOffTargetComparison homeStats={statistics.home} awayStats={statistics.away} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <ShootingAccuracyCharts teamStats={statistics.home} teamName={safeHomeTeamName} />
-                  <ShootingAccuracyCharts teamStats={statistics.away} teamName={safeAwayTeamName} />
-                  <ShotDistributionAnalysis teamStats={statistics.home} teamName={safeHomeTeamName} />
-                  <ShotDistributionAnalysis teamStats={statistics.away} teamName={safeAwayTeamName} />
-                  <DuelSuccessRateCharts teamStats={statistics.home} teamName={safeHomeTeamName} />
-                  <DuelSuccessRateCharts teamStats={statistics.away} teamName={safeAwayTeamName} />
-                  <PassDirectionAnalysis teamStats={statistics.home} teamName={safeHomeTeamName} />
-                  <PassDirectionAnalysis teamStats={statistics.away} teamName={safeAwayTeamName} />
-                  <ActionEffectivenessMetrics teamStats={statistics.home} teamName={safeHomeTeamName} />
-                  <ActionEffectivenessMetrics teamStats={statistics.away} teamName={safeAwayTeamName} />
+                  <ShootingAccuracyCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ShootingAccuracyCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <ShotDistributionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ShotDistributionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <DuelSuccessRateCharts teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <DuelSuccessRateCharts teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <PassDirectionAnalysis teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <PassDirectionAnalysis teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
+                  <ActionEffectivenessMetrics teamStats={statistics.home} teamName={selectedMatchFullData.home_team_name} />
+                  <ActionEffectivenessMetrics teamStats={statistics.away} teamName={selectedMatchFullData.away_team_name} />
                 </div>
               </>
             )}
@@ -492,16 +393,16 @@ const Statistics = () => {
                 {loading && <p>Loading segmented data...</p>}
                 {!loading && statsSegments && statsSegments.length > 0 && selectedMatchFullData && (
                   <>
-                    <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                    <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
-                    <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
+                    <BallControlTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                    <CumulativeBallControlChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
+                    <RecoveryTimelineChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                     <PossessionTimelineChart 
                       events={events}
                       playerStats={playerStats}
-                      homeTeamName={safeHomeTeamName} 
-                      awayTeamName={safeAwayTeamName} 
+                      homeTeamName={selectedMatchFullData.home_team_name} 
+                      awayTeamName={selectedMatchFullData.away_team_name} 
                     />
-                    <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={safeHomeTeamName} awayTeamName={safeAwayTeamName} />
+                    <CumulativePossessionChart statsSegments={statsSegments} intervalMinutes={selectedInterval} homeTeamName={selectedMatchFullData.home_team_name} awayTeamName={selectedMatchFullData.away_team_name} />
                   </>
                 )}
                 {!loading && (!statsSegments || statsSegments.length === 0) && (
@@ -558,8 +459,8 @@ const Statistics = () => {
               <CardContent>
                 <EnhancedPassingNetwork
                   playerStats={playerStats}
-                  homeTeamName={safeHomeTeamName}
-                  awayTeamName={safeAwayTeamName}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
                 />
               </CardContent>
             </Card>
@@ -570,8 +471,8 @@ const Statistics = () => {
           <div className="space-y-6">
             <PassMatrixTable
               events={events}
-              homeTeamName={safeHomeTeamName}
-              awayTeamName={safeAwayTeamName}
+              homeTeamName={selectedMatchFullData.home_team_name}
+              awayTeamName={selectedMatchFullData.away_team_name}
               homeTeamPlayers={selectedMatchFullData.home_team_players || []}
               awayTeamPlayers={selectedMatchFullData.away_team_players || []}
             />
@@ -588,8 +489,8 @@ const Statistics = () => {
               <CardContent>
                 <EnhancedShotMap
                   events={events}
-                  homeTeamName={safeHomeTeamName}
-                  awayTeamName={safeAwayTeamName}
+                  homeTeamName={selectedMatchFullData.home_team_name}
+                  awayTeamName={selectedMatchFullData.away_team_name}
                 />
               </CardContent>
             </Card>
@@ -602,8 +503,8 @@ const Statistics = () => {
               <AdvancedAnalyticsDashboard
                 statistics={statistics}
                 playerStats={playerStats}
-                homeTeamName={safeHomeTeamName}
-                awayTeamName={safeAwayTeamName}
+                homeTeamName={selectedMatchFullData.home_team_name}
+                awayTeamName={selectedMatchFullData.away_team_name}
               />
             )}
           </div>
@@ -620,8 +521,8 @@ const Statistics = () => {
                 {ballData.length > 0 && selectedMatchFullData ? (
                   <EnhancedBallFlow
                     ballTrackingPoints={ballData}
-                    homeTeam={{ id: 'home', name: safeHomeTeamName, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
-                    awayTeam={{ id: 'away', name: safeAwayTeamName, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
+                    homeTeam={{ id: 'home', name: selectedMatchFullData.home_team_name, players: selectedMatchFullData.home_team_players || [], formation: (selectedMatchFullData.home_team_formation || '4-4-2') } as Team}
+                    awayTeam={{ id: 'away', name: selectedMatchFullData.away_team_name, players: selectedMatchFullData.away_team_players || [], formation: (selectedMatchFullData.away_team_formation || '4-3-3') } as Team}
                   />
                 ) : (
                   <div className="text-center py-12">
@@ -638,6 +539,21 @@ const Statistics = () => {
         return null;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Match Statistics</h1>
+        </div>
+        <div className="text-center py-8">Loading statistics...</div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -668,8 +584,8 @@ const Statistics = () => {
                 <SelectContent>
                   {matches.map((match) => (
                     <SelectItem key={match.id} value={match.id}>
-                      {(match.name || `${match.home_team_name} vs ${match.away_team_name}`) +
-                        (match.match_date ? ` - ${new Date(match.match_date).toLocaleDateString()}` : '')}
+                      {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
+                      {match.match_date && ` - ${new Date(match.match_date).toLocaleDateString()}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -682,11 +598,11 @@ const Statistics = () => {
                   <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?w=1200&q=80')` }} />
                   <div className="absolute inset-0 bg-black/60" />
                   <CardHeader className="relative z-10">
-                    <CardTitle>{selectedMatchFullData.name || `${safeHomeTeamName} vs ${safeAwayTeamName}`}</CardTitle>
+                    <CardTitle>{selectedMatchFullData.name || `${selectedMatchFullData.home_team_name} vs ${selectedMatchFullData.away_team_name}`}</CardTitle>
                     <CardDescription className="text-gray-200">
-                      {(selectedMatchFullData.match_date ? `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}` : "") +
-                        (selectedMatchFullData.status ? ` • Status: ${selectedMatchFullData.status}` : "") +
-                        ` • ${events.length} events recorded`}
+                      {selectedMatchFullData.match_date && `Match Date: ${new Date(selectedMatchFullData.match_date).toLocaleDateString()}`}
+                      {selectedMatchFullData.status && ` • Status: ${selectedMatchFullData.status}`}
+                      {` • ${events.length} events recorded`}
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -711,10 +627,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? (statistics.home?.passesAttempted || 0) + (statistics.away?.passesAttempted || 0) : 0}
+                        {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.home?.passesAttempted || 0} • Away: {statistics?.away?.passesAttempted || 0}
+                        Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
                       </p>
                     </CardContent>
                   </Card>
@@ -725,10 +641,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? (statistics.home?.shots || 0) + (statistics.away?.shots || 0) : 0}
+                        {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.home?.shots || 0} • Away: {statistics?.away?.shots || 0}
+                        Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
                       </p>
                     </CardContent>
                   </Card>
@@ -747,7 +663,7 @@ const Statistics = () => {
                 </div>
 
                 <div className="bg-white rounded-lg border border-gray-200 min-h-[500px] sm:min-h-[600px] p-3 sm:p-4 lg:p-6">
-                  <CurrentViewComponent />
+                    <CurrentViewComponent />
                 </div>
               </>
             )}
