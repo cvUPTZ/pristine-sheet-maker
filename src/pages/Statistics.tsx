@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -198,20 +197,6 @@ const Statistics = () => {
         setEvents(formattedEvents);
 
         const aggregatedData: AggregatedStats = aggregateMatchEvents(formattedEvents, homePlayersList, awayPlayersList);
-
-        const homeTeamEventsCount = formattedEvents.filter(e => e.team === 'home').length; // Keep for simple possession proxy if needed
-        const awayTeamEventsCount = formattedEvents.filter(e => e.team === 'away').length; // Keep for simple possession proxy
-
-        // Ensure TeamDetailedStats has possessionPercentage, if not, calculate it here or in aggregator
-        // For now, assuming TeamDetailedStats might not have it, or it's calculated differently.
-        // The Type `TeamDetailedStats` has `possessionPercentage` and `possession` (which can be time or events)
-        // Let's assume `aggregatedData.homeTeamStats.possessionPercentage` is populated by the aggregator.
-        // If not, a simple event count based one can be a fallback:
-        // const totalEventsForPossession = homeTeamEventsCount + awayTeamEventsCount;
-        // const homePossessionPercent = totalEventsForPossession > 0 ? Math.round((homeTeamEventsCount / totalEventsForPossession) * 100) : 50;
-        // aggregatedData.homeTeamStats.possessionPercentage = aggregatedData.homeTeamStats.possessionPercentage || homePossessionPercent;
-        // aggregatedData.awayTeamStats.possessionPercentage = aggregatedData.awayTeamStats.possessionPercentage || (100 - homePossessionPercent);
-
 
         setStatistics({
             home: aggregatedData.homeTeamStats,
@@ -627,10 +612,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? (statistics.passes?.home?.attempted || 0) + (statistics.passes?.away?.attempted || 0) : 0}
+                        {statistics ? (statistics.home.passesAttempted || 0) + (statistics.away.passesAttempted || 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.passes?.home?.attempted || 0} • Away: {statistics?.passes?.away?.attempted || 0}
+                        Home: {statistics?.home.passesAttempted || 0} • Away: {statistics?.away.passesAttempted || 0}
                       </p>
                     </CardContent>
                   </Card>
@@ -641,10 +626,10 @@ const Statistics = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {statistics ? ((statistics.shots?.home?.total || 0)) + ((statistics.shots?.away?.total || 0)) : 0}
+                        {statistics ? (statistics.home.shots || 0) + (statistics.away.shots || 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Home: {statistics?.shots?.home?.total || 0} • Away: {statistics?.shots?.away?.total || 0}
+                        Home: {statistics?.home.shots || 0} • Away: {statistics?.away.shots || 0}
                       </p>
                     </CardContent>
                   </Card>
