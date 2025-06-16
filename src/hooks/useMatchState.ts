@@ -185,15 +185,18 @@ export const useMatchState = (matchId: string | undefined) => {
             }
           }
 
+          // Type cast to access the full event structure
+          const fullEvent = event as any;
+
           return {
             id: event.id,
             match_id: event.match_id,
             timestamp: event.timestamp || 0,
             type: (event.event_type || 'pass') as EventType,
-            event_data: event.event_data || null,
+            event_data: fullEvent.event_data || null,
             created_at: event.created_at,
-            tracker_id: event.tracker_id || null,
-            team_id: event.team_id || null,
+            tracker_id: fullEvent.tracker_id || null,
+            team_id: fullEvent.team_id || null,
             player_id: event.player_id,
             team: event.team === 'home' || event.team === 'away' ? event.team : undefined,
             coordinates,
