@@ -13,7 +13,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
-import { ThemeProvider } from "next-themes";
 
 // Import all the page components
 import Header from './components/Header';
@@ -324,15 +323,13 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <AppContent />
-      </AuthProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <Toaster />
+      <Sonner />
+      <AppContent />
+    </AuthProvider>
+  </QueryClientProvider>
 );
 
 export default App;
