@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,19 +42,12 @@
     --chart-5: 260 70% 65%; /* Indigo */
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -110,5 +104,78 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Dark theme specific text color fixes */
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark h4,
+  .dark h5,
+  .dark h6 {
+    @apply text-foreground;
+  }
+
+  .dark p,
+  .dark span,
+  .dark div {
+    @apply text-foreground;
+  }
+
+  .dark .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .dark .text-card-foreground {
+    color: hsl(var(--card-foreground));
+  }
+
+  .dark .text-popover-foreground {
+    color: hsl(var(--popover-foreground));
+  }
+
+  .dark .text-primary-foreground {
+    color: hsl(var(--primary-foreground));
+  }
+
+  .dark .text-secondary-foreground {
+    color: hsl(var(--secondary-foreground));
+  }
+
+  .dark .text-accent-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  .dark .text-destructive-foreground {
+    color: hsl(var(--destructive-foreground));
+  }
+
+  /* Ensure proper contrast for interactive elements */
+  .dark button {
+    @apply text-foreground;
+  }
+
+  .dark input {
+    @apply text-foreground;
+  }
+
+  .dark textarea {
+    @apply text-foreground;
+  }
+
+  .dark select {
+    @apply text-foreground;
+  }
+
+  /* Fix table text colors in dark mode */
+  .dark table,
+  .dark th,
+  .dark td {
+    @apply text-foreground;
+  }
+
+  /* Fix card content text in dark mode */
+  .dark .card {
+    @apply text-card-foreground;
   }
 }
