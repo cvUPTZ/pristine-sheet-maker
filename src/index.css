@@ -1,4 +1,5 @@
 
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -176,6 +177,7 @@
 
   /* Fix card content text in dark mode */
   .dark .card {
-    @apply text-card-foreground;
+    color: hsl(var(--card-foreground));
   }
 }
+
