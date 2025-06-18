@@ -1,3 +1,4 @@
+
 // hooks/useUserPermissions.ts
 
 import { useState, useEffect } from 'react';
@@ -71,7 +72,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   },
   tracker: {
     canCreateMatches: false, canEditMatches: false, canDeleteMatches: false, canViewMatches: true, canTrackMatches: true, canManageMatchTimer: false,
-    canViewAnalytics: false, canViewStatistics: false, // CORRECTED: This is false by default
+    canViewAnalytics: true, canViewStatistics: true, // FIXED: Now trackers can view analytics by default
     canExportData: false, canViewReports: false,
     canAnalyzeVideos: false, canUploadVideos: false, canDeleteVideos: false, canManageVideoJobs: false,
     canManageUsers: false, canViewUserProfiles: false, canAssignRoles: false, canDeleteUsers: false,

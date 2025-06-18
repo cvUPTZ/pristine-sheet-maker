@@ -1,16 +1,16 @@
-
 // src/components/video/DirectAnalysisInterface.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReactSketchCanvasRef } from 'react-sketch-canvas'; // CanvasPath removed
 import { VideoPlayerControls } from './analysis/VideoPlayerControls';
 import { AnnotationToolbox } from './analysis/AnnotationToolbox';
+import { CameraMovementEstimator } from './analysis/CameraMovementEstimator';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Download, Settings as SettingsIcon, XSquare } from 'lucide-react';
+import { Download, Settings as SettingsIcon, XSquare, Camera } from 'lucide-react';
 import { EventTypeManager, LocalEventType as EventTypeDefinition, PropertyDefinition } from './analysis/EventTypeManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -63,6 +63,15 @@ export interface LocalTaggedEvent {
   };
 }
 
+interface CameraMovement {
+  timestamp: number;
+  x: number;
+  y: number;
+  z: number;
+  confidence: number;
+  movementType: 'pan' | 'tilt' | 'zoom' | 'static';
+}
+
 interface DirectAnalysisInterfaceProps {
   videoUrl: string;
 }
@@ -78,6 +87,11 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
 
   const [taggedEvents, setTaggedEvents] = useState<LocalTaggedEvent[]>([]);
   const [selectedEventForAnnotation, setSelectedEventForAnnotation] = useState<LocalTaggedEvent | null>(null);
+
+  // Camera movement state
+  const [cameraMovements, setCameraMovements] = useState<CameraMovement[]>([]);
+  const [isCameraAnalysisEnabled, setIsCameraAnalysisEnabled] = useState(false);
+  const [showCameraMovementPanel, setShowCameraMovementPanel] = useState(false);
 
   // State for Event Type Definitions
   const [eventTypeDefs, setEventTypeDefinitions] = useState<EventTypeDefinition[]>([]);
@@ -110,6 +124,8 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    setCameraMovements([]);
+    setIsCameraAnalysisEnabled(false);
     if (videoPlayerRef.current) {
       videoPlayerRef.current.currentTime = 0;
       videoPlayerRef.current.pause();
@@ -122,6 +138,15 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
     setFilterPropertyValue('');
     setActiveFiltersDescription(null);
   }, [videoUrl]);
+
+  const handleCameraMovementDetected = useCallback((movement: CameraMovement) => {
+    setCameraMovements(prev => [...prev.slice(-100), movement]); // Keep last 100 movements
+    
+    // Optionally auto-tag significant camera movements
+    if (movement.confidence > 0.8 && movement.movementType !== 'static') {
+      console.log(`Significant ${movement.movementType} detected at ${formatTime(movement.timestamp)}`);
+    }
+  }, []);
 
   const handleVideoLoadedMetadata = () => {
     if (videoPlayerRef.current) {
@@ -257,11 +282,17 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
   };
 
   const handleExportData = () => {
-    if (taggedEvents.length === 0 && eventTypeDefs.length === 0) {
-      toast.info("No data to export (no events tagged and no event types defined).");
+    if (taggedEvents.length === 0 && eventTypeDefs.length === 0 && cameraMovements.length === 0) {
+      toast.info("No data to export (no events tagged, no event types defined, and no camera movements detected).");
       return;
     }
-    const dataToExport = { videoUrl, analysisDate: new Date().toISOString(), eventTypeDefinitions: eventTypeDefs, taggedEvents };
+    const dataToExport = { 
+      videoUrl, 
+      analysisDate: new Date().toISOString(), 
+      eventTypeDefinitions: eventTypeDefs, 
+      taggedEvents,
+      cameraMovements: cameraMovements
+    };
     const jsonString = JSON.stringify(dataToExport, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -371,26 +402,38 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
       <CardHeader className="pb-2 flex flex-row justify-between items-center">
         <CardTitle className="text-lg">Analysis Workspace</CardTitle>
         <div className="flex items-center gap-2">
+            <Button onClick={() => setShowCameraMovementPanel(prev => !prev)} variant="outline" size="sm">
+                <Camera className="h-4 w-4 mr-2" /> Camera Analysis
+            </Button>
             <Button onClick={() => setShowEventTypeManager(prev => !prev)} variant="outline" size="sm">
                 <SettingsIcon className="h-4 w-4 mr-2" /> Manage Event Types
             </Button>
-            <Button onClick={handleExportData} variant="outline" size="sm" title="Export analysis data as JSON" disabled={duration === 0 || (taggedEvents.length === 0 && eventTypeDefs.length === 0) }>
+            <Button onClick={handleExportData} variant="outline" size="sm" title="Export analysis data as JSON" disabled={duration === 0 || (taggedEvents.length === 0 && eventTypeDefs.length === 0 && cameraMovements.length === 0) }>
                 <Download className="h-4 w-4 mr-2" /> Export Data
             </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {showEventTypeManager && (
+        {showCameraMovementPanel && (
           <div className="mb-4 p-4 border rounded-lg bg-slate-50">
-            <EventTypeManager
-              eventTypes={eventTypeDefs}
-              onAddEventType={handleAddEventTypeDefinition}
-              onDeleteEventType={handleDeleteEventTypeDefinition}
-              onUpdateEventType={handleUpdateEventTypeDefinition}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="camera-analysis" 
+                  checked={isCameraAnalysisEnabled}
+                  onCheckedChange={setIsCameraAnalysisEnabled}
+                />
+                <Label htmlFor="camera-analysis">Enable Camera Movement Analysis</Label>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowCameraMovementPanel(false)}>
+                <XSquare className="h-4 w-4 mr-1"/> Close Panel
+              </Button>
+            </div>
+            <CameraMovementEstimator
+              videoElement={videoPlayerRef.current}
+              isAnalyzing={isCameraAnalysisEnabled && isPlaying}
+              onMovementDetected={handleCameraMovementDetected}
             />
-            <Button variant="ghost" size="sm" onClick={() => setShowEventTypeManager(false)} className="mt-2">
-                <XSquare className="h-4 w-4 mr-1"/> Close Manager
-            </Button>
           </div>
         )}
 
@@ -409,35 +452,35 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
         
         <VideoPlayerControls videoPlayerRef={videoPlayerRef} isPlayingPlaylist={false} />
 
-      {/* Filter Section */}
-      <div className="my-3 p-3 border rounded-md bg-gray-50">
-        <h4 className="text-sm font-medium mb-2">Filter Events</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 items-end">
-            <div>
-                <Label htmlFor="filter-event-type" className="text-xs">Event Type</Label>
-                <Select onValueChange={setFilterEventTypeId} value={filterEventTypeId} disabled={eventTypeDefs.length === 0}>
-                    <SelectTrigger id="filter-event-type" className="h-8 text-xs"><SelectValue placeholder="Select Type" /></SelectTrigger>
-                    <SelectContent>{eventTypeDefs.map(et => <SelectItem key={et.id} value={et.id} className="text-xs">{et.name}</SelectItem>)}</SelectContent>
-                </Select>
-            </div>
-            <div>
-                <Label htmlFor="filter-property" className="text-xs">Property</Label>
-                <Select onValueChange={setFilterPropertyId} value={filterPropertyId} disabled={!filterEventTypeId || availableFilterProperties.length === 0}>
-                    <SelectTrigger id="filter-property" className="h-8 text-xs"><SelectValue placeholder="Select Property" /></SelectTrigger>
-                    <SelectContent>{availableFilterProperties.map(p => <SelectItem key={p.id} value={p.id} className="text-xs">{p.name} ({p.dataType})</SelectItem>)}</SelectContent>
-                </Select>
-            </div>
-            <div>
-                <Label htmlFor="filter-value" className="text-xs">Value</Label>
-                <Input id="filter-value" value={filterPropertyValue} onChange={e => setFilterPropertyValue(e.target.value)} placeholder="Enter value" disabled={!filterPropertyId} className="h-8 text-xs" />
-            </div>
-            <div className="flex gap-2">
-                <Button onClick={handleApplyFilter} size="sm" className="h-8 text-xs" disabled={!filterPropertyId || filterPropertyValue.trim() === ''}>Apply</Button>
-                <Button onClick={handleClearFilter} variant="outline" size="sm" className="h-8 text-xs" disabled={!activeFiltersDescription}>Clear</Button>
-            </div>
+        {/* Filter Section */}
+        <div className="my-3 p-3 border rounded-md bg-gray-50">
+          <h4 className="text-sm font-medium mb-2">Filter Events</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 items-end">
+              <div>
+                  <Label htmlFor="filter-event-type" className="text-xs">Event Type</Label>
+                  <Select onValueChange={setFilterEventTypeId} value={filterEventTypeId} disabled={eventTypeDefs.length === 0}>
+                      <SelectTrigger id="filter-event-type" className="h-8 text-xs"><SelectValue placeholder="Select Type" /></SelectTrigger>
+                      <SelectContent>{eventTypeDefs.map(et => <SelectItem key={et.id} value={et.id} className="text-xs">{et.name}</SelectItem>)}</SelectContent>
+                  </Select>
+              </div>
+              <div>
+                  <Label htmlFor="filter-property" className="text-xs">Property</Label>
+                  <Select onValueChange={setFilterPropertyId} value={filterPropertyId} disabled={!filterEventTypeId || availableFilterProperties.length === 0}>
+                      <SelectTrigger id="filter-property" className="h-8 text-xs"><SelectValue placeholder="Select Property" /></SelectTrigger>
+                      <SelectContent>{availableFilterProperties.map(p => <SelectItem key={p.id} value={p.id} className="text-xs">{p.name} ({p.dataType})</SelectItem>)}</SelectContent>
+                  </Select>
+              </div>
+              <div>
+                  <Label htmlFor="filter-value" className="text-xs">Value</Label>
+                  <Input id="filter-value" value={filterPropertyValue} onChange={e => setFilterPropertyValue(e.target.value)} placeholder="Enter value" disabled={!filterPropertyId} className="h-8 text-xs" />
+              </div>
+              <div className="flex gap-2">
+                  <Button onClick={handleApplyFilter} size="sm" className="h-8 text-xs" disabled={!filterPropertyId || filterPropertyValue.trim() === ''}>Apply</Button>
+                  <Button onClick={handleClearFilter} variant="outline" size="sm" className="h-8 text-xs" disabled={!activeFiltersDescription}>Clear</Button>
+              </div>
+          </div>
+          {activeFiltersDescription && <p className="text-xs text-blue-600 mt-1">Active Filter: {activeFiltersDescription}</p>}
         </div>
-        {activeFiltersDescription && <p className="text-xs text-blue-600 mt-1">Active Filter: {activeFiltersDescription}</p>}
-      </div>
 
         <div className="my-3 p-3 border rounded-md">
           <div className="flex justify-between items-center mb-2">
@@ -504,6 +547,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                 <p>Total Events: {taggedEvents.length}</p>
                 <p>Events with Annotations: {taggedEvents.filter(e => e.annotations && e.annotations.length > 0).length}</p>
                 <p>Event Types Defined: {eventTypeDefs.length}</p>
+                <p>Camera Movements: {cameraMovements.length}</p>
               </CardContent>
             </Card>
         </div>
