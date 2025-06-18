@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Football Tracker Piano</title>
   <link rel="stylesheet" href="popup.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="container">
@@ -13,6 +14,39 @@
       <h1 class="title">⚽ Football Tracker</h1>
       <p class="subtitle">Professional Match Event Tracking</p>
     </header>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <div class="input-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" placeholder="Enter your email">
+      </div>
+      <div class="input-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" placeholder="Enter your password">
+      </div>
+      <button id="loginBtn" class="btn primary">Login</button>
+      <p id="loginError" class="error-message" style="display:none;"></p>
+    </div>
+
+    <!-- User Info and Logout -->
+    <div id="userInfo" style="display:none;">
+      <p>Welcome, <span id="userEmail"></span>!</p>
+      <button id="logoutBtn" class="btn secondary">Logout</button>
+    </div>
+
+    <!-- Match Tracking Section (Visible only when logged in) -->
+    <div id="matchTrackingSection" style="display:none;">
+      <hr>
+      <h3>Track Match Activity</h3>
+      <div class="input-group">
+        <label for="userProvidedMatchId">App Match ID:</label>
+        <input type="text" id="userProvidedMatchId" placeholder="Paste Match ID from main app">
+      </div>
+      <button id="startMatchTrackingBtn" class="btn primary">Start Live Tracking</button>
+      <p id="matchTrackingError" class="error-message" style="display:none;"></p>
+    </div>
+    <!-- End Match Tracking Section -->
 
     <div class="connection-status" id="connectionStatus">
       <div class="status-indicator offline" id="statusIndicator"></div>
@@ -51,5 +85,6 @@
     </div>
   </div>
   <script src="popup.js"></script>
+  <!-- Ensure popup.js is loaded after Supabase, or handle async loading in popup.js -->
 </body>
 </html>

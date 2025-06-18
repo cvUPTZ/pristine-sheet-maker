@@ -5,14 +5,21 @@ class YouTubeFootballTracker {
     this.videoElement = null;
     this.videoTitle = '';
     this.videoId = '';
+    this.activeMatchIdForTracking = null; // Added property
+    this.isTabFocused = !document.hidden; // Initial tab focus state
     this.setupMessageListener();
     this.initializeYouTubeIntegration();
+    this.setupVisibilityChangeListener(); // Added call
   }
 
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
-      return true;
+      // Return true for async sendResponse, but only if sendResponse is actually used asynchronously.
+      // For most of these, it's synchronous.
+      if (message.type === 'GET_VIDEO_INFO') {
+        return true; // This one might be async if DOM queries are slow
+      }
     });
   }
 
@@ -51,8 +58,8 @@ class YouTubeFootballTracker {
     // Listen for video events
     if (this.videoElement) {
       this.videoElement.addEventListener('timeupdate', () => this.onVideoTimeUpdate());
-      this.videoElement.addEventListener('play', () => this.onVideoPlay());
-      this.videoElement.addEventListener('pause', () => this.onVideoPause());
+      this.videoElement.addEventListener('play', () => this.onVideoPlay(true)); // Pass true to indicate it's a direct play event
+      this.videoElement.addEventListener('pause', () => this.onVideoPause(true)); // Pass true for direct pause
     }
   }
 
@@ -63,6 +70,7 @@ class YouTubeFootballTracker {
 
   onVideoChange() {
     // Update video information when URL changes
+    const oldVideoId = this.videoId;
     setTimeout(() => {
       this.videoElement = document.querySelector('video');
       this.videoId = this.extractVideoId(window.location.href);
@@ -70,6 +78,20 @@ class YouTubeFootballTracker {
       
       if (this.isActive) {
         this.updateTrackerVideoInfo();
+      }
+
+      if (this.activeMatchIdForTracking && oldVideoId !== this.videoId) {
+        console.log(`Video changed. Old: ${oldVideoId}, New: ${this.videoId}. Active Match ID: ${this.activeMatchIdForTracking}`);
+        // Assuming a video change means navigation away from the tracked match context unless new videoId matches a new context
+        // This logic might need to be more sophisticated depending on how matchId relates to videoId
+        if (chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage({
+                type: 'VIDEO_NAVIGATED_AWAY',
+                oldMatchId: this.activeMatchIdForTracking, // Send the matchId that was being tracked
+                oldVideoId: oldVideoId,
+                newVideoId: this.videoId
+            });
+        }
       }
     }, 1000);
   }
@@ -87,7 +109,7 @@ class YouTubeFootballTracker {
     document.body.appendChild(launchButton);
 
     // Add styles for launch button
-    this.injectLaunchButtonStyles();
+    // this.injectLaunchButtonStyles(); // Styles are now in content.css. Call removed.
   }
 
   quickLaunch() {
@@ -122,12 +144,24 @@ class YouTubeFootballTracker {
           videoId: this.videoId,
           videoTitle: this.videoTitle,
           currentTime: this.videoElement?.currentTime || 0,
-          isPlaying: !this.videoElement?.paused
+          isPlaying: this.videoElement ? !this.videoElement.paused : false
         });
         break;
-        
+      case 'SET_ACTIVE_MATCH_CONTEXT':
+        this.activeMatchIdForTracking = message.matchId;
+        console.log('Content script: Active match context set to', this.activeMatchIdForTracking);
+        // When a new match tracking starts, if video is already playing, send initial status
+        if (this.activeMatchIdForTracking && this.videoElement && !this.videoElement.paused && this.isTabFocused) {
+            this.sendMessageToBackground({ type: 'VIDEO_PLAYING', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+        } else if (this.activeMatchIdForTracking && this.isTabFocused) {
+            // If tab is focused but video is not playing (or no video element yet)
+            this.sendMessageToBackground({ type: 'VIDEO_PAUSED', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+        }
+        sendResponse({ success: true });
+        break;
       default:
-        sendResponse({ error: 'Unknown message type' });
+        // sendResponse({ error: 'Unknown message type' }); // Avoid error for messages not meant for content script
+        console.log('Content script received unhandled message type or message not for it:', message.type);
     }
   }
 
@@ -194,7 +228,7 @@ class YouTubeFootballTracker {
       `;
 
       // Add styles
-      this.injectStyles();
+      // this.injectStyles(); // Styles are now in content.css
       
       // Add overlay to page
       document.body.appendChild(overlay);
@@ -296,17 +330,56 @@ class YouTubeFootballTracker {
     }
   }
 
-  onVideoPlay() {
-    if (this.isActive) {
+  onVideoPlay(isDirectEvent = false) {
+    if (this.isActive && isDirectEvent) { // Check isDirectEvent for existing widget logic
       const playPauseBtn = document.querySelector('#play-pause-btn');
       if (playPauseBtn) playPauseBtn.textContent = '⏸️';
     }
+    if (this.activeMatchIdForTracking && this.isTabFocused) { // Only send if tab is focused
+      this.sendMessageToBackground({ type: 'VIDEO_PLAYING', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+    }
   }
 
-  onVideoPause() {
-    if (this.isActive) {
+  onVideoPause(isDirectEvent = false) {
+    if (this.isActive && isDirectEvent) { // Check isDirectEvent for existing widget logic
       const playPauseBtn = document.querySelector('#play-pause-btn');
       if (playPauseBtn) playPauseBtn.textContent = '▶️';
+    }
+    // Send VIDEO_PAUSED even if tab is not focused, as pausing is an explicit action.
+    if (this.activeMatchIdForTracking) {
+       this.sendMessageToBackground({ type: 'VIDEO_PAUSED', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+    }
+  }
+
+  setupVisibilityChangeListener() {
+    document.addEventListener('visibilitychange', () => {
+      if (!this.activeMatchIdForTracking) return;
+
+      if (document.hidden) {
+        this.isTabFocused = false;
+        this.sendMessageToBackground({ type: 'TAB_HIDDEN', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+      } else {
+        this.isTabFocused = true;
+        this.sendMessageToBackground({ type: 'TAB_FOCUSED', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
+        // When tab becomes focused, re-send current video state
+        if (this.videoElement && !this.videoElement.paused) {
+          this.onVideoPlay();
+        } else {
+          this.onVideoPause();
+        }
+      }
+    });
+  }
+
+  sendMessageToBackground(message) {
+    if (this.activeMatchIdForTracking && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage(message, response => {
+        if (chrome.runtime.lastError) {
+          console.warn(`Error sending message type ${message.type} to background:`, chrome.runtime.lastError.message);
+        } else if (response && !response.success) {
+          console.warn(`Background script did not acknowledge ${message.type}:`, response.error);
+        }
+      });
     }
   }
 
@@ -429,278 +502,8 @@ class YouTubeFootballTracker {
     }
   }
 
-  injectLaunchButtonStyles() {
-    if (document.getElementById('football-tracker-launch-styles')) return;
-
-    const styles = document.createElement('style');
-    styles.id = 'football-tracker-launch-styles';
-    styles.textContent = `
-      #football-tracker-launch-btn {
-        position: fixed;
-        top: 100px;
-        right: 20px;
-        z-index: 9999;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        backdrop-filter: blur(10px);
-      }
-
-      #football-tracker-launch-btn button {
-        padding: 12px 16px;
-        border: none;
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: white;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      #football-tracker-launch-btn button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
-      }
-    `;
-
-    document.head.appendChild(styles);
-  }
-
-  injectStyles() {
-    if (document.getElementById('football-tracker-styles')) return;
-
-    const styles = document.createElement('style');
-    styles.id = 'football-tracker-styles';
-    styles.textContent = `
-      #football-tracker-overlay {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 420px;
-        background: rgba(255, 255, 255, 0.98);
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        z-index: 10000;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        transition: all 0.3s ease;
-      }
-
-      #football-tracker-overlay.minimized {
-        height: 60px;
-        overflow: hidden;
-      }
-
-      .tracker-container {
-        padding: 16px;
-      }
-
-      .tracker-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        cursor: grab;
-        user-select: none;
-      }
-
-      .tracker-header h3 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: #1f2937;
-      }
-
-      .video-info {
-        flex: 1;
-        margin: 0 12px;
-        text-align: center;
-      }
-
-      .video-title {
-        display: block;
-        font-size: 12px;
-        color: #6b7280;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 200px;
-      }
-
-      .video-time {
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        color: #ef4444;
-        margin-top: 2px;
-      }
-
-      .tracker-controls {
-        display: flex;
-        gap: 4px;
-      }
-
-      .tracker-controls button {
-        width: 24px;
-        height: 24px;
-        border: none;
-        border-radius: 6px;
-        background: #f3f4f6;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: bold;
-        color: #6b7280;
-        transition: all 0.2s;
-      }
-
-      .tracker-controls button:hover {
-        background: #e5e7eb;
-        color: #374151;
-      }
-
-      .connection-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-        padding: 8px 12px;
-        background: rgba(34, 197, 94, 0.1);
-        border-radius: 8px;
-        font-size: 12px;
-        color: #059669;
-      }
-
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #22c55e;
-        animation: pulse 2s infinite;
-      }
-
-      .video-controls {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 16px;
-        justify-content: center;
-      }
-
-      .video-btn {
-        padding: 8px 12px;
-        border: 2px solid #e5e7eb;
-        border-radius: 8px;
-        background: white;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.2s;
-      }
-
-      .video-btn:hover {
-        border-color: #3b82f6;
-        background: #dbeafe;
-      }
-
-      .piano-section {
-        margin-bottom: 16px;
-      }
-
-      .piano-section h4 {
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-      }
-
-      .event-buttons {
-        display: grid;
-        gap: 8px;
-      }
-
-      .event-buttons.primary {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .event-buttons.secondary {
-        grid-template-columns: repeat(3, 1fr);
-      }
-
-      .event-btn {
-        padding: 12px 8px;
-        border: 2px solid #e5e7eb;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #ffffff, #f8fafc);
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        color: #374151;
-        transition: all 0.2s;
-        text-align: center;
-      }
-
-      .event-btn:hover {
-        border-color: #3b82f6;
-        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-      }
-
-      .event-btn.recording {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
-        border-color: #f59e0b;
-        color: white;
-        animation: pulse 0.5s infinite;
-      }
-
-      .event-btn.success {
-        background: linear-gradient(135deg, #10b981, #059669);
-        border-color: #059669;
-        color: white;
-      }
-
-      .event-btn.error {
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        border-color: #dc2626;
-        color: white;
-      }
-
-      .recent-events h4 {
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-      }
-
-      .recent-event {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 12px;
-        background: #f9fafb;
-        border-radius: 8px;
-        margin-bottom: 4px;
-        font-size: 12px;
-        color: #6b7280;
-      }
-
-      .recent-event:last-child {
-        margin-bottom: 0;
-      }
-
-      .timestamp {
-        font-weight: 600;
-        color: #ef4444;
-      }
-
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.8; transform: scale(1.05); }
-      }
-    `;
-
-    document.head.appendChild(styles);
-  }
+  // Removed injectLaunchButtonStyles() function
+  // Removed injectStyles() function
 
   closeTracker() {
     if (this.trackerWidget) {
@@ -717,4 +520,20 @@ class YouTubeFootballTracker {
 }
 
 // Initialize YouTube Football Tracker
-new YouTubeFootballTracker();
+if (window.location.hostname.includes('youtube.com') && window.location.pathname.startsWith('/watch')) {
+    new YouTubeFootballTracker();
+} else {
+    console.log("Not a YouTube watch page, Football Tracker content script not initializing main features.");
+    // Still set up a minimal message listener for SET_ACTIVE_MATCH_CONTEXT in case the user navigates
+    // to a watch page later or if background needs to communicate universally.
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'SET_ACTIVE_MATCH_CONTEXT') {
+            // Store it globally or in a way that a new Tracker instance can pick it up if page becomes a watch page.
+            // This part is tricky as content script instances are per-page load.
+            // For simplicity, we'll rely on re-initialization on actual watch pages.
+            console.log('Content script (non-watch): Active match context received', message.matchId);
+            // window.activeMatchIdForTracker = message.matchId; // Example of a global store (not recommended for complex scenarios)
+            sendResponse({success: true, message: "Context received by non-watch page listener"});
+        }
+    });
+}
