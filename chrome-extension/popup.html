@@ -40,8 +40,11 @@
       <hr>
       <h3>Track Match Activity</h3>
       <div class="input-group">
-        <label for="userProvidedMatchId">App Match ID:</label>
-        <input type="text" id="userProvidedMatchId" placeholder="Paste Match ID from main app">
+        <label for="userProvidedMatchId">Enter Live Match Code:</label>
+        <input type="text" id="userProvidedMatchId" placeholder="Paste code from match page">
+        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
+          You can find this code on the main application's match page. It's used to link your tracking to the correct live match.
+        </p>
       </div>
       <button id="startMatchTrackingBtn" class="btn primary">Start Live Tracking</button>
       <p id="matchTrackingError" class="error-message" style="display:none;"></p>
