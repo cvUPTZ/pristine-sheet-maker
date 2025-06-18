@@ -206,13 +206,16 @@ const AppContent: React.FC = () => {
         } />
         
         <Route path="/direct-analyzer" element={
-          {/* <RequireAuth  */}
-            requiredPermissions={['canAnalyzeVideos']}
-          >
-            <DirectVideoAnalyzer />
-          {/* </RequireAuth> */}
+           <DirectVideoAnalyzer />
+          
         } />
-        
+
+
+          {/* // <RequireAuth 
+          //   requiredPermissions={['canAnalyzeVideos']}
+          // >
+          //   <DirectVideoAnalyzer />
+          // </RequireAuth> */}
         {/* Tracker Routes */}
         <Route path="/tracker" element={
           <TrackerAccess>
