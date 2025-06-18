@@ -421,7 +421,7 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
                 <Checkbox 
                   id="camera-analysis" 
                   checked={isCameraAnalysisEnabled}
-                  onCheckedChange={setIsCameraAnalysisEnabled}
+                  onCheckedChange={(checked) => setIsCameraAnalysisEnabled(checked === true)}
                 />
                 <Label htmlFor="camera-analysis">Enable Camera Movement Analysis</Label>
               </div>
@@ -437,6 +437,18 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
           </div>
         )}
 
+        {showEventTypeManager && (
+          <div className="mb-4">
+            <EventTypeManager
+              eventTypes={eventTypeDefs}
+              onAddEventType={handleAddEventTypeDefinition}
+              onUpdateEventType={handleUpdateEventTypeDefinition}
+              onDeleteEventType={handleDeleteEventTypeDefinition}
+              onClose={() => setShowEventTypeManager(false)}
+            />
+          </div>
+        )}
+
         <div className="mb-4 bg-black rounded-md relative">
            <video ref={videoPlayerRef} controls={false} width="100%" className="rounded-md"
             onLoadedMetadata={handleVideoLoadedMetadata} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
@@ -444,8 +456,8 @@ export const DirectAnalysisInterface: React.FC<DirectAnalysisInterfaceProps> = (
             Your browser does not support the video tag.
           </video>
           <AnnotationToolbox canvasRef={canvasRef} videoDimensions={videoDimensions}
-            initialAnnotations={selectedEventForAnnotation?.annotations || null} // Changed prop
-            onSaveAnnotations={handleSaveAnnotationToEvent} // Signature updated
+            initialAnnotations={selectedEventForAnnotation?.annotations || null}
+            onSaveAnnotations={handleSaveAnnotationToEvent}
             canSave={!!selectedEventForAnnotation && videoDimensions.width > 0}
             disabled={videoDimensions.width === 0} />
         </div>
