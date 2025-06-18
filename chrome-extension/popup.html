@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Football Tracker Piano</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="title">⚽ Football Tracker</h1>
+      <p class="subtitle">Professional Match Event Tracking</p>
+    </header>
+
+    <div class="connection-status" id="connectionStatus">
+      <div class="status-indicator offline" id="statusIndicator"></div>
+      <span id="statusText">Offline</span>
+    </div>
+
+    <div class="form-section">
+      <div class="input-group">
+        <label for="matchId">Match ID:</label>
+        <input type="text" id="matchId" placeholder="Enter match ID" />
+      </div>
+      
+      <div class="input-group">
+        <label for="apiUrl">API URL:</label>
+        <input type="url" id="apiUrl" placeholder="https://your-api.com" />
+      </div>
+      
+      <div class="input-group">
+        <label for="authToken">Auth Token:</label>
+        <input type="password" id="authToken" placeholder="Bearer token" />
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button id="connectBtn" class="btn primary">Connect</button>
+      <button id="launchBtn" class="btn secondary" disabled>Launch Tracker</button>
+    </div>
+
+    <div class="quick-actions">
+      <button id="settingsBtn" class="btn small">Settings</button>
+      <button id="helpBtn" class="btn small">Help</button>
+    </div>
+
+    <div class="status-info" id="statusInfo">
+      <p>Ready to connect to match tracking system</p>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
