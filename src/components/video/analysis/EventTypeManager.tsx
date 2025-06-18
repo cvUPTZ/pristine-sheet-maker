@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ interface EventTypeManagerProps {
   onAddEventType: (eventTypeData: { name: string; color?: string }) => void;
   onDeleteEventType: (eventTypeId: string) => void;
   onUpdateEventType: (updatedEventType: LocalEventType) => void;
+  onClose: () => void;
 }
 
 export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
@@ -32,6 +34,7 @@ export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
   onAddEventType,
   onDeleteEventType,
   onUpdateEventType,
+  onClose,
 }) => {
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeColor, setNewTypeColor] = useState('#3B82F6');
@@ -81,8 +84,11 @@ export const EventTypeManager: React.FC<EventTypeManagerProps> = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Event Type Manager</CardTitle>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add New Event Type */}
