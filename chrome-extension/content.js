@@ -1,14 +1,107 @@
-class TrackerContent {
+class YouTubeFootballTracker {
   constructor() {
     this.trackerWidget = null;
     this.isActive = false;
+    this.videoElement = null;
+    this.videoTitle = '';
+    this.videoId = '';
     this.setupMessageListener();
+    this.initializeYouTubeIntegration();
   }
 
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
       return true;
+    });
+  }
+
+  initializeYouTubeIntegration() {
+    // Wait for YouTube to load
+    this.waitForYouTube(() => {
+      this.detectVideoChange();
+      this.addYouTubeControls();
+    });
+  }
+
+  waitForYouTube(callback) {
+    if (window.location.hostname.includes('youtube.com') && document.querySelector('video')) {
+      callback();
+    } else {
+      setTimeout(() => this.waitForYouTube(callback), 1000);
+    }
+  }
+
+  detectVideoChange() {
+    // Get video information
+    this.videoElement = document.querySelector('video');
+    this.videoId = this.extractVideoId(window.location.href);
+    this.videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer')?.textContent || 'Unknown Video';
+
+    // Listen for URL changes (YouTube is a SPA)
+    let lastUrl = location.href;
+    new MutationObserver(() => {
+      const url = location.href;
+      if (url !== lastUrl) {
+        lastUrl = url;
+        this.onVideoChange();
+      }
+    }).observe(document, { subtree: true, childList: true });
+
+    // Listen for video events
+    if (this.videoElement) {
+      this.videoElement.addEventListener('timeupdate', () => this.onVideoTimeUpdate());
+      this.videoElement.addEventListener('play', () => this.onVideoPlay());
+      this.videoElement.addEventListener('pause', () => this.onVideoPause());
+    }
+  }
+
+  extractVideoId(url) {
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : '';
+  }
+
+  onVideoChange() {
+    // Update video information when URL changes
+    setTimeout(() => {
+      this.videoElement = document.querySelector('video');
+      this.videoId = this.extractVideoId(window.location.href);
+      this.videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer')?.textContent || 'Unknown Video';
+      
+      if (this.isActive) {
+        this.updateTrackerVideoInfo();
+      }
+    }, 1000);
+  }
+
+  addYouTubeControls() {
+    // Add floating launch button
+    const launchButton = document.createElement('div');
+    launchButton.id = 'football-tracker-launch-btn';
+    launchButton.innerHTML = `
+      <button title="Launch Football Tracker">
+        ⚽ Track Match
+      </button>
+    `;
+    launchButton.addEventListener('click', () => this.quickLaunch());
+    document.body.appendChild(launchButton);
+
+    // Add styles for launch button
+    this.injectLaunchButtonStyles();
+  }
+
+  quickLaunch() {
+    if (!this.videoId) {
+      alert('Please navigate to a YouTube video to start tracking');
+      return;
+    }
+
+    // Quick launch with default settings
+    this.launchTracker({
+      matchId: this.videoId,
+      videoTitle: this.videoTitle,
+      apiUrl: 'https://your-api.com', // Default API URL
+      authToken: ''
     });
   }
 
@@ -22,6 +115,15 @@ class TrackerContent {
       case 'CLOSE_TRACKER':
         this.closeTracker();
         sendResponse({ success: true });
+        break;
+        
+      case 'GET_VIDEO_INFO':
+        sendResponse({
+          videoId: this.videoId,
+          videoTitle: this.videoTitle,
+          currentTime: this.videoElement?.currentTime || 0,
+          isPlaying: !this.videoElement?.paused
+        });
         break;
         
       default:
@@ -42,7 +144,12 @@ class TrackerContent {
         <div class="tracker-container">
           <div class="tracker-header">
             <h3>⚽ Football Tracker Piano</h3>
+            <div class="video-info">
+              <span class="video-title">${this.videoTitle}</span>
+              <span class="video-time" id="tracker-video-time">00:00</span>
+            </div>
             <div class="tracker-controls">
+              <button id="tracker-sync" title="Sync with Video">⏱️</button>
               <button id="tracker-minimize" title="Minimize">−</button>
               <button id="tracker-close" title="Close">×</button>
             </div>
@@ -50,7 +157,12 @@ class TrackerContent {
           <div class="tracker-content">
             <div class="connection-info">
               <span class="status-dot online"></span>
-              <span>Match ID: ${connectionData.matchId}</span>
+              <span>Tracking: ${connectionData.matchId}</span>
+            </div>
+            <div class="video-controls">
+              <button id="play-pause-btn" class="video-btn">⏸️</button>
+              <button id="rewind-btn" class="video-btn">⏪ 10s</button>
+              <button id="forward-btn" class="video-btn">⏩ 10s</button>
             </div>
             <div class="event-piano">
               <div class="piano-section">
@@ -93,7 +205,10 @@ class TrackerContent {
       this.trackerWidget = overlay;
       this.isActive = true;
 
-      console.log('Football Tracker launched successfully');
+      // Start video time sync
+      this.startVideoTimeSync();
+
+      console.log('Football Tracker launched for YouTube video:', this.videoTitle);
     } catch (error) {
       console.error('Error launching tracker:', error);
     }
@@ -110,6 +225,34 @@ class TrackerContent {
       overlay.classList.toggle('minimized');
     });
 
+    // Sync button
+    overlay.querySelector('#tracker-sync').addEventListener('click', () => {
+      this.syncWithVideo();
+    });
+
+    // Video control buttons
+    overlay.querySelector('#play-pause-btn').addEventListener('click', () => {
+      if (this.videoElement) {
+        if (this.videoElement.paused) {
+          this.videoElement.play();
+        } else {
+          this.videoElement.pause();
+        }
+      }
+    });
+
+    overlay.querySelector('#rewind-btn').addEventListener('click', () => {
+      if (this.videoElement) {
+        this.videoElement.currentTime = Math.max(0, this.videoElement.currentTime - 10);
+      }
+    });
+
+    overlay.querySelector('#forward-btn').addEventListener('click', () => {
+      if (this.videoElement) {
+        this.videoElement.currentTime = Math.min(this.videoElement.duration, this.videoElement.currentTime + 10);
+      }
+    });
+
     // Event buttons
     overlay.querySelectorAll('.event-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
@@ -122,24 +265,86 @@ class TrackerContent {
     this.makeDraggable(overlay);
   }
 
+  startVideoTimeSync() {
+    this.videoTimeInterval = setInterval(() => {
+      if (this.videoElement && this.trackerWidget) {
+        const timeDisplay = this.trackerWidget.querySelector('#tracker-video-time');
+        if (timeDisplay) {
+          const minutes = Math.floor(this.videoElement.currentTime / 60);
+          const seconds = Math.floor(this.videoElement.currentTime % 60);
+          timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }
+    }, 1000);
+  }
+
+  syncWithVideo() {
+    if (this.videoElement) {
+      // Flash sync indicator
+      const syncBtn = document.querySelector('#tracker-sync');
+      syncBtn.style.background = '#22c55e';
+      setTimeout(() => {
+        syncBtn.style.background = '';
+      }, 500);
+    }
+  }
+
+  onVideoTimeUpdate() {
+    // Update time display if tracker is active
+    if (this.isActive) {
+      // Time display is updated by startVideoTimeSync interval
+    }
+  }
+
+  onVideoPlay() {
+    if (this.isActive) {
+      const playPauseBtn = document.querySelector('#play-pause-btn');
+      if (playPauseBtn) playPauseBtn.textContent = '⏸️';
+    }
+  }
+
+  onVideoPause() {
+    if (this.isActive) {
+      const playPauseBtn = document.querySelector('#play-pause-btn');
+      if (playPauseBtn) playPauseBtn.textContent = '▶️';
+    }
+  }
+
+  updateTrackerVideoInfo() {
+    if (this.trackerWidget) {
+      const videoTitleEl = this.trackerWidget.querySelector('.video-title');
+      if (videoTitleEl) {
+        videoTitleEl.textContent = this.videoTitle;
+      }
+    }
+  }
+
   async recordEvent(eventType, connectionData) {
     try {
       // Visual feedback
       const btn = document.querySelector(`[data-event="${eventType}"]`);
       btn.classList.add('recording');
 
-      // Send to background script
+      const videoTime = this.videoElement ? this.videoElement.currentTime : 0;
+
+      // Send to background script with video timestamp
       const response = await chrome.runtime.sendMessage({
         type: 'RECORD_EVENT',
         data: {
           eventType,
           timestamp: Date.now(),
-          details: { recorded_via: 'chrome_extension' }
+          videoTime: videoTime,
+          videoId: this.videoId,
+          details: { 
+            recorded_via: 'youtube_extension',
+            video_timestamp: videoTime,
+            video_title: this.videoTitle
+          }
         }
       });
 
       if (response.success) {
-        this.addRecentEvent(eventType);
+        this.addRecentEvent(eventType, videoTime);
         btn.classList.add('success');
       } else {
         btn.classList.add('error');
@@ -156,13 +361,18 @@ class TrackerContent {
     }
   }
 
-  addRecentEvent(eventType) {
+  addRecentEvent(eventType, videoTime) {
     const recentList = document.getElementById('recent-events-list');
     const eventItem = document.createElement('div');
     eventItem.className = 'recent-event';
+    
+    const minutes = Math.floor(videoTime / 60);
+    const seconds = Math.floor(videoTime % 60);
+    const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
     eventItem.innerHTML = `
       <span>${eventType}</span>
-      <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+      <span class="timestamp">${timeStr}</span>
     `;
     
     recentList.insertBefore(eventItem, recentList.firstChild);
@@ -219,6 +429,44 @@ class TrackerContent {
     }
   }
 
+  injectLaunchButtonStyles() {
+    if (document.getElementById('football-tracker-launch-styles')) return;
+
+    const styles = document.createElement('style');
+    styles.id = 'football-tracker-launch-styles';
+    styles.textContent = `
+      #football-tracker-launch-btn {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        z-index: 9999;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+      }
+
+      #football-tracker-launch-btn button {
+        padding: 12px 16px;
+        border: none;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      #football-tracker-launch-btn button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+      }
+    `;
+
+    document.head.appendChild(styles);
+  }
+
   injectStyles() {
     if (document.getElementById('football-tracker-styles')) return;
 
@@ -229,7 +477,7 @@ class TrackerContent {
         position: fixed;
         top: 20px;
         right: 20px;
-        width: 400px;
+        width: 420px;
         background: rgba(255, 255, 255, 0.98);
         border-radius: 16px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
@@ -265,9 +513,33 @@ class TrackerContent {
         color: #1f2937;
       }
 
+      .video-info {
+        flex: 1;
+        margin: 0 12px;
+        text-align: center;
+      }
+
+      .video-title {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+      }
+
+      .video-time {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ef4444;
+        margin-top: 2px;
+      }
+
       .tracker-controls {
         display: flex;
-        gap: 8px;
+        gap: 4px;
       }
 
       .tracker-controls button {
@@ -277,7 +549,7 @@ class TrackerContent {
         border-radius: 6px;
         background: #f3f4f6;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
         font-weight: bold;
         color: #6b7280;
         transition: all 0.2s;
@@ -292,7 +564,7 @@ class TrackerContent {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
         padding: 8px 12px;
         background: rgba(34, 197, 94, 0.1);
         border-radius: 8px;
@@ -306,6 +578,28 @@ class TrackerContent {
         border-radius: 50%;
         background: #22c55e;
         animation: pulse 2s infinite;
+      }
+
+      .video-controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        justify-content: center;
+      }
+
+      .video-btn {
+        padding: 8px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+      }
+
+      .video-btn:hover {
+        border-color: #3b82f6;
+        background: #dbeafe;
       }
 
       .piano-section {
@@ -396,7 +690,7 @@ class TrackerContent {
 
       .timestamp {
         font-weight: 600;
-        color: #9ca3af;
+        color: #ef4444;
       }
 
       @keyframes pulse {
@@ -414,8 +708,13 @@ class TrackerContent {
       this.trackerWidget = null;
       this.isActive = false;
     }
+    
+    if (this.videoTimeInterval) {
+      clearInterval(this.videoTimeInterval);
+      this.videoTimeInterval = null;
+    }
   }
 }
 
-// Initialize content script
-new TrackerContent();
+// Initialize YouTube Football Tracker
+new YouTubeFootballTracker();
