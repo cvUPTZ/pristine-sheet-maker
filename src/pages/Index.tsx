@@ -49,6 +49,7 @@ const Index: React.FC = () => {
     permissionsLoading,
     permissions,
     role,
+    hasVideoAnalysis:hasPermission('canAnalyzeVideo'),
     hasStatistics: hasPermission('canViewStatistics'),
     hasAnalytics: hasPermission('canViewAnalytics'),
     hasMatchManagement: hasPermission('canCreateMatches')
