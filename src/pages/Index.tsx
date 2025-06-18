@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +48,7 @@ const Index: React.FC = () => {
     permissionsLoading,
     permissions,
     role,
-    hasVideoAnalysis:hasPermission('canAnalyzeVideo'),
+    hasVideoAnalysis: hasPermission('canAnalyzeVideos'),
     hasStatistics: hasPermission('canViewStatistics'),
     hasAnalytics: hasPermission('canViewAnalytics'),
     hasMatchManagement: hasPermission('canCreateMatches')
