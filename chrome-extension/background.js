@@ -144,32 +144,46 @@ class TrackerBackground {
           break;
         case 'START_MATCH_TRACKING':
           console.log('START_MATCH_TRACKING message received', message);
+          const youtubeVideoIdFromMessage = message.youtubeVideoId; // Extract early
+          console.log('Extracted youtubeVideoId from message:', youtubeVideoIdFromMessage); // Test log
           if (message.matchId && message.userId) {
-            this.currentMatchId = message.matchId;
-            this.currentUserIdInMatch = message.userId; // Should be same as this.userId
-            // Ensure this.userId is also set if not already (e.g. if login flow was quick)
-            if(!this.userId) this.userId = message.userId;
+            this.currentMatchId = message.matchId; // This is the general match context (e.g., from notification's match_id)
+            this.currentUserIdInMatch = message.userId;
+
+            if(!this.userId) this.userId = message.userId; // Ensure this.userId (general logged-in user) is also set
+
+            console.log(`Background: START_MATCH_TRACKING for Match ID: ${this.currentMatchId}, User ID: ${this.currentUserIdInMatch}, YouTube Video ID: ${youtubeVideoIdFromMessage}`);
 
             await this.connectToUnifiedMatchChannel(this.currentMatchId, this.currentUserIdInMatch);
-            // Persist this choice, so background can resume if it restarts
-            await chrome.storage.local.set({ currentMatchId: this.currentMatchId, currentUserId: this.currentUserIdInMatch });
 
-            // Inform content script about the active match context
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-              if (tabs[0] && tabs[0].id) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                  type: 'SET_ACTIVE_MATCH_CONTEXT',
-                  matchId: this.currentMatchId
-                }, response => {
-                  if (chrome.runtime.lastError) {
-                    console.warn('Error sending SET_ACTIVE_MATCH_CONTEXT to content script:', chrome.runtime.lastError.message);
-                  } else {
-                    console.log('SET_ACTIVE_MATCH_CONTEXT acknowledged by content script:', response);
-                  }
-                });
-              } else {
-                console.warn('Could not find active tab to send SET_ACTIVE_MATCH_CONTEXT.');
-              }
+            await chrome.storage.local.set({
+              currentMatchId: this.currentMatchId,
+              currentUserId: this.currentUserIdInMatch,
+              currentTargetVideoId: youtubeVideoIdFromMessage // Store for potential later use by background
+            });
+
+            // Inform relevant content scripts about the active match context.
+            // popup.js is now responsible for sending LAUNCH_TRACKER to the specific targetTabId.
+            // This SET_ACTIVE_MATCH_CONTEXT from background can serve as a general update or fallback.
+            chrome.tabs.query({}, (tabs) => {
+              tabs.forEach(tab => {
+                // Send to all YouTube watch pages. Content script will validate if it's the *correct* video.
+                if (tab.url && tab.url.includes('youtube.com/watch') && tab.id) {
+                  chrome.tabs.sendMessage(tab.id, {
+                    type: 'SET_ACTIVE_MATCH_CONTEXT',
+                    matchId: this.currentMatchId,       // General match ID (from notification.match_id)
+                    userId: this.currentUserIdInMatch,
+                    youtubeVideoId: youtubeVideoIdFromMessage // Specific video ID for this tracking session
+                  }, response => {
+                    if (chrome.runtime.lastError) {
+                      // Silently ignore errors, e.g. if content script is not on that tab or not ready
+                      // console.warn(`Background: Error sending SET_ACTIVE_MATCH_CONTEXT to tab ${tab.id}:`, chrome.runtime.lastError.message);
+                    } else if (response && response.success) {
+                      console.log(`Background: SET_ACTIVE_MATCH_CONTEXT acknowledged by content script on tab ${tab.id}.`);
+                    }
+                  });
+                }
+              });
             });
             sendResponse({ success: true });
           } else {
@@ -247,6 +261,55 @@ class TrackerBackground {
             this.broadcastTrackerStatus({ status: 'active', action: 'Tab focused/active' });
           }
           sendResponse({ success: true });
+          break;
+
+        case 'GET_TRACKER_ASSIGNMENTS':
+          // This handler is async because it performs a Supabase query.
+          // The 'return true' in the main onMessage.addListener handles async sendResponse.
+          (async () => {
+            console.log('Background: GET_TRACKER_ASSIGNMENTS received for matchId:', message.data?.matchId, 'userId:', message.data?.userId);
+            if (!this.supabase) {
+              console.error('Supabase client not initialized. Cannot fetch tracker assignments.');
+              sendResponse({ success: false, error: 'Supabase client not available.', eventTypes: [] });
+              return;
+            }
+            if (!message.data || !message.data.matchId || !message.data.userId) {
+              console.error('GET_TRACKER_ASSIGNMENTS: Missing matchId or userId in message data.');
+              sendResponse({ success: false, error: 'matchId and userId are required.', eventTypes: [] });
+              return;
+            }
+
+            try {
+              const { data: assignments, error } = await this.supabase
+                .from('match_tracker_assignments')
+                .select('assigned_event_types')
+                .eq('match_id', message.data.matchId)
+                .eq('tracker_user_id', message.data.userId);
+
+              if (error) {
+                console.error('Error fetching tracker assignments from Supabase:', error);
+                sendResponse({ success: false, error: error.message, eventTypes: [] });
+                return;
+              }
+
+              let allEventTypes = [];
+              if (assignments && assignments.length > 0) {
+                assignments.forEach(assignment => {
+                  if (assignment.assigned_event_types && Array.isArray(assignment.assigned_event_types)) {
+                    allEventTypes.push(...assignment.assigned_event_types);
+                  }
+                });
+              }
+
+              const uniqueEventTypes = [...new Set(allEventTypes)];
+              console.log('Background: Sending tracker assignments:', uniqueEventTypes);
+              sendResponse({ success: true, eventTypes: uniqueEventTypes });
+
+            } catch (e) {
+              console.error('Exception while fetching tracker assignments:', e);
+              sendResponse({ success: false, error: e.message || 'An unexpected error occurred.', eventTypes: [] });
+            }
+          })();
           break;
 
         default:
