@@ -1,13 +1,21 @@
-
 class TrackerPopup {
   constructor() {
     // Define Supabase constants (replace with your actual URL and Key)
-    this.SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    this.SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-    try {
-      this.supabase = supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
-    } catch (e) {
-      console.error('Supabase client initialization failed. Make sure Supabase JS is loaded.', e);
+    this.SUPABASE_URL = 'https://itwnghrwolvydupxmnqw.supabase.co';
+    this.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0d25naHJ3b2x2eWR1cHhtbnF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0OTQ1MzAsImV4cCI6MjA0OTA3MDUzMH0.kYGz7VengZjUvokGlAE4dDSEbrFKbg2fq09RuTNv31k';
+    
+    // Check if Supabase is available and initialize client
+    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      try {
+        this.supabase = window.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
+        console.log('Supabase client initialized successfully');
+      } catch (e) {
+        console.error('Failed to create Supabase client:', e);
+        this.supabase = null;
+      }
+    } else {
+      console.error('Supabase library not loaded. Make sure the CDN script is included.');
+      this.supabase = null;
     }
 
     this.initializeElements();
@@ -422,7 +430,10 @@ class TrackerPopup {
 // Make instance globally available for onclick handlers
 window.trackerPopup = null;
 
-// Initialize popup when DOM is loaded
+// Wait for DOM and Supabase to be loaded before initializing
 document.addEventListener('DOMContentLoaded', () => {
-  window.trackerPopup = new TrackerPopup();
+  // Wait a bit to ensure Supabase script is fully loaded
+  setTimeout(() => {
+    window.trackerPopup = new TrackerPopup();
+  }, 100);
 });
