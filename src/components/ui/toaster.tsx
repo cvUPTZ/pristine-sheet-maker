@@ -1,7 +1,4 @@
 
-// If you see 'Cannot read properties of null (reading 'useState')' in this file or in @radix-ui/react-toast,
-// 99% of the time you have TWO VERSIONS of React loaded in your dev/build. Check your node_modules!
-// See https://react.dev/warnings/invalid-hook-call-warning for official guidance.
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -35,4 +32,3 @@ export function Toaster() {
     </ToastProvider>
   )
 }
-
