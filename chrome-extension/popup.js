@@ -1,4 +1,3 @@
-
 class TrackerPopup {
   constructor() {
     // Define Supabase constants (replace with your actual URL and Key)
@@ -8,19 +7,18 @@ class TrackerPopup {
       this.supabase = supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
     } catch (e) {
       console.error('Supabase client initialization failed. Make sure Supabase JS is loaded.', e);
-      // Potentially display an error to the user in the popup if Supabase is critical
     }
 
     this.initializeElements();
     this.loadStoredData();
     this.setupEventListeners();
     this.checkConnectionStatus();
-    this.checkAuthState(); // Check auth state on load
+    this.checkAuthState();
   }
 
   initializeElements() {
     this.elements = {
-      // Existing elements
+      // Existing elements with updated IDs to match new labels
       matchId: document.getElementById('matchId'),
       apiUrl: document.getElementById('apiUrl'),
       authToken: document.getElementById('authToken'),
@@ -32,7 +30,7 @@ class TrackerPopup {
       settingsBtn: document.getElementById('settingsBtn'),
       helpBtn: document.getElementById('helpBtn'),
 
-      // New auth elements
+      // Auth elements
       loginForm: document.getElementById('loginForm'),
       emailInput: document.getElementById('email'),
       passwordInput: document.getElementById('password'),
@@ -46,9 +44,14 @@ class TrackerPopup {
       matchTrackingSection: document.getElementById('matchTrackingSection'),
       userProvidedMatchId: document.getElementById('userProvidedMatchId'),
       startMatchTrackingBtn: document.getElementById('startMatchTrackingBtn'),
-      matchTrackingError: document.getElementById('matchTrackingError')
+      matchTrackingError: document.getElementById('matchTrackingError'),
+
+      // Form sections for conditional display
+      formSection: document.getElementById('formSection'),
+      buttonGroup: document.getElementById('buttonGroup'),
+      quickActions: document.getElementById('quickActions')
     };
-    this.currentUserId = null; // To store the logged-in user's ID
+    this.currentUserId = null;
   }
 
   async loadStoredData() {
@@ -74,7 +77,7 @@ class TrackerPopup {
     this.elements.helpBtn.addEventListener('click', () => this.handleHelp());
 
     // Auth event listeners
-    if (this.elements.loginBtn) { // Check if element exists to prevent errors if HTML isn't updated
+    if (this.elements.loginBtn) {
         this.elements.loginBtn.addEventListener('click', () => this.handleLogin());
     }
     if (this.elements.logoutBtn) {
@@ -84,7 +87,7 @@ class TrackerPopup {
         this.elements.startMatchTrackingBtn.addEventListener('click', () => this.handleStartMatchTracking());
     }
 
-    // Auto-save inputs for existing form (matchId might be different from userProvidedMatchId)
+    // Auto-save inputs
     ['matchId', 'apiUrl', 'authToken'].forEach(field => {
       this.elements[field].addEventListener('input', () => this.saveData());
     });
@@ -108,7 +111,7 @@ class TrackerPopup {
     const authToken = this.elements.authToken.value.trim();
 
     if (!matchId || !apiUrl) {
-      this.showStatus('Please fill in Match ID and API URL', 'error');
+      this.showStatus('Please fill in Game Number and Server Address', 'error');
       return;
     }
 
@@ -127,7 +130,7 @@ class TrackerPopup {
       if (response.ok) {
         await chrome.storage.sync.set({ isConnected: true });
         this.updateConnectionStatus(true);
-        this.showStatus('Connected successfully!', 'success');
+        this.showStatus('Connected successfully! Ready to track.', 'success');
         
         // Send connection data to background script
         chrome.runtime.sendMessage({
@@ -139,11 +142,11 @@ class TrackerPopup {
       }
     } catch (error) {
       console.error('Connection error:', error);
-      this.showStatus('Connection failed. Please check your settings.', 'error');
+      this.showStatus('Could not connect. Please check your settings and try again.', 'error');
       this.updateConnectionStatus(false);
     } finally {
       this.elements.connectBtn.classList.remove('loading');
-      this.elements.connectBtn.textContent = 'Connect';
+      this.elements.connectBtn.textContent = 'Connect to System';
     }
   }
 
@@ -166,7 +169,7 @@ class TrackerPopup {
       window.close();
     } catch (error) {
       console.error('Error launching tracker:', error);
-      this.showStatus('Failed to launch tracker', 'error');
+      this.showStatus('Failed to start tracking', 'error');
     }
   }
 
@@ -188,7 +191,7 @@ class TrackerPopup {
       this.elements.statusIndicator.className = 'status-indicator offline';
       this.elements.statusText.textContent = 'Offline';
       this.elements.launchBtn.disabled = true;
-      this.elements.connectBtn.textContent = 'Connect';
+      this.elements.connectBtn.textContent = 'Connect to System';
     }
   }
 
@@ -215,13 +218,13 @@ class TrackerPopup {
 
   async handleLogin() {
     if (!this.supabase) {
-      this.elements.loginError.textContent = 'Supabase client not initialized.';
+      this.elements.loginError.textContent = 'System not ready. Please refresh and try again.';
       this.elements.loginError.style.display = 'block';
       return;
     }
     const email = this.elements.emailInput.value;
     const password = this.elements.passwordInput.value;
-    this.elements.loginError.style.display = 'none'; // Hide previous errors
+    this.elements.loginError.style.display = 'none';
 
     try {
       const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
@@ -235,11 +238,10 @@ class TrackerPopup {
           supabaseSession: {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
-            user: data.user // Store the entire user object
+            user: data.user
           }
         });
         this.updateAuthState(data.user.email);
-        // Send message to background script
         if (chrome.runtime && chrome.runtime.sendMessage) {
           chrome.runtime.sendMessage({ type: 'USER_LOGGED_IN', userId: data.user.id }, response => {
             if (chrome.runtime.lastError) {
@@ -250,22 +252,20 @@ class TrackerPopup {
           });
         }
       } else {
-        // This case should ideally not happen if error is not thrown, but good to handle
-        this.elements.loginError.textContent = 'Login failed. No session data received.';
+        this.elements.loginError.textContent = 'Login failed. Please try again.';
         this.elements.loginError.style.display = 'block';
       }
     } catch (error) {
       console.error('Login error:', error);
-      this.elements.loginError.textContent = error.message || 'An unexpected error occurred.';
+      this.elements.loginError.textContent = error.message || 'Login failed. Please check your credentials.';
       this.elements.loginError.style.display = 'block';
-      this.updateAuthState(null); // Pass null as user is not authenticated
+      this.updateAuthState(null);
     }
   }
 
   async handleLogout() {
     if (!this.supabase) {
         console.error('Supabase client not initialized for logout.');
-        // Optionally show an error to the user
         return;
     }
     try {
@@ -275,16 +275,13 @@ class TrackerPopup {
       }
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if Supabase logout fails, clear local session as a fallback
     } finally {
       await chrome.storage.local.remove('supabaseSession');
-      // Also clear currentMatchId and currentUserId from local storage
       await chrome.storage.local.remove(['currentMatchId', 'currentUserId']);
-      this.currentUserId = null; // Clear it in popup context
-      this.updateAuthState(null); // Pass null as user is logged out
-      // Send message to background script
+      this.currentUserId = null;
+      this.updateAuthState(null);
       if (chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage({ type: 'USER_LOGGED_OUT' }, response => { // Background will also call disconnectFromUnifiedMatchChannel
+        chrome.runtime.sendMessage({ type: 'USER_LOGGED_OUT' }, response => {
           if (chrome.runtime.lastError) {
             console.warn('Error sending USER_LOGGED_OUT message:', chrome.runtime.lastError.message);
           } else if (response && response.success) {
@@ -299,21 +296,18 @@ class TrackerPopup {
     try {
       const result = await chrome.storage.local.get(['supabaseSession']);
       if (result.supabaseSession && result.supabaseSession.access_token && result.supabaseSession.user) {
-        this.currentUserId = result.supabaseSession.user.id; // Store user ID
+        this.currentUserId = result.supabaseSession.user.id;
         this.updateAuthState(result.supabaseSession.user.email);
       } else {
-        // If no local session, check if there's an active Supabase session (e.g., from a previous visit)
-        // This might not be strictly necessary if all logins are via the extension popup
-        // but can be useful if the user might be logged in to Supabase elsewhere.
         if (this.supabase) {
             const { data: { session } } = await this.supabase.auth.getSession();
             if (session && session.user) {
-                this.currentUserId = session.user.id; // Store user ID
-                await chrome.storage.local.set({ // Store it if found
+                this.currentUserId = session.user.id;
+                await chrome.storage.local.set({
                     supabaseSession: {
                         access_token: session.access_token,
                         refresh_token: session.refresh_token,
-                        user: session.user // Store the entire user object
+                        user: session.user
                     }
                 });
                 this.updateAuthState(session.user.email);
@@ -333,8 +327,8 @@ class TrackerPopup {
     }
   }
 
-  updateAuthState(userEmail) { // userEmail being non-null means user is logged in
-    if (userEmail && this.currentUserId) { // Check this.currentUserId as well
+  updateAuthState(userEmail) {
+    if (userEmail && this.currentUserId) {
       this.elements.loginForm.style.display = 'none';
       this.elements.userInfo.style.display = 'block';
       this.elements.userEmailDisplay.textContent = userEmail;
@@ -343,18 +337,17 @@ class TrackerPopup {
 
       // Show elements that require login
       this.elements.connectionStatus.style.display = 'block';
-      if (this.elements.formSection) this.elements.formSection.style.display = 'block'; // This is the old Match ID/API URL form
-      if (this.elements.buttonGroup) this.elements.buttonGroup.style.display = 'flex'; // Connect/Launch buttons
+      if (this.elements.formSection) this.elements.formSection.style.display = 'block';
+      if (this.elements.buttonGroup) this.elements.buttonGroup.style.display = 'flex';
       if (this.elements.quickActions) this.elements.quickActions.style.display = 'flex';
-      if (this.elements.statusInfo) this.elements.statusInfo.textContent = 'Ready to connect or start match tracking.';
-
+      if (this.elements.statusInfo) this.elements.statusInfo.textContent = 'Ready to start tracking matches.';
 
     } else {
       this.elements.loginForm.style.display = 'block';
       this.elements.userInfo.style.display = 'none';
       this.elements.userEmailDisplay.textContent = '';
       if (this.elements.matchTrackingSection) this.elements.matchTrackingSection.style.display = 'none';
-      this.currentUserId = null; // Ensure userId is cleared
+      this.currentUserId = null;
 
       // Hide elements that require login
       this.elements.connectionStatus.style.display = 'none';
@@ -368,13 +361,13 @@ class TrackerPopup {
   async handleStartMatchTracking() {
     this.elements.matchTrackingError.style.display = 'none';
     if (!this.currentUserId) {
-      this.elements.matchTrackingError.textContent = 'User not logged in.';
+      this.elements.matchTrackingError.textContent = 'Please log in first.';
       this.elements.matchTrackingError.style.display = 'block';
       return;
     }
     const userProvidedMatchId = this.elements.userProvidedMatchId.value.trim();
     if (!userProvidedMatchId) {
-      this.elements.matchTrackingError.textContent = 'Please enter the Match ID from the main application.';
+      this.elements.matchTrackingError.textContent = 'Please enter the match code from the main app.';
       this.elements.matchTrackingError.style.display = 'block';
       return;
     }
@@ -382,7 +375,7 @@ class TrackerPopup {
     try {
       await chrome.storage.local.set({
         currentMatchId: userProvidedMatchId,
-        currentUserId: this.currentUserId // currentUserId is already set from login/checkAuthState
+        currentUserId: this.currentUserId
       });
 
       if (chrome.runtime && chrome.runtime.sendMessage) {
@@ -393,17 +386,15 @@ class TrackerPopup {
             this.elements.matchTrackingError.style.display = 'block';
           } else if (response && response.success) {
             console.log('START_MATCH_TRACKING message acknowledged by background.');
-            this.elements.matchTrackingError.textContent = 'Match tracking started!'; // Temporary success message
+            this.elements.matchTrackingError.textContent = 'Match tracking started successfully!';
             this.elements.matchTrackingError.style.color = 'green';
             this.elements.matchTrackingError.style.display = 'block';
-            // Potentially disable the button or change its text
           } else {
-            this.elements.matchTrackingError.textContent = 'Failed to start tracking. Background script did not acknowledge.';
+            this.elements.matchTrackingError.textContent = 'Failed to start tracking. Please try again.';
             this.elements.matchTrackingError.style.display = 'block';
           }
         });
       }
-      // Optionally, update UI further, e.g., disable button, show "Tracking..."
     } catch (error) {
       console.error('Error saving match tracking data to storage:', error);
       this.elements.matchTrackingError.textContent = `Storage error: ${error.message}`;

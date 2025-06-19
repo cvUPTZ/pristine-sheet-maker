@@ -40,13 +40,13 @@
       <hr>
       <h3>Track Match Activity</h3>
       <div class="input-group">
-        <label for="userProvidedMatchId">Enter Live Match Code:</label>
-        <input type="text" id="userProvidedMatchId" placeholder="Paste code from match page">
+        <label for="userProvidedMatchId">Match Code:</label>
+        <input type="text" id="userProvidedMatchId" placeholder="Paste the match code here">
         <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
-          You can find this code on the main application's match page. It's used to link your tracking to the correct live match.
+          Copy this code from the main tracking app's match page and paste it here.
         </p>
       </div>
-      <button id="startMatchTrackingBtn" class="btn primary">Start Live Tracking</button>
+      <button id="startMatchTrackingBtn" class="btn primary">Start Tracking This Match</button>
       <p id="matchTrackingError" class="error-message" style="display:none;"></p>
     </div>
     <!-- End Match Tracking Section -->
@@ -56,29 +56,38 @@
       <span id="statusText">Offline</span>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" id="formSection">
       <div class="input-group">
-        <label for="matchId">Match ID:</label>
-        <input type="text" id="matchId" placeholder="Enter match ID" />
+        <label for="matchId">Game Number:</label>
+        <input type="text" id="matchId" placeholder="Enter the game number" />
+        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
+          This is the unique number for the match you're tracking
+        </p>
       </div>
       
       <div class="input-group">
-        <label for="apiUrl">API URL:</label>
-        <input type="url" id="apiUrl" placeholder="https://your-api.com" />
+        <label for="apiUrl">Server Address:</label>
+        <input type="url" id="apiUrl" placeholder="https://your-tracking-system.com" />
+        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
+          The web address where your tracking data will be saved
+        </p>
       </div>
       
       <div class="input-group">
-        <label for="authToken">Auth Token:</label>
-        <input type="password" id="authToken" placeholder="Bearer token" />
+        <label for="authToken">Access Code:</label>
+        <input type="password" id="authToken" placeholder="Your personal access code" />
+        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
+          Your security code to access the tracking system
+        </p>
       </div>
     </div>
 
-    <div class="button-group">
-      <button id="connectBtn" class="btn primary">Connect</button>
-      <button id="launchBtn" class="btn secondary" disabled>Launch Tracker</button>
+    <div class="button-group" id="buttonGroup">
+      <button id="connectBtn" class="btn primary">Connect to System</button>
+      <button id="launchBtn" class="btn secondary" disabled>Start Tracking</button>
     </div>
 
-    <div class="quick-actions">
+    <div class="quick-actions" id="quickActions">
       <button id="settingsBtn" class="btn small">Settings</button>
       <button id="helpBtn" class="btn small">Help</button>
     </div>
@@ -88,6 +97,5 @@
     </div>
   </div>
   <script src="popup.js"></script>
-  <!-- Ensure popup.js is loaded after Supabase, or handle async loading in popup.js -->
 </body>
 </html>
