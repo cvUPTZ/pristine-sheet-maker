@@ -32,7 +32,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["tracker-widget.html", "tracker-widget.js", "tracker-widget.css"],
+      "resources": ["tracker-widget.html", "tracker-widget.js", "tracker-widget.css", "supabase.js"],
       "matches": ["*://www.youtube.com/*", "*://youtube.com/*"]
     }
   ],

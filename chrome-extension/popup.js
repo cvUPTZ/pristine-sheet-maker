@@ -1,3 +1,4 @@
+
 class TrackerPopup {
   constructor() {
     // Define Supabase constants (replace with your actual URL and Key)
@@ -5,16 +6,16 @@ class TrackerPopup {
     this.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0d25naHJ3b2x2eWR1cHhtbnF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0OTQ1MzAsImV4cCI6MjA0OTA3MDUzMH0.kYGz7VengZjUvokGlAE4dDSEbrFKbg2fq09RuTNv31k';
     
     // Check if Supabase is available and initialize client
-    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    if (typeof supabase !== 'undefined' && supabase.createClient) {
       try {
-        this.supabase = window.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
+        this.supabase = supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
         console.log('Supabase client initialized successfully');
       } catch (e) {
         console.error('Failed to create Supabase client:', e);
         this.supabase = null;
       }
     } else {
-      console.error('Supabase library not loaded. Make sure the CDN script is included.');
+      console.error('Supabase library not loaded. Make sure supabase.js is included.');
       this.supabase = null;
     }
 
