@@ -319,6 +319,15 @@ class TrackerPopup {
       }
     }
 
+    // Attempt to extract youtube_video_id
+    const youtubeVideoId = notification.notification_data?.youtube_video_id;
+
+    let buttonHtml = `<button class="btn primary" style="font-size: 11px; padding: 4px 8px;" onclick="window.trackerPopup.handleNotificationTracking('${notification.match_id}', '${notification.id}', this)" data-match-id="${notification.match_id}" data-notification-id="${notification.id}"`;
+    if (youtubeVideoId) {
+      buttonHtml += ` data-youtube-video-id="${youtubeVideoId}"`;
+    }
+    buttonHtml += `>Start Tracking</button>`;
+
     div.innerHTML = `
       <div style="font-weight: bold; font-size: 12px; margin-bottom: 4px;">
         ${notification.title}
@@ -326,17 +335,19 @@ class TrackerPopup {
       </div>
       ${matchInfo ? `<div style="font-size: 11px; color: #666; margin-bottom: 6px;">${matchInfo}</div>` : ''}
       <div style="font-size: 11px; color: #555; margin-bottom: 8px;">${notification.message}</div>
-      <button class="btn primary" style="font-size: 11px; padding: 4px 8px;" onclick="window.trackerPopup.handleNotificationTracking('${notification.match_id}', '${notification.id}')">
-        Start Tracking
-      </button>
+      ${buttonHtml}
     `;
 
     return div;
   }
 
-  async handleNotificationTracking(matchId, notificationId) {
+  async handleNotificationTracking(matchId, notificationId, buttonElement) {
     if (!matchId || matchId === 'null') {
       this.showStatus('Error: Invalid match ID', 'error');
+      return;
+    }
+    if (!this.currentUserId) {
+      this.showStatus('You must be logged in to start tracking.', 'error');
       return;
     }
 
@@ -348,15 +359,63 @@ class TrackerPopup {
           .update({ is_read: true })
           .eq('id', notificationId);
       }
+       // No need to remove from UI here, loadNotifications will refresh
 
-      // Start tracking
-      await this.startTracking(matchId);
+      const youtubeVideoId = buttonElement ? buttonElement.dataset.youtubeVideoId : null;
+      let targetTabId = null;
+
+      if (youtubeVideoId) {
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        let currentTabVideoId = null;
+
+        if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
+          try {
+            const url = new URL(currentTab.url);
+            currentTabVideoId = url.searchParams.get('v');
+          } catch (e) {
+            console.warn('Could not parse URL for video ID:', currentTab.url, e);
+          }
+        }
+
+        if (currentTabVideoId === youtubeVideoId) {
+          targetTabId = currentTab.id;
+          console.log(`Correct video already open in current tab ${targetTabId}. Launching tracker there.`);
+          this.showStatus(`Tracker will launch in current tab.`, 'info');
+        } else {
+          this.showStatus(`Opening new tab for video...`, 'info');
+          console.log(`Opening new tab for YouTube video ID: ${youtubeVideoId}`);
+          const newTab = await chrome.tabs.create({ url: `https://www.youtube.com/watch?v=${youtubeVideoId}`, active: true });
+          targetTabId = newTab.id;
+          // IMPORTANT: This delay is a simplification. A more robust solution
+          // would use chrome.tabs.onUpdated to ensure the tab is fully loaded
+          // and content scripts are injected before sending the message.
+          await new Promise(resolve => setTimeout(resolve, 2500)); // 2.5-second delay
+          console.log(`New tab ${targetTabId} should be ready. Launching tracker.`);
+        }
+      } else {
+        // No youtube_video_id from notification, try to use current tab if it's a YouTube watch page
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
+          targetTabId = currentTab.id;
+          console.log('No YouTube video ID in notification, but current tab is a YouTube watch page. Attempting to launch tracker there.');
+          this.showStatus('Tracker will attempt to launch in current tab.', 'info');
+        } else {
+          this.showStatus('Cannot start tracking. No specific YouTube video in notification and current tab is not a YouTube watch page.', 'error');
+          console.error('Cannot start tracking. No specific YouTube video ID in notification and current tab is not a YouTube watch page.');
+          this.loadNotifications(); // Refresh to show the notification again if tracking failed early
+          return;
+        }
+      }
+
+      // Proceed to start tracking
+      await this.startTracking(matchId, youtubeVideoId, targetTabId);
       
-      // Refresh notifications
+      // Refresh notifications list
       this.loadNotifications();
     } catch (error) {
-      console.error('Error starting tracking from notification:', error);
-      this.showStatus('Error starting tracking', 'error');
+      console.error('Error handling notification tracking:', error);
+      this.showStatus(`Failed to handle notification: ${error.message}`, 'error');
+      this.loadNotifications(); // Ensure list is refreshed on error
     }
   }
 
@@ -369,62 +428,86 @@ class TrackerPopup {
       this.elements.matchTrackingError.style.display = 'block';
       return;
     }
-
-    await this.startTracking(userProvidedMatchId);
+    // For manual tracking, youtubeVideoId is null, targetTabId will be determined by launchTrackerOnYouTube or be the active tab.
+    await this.startTracking(userProvidedMatchId, null, null);
   }
 
-  async startTracking(matchId) {
+  async startTracking(matchId, youtubeVideoId = null, targetTabId = null) {
     if (!this.currentUserId) {
       this.showStatus('Please log in first', 'error');
       return;
     }
 
     try {
+      // currentMatchId and currentUserId are still relevant for the extension's state.
       await chrome.storage.local.set({
         currentMatchId: matchId,
         currentUserId: this.currentUserId
       });
 
+      console.log(`Attempting to start tracking for match: ${matchId}, User ID: ${this.currentUserId}, YouTube Video ID: ${youtubeVideoId}, Target Tab ID: ${targetTabId}`);
       if (chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage({ type: 'START_MATCH_TRACKING', matchId: matchId, userId: this.currentUserId }, response => {
+        chrome.runtime.sendMessage({
+          type: 'START_MATCH_TRACKING',
+          matchId: matchId,
+          userId: this.currentUserId,
+          youtubeVideoId: youtubeVideoId // Pass youtubeVideoId to background
+        }, response => {
           if (chrome.runtime.lastError) {
             console.error('Error sending START_MATCH_TRACKING message:', chrome.runtime.lastError.message);
-            this.showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
+            this.showStatus(`Error starting tracking: ${chrome.runtime.lastError.message}`, 'error');
           } else if (response && response.success) {
             console.log('START_MATCH_TRACKING message acknowledged by background.');
             this.showStatus('Tracking started successfully!', 'success');
-            this.launchTrackerOnYouTube(matchId);
+            this.launchTrackerOnYouTube(matchId, youtubeVideoId, targetTabId);
           } else {
-            this.showStatus('Failed to start tracking', 'error');
+            this.showStatus(`Failed to start tracking. ${response?.message || ''}`, 'error');
           }
         });
       }
     } catch (error) {
       console.error('Error starting tracking:', error);
-      this.showStatus(`Error: ${error.message}`, 'error');
+      this.showStatus(`Error starting tracking: ${error.message}`, 'error');
     }
   }
 
-  async launchTrackerOnYouTube(matchId) {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (tab.url && tab.url.includes('youtube.com/watch')) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'LAUNCH_TRACKER',
-          data: {
-            matchId: matchId,
-            userId: this.currentUserId
-          }
-        });
+  async launchTrackerOnYouTube(matchId, youtubeVideoId = null, targetTabId = null) {
+    console.log(`Launching tracker on YouTube. Match ID: ${matchId}, YouTube Video ID: ${youtubeVideoId}, Target Tab ID: ${targetTabId}`);
+    const launchData = {
+      matchId: matchId,
+      userId: this.currentUserId,
+      youtubeVideoId: youtubeVideoId
+    };
 
-        setTimeout(() => {
-          window.close();
-        }, 1000);
+    if (targetTabId) {
+      try {
+        await chrome.tabs.sendMessage(targetTabId, { type: 'LAUNCH_TRACKER', data: launchData });
+        this.showStatus('Tracker launch signal sent to target tab.', 'success');
+      } catch (e) {
+          // This catch block might be triggered if sending message immediately after tab creation fails.
+          // The delay in handleNotificationTracking is meant to mitigate this.
+          console.error(`Error launching tracker on target tab ${targetTabId}:`, e.message);
+          this.showStatus(`Error launching tracker on target tab. ${e.message}`, 'error');
       }
-    } catch (error) {
-      console.error('Error launching tracker on YouTube:', error);
+    } else {
+      // Fallback: if targetTabId couldn't be determined (e.g. manual tracking without specific video)
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url && tab.url.includes('youtube.com/watch')) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'LAUNCH_TRACKER', data: launchData });
+          this.showStatus('Tracker launch signal sent to active tab.', 'success');
+        } catch (e) {
+          console.error('Error launching tracker on active tab:', e.message);
+          this.showStatus(`Error launching tracker. Ensure you are on a YouTube watch page. ${e.message}`, 'error');
+        }
+      } else {
+        this.showStatus('Could not launch tracker: Not on a YouTube watch page or no specific tab targeted.', 'error');
+      }
     }
+    // Close popup after attempting to launch
+    setTimeout(() => {
+      window.close();
+    }, 1500); // Delay to allow user to see messages
   }
 }
 

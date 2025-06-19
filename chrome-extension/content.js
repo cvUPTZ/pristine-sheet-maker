@@ -130,8 +130,12 @@ class YouTubeFootballTracker {
   async handleMessage(message, sender, sendResponse) {
     switch (message.type) {
       case 'LAUNCH_TRACKER':
-        await this.launchTracker(message.data);
-        sendResponse({ success: true });
+        console.log('Content script: LAUNCH_TRACKER message received', message.data);
+        this.activeMatchIdForTracking = message.data.matchId; // General match context from notification
+        this.targetYoutubeVideoId = message.data.youtubeVideoId; // Specific video ID for this session
+        this.currentUserId = message.data.userId; // Store the user ID
+        await this.launchTracker(message.data); // Pass all data through, launchTracker will use new class properties
+        sendResponse({ success: true, receivedData: message.data }); // Acknowledge receipt
         break;
       
       case 'CLOSE_TRACKER':
@@ -148,9 +152,30 @@ class YouTubeFootballTracker {
         });
         break;
       case 'SET_ACTIVE_MATCH_CONTEXT':
-        this.activeMatchIdForTracking = message.matchId;
-        console.log('Content script: Active match context set to', this.activeMatchIdForTracking);
-        // When a new match tracking starts, if video is already playing, send initial status
+        this.activeMatchIdForTracking = message.matchId; // General match context from notification
+        this.targetYoutubeVideoId = message.youtubeVideoId; // Specific video ID for this session
+        this.currentUserId = message.userId || this.currentUserId; // User ID from background, keep existing if not provided
+
+        // It's crucial to have the current page's videoId to compare against the targetYoutubeVideoId
+        // Ensure this.videoId is fresh, especially if this message can arrive before onVideoChange fires on a new page.
+        this.videoId = this.extractVideoId(window.location.href);
+
+        console.log('Content script: Active match context set by background. MatchID:', this.activeMatchIdForTracking, 'Expected VideoID:', this.targetYoutubeVideoId, 'Current Page VideoID:', this.videoId);
+
+        if (this.targetYoutubeVideoId && this.videoId && this.targetYoutubeVideoId !== this.videoId) {
+            console.warn(`CONTEXT MISMATCH from SET_ACTIVE_MATCH_CONTEXT: Active match context (match ${this.activeMatchIdForTracking}) expects video ${this.targetYoutubeVideoId}, but current page is ${this.videoId}. Events will be associated with ${this.videoId}.`);
+            // TODO: If tracker UI is active, display a warning to the user.
+            // Example: if (this.trackerWidget && this.isActive && this.trackerInterface) { this.trackerInterface.showContextMismatchWarning(this.targetYoutubeVideoId, this.videoId); }
+        }
+
+        // If tracker UI is already present, update its display or state if necessary
+        if (this.trackerWidget && this.activeMatchIdForTracking && this.isActive) { // Check isActive as well
+             const matchIdDisplayElement = this.trackerWidget.querySelector('.connection-info span:not(.status-dot)');
+             if (matchIdDisplayElement) { // Check if element exists
+                 matchIdDisplayElement.textContent = `Tracking: ${this.activeMatchIdForTracking}`;
+             }
+        }
+        // When context is set (or re-set), if video is already playing, send initial status
         if (this.activeMatchIdForTracking && this.videoElement && !this.videoElement.paused && this.isTabFocused) {
             this.sendMessageToBackground({ type: 'VIDEO_PLAYING', matchId: this.activeMatchIdForTracking, videoId: this.videoId });
         } else if (this.activeMatchIdForTracking && this.isTabFocused) {
@@ -165,15 +190,42 @@ class YouTubeFootballTracker {
     }
   }
 
-  async launchTracker(connectionData) {
+  async launchTracker(connectionData) { // connectionData now contains matchId, userId, youtubeVideoId
     if (this.isActive) {
       this.closeTracker();
+    }
+
+    // Ensure this.videoId is the current page's video ID.
+    // It should ideally be set by detectVideoChange or by the calling message handler (SET_ACTIVE_MATCH_CONTEXT/LAUNCH_TRACKER).
+    // Extract it here again as a fallback or if it wasn't set reliably before.
+    this.videoId = this.extractVideoId(window.location.href);
+
+    if (!this.videoId) {
+      console.error('Could not extract video ID from URL for launching tracker.');
+      alert('Error: Could not identify YouTube video for tracker.'); // User-facing alert
+      return;
+    }
+
+    // activeMatchIdForTracking and targetYoutubeVideoId are now class properties,
+    // set by the handleMessage (LAUNCH_TRACKER or SET_ACTIVE_MATCH_CONTEXT).
+    // connectionData.matchId is equivalent to this.activeMatchIdForTracking.
+    // connectionData.youtubeVideoId is equivalent to this.targetYoutubeVideoId.
+
+    console.log(`Launching Tracker UI. General Match Context: ${this.activeMatchIdForTracking}, Expected Video by Context: ${this.targetYoutubeVideoId}, Current Page Video: ${this.videoId}`);
+
+    // Perform validation: Compare expected video ID (from context) with current page's video ID
+    if (this.targetYoutubeVideoId && this.videoId !== this.targetYoutubeVideoId) {
+        console.warn(`VIDEO ID MISMATCH: Tracker launched for match context ${this.activeMatchIdForTracking} (expected video ${this.targetYoutubeVideoId}) but current video is ${this.videoId}. Events will be logged for current video: ${this.videoId}.`);
+        // TODO: Display a warning in the tracker UI itself.
+        // This could be a small, noticeable text element in the tracker UI, possibly managed by a refined TrackerInterface class.
+        // For example: if (this.trackerInterface) this.trackerInterface.showPermanentWarning(`Warning: Video mismatch. Expected ${this.targetYoutubeVideoId}`);
     }
 
     try {
       // Create overlay container
       const overlay = document.createElement('div');
       overlay.id = 'football-tracker-overlay';
+      // Display the general match context (this.activeMatchIdForTracking) in the UI
       overlay.innerHTML = `
         <div class="tracker-container">
           <div class="tracker-header">
@@ -191,7 +243,8 @@ class YouTubeFootballTracker {
           <div class="tracker-content">
             <div class="connection-info">
               <span class="status-dot online"></span>
-              <span>Tracking: ${connectionData.matchId}</span>
+              {/* Display the general match context (activeMatchIdForTracking) */}
+              <span>Tracking: ${this.activeMatchIdForTracking}</span>
             </div>
             <div class="video-controls">
               <button id="play-pause-btn" class="video-btn">⏸️</button>
@@ -201,24 +254,18 @@ class YouTubeFootballTracker {
             <div class="event-piano">
               <div class="piano-section">
                 <h4>Primary Events</h4>
-                <div class="event-buttons primary">
-                  <button class="event-btn" data-event="goal">⚽ Goal</button>
-                  <button class="event-btn" data-event="shot">🎯 Shot</button>
-                  <button class="event-btn" data-event="pass">⚡ Pass</button>
-                  <button class="event-btn" data-event="tackle">🛡️ Tackle</button>
+                <div class="event-buttons primary" id="primary-event-buttons">
+                  {/* Buttons will be rendered here by renderPianoButtons */}
                 </div>
               </div>
               <div class="piano-section">
                 <h4>Secondary Events</h4>
-                <div class="event-buttons secondary">
-                  <button class="event-btn" data-event="foul">⚠️ Foul</button>
-                  <button class="event-btn" data-event="assist">🎯 Assist</button>
-                  <button class="event-btn" data-event="save">🥅 Save</button>
-                  <button class="event-btn" data-event="corner">📐 Corner</button>
-                  <button class="event-btn" data-event="freeKick">⚽ Free Kick</button>
+                <div class="event-buttons secondary" id="secondary-event-buttons">
+                  {/* Buttons will be rendered here by renderPianoButtons */}
                 </div>
               </div>
             </div>
+            <div id="piano-status-message" style="text-align: center; padding: 10px;"></div>
             <div class="recent-events">
               <h4>Recent Events</h4>
               <div id="recent-events-list"></div>
@@ -241,6 +288,17 @@ class YouTubeFootballTracker {
 
       // Start video time sync
       this.startVideoTimeSync();
+
+      // Fetch and render assigned event buttons
+      // this.activeMatchIdForTracking and this.currentUserId are set by the message handler (LAUNCH_TRACKER/SET_ACTIVE_MATCH_CONTEXT)
+      if (this.activeMatchIdForTracking && this.currentUserId) {
+        this.fetchAndRenderAssignedEvents(this.activeMatchIdForTracking, this.currentUserId);
+      } else {
+        console.warn("Missing matchId or userId, cannot fetch assignments.",
+                     "activeMatchId:", this.activeMatchIdForTracking,
+                     "currentUserId:", this.currentUserId);
+        this.renderPianoError("Configuration error: Missing match or user ID for assignments.");
+      }
 
       console.log('Football Tracker launched for YouTube video:', this.videoTitle);
     } catch (error) {
@@ -287,13 +345,8 @@ class YouTubeFootballTracker {
       }
     });
 
-    // Event buttons
-    overlay.querySelectorAll('.event-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const eventType = e.target.dataset.event;
-        await this.recordEvent(eventType, connectionData);
-      });
-    });
+    // Event buttons listeners will be added by renderPianoButtons directly to the dynamically created buttons.
+    // So, the generic .event-btn listener setup is removed from here.
 
     // Make draggable
     this.makeDraggable(overlay);
@@ -504,6 +557,129 @@ class YouTubeFootballTracker {
 
   // Removed injectLaunchButtonStyles() function
   // Removed injectStyles() function
+
+  async fetchAndRenderAssignedEvents(matchId, userId) {
+    if (!this.trackerWidget) {
+      console.error("Tracker widget not available to render assigned events.");
+      return;
+    }
+    console.log(`Fetching assigned events for Match ID: ${matchId}, User ID: ${userId}`);
+    // Show loading message
+     const pianoStatusContainer = this.trackerWidget.querySelector('#piano-status-message');
+    if (pianoStatusContainer) {
+        pianoStatusContainer.innerHTML = '<p style="text-align:center;">Loading event assignments...</p>';
+    }
+
+    chrome.runtime.sendMessage(
+      {
+        type: 'GET_TRACKER_ASSIGNMENTS',
+        data: { matchId: matchId, userId: userId }
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error fetching assignments:', chrome.runtime.lastError.message);
+          this.renderPianoError("Failed to load event assignments due to an extension error.");
+          return;
+        }
+
+        if (response && response.success) {
+          console.log('Successfully fetched event types:', response.eventTypes);
+          this.renderPianoButtons(response.eventTypes);
+        } else {
+          console.error('Failed to fetch assignments:', response?.error);
+          this.renderPianoError(response?.error || "Could not fetch event assignments from background.");
+        }
+      }
+    );
+  }
+
+  renderPianoButtons(eventTypes) {
+    const primaryEventsContainer = this.trackerWidget?.querySelector('#primary-event-buttons');
+    const secondaryEventsContainer = this.trackerWidget?.querySelector('#secondary-event-buttons');
+    const pianoStatusContainer = this.trackerWidget?.querySelector('#piano-status-message');
+
+    if (!primaryEventsContainer || !secondaryEventsContainer || !pianoStatusContainer) {
+      console.error('Piano containers not found in tracker widget.');
+      return;
+    }
+
+    // Clear existing buttons and status message
+    primaryEventsContainer.innerHTML = '';
+    secondaryEventsContainer.innerHTML = '';
+    pianoStatusContainer.innerHTML = '';
+
+    if (!eventTypes || !Array.isArray(eventTypes) || eventTypes.length === 0) {
+      pianoStatusContainer.innerHTML = '<p style="text-align:center;">No event types assigned for tracking.</p>';
+      return;
+    }
+
+    // TODO: Implement button creation logic based on eventTypes and eventTypeDetails map
+    // For now, just log that we received event types.
+    // console.log('Received event types for piano:', eventTypes);
+
+    const eventTypeDetails = {
+      'goal': { label: '⚽ Goal', category: 'primary' },
+      'shot_on_target': { label: '🎯 Shot (On Target)', category: 'primary' },
+      'shot_off_target': { label: '💨 Shot (Off Target)', category: 'primary' },
+      'blocked_shot': { label: '🧱 Shot (Blocked)', category: 'primary' },
+      'pass_accurate': { label: '✅ Pass (Accurate)', category: 'secondary' },
+      'pass_inaccurate': { label: '❌ Pass (Inaccurate)', category: 'secondary' },
+      'tackle_won': { label: '🛡️ Tackle (Won)', category: 'primary' },
+      'tackle_lost': { label: '🩹 Tackle (Lost)', category: 'secondary' },
+      'foul_committed': { label: '⚠️ Foul (Committed)', category: 'secondary' },
+      'foul_won': { label: '🙌 Foul (Won)', category: 'secondary' },
+      'yellow_card': { label: '🟨 Yellow Card', category: 'secondary' },
+      'red_card': { label: '🟥 Red Card', category: 'secondary' },
+      'corner_kick': { label: '📐 Corner Kick', category: 'secondary' },
+      'free_kick_taken': { label: '🎯 Free Kick (Taken)', category: 'secondary' },
+      'offside': { label: '🏳️ Offside', category: 'secondary' },
+      'save_goalkeeper': { label: '🧤 Save (GK)', category: 'primary' },
+      'interception': { label: ' interception', category: 'primary' },
+      'clearance': { label: '🧹 Clearance', category: 'secondary' },
+      'substitution': { label: '🔄 Substitution', category: 'secondary' },
+      // Add more standard football event types as needed
+    };
+
+    eventTypes.forEach(eventTypeKey => {
+      const details = eventTypeDetails[eventTypeKey] || { label: eventTypeKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), category: 'secondary' }; // Default if not in map
+
+      const button = document.createElement('button');
+      button.className = 'event-btn';
+      button.dataset.event = eventTypeKey;
+      button.textContent = details.label;
+
+      button.addEventListener('click', async () => {
+        // connectionData is not directly available here. We need activeMatchIdForTracking and videoId from the class instance.
+        // The recordEvent function itself uses this.videoId and this.activeMatchIdForTracking.
+        // The original connectionData in setupTrackerEventListeners was just for context, but recordEvent is now self-reliant on class properties.
+        await this.recordEvent(eventTypeKey);
+      });
+
+      if (details.category === 'primary' && primaryEventsContainer) {
+        primaryEventsContainer.appendChild(button);
+      } else if (secondaryEventsContainer) { // Default to secondary if category is not 'primary' or unknown
+        secondaryEventsContainer.appendChild(button);
+      }
+    });
+
+    if (primaryEventsContainer.children.length === 0 && secondaryEventsContainer.children.length === 0) {
+         // This case should ideally be caught by the initial check for eventTypes.length === 0
+         // But as a fallback if all eventTypes were unknown and defaulted to no category.
+        pianoStatusContainer.innerHTML = '<p style="text-align:center;">No recognized event types assigned.</p>';
+    }
+  }
+
+  renderPianoError(errorMessage) {
+    const pianoStatusContainer = this.trackerWidget?.querySelector('#piano-status-message');
+    if (pianoStatusContainer) {
+      pianoStatusContainer.innerHTML = `<p style="color:red; text-align:center;">Error: ${errorMessage}</p>`;
+    }
+    // Clear button containers too
+    const primaryEventsContainer = this.trackerWidget?.querySelector('#primary-event-buttons');
+    const secondaryEventsContainer = this.trackerWidget?.querySelector('#secondary-event-buttons');
+    if (primaryEventsContainer) primaryEventsContainer.innerHTML = '';
+    if (secondaryEventsContainer) secondaryEventsContainer.innerHTML = '';
+  }
 
   closeTracker() {
     if (this.trackerWidget) {
