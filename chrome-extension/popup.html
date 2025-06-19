@@ -49,51 +49,14 @@
       <button id="startMatchTrackingBtn" class="btn primary">Start Tracking This Match</button>
       <p id="matchTrackingError" class="error-message" style="display:none;"></p>
     </div>
-    <!-- End Match Tracking Section -->
 
-    <div class="connection-status" id="connectionStatus">
+    <div class="connection-status" id="connectionStatus" style="display:none;">
       <div class="status-indicator offline" id="statusIndicator"></div>
-      <span id="statusText">Offline</span>
-    </div>
-
-    <div class="form-section" id="formSection">
-      <div class="input-group">
-        <label for="matchId">Game Number:</label>
-        <input type="text" id="matchId" placeholder="Enter the game number" />
-        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
-          This is the unique number for the match you're tracking
-        </p>
-      </div>
-      
-      <div class="input-group">
-        <label for="apiUrl">Server Address:</label>
-        <input type="url" id="apiUrl" placeholder="https://your-tracking-system.com" />
-        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
-          The web address where your tracking data will be saved
-        </p>
-      </div>
-      
-      <div class="input-group">
-        <label for="authToken">Access Code:</label>
-        <input type="password" id="authToken" placeholder="Your personal access code" />
-        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
-          Your security code to access the tracking system
-        </p>
-      </div>
-    </div>
-
-    <div class="button-group" id="buttonGroup">
-      <button id="connectBtn" class="btn primary">Connect to System</button>
-      <button id="launchBtn" class="btn secondary" disabled>Start Tracking</button>
-    </div>
-
-    <div class="quick-actions" id="quickActions">
-      <button id="settingsBtn" class="btn small">Settings</button>
-      <button id="helpBtn" class="btn small">Help</button>
+      <span id="statusText">Ready</span>
     </div>
 
     <div class="status-info" id="statusInfo">
-      <p>Ready to connect to match tracking system</p>
+      <p>Please log in to start tracking matches</p>
     </div>
   </div>
   <script src="popup.js"></script>

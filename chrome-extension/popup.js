@@ -1,3 +1,4 @@
+
 class TrackerPopup {
   constructor() {
     // Define Supabase constants (replace with your actual URL and Key)
@@ -10,26 +11,12 @@ class TrackerPopup {
     }
 
     this.initializeElements();
-    this.loadStoredData();
     this.setupEventListeners();
-    this.checkConnectionStatus();
     this.checkAuthState();
   }
 
   initializeElements() {
     this.elements = {
-      // Existing elements with updated IDs to match new labels
-      matchId: document.getElementById('matchId'),
-      apiUrl: document.getElementById('apiUrl'),
-      authToken: document.getElementById('authToken'),
-      connectBtn: document.getElementById('connectBtn'),
-      launchBtn: document.getElementById('launchBtn'),
-      statusIndicator: document.getElementById('statusIndicator'),
-      statusText: document.getElementById('statusText'),
-      statusInfo: document.getElementById('statusInfo'),
-      settingsBtn: document.getElementById('settingsBtn'),
-      helpBtn: document.getElementById('helpBtn'),
-
       // Auth elements
       loginForm: document.getElementById('loginForm'),
       emailInput: document.getElementById('email'),
@@ -46,36 +33,16 @@ class TrackerPopup {
       startMatchTrackingBtn: document.getElementById('startMatchTrackingBtn'),
       matchTrackingError: document.getElementById('matchTrackingError'),
 
-      // Form sections for conditional display
-      formSection: document.getElementById('formSection'),
-      buttonGroup: document.getElementById('buttonGroup'),
-      quickActions: document.getElementById('quickActions')
+      // Status elements
+      connectionStatus: document.getElementById('connectionStatus'),
+      statusIndicator: document.getElementById('statusIndicator'),
+      statusText: document.getElementById('statusText'),
+      statusInfo: document.getElementById('statusInfo')
     };
     this.currentUserId = null;
   }
 
-  async loadStoredData() {
-    try {
-      const data = await chrome.storage.sync.get(['matchId', 'apiUrl', 'authToken', 'isConnected']);
-      
-      if (data.matchId) this.elements.matchId.value = data.matchId;
-      if (data.apiUrl) this.elements.apiUrl.value = data.apiUrl;
-      if (data.authToken) this.elements.authToken.value = data.authToken;
-      
-      if (data.isConnected) {
-        this.updateConnectionStatus(true);
-      }
-    } catch (error) {
-      console.error('Error loading stored data:', error);
-    }
-  }
-
   setupEventListeners() {
-    this.elements.connectBtn.addEventListener('click', () => this.handleConnect());
-    this.elements.launchBtn.addEventListener('click', () => this.handleLaunch());
-    this.elements.settingsBtn.addEventListener('click', () => this.handleSettings());
-    this.elements.helpBtn.addEventListener('click', () => this.handleHelp());
-
     // Auth event listeners
     if (this.elements.loginBtn) {
         this.elements.loginBtn.addEventListener('click', () => this.handleLogin());
@@ -86,113 +53,6 @@ class TrackerPopup {
     if (this.elements.startMatchTrackingBtn) {
         this.elements.startMatchTrackingBtn.addEventListener('click', () => this.handleStartMatchTracking());
     }
-
-    // Auto-save inputs
-    ['matchId', 'apiUrl', 'authToken'].forEach(field => {
-      this.elements[field].addEventListener('input', () => this.saveData());
-    });
-  }
-
-  async saveData() {
-    try {
-      await chrome.storage.sync.set({
-        matchId: this.elements.matchId.value,
-        apiUrl: this.elements.apiUrl.value,
-        authToken: this.elements.authToken.value
-      });
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  }
-
-  async handleConnect() {
-    const matchId = this.elements.matchId.value.trim();
-    const apiUrl = this.elements.apiUrl.value.trim();
-    const authToken = this.elements.authToken.value.trim();
-
-    if (!matchId || !apiUrl) {
-      this.showStatus('Please fill in Game Number and Server Address', 'error');
-      return;
-    }
-
-    this.elements.connectBtn.classList.add('loading');
-    this.elements.connectBtn.textContent = 'Connecting...';
-
-    try {
-      // Test connection to the API
-      const response = await fetch(`${apiUrl}/matches/${matchId}`, {
-        headers: {
-          'Authorization': authToken ? `Bearer ${authToken}` : '',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        await chrome.storage.sync.set({ isConnected: true });
-        this.updateConnectionStatus(true);
-        this.showStatus('Connected successfully! Ready to track.', 'success');
-        
-        // Send connection data to background script
-        chrome.runtime.sendMessage({
-          type: 'CONNECTION_ESTABLISHED',
-          data: { matchId, apiUrl, authToken }
-        });
-      } else {
-        throw new Error(`Connection failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Connection error:', error);
-      this.showStatus('Could not connect. Please check your settings and try again.', 'error');
-      this.updateConnectionStatus(false);
-    } finally {
-      this.elements.connectBtn.classList.remove('loading');
-      this.elements.connectBtn.textContent = 'Connect to System';
-    }
-  }
-
-  async handleLaunch() {
-    try {
-      // Get current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      // Send message to content script to launch the tracker
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'LAUNCH_TRACKER',
-        data: {
-          matchId: this.elements.matchId.value,
-          apiUrl: this.elements.apiUrl.value,
-          authToken: this.elements.authToken.value
-        }
-      });
-
-      // Close popup
-      window.close();
-    } catch (error) {
-      console.error('Error launching tracker:', error);
-      this.showStatus('Failed to start tracking', 'error');
-    }
-  }
-
-  handleSettings() {
-    chrome.tabs.create({ url: 'chrome-extension://' + chrome.runtime.id + '/settings.html' });
-  }
-
-  handleHelp() {
-    chrome.tabs.create({ url: 'chrome-extension://' + chrome.runtime.id + '/help.html' });
-  }
-
-  updateConnectionStatus(isConnected) {
-    if (isConnected) {
-      this.elements.statusIndicator.className = 'status-indicator online';
-      this.elements.statusText.textContent = 'Connected';
-      this.elements.launchBtn.disabled = false;
-      this.elements.connectBtn.textContent = 'Reconnect';
-    } else {
-      this.elements.statusIndicator.className = 'status-indicator offline';
-      this.elements.statusText.textContent = 'Offline';
-      this.elements.launchBtn.disabled = true;
-      this.elements.connectBtn.textContent = 'Connect to System';
-    }
   }
 
   showStatus(message, type) {
@@ -201,17 +61,12 @@ class TrackerPopup {
     
     setTimeout(() => {
       this.elements.statusInfo.className = 'status-info';
-      this.elements.statusInfo.textContent = 'Ready to connect to match tracking system';
+      if (this.currentUserId) {
+        this.elements.statusInfo.textContent = 'Ready to start tracking matches';
+      } else {
+        this.elements.statusInfo.textContent = 'Please log in to start tracking matches';
+      }
     }, 3000);
-  }
-
-  async checkConnectionStatus() {
-    try {
-      const data = await chrome.storage.sync.get(['isConnected']);
-      this.updateConnectionStatus(data.isConnected || false);
-    } catch (error) {
-      console.error('Error checking connection status:', error);
-    }
   }
 
   // --- Authentication Methods ---
@@ -329,32 +184,25 @@ class TrackerPopup {
 
   updateAuthState(userEmail) {
     if (userEmail && this.currentUserId) {
+      // User is logged in
       this.elements.loginForm.style.display = 'none';
       this.elements.userInfo.style.display = 'block';
       this.elements.userEmailDisplay.textContent = userEmail;
       this.elements.loginError.style.display = 'none';
-      if (this.elements.matchTrackingSection) this.elements.matchTrackingSection.style.display = 'block';
-
-      // Show elements that require login
+      this.elements.matchTrackingSection.style.display = 'block';
       this.elements.connectionStatus.style.display = 'block';
-      if (this.elements.formSection) this.elements.formSection.style.display = 'block';
-      if (this.elements.buttonGroup) this.elements.buttonGroup.style.display = 'flex';
-      if (this.elements.quickActions) this.elements.quickActions.style.display = 'flex';
-      if (this.elements.statusInfo) this.elements.statusInfo.textContent = 'Ready to start tracking matches.';
-
+      this.elements.statusText.textContent = 'Ready';
+      this.elements.statusIndicator.className = 'status-indicator online';
+      this.elements.statusInfo.textContent = 'Ready to start tracking matches';
     } else {
+      // User is not logged in
       this.elements.loginForm.style.display = 'block';
       this.elements.userInfo.style.display = 'none';
       this.elements.userEmailDisplay.textContent = '';
-      if (this.elements.matchTrackingSection) this.elements.matchTrackingSection.style.display = 'none';
-      this.currentUserId = null;
-
-      // Hide elements that require login
+      this.elements.matchTrackingSection.style.display = 'none';
       this.elements.connectionStatus.style.display = 'none';
-      if (this.elements.formSection) this.elements.formSection.style.display = 'none';
-      if (this.elements.buttonGroup) this.elements.buttonGroup.style.display = 'none';
-      if (this.elements.quickActions) this.elements.quickActions.style.display = 'none';
-      if (this.elements.statusInfo) this.elements.statusInfo.textContent = 'Please log in to use the tracker.';
+      this.currentUserId = null;
+      this.elements.statusInfo.textContent = 'Please log in to start tracking matches';
     }
   }
 
@@ -389,6 +237,9 @@ class TrackerPopup {
             this.elements.matchTrackingError.textContent = 'Match tracking started successfully!';
             this.elements.matchTrackingError.style.color = 'green';
             this.elements.matchTrackingError.style.display = 'block';
+            
+            // Try to launch tracker on current YouTube page
+            this.launchTrackerOnYouTube();
           } else {
             this.elements.matchTrackingError.textContent = 'Failed to start tracking. Please try again.';
             this.elements.matchTrackingError.style.display = 'block';
@@ -399,6 +250,32 @@ class TrackerPopup {
       console.error('Error saving match tracking data to storage:', error);
       this.elements.matchTrackingError.textContent = `Storage error: ${error.message}`;
       this.elements.matchTrackingError.style.display = 'block';
+    }
+  }
+
+  async launchTrackerOnYouTube() {
+    try {
+      // Get current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // Check if it's a YouTube page
+      if (tab.url && tab.url.includes('youtube.com/watch')) {
+        // Send message to content script to launch the tracker
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'LAUNCH_TRACKER',
+          data: {
+            matchId: this.elements.userProvidedMatchId.value,
+            userId: this.currentUserId
+          }
+        });
+
+        // Close popup after launching
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error launching tracker on YouTube:', error);
     }
   }
 }
