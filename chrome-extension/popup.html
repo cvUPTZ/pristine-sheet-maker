@@ -31,32 +31,51 @@
 
     <!-- User Info and Logout -->
     <div id="userInfo" style="display:none;">
-      <p>Welcome, <span id="userEmail"></span>!</p>
-      <button id="logoutBtn" class="btn secondary">Logout</button>
-    </div>
-
-    <!-- Match Tracking Section (Visible only when logged in) -->
-    <div id="matchTrackingSection" style="display:none;">
-      <hr>
-      <h3>Track Match Activity</h3>
-      <div class="input-group">
-        <label for="userProvidedMatchId">Match Code:</label>
-        <input type="text" id="userProvidedMatchId" placeholder="Paste the match code here">
-        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
-          Copy this code from the main tracking app's match page and paste it here.
-        </p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <p style="margin: 0;">Welcome, <span id="userEmail"></span>!</p>
+        <button id="logoutBtn" class="btn secondary" style="padding: 4px 8px; font-size: 12px;">Logout</button>
       </div>
-      <button id="startMatchTrackingBtn" class="btn primary">Start Tracking This Match</button>
-      <p id="matchTrackingError" class="error-message" style="display:none;"></p>
     </div>
 
-    <div class="connection-status" id="connectionStatus" style="display:none;">
-      <div class="status-indicator offline" id="statusIndicator"></div>
-      <span id="statusText">Ready</span>
+    <!-- Dashboard Section (Visible only when logged in) -->
+    <div id="dashboardSection" style="display:none;">
+      <div class="connection-status" id="connectionStatus">
+        <div class="status-indicator online" id="statusIndicator"></div>
+        <span id="statusText">Connected</span>
+      </div>
+
+      <!-- Notifications Section -->
+      <div id="notificationsSection">
+        <h3 style="margin: 10px 0 8px 0; font-size: 14px;">📋 Match Assignments</h3>
+        <div id="notificationsList" style="max-height: 200px; overflow-y: auto;">
+          <div id="loadingNotifications" style="text-align: center; color: #666; padding: 20px;">
+            Loading notifications...
+          </div>
+          <div id="noNotifications" style="display: none; text-align: center; color: #666; padding: 20px;">
+            No new match assignments
+          </div>
+        </div>
+      </div>
+
+      <hr style="margin: 15px 0;">
+
+      <!-- Manual Match Entry (Fallback) -->
+      <div id="manualMatchSection">
+        <h3 style="margin: 10px 0 8px 0; font-size: 14px;">🎯 Manual Entry</h3>
+        <div class="input-group">
+          <label for="userProvidedMatchId">Match Code:</label>
+          <input type="text" id="userProvidedMatchId" placeholder="Enter match code">
+          <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">
+            Use this if you have a specific match code to track.
+          </p>
+        </div>
+        <button id="startMatchTrackingBtn" class="btn primary">Start Tracking</button>
+        <p id="matchTrackingError" class="error-message" style="display:none;"></p>
+      </div>
     </div>
 
     <div class="status-info" id="statusInfo">
-      <p>Please log in to start tracking matches</p>
+      <p>Please log in to view your match assignments</p>
     </div>
   </div>
   <script src="popup.js"></script>
