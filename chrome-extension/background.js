@@ -1,36 +1,39 @@
 
 // Import Supabase client library
 try {
-  importScripts('supabase.js'); // Make sure supabase.js is in the extension's root directory
+  importScripts('supabase.js');
 } catch (e) {
   console.error('Failed to import supabase.js:', e);
 }
 
 class TrackerBackground {
   constructor() {
-    this.SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    this.SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    // Use the actual Supabase project URL and anon key
+    this.SUPABASE_URL = 'https://mnlioiefwzpzucacehpn.supabase.co';
+    this.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ubGlvaWVmd3pwenVjYWNlaHBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ2MjA4MDAsImV4cCI6MjA1MDE5NjgwMH0.L8d5Q9Cg--xpgFIBgcg4xQZmS_9a7hRB6iEy_qYdpH8';
     this.supabase = null;
-    this.realtimeChannel = null; // For user-specific notifications
+    this.realtimeChannel = null;
     this.userId = null;
-
-    // For unified match channel
     this.unifiedMatchChannel = null;
     this.currentMatchId = null;
-    this.currentUserIdInMatch = null; // This will be the same as this.userId but contextually for the match
+    this.currentUserIdInMatch = null;
     this.lastBroadcastTimestamp = 0;
 
     this._initializeSupabaseClient();
     this.setupEventListeners();
     this.connectionData = null;
-    this._checkCurrentUserAndSetupRealtime(); // Sets up user-specific notifications
-    this._checkCurrentMatchAndSetupChannel(); // Sets up unified match channel if applicable
+    this._checkCurrentUserAndSetupRealtime();
+    this._checkCurrentMatchAndSetupChannel();
   }
 
   _initializeSupabaseClient() {
     if (self.supabase && typeof self.supabase.createClient === 'function') {
-      this.supabase = self.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
-      console.log('Supabase client initialized in background script.');
+      try {
+        this.supabase = self.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
+        console.log('Supabase client initialized successfully in background script.');
+      } catch (error) {
+        console.error('Error initializing Supabase client:', error);
+      }
     } else {
       console.error('Supabase client is not available in background script. Ensure supabase.js is imported.');
     }
@@ -39,21 +42,14 @@ class TrackerBackground {
   async _checkCurrentUserAndSetupRealtime() {
     try {
       const result = await chrome.storage.local.get('supabaseSession');
-      if (result.supabaseSession && result.supabaseSession.user_email) { // Assuming user_id is part of the session
-        // Attempt to get user_id from the user object within the session
-        // The actual path to user_id might differ based on how it's structured in your session
-        // e.g. result.supabaseSession.user.id
-        // For this example, let's assume user_email can serve as a unique identifier for notifications
-        // or that you have a way to get a persistent user_id.
-        // Ideally, the user object stored in supabaseSession would have an `id` field.
-        // For now, we'll use a placeholder logic. If user_email is not suitable, this needs adjustment.
-        const storedUser = await this._getStoredUser();
+      if (result.supabaseSession && result.supabaseSession.user) {
+        const storedUser = result.supabaseSession.user;
         if (storedUser && storedUser.id) {
-            this.userId = storedUser.id;
-            console.log('Current user ID for notifications:', this.userId);
-            this.initializeRealtimeNotifications(); // For user-specific notifications
+          this.userId = storedUser.id;
+          console.log('Current user ID for notifications:', this.userId);
+          this.initializeRealtimeNotifications();
         } else {
-            console.log('User ID not found in session, user-specific realtime notifications not started.');
+          console.log('User ID not found in session, user-specific realtime notifications not started.');
         }
       } else {
         console.log('No active session found, user-specific realtime notifications not started.');
@@ -68,7 +64,7 @@ class TrackerBackground {
       const result = await chrome.storage.local.get(['currentMatchId', 'currentUserId']);
       if (result.currentMatchId && result.currentUserId) {
         this.currentMatchId = result.currentMatchId;
-        this.currentUserIdInMatch = result.currentUserId; // This should align with this.userId if a user is logged in
+        this.currentUserIdInMatch = result.currentUserId;
         console.log(`Found stored match: ${this.currentMatchId} for user: ${this.currentUserIdInMatch}. Reconnecting to unified channel.`);
         this.connectToUnifiedMatchChannel(this.currentMatchId, this.currentUserIdInMatch);
       } else {
@@ -79,37 +75,21 @@ class TrackerBackground {
     }
   }
 
-  // Helper to get user data, specifically the ID
-  async _getStoredUser() {
-    try {
-      const result = await chrome.storage.local.get(['supabaseSession']);
-      // Ensure user object and its id are present
-      if (result.supabaseSession && result.supabaseSession.user && result.supabaseSession.user.id) {
-        return result.supabaseSession.user;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error retrieving stored user:', error);
-      return null;
-    }
-  }
-
   setupEventListeners() {
-    // Handle messages from popup and content scripts
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
-      return true; // Keep message channel open for async response
+      return true;
     });
 
-    // Handle extension install/update
     chrome.runtime.onInstalled.addListener((details) => {
       this.handleInstall(details);
     });
 
-    // Handle notifications
-    chrome.notifications.onClicked.addListener((notificationId) => {
-      this.handleNotificationClick(notificationId);
-    });
+    if (chrome.notifications && chrome.notifications.onClicked) {
+      chrome.notifications.onClicked.addListener((notificationId) => {
+        this.handleNotificationClick(notificationId);
+      });
+    }
   }
 
   async handleMessage(message, sender, sendResponse) {
@@ -120,37 +100,39 @@ class TrackerBackground {
           await this.storeConnectionData(message.data);
           sendResponse({ success: true });
           break;
-        case 'USER_LOGGED_IN': // Message from popup.js on successful login
-            console.log('USER_LOGGED_IN message received in background');
-            this.userId = message.userId; // Assuming popup.js sends userId
-            if (this.userId) {
-                this.initializeRealtimeNotifications();
-            } else {
-                // If userId is not directly sent, try to re-fetch from storage
-                await this._checkCurrentUserAndSetupRealtime();
-            }
-            sendResponse({ success: true });
-            break;
-        case 'USER_LOGGED_OUT': // Message from popup.js on logout
+
+        case 'USER_LOGGED_IN':
+          console.log('USER_LOGGED_IN message received in background');
+          this.userId = message.userId;
+          if (this.userId) {
+            this.initializeRealtimeNotifications();
+          } else {
+            await this._checkCurrentUserAndSetupRealtime();
+          }
+          sendResponse({ success: true });
+          break;
+
+        case 'USER_LOGGED_OUT':
           console.log('USER_LOGGED_OUT message received in background');
-          await this.cleanupRealtimeNotifications(); // For user-specific notifications
-          await this.disconnectFromUnifiedMatchChannel(); // For unified match channel
+          await this.cleanupRealtimeNotifications();
+          await this.disconnectFromUnifiedMatchChannel();
           this.userId = null;
           this.currentMatchId = null;
           this.currentUserIdInMatch = null;
-          // Clear from storage too, although popup also does this for currentMatchId
           await chrome.storage.local.remove(['currentMatchId', 'currentUserId']);
           sendResponse({ success: true });
           break;
+
         case 'START_MATCH_TRACKING':
           console.log('START_MATCH_TRACKING message received', message);
-          const youtubeVideoIdFromMessage = message.youtubeVideoId; // Extract early
-          console.log('Extracted youtubeVideoId from message:', youtubeVideoIdFromMessage); // Test log
+          const youtubeVideoIdFromMessage = message.youtubeVideoId;
+          console.log('Extracted youtubeVideoId from message:', youtubeVideoIdFromMessage);
+          
           if (message.matchId && message.userId) {
-            this.currentMatchId = message.matchId; // This is the general match context (e.g., from notification's match_id)
+            this.currentMatchId = message.matchId;
             this.currentUserIdInMatch = message.userId;
 
-            if(!this.userId) this.userId = message.userId; // Ensure this.userId (general logged-in user) is also set
+            if (!this.userId) this.userId = message.userId;
 
             console.log(`Background: START_MATCH_TRACKING for Match ID: ${this.currentMatchId}, User ID: ${this.currentUserIdInMatch}, YouTube Video ID: ${youtubeVideoIdFromMessage}`);
 
@@ -159,25 +141,20 @@ class TrackerBackground {
             await chrome.storage.local.set({
               currentMatchId: this.currentMatchId,
               currentUserId: this.currentUserIdInMatch,
-              currentTargetVideoId: youtubeVideoIdFromMessage // Store for potential later use by background
+              currentTargetVideoId: youtubeVideoIdFromMessage
             });
 
-            // Inform relevant content scripts about the active match context.
-            // popup.js is now responsible for sending LAUNCH_TRACKER to the specific targetTabId.
-            // This SET_ACTIVE_MATCH_CONTEXT from background can serve as a general update or fallback.
             chrome.tabs.query({}, (tabs) => {
               tabs.forEach(tab => {
-                // Send to all YouTube watch pages. Content script will validate if it's the *correct* video.
                 if (tab.url && tab.url.includes('youtube.com/watch') && tab.id) {
                   chrome.tabs.sendMessage(tab.id, {
                     type: 'SET_ACTIVE_MATCH_CONTEXT',
-                    matchId: this.currentMatchId,       // General match ID (from notification.match_id)
+                    matchId: this.currentMatchId,
                     userId: this.currentUserIdInMatch,
-                    youtubeVideoId: youtubeVideoIdFromMessage // Specific video ID for this tracking session
+                    youtubeVideoId: youtubeVideoIdFromMessage
                   }, response => {
                     if (chrome.runtime.lastError) {
-                      // Silently ignore errors, e.g. if content script is not on that tab or not ready
-                      // console.warn(`Background: Error sending SET_ACTIVE_MATCH_CONTEXT to tab ${tab.id}:`, chrome.runtime.lastError.message);
+                      // Silently handle errors
                     } else if (response && response.success) {
                       console.log(`Background: SET_ACTIVE_MATCH_CONTEXT acknowledged by content script on tab ${tab.id}.`);
                     }
@@ -191,81 +168,73 @@ class TrackerBackground {
             sendResponse({ success: false, error: 'Missing matchId or userId' });
           }
           break;
+
         case 'RECORD_EVENT':
           const eventResult = await this.recordEvent(message.data);
           if (eventResult.success) {
             this.broadcastTrackerStatus({
-              status: 'recording', // Or 'active' if 'recording' is too transient
+              status: 'recording',
               action: `Event: ${message.data.eventType}`
             });
-            // Optional: revert to 'active' after a short delay if 'recording' is temporary
-            // setTimeout(() => this.broadcastTrackerStatus({ status: 'active', action: 'Watching video' }), 1000);
           }
           sendResponse(eventResult);
           break;
-        case 'STOP_MATCH_TRACKING': // Example for future use
-            console.log('STOP_MATCH_TRACKING message received');
-            await this.disconnectFromUnifiedMatchChannel();
-            await chrome.storage.local.remove(['currentMatchId', 'currentUserId']);
-            this.currentMatchId = null;
-            this.currentUserIdInMatch = null;
-            sendResponse({ success: true });
-            break;
+
+        case 'STOP_MATCH_TRACKING':
+          console.log('STOP_MATCH_TRACKING message received');
+          await this.disconnectFromUnifiedMatchChannel();
+          await chrome.storage.local.remove(['currentMatchId', 'currentUserId']);
+          this.currentMatchId = null;
+          this.currentUserIdInMatch = null;
+          sendResponse({ success: true });
+          break;
+
         case 'GET_CONNECTION_DATA':
           const data = await this.getConnectionData();
           sendResponse(data);
           break;
 
         case 'SHOW_NOTIFICATION':
-          // This case can be used by other parts of the extension to show generic notifications
-          // The realtime listener will call displayNotification directly.
           await this.showNotification(message.data.title, message.data.message, message.data.type, message.data.notificationId);
           sendResponse({ success: true });
           break;
 
-        // Content script messages for video/tab status
         case 'VIDEO_PLAYING':
           if (message.matchId === this.currentMatchId) {
             this.broadcastTrackerStatus({ status: 'active', action: 'Watching video: ' + message.videoId });
           }
           sendResponse({ success: true });
           break;
+
         case 'VIDEO_PAUSED':
           if (message.matchId === this.currentMatchId) {
             this.broadcastTrackerStatus({ status: 'inactive', action: 'Video paused: ' + message.videoId });
           }
           sendResponse({ success: true });
           break;
+
         case 'VIDEO_NAVIGATED_AWAY':
           if (message.oldMatchId === this.currentMatchId) {
             this.broadcastTrackerStatus({ status: 'inactive', action: `Navigated from video for match ${message.oldMatchId} to ${message.newVideoId}` });
-            // Optionally, if navigating away means stopping tracking for this match:
-            // await this.disconnectFromUnifiedMatchChannel();
-            // await chrome.storage.local.remove(['currentMatchId', 'currentUserId']);
-            // this.currentMatchId = null;
-            // this.currentUserIdInMatch = null;
           }
           sendResponse({ success: true });
           break;
+
         case 'TAB_HIDDEN':
           if (message.matchId === this.currentMatchId) {
             this.broadcastTrackerStatus({ status: 'inactive', action: 'Tab hidden/inactive' });
           }
           sendResponse({ success: true });
           break;
+
         case 'TAB_FOCUSED':
           if (message.matchId === this.currentMatchId) {
-            // When tab is re-focused, content.js will also send a play/pause event,
-            // so this action might be redundant or could simply be 'Tab focused'.
-            // The content script's play/pause after focus will provide more accurate video state.
             this.broadcastTrackerStatus({ status: 'active', action: 'Tab focused/active' });
           }
           sendResponse({ success: true });
           break;
 
         case 'GET_TRACKER_ASSIGNMENTS':
-          // This handler is async because it performs a Supabase query.
-          // The 'return true' in the main onMessage.addListener handles async sendResponse.
           (async () => {
             console.log('Background: GET_TRACKER_ASSIGNMENTS received for matchId:', message.data?.matchId, 'userId:', message.data?.userId);
             if (!this.supabase) {
@@ -313,7 +282,6 @@ class TrackerBackground {
           break;
 
         default:
-          // console.log('Background received unhandled message type:', message.type);
           sendResponse({ error: 'Unknown message type in background' });
       }
     } catch (error) {
@@ -324,7 +292,6 @@ class TrackerBackground {
 
   async handleInstall(details) {
     if (details.reason === 'install') {
-      // Set default settings
       await chrome.storage.sync.set({
         settings: {
           autoConnect: false,
@@ -334,12 +301,11 @@ class TrackerBackground {
         }
       });
 
-      // Show welcome notification
-      await this.showNotification({
-        title: 'Football Tracker Installed!',
-        message: 'Click the extension icon to get started with match tracking.',
-        type: 'basic'
-      });
+      await this.showNotification(
+        'Football Tracker Installed!',
+        'Click the extension icon to get started with match tracking.',
+        'basic'
+      );
     }
   }
 
@@ -355,13 +321,10 @@ class TrackerBackground {
     return result.connectionData || null;
   }
 
-  // --- Auth Token Helper ---
   async getAuthToken() {
     try {
       const result = await chrome.storage.local.get(['supabaseSession']);
       if (result.supabaseSession && result.supabaseSession.access_token) {
-        // TODO: Check for token expiry and refresh if necessary
-        // For now, just return the token
         return result.supabaseSession.access_token;
       }
       return null;
@@ -372,112 +335,85 @@ class TrackerBackground {
   }
 
   async recordEvent(eventData) {
-    if (!this.connectionData) {
-      const stored = await this.getConnectionData();
-      if (!stored) {
-        console.error('Recording event failed: No connection data found.');
-        await this.showNotification({
-          title: 'Recording Failed',
-          message: 'Connection not configured. Please connect via popup.',
-          type: 'basic'
-        });
-        return { success: false, error: 'No connection established' };
-      }
-      this.connectionData = stored;
+    if (!this.supabase) {
+      console.error('Supabase client not available for recording event');
+      return { success: false, error: 'Supabase client not available' };
     }
 
     const authToken = await this.getAuthToken();
     if (!authToken) {
-      console.error('Recording event failed: No auth token available. Please log in.');
-      // Potentially notify the user they need to log in again
-      await this.showNotification({
-        title: 'Authentication Required',
-        message: 'Please log in via the extension popup to record events.',
-        type: 'basic'
-      });
-      return { success: false, error: 'Authentication token not found' };
+      console.error('No auth token available for recording event');
+      return { success: false, error: 'Authentication required' };
     }
 
     try {
-      const response = await fetch(`${this.connectionData.apiUrl}/match-events`, {
-        method: 'POST',
-        headers: {
-          // Use the Supabase token for Authorization
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          match_id: this.connectionData.matchId,
+      // Record event directly to Supabase
+      const { data, error } = await this.supabase
+        .from('match_events')
+        .insert({
+          match_id: this.currentMatchId,
           event_type: eventData.eventType,
-          player_id: eventData.playerId,
-          timestamp: Math.floor(Date.now() / 1000),
-          event_data: eventData.details || {}
-        })
-      });
+          timestamp: new Date().toISOString(),
+          video_time: eventData.videoTime || 0,
+          video_id: eventData.videoId,
+          event_data: eventData.details || {},
+          user_id: this.userId
+        });
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+      if (error) {
+        throw new Error(`Supabase error: ${error.message}`);
       }
 
-      const result = await response.json();
-      
-      // Show success notification
-      await this.showNotification({
-        title: 'Event Recorded',
-        message: `${eventData.eventType} event recorded successfully`,
-        type: 'basic'
-      });
+      await this.showNotification(
+        'Event Recorded',
+        `${eventData.eventType} event recorded successfully`,
+        'basic'
+      );
 
-      return { success: true, data: result };
+      return { success: true, data: data };
     } catch (error) {
       console.error('Error recording event:', error);
       
-      // Show error notification
-      await this.showNotification({
-        title: 'Recording Failed',
-        message: `Failed to record ${eventData.eventType} event`,
-        type: 'basic'
-      });
+      await this.showNotification(
+        'Recording Failed',
+        `Failed to record ${eventData.eventType} event`,
+        'basic'
+      );
 
       return { success: false, error: error.message };
     }
   }
 
   async showNotification(title, message, type = 'basic', notificationId = `tracker_${Date.now()}`) {
-    // Ensure existing notifications are cleared if a new one with the same ID is created
-    // or if it's a new notification that should replace an old one.
-    // For realtime updates, you might want unique IDs or a strategy to update existing ones.
-    await chrome.notifications.create(notificationId, {
-      type: type,
-      iconUrl: 'icons/icon128.png', // Ensure you have a 128x128 icon
-      title: title,
-      message: message,
-      priority: 2 // Higher priority
-    });
+    if (!chrome.notifications) {
+      console.warn('Notifications API not available');
+      return;
+    }
 
-    // Consider making auto-clear configurable or based on notification type
-    // For important match notifications, might not want to auto-clear or have a longer timeout.
-    // setTimeout(() => {
-    //   chrome.notifications.clear(notificationId);
-    // }, 5000); // Increased timeout
+    try {
+      await chrome.notifications.create(notificationId, {
+        type: type,
+        iconUrl: 'icons/icon128.png',
+        title: title,
+        message: message,
+        priority: 2
+      });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
   }
 
   handleNotificationClick(notificationId) {
     console.log('Notification clicked:', notificationId);
-    // Example: Open the extension popup or a specific page
     if (notificationId.startsWith('match_')) {
-        // Potentially open a specific match URL if the ID contains match info
-        // chrome.tabs.create({ url: `https://yourapp.com/matches/${matchId}` });
+      // Could open specific match URL
     } else {
-        // Generic action: open the extension's popup or main page
-        // This requires knowing the popup's HTML file or a main page of your app.
-        // Example: To open the popup (if it's defined in manifest.json action)
-        chrome.action.openPopup();
+      chrome.action.openPopup();
     }
     chrome.notifications.clear(notificationId);
   }
 
-  // --- Realtime Notification Methods (User-Specific) ---
+  // Realtime notification methods
   initializeRealtimeNotifications() {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot set up user-specific notifications.');
@@ -501,16 +437,14 @@ class TrackerBackground {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${this.userId}` // Ensure this matches your DB column
+          filter: `user_id=eq.${this.userId}`
         },
         (payload) => {
           console.log('New notification received:', payload);
           if (payload.new) {
             const notificationData = payload.new;
-            // Customize title and message based on notificationData
             const title = notificationData.title || 'New Match Notification';
             const message = notificationData.message || `You have a new update for match ${notificationData.match_id || ''}.`;
-            // Create a unique ID for the notification, possibly using an ID from the payload
             const notificationId = `match_notification_${notificationData.id || Date.now()}`;
             this.showNotification(title, message, 'basic', notificationId);
           }
@@ -541,7 +475,7 @@ class TrackerBackground {
         console.error('Error unsubscribing from user-specific channel:', error);
       } finally {
         if (this.supabase && this.realtimeChannel && typeof this.supabase.removeChannel === 'function') {
-             await this.supabase.removeChannel(this.realtimeChannel);
+          await this.supabase.removeChannel(this.realtimeChannel);
         }
         this.realtimeChannel = null;
         console.log('User-specific realtime channel removed.');
@@ -551,8 +485,7 @@ class TrackerBackground {
     }
   }
 
-  // --- Unified Match Channel Methods ---
-
+  // Unified match channel methods
   async connectToUnifiedMatchChannel(matchId, userId) {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot connect to unified match channel.');
@@ -565,10 +498,10 @@ class TrackerBackground {
 
     if (this.unifiedMatchChannel) {
       console.log('Unified match channel already exists. Disconnecting before reconnecting.');
-      await this.disconnectFromUnifiedMatchChannel(); // Ensure await here
+      await this.disconnectFromUnifiedMatchChannel();
     }
 
-    this.currentMatchId = matchId; // Set them before subscribe attempts
+    this.currentMatchId = matchId;
     this.currentUserIdInMatch = userId;
 
     const channelName = `unified_match_${matchId}`;
@@ -576,8 +509,8 @@ class TrackerBackground {
 
     this.unifiedMatchChannel = this.supabase.channel(channelName, {
       config: {
-        broadcast: { self: false }, // Do not receive broadcasts sent by this client
-        presence: { key: userId }    // Unique key for this client's presence
+        broadcast: { self: false },
+        presence: { key: userId }
       }
     });
 
@@ -599,7 +532,6 @@ class TrackerBackground {
         this.broadcastTrackerStatus({ status: 'active', action: 'Connected to match channel' });
       } else if (status === 'CHANNEL_ERROR') {
         console.error(`Failed to subscribe to unified match channel: ${channelName}`, err);
-        // this.unifiedMatchChannel = null; // Don't nullify here, disconnect handles it
       } else if (status === 'TIMED_OUT') {
         console.warn(`Subscription timed out for unified match channel: ${channelName}`, err);
       } else if (status === 'CLOSED') {
@@ -613,12 +545,11 @@ class TrackerBackground {
   async disconnectFromUnifiedMatchChannel() {
     if (this.unifiedMatchChannel) {
       console.log(`Disconnecting from unified match channel: ${this.unifiedMatchChannel.topic}`);
-      // Broadcast 'inactive' status before unsubscribing
-      // Ensure currentMatchId and currentUserIdInMatch are still set for this last broadcast
+      
       if (this.currentMatchId && this.currentUserIdInMatch) {
-          this.broadcastTrackerStatus({ status: 'inactive', action: 'Disconnected from match channel' });
+        this.broadcastTrackerStatus({ status: 'inactive', action: 'Disconnected from match channel' });
       } else {
-          console.warn("Cannot broadcast inactive status: currentMatchId or currentUserIdInMatch is null.");
+        console.warn("Cannot broadcast inactive status: currentMatchId or currentUserIdInMatch is null.");
       }
 
       try {
@@ -628,13 +559,10 @@ class TrackerBackground {
         console.error(`Error unsubscribing from unified match channel ${this.unifiedMatchChannel.topic}:`, error);
       } finally {
         if (this.supabase && typeof this.supabase.removeChannel === 'function') {
-          await this.supabase.removeChannel(this.unifiedMatchChannel); // Ensure it's awaited if it's async
+          await this.supabase.removeChannel(this.unifiedMatchChannel);
         }
         this.unifiedMatchChannel = null;
         console.log('Unified match channel object removed.');
-        // Do NOT nullify this.currentMatchId or this.currentUserIdInMatch here,
-        // as they might be needed if the user logs out and then logs back in to the same match.
-        // Let logout or new match tracking initiation handle those.
       }
     } else {
       console.log('No active unified match channel to disconnect.');
@@ -643,7 +571,6 @@ class TrackerBackground {
 
   broadcastTrackerStatus({ status, action, battery_level = null, network_quality = null }) {
     if (!this.unifiedMatchChannel) {
-      // console.warn('Cannot broadcast tracker status: No unified match channel.');
       return;
     }
     if (!this.currentMatchId || !this.currentUserIdInMatch) {
@@ -652,16 +579,15 @@ class TrackerBackground {
     }
 
     const now = Date.now();
-    if (now - this.lastBroadcastTimestamp < 3000 && action !== 'Disconnected from match channel') { // Allow disconnect message to bypass throttle
-      // console.log('Broadcast throttled for action:', action);
+    if (now - this.lastBroadcastTimestamp < 3000 && action !== 'Disconnected from match channel') {
       return;
     }
 
     const payload = {
-      type: 'tracker_status', // Matches the event in useUnifiedTrackerConnection
+      type: 'tracker_status',
       user_id: this.currentUserIdInMatch,
-      status: status, // 'active', 'inactive', 'recording'
-      action: action, // e.g., "Watching video", "Logged event: Goal"
+      status: status,
+      action: action,
       timestamp: new Date(now).toISOString(),
       battery_level: battery_level,
       network_quality: network_quality,
@@ -671,10 +597,10 @@ class TrackerBackground {
     console.log('Broadcasting tracker status:', payload, 'to channel', this.unifiedMatchChannel.topic);
     this.unifiedMatchChannel.send({
       type: 'broadcast',
-      event: 'tracker_status', // This is the event name listened for by other clients
+      event: 'tracker_status',
       payload: payload
     }).catch(error => {
-        console.error('Error broadcasting tracker status:', error);
+      console.error('Error broadcasting tracker status:', error);
     });
     this.lastBroadcastTimestamp = now;
   }
