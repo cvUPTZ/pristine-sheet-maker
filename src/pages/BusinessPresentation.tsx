@@ -8,7 +8,7 @@ import {
   Share2, Lightbulb, Building, School, ArrowRight, ChevronLeft, ChevronRight,
   Trophy, Activity, Mic, Calendar, Bell, FileText, PieChart, Map, LineChart,
   Camera, Clock, MessageSquare, Headphones, Radar, Hash, BarChart, TrendingDown,
-  Award, Settings, Lock, Flag
+  Award, Settings, Lock, Flag, ArrowLeft
 } from 'lucide-react';
 
 // --- IMPORTANT FOR RTL ---
@@ -279,96 +279,4 @@ const BusinessPresentation: React.FC = () => {
               </Card>
             ))}
           </div>
-          <p className="text-center text-slate-500 italic">عروض الأسعار بالدينار (DZD) أو الأورو (€)، كيما تحب.</p>
-        </div>
-      )
-    },
-
-    // Slide 6: Call to Action
-    {
-      id: 'cta',
-      title: 'واجد باش تمد بُعد جديد للنادي ديالك؟',
-      subtitle: 'انضم لنخبة الأندية لي قررت ما تخليش الفوز للصدفة.',
-      content: (
-        <div className="text-center space-y-12">
-          <div className="space-y-8">
-             <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-12 text-white shadow-2xl">
-              <h3 className="text-4xl font-bold mb-6">اطلب العرض التجريبي المخصص ديالك</h3>
-              <p className="text-xl opacity-90 max-w-3xl mx-auto mb-8">
-                شوف بعينيك كيفاش فوتبول أناليتيكس برو يقدر يتأقلم مع واقع النادي ديالك. باطل وبلا التزام.
-              </p>
-              <Button size="lg" className="bg-white text-green-700 hover:bg-green-50 text-xl px-12 py-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 font-bold">
-                <span className="ml-3">حبيت نشوف ديمو باطل!</span>
-                <Calendar className="h-6 w-6" />
-              </Button>
-            </div>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl text-right">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">اتصال مباشر - الجزائر</h4>
-              <div className="space-y-3 text-lg">
-                <p className="text-slate-700 flex justify-end items-center gap-2"><span>+213 (0)X XX XX XX XX</span><strong>:WhatsApp/الهاتف</strong></p>
-                <p className="text-slate-700 flex justify-end items-center gap-2"><span>contact.dz@footballanalytics.pro</span><strong>:الإيميل</strong></p>
-                <p className="text-slate-700 flex justify-end items-center gap-2"><span>7أيام/7 للأندية الشريكة</span><strong>:متوفر</strong></p>
-              </div>
-            </Card>
-            
-            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl text-right">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">الخطوات القادمة</h4>
-              <div className="space-y-3 text-lg">
-                <p className="text-slate-700 flex items-start justify-end gap-2"><span>عرض تجريبي مخصص (30 دقيقة)</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
-                <p className="text-slate-700 flex items-start justify-end gap-2"><span>عرض سعر على حساب النادي ديالك</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
-                <p className="text-slate-700 flex items-start justify-end gap-2"><span>فترة تجريبية للطاقم الفني ديالك</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
-              </div>
-            </Card>
-          </div>
-        </div>
-      )
-    }
-  ];
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  const goToSlide = (index: number) => setCurrentSlide(index);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-blue-50" dir="rtl">
-      <div className="fixed top-4 left-4 right-4 z-50 flex justify-between items-center">
-        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-          <span className="text-sm text-slate-600">{currentSlide + 1} / {slides.length}</span>
-        </div>
-        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-          <span className="font-bold text-slate-900">FootballAnalytics Pro</span>
-          <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-blue-600 rounded-lg flex items-center justify-center">
-            <Trophy className="h-5 w-5 text-white" />
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-24 pb-20 px-4 sm:px-8">
-        <div className="container mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">{slides[currentSlide].title}</h1>
-            <p className="text-lg lg:text-xl text-slate-600 max-w-4xl mx-auto">{slides[currentSlide].subtitle}</p>
-          </div>
-          <div className="min-h-[600px] flex items-center justify-center">
-            <div className="w-full">{slides[currentSlide].content}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="flex items-center gap-4 bg-white/90 backdrop-blur-sm rounded-full px-6 py-4 shadow-xl">
-          <Button variant="outline" size="sm" onClick={nextSlide} disabled={currentSlide === slides.length - 1} className="rounded-full"><ChevronRight className="h-4 w-4" /></Button>
-          <div className="flex gap-2">
-            {slides.map((slide, index) => <button key={slide.id} onClick={() => goToSlide(index)} aria-label={`Go to slide ${index + 1}`} className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentSlide ? 'bg-green-600 scale-125' : 'bg-slate-300 hover:bg-slate-400'}`} />)}
-          </div>
-          <Button variant="outline" size="sm" onClick={prevSlide} disabled={currentSlide === 0} className="rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default BusinessPresentation;
+          <p className="text-center text-slate-500 italic">عروض الأسعار بالدينار (DZD) أو
