@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/context/AuthContext';
+import { RequireAuth } from '@/components/RequireAuth';
 
 // Import pages
 import LandingPage from '@/pages/LandingPage';
@@ -21,6 +22,12 @@ import Statistics from '@/pages/Statistics';
 import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
 import TrackerInterface from '@/pages/TrackerInterface';
 import NotFound from '@/pages/NotFound';
+import CreateMatch from '@/pages/CreateMatch';
+import Matches from '@/pages/Matches';
+import MatchAnalysis from '@/pages/MatchAnalysis';
+import MatchPlanningPage from '@/pages/MatchPlanningPage';
+import MatchTimerPage from '@/pages/MatchTimerPage';
+import NewVoiceChatPage from '@/pages/NewVoiceChatPage';
 
 const queryClient = new QueryClient();
 
@@ -31,20 +38,122 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <Toaster />
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/business-presentation" element={<BusinessPresentation />} />
-            <Route path="/profile" element={<Dashboard />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/profiles" element={<ProfileListPage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/video-analysis" element={<VideoAnalysis />} />
-            <Route path="/direct-analyzer" element={<DirectVideoAnalyzer />} />
-            <Route path="/statistics" element={<Statistics />} />
-            <Route path="/analytics" element={<AnalyticsDashboard />} />
-            <Route path="/tracker" element={<TrackerInterface />} />
-            <Route path="/match/:matchId" element={<MatchAnalysisV2 />} />
-            <Route path="/dashboard" element={<Index />} />
+            
+            {/* Protected routes */}
+            <Route path="/profile" element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            } />
+            
+            <Route path="/dashboard" element={
+              <RequireAuth>
+                <Index />
+              </RequireAuth>
+            } />
+            
+            <Route path="/matches" element={
+              <RequireAuth requiredPermissions={['canViewMatches']}>
+                <Matches />
+              </RequireAuth>
+            } />
+            
+            <Route path="/create-match" element={
+              <RequireAuth requiredPermissions={['canCreateMatches']}>
+                <CreateMatch />
+              </RequireAuth>
+            } />
+            
+            <Route path="/match" element={
+              <RequireAuth requiredPermissions={['canCreateMatches']}>
+                <CreateMatch />
+              </RequireAuth>
+            } />
+            
+            <Route path="/match/:matchId" element={
+              <RequireAuth requiredPermissions={['canViewMatches']}>
+                <MatchAnalysisV2 />
+              </RequireAuth>
+            } />
+            
+            <Route path="/match-analysis/:matchId" element={
+              <RequireAuth requiredPermissions={['canViewMatches']}>
+                <MatchAnalysis />
+              </RequireAuth>
+            } />
+            
+            <Route path="/match-planning" element={
+              <RequireAuth requiredPermissions={['canCreateMatches']}>
+                <MatchPlanningPage />
+              </RequireAuth>
+            } />
+            
+            <Route path="/match-timer" element={
+              <RequireAuth requiredPermissions={['canTrackMatches']}>
+                <MatchTimerPage />
+              </RequireAuth>
+            } />
+            
+            <Route path="/tracker" element={
+              <RequireAuth requiredPermissions={['canTrackMatches']}>
+                <TrackerInterface />
+              </RequireAuth>
+            } />
+            
+            <Route path="/statistics" element={
+              <RequireAuth requiredPermissions={['canViewStatistics']}>
+                <Statistics />
+              </RequireAuth>
+            } />
+            
+            <Route path="/analytics" element={
+              <RequireAuth requiredPermissions={['canViewAnalytics']}>
+                <AnalyticsDashboard />
+              </RequireAuth>
+            } />
+            
+            <Route path="/video-analysis" element={
+              <RequireAuth requiredPermissions={['canAnalyzeVideos']}>
+                <VideoAnalysis />
+              </RequireAuth>
+            } />
+            
+            <Route path="/direct-analyzer" element={
+              <RequireAuth requiredPermissions={['canAnalyzeVideos']}>
+                <DirectVideoAnalyzer />
+              </RequireAuth>
+            } />
+            
+            <Route path="/voice-chat" element={
+              <RequireAuth>
+                <NewVoiceChatPage />
+              </RequireAuth>
+            } />
+            
+            <Route path="/settings" element={
+              <RequireAuth>
+                <Settings />
+              </RequireAuth>
+            } />
+            
+            {/* Admin routes */}
+            <Route path="/admin" element={
+              <RequireAuth requiredRoles={['admin']}>
+                <Admin />
+              </RequireAuth>
+            } />
+            
+            <Route path="/admin/profiles" element={
+              <RequireAuth requiredRoles={['admin']}>
+                <ProfileListPage />
+              </RequireAuth>
+            } />
+            
+            {/* Catch all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </QueryClientProvider>
