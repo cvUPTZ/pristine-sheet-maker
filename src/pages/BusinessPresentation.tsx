@@ -1,53 +1,14 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  BarChart3, 
-  Users, 
-  Video, 
-  Timer, 
-  Target, 
-  Shield, 
-  Zap, 
-  Eye, 
-  TrendingUp,
-  PlayCircle,
-  UserCheck,
-  Database,
-  Smartphone,
-  Globe,
-  Check,
-  Crown,
-  Star,
-  Share2,
-  Lightbulb,
-  Building,
-  School,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Trophy,
-  Activity,
-  Mic,
-  Calendar,
-  Bell,
-  FileText,
-  PieChart,
-  Map,
-  LineChart,
-  Camera,
-  Clock,
-  MessageSquare,
-  Headphones,
-  Radar,
-  Hash,
-  BarChart,
-  TrendingDown,
-  Award,
-  Settings,
-  Lock
+  BarChart3, Users, Video, Timer, Target, Shield, Zap, Eye, TrendingUp,
+  PlayCircle, UserCheck, Database, Smartphone, Globe, Check, Crown, Star,
+  Share2, Lightbulb, Building, School, ArrowRight, ChevronLeft, ChevronRight,
+  Trophy, Activity, Mic, Calendar, Bell, FileText, PieChart, Map, LineChart,
+  Camera, Clock, MessageSquare, Headphones, Radar, Hash, BarChart, TrendingDown,
+  Award, Settings, Lock, Flag
 } from 'lucide-react';
 
 const BusinessPresentation: React.FC = () => {
@@ -57,23 +18,25 @@ const BusinessPresentation: React.FC = () => {
     // Slide 1: Title
     {
       id: 'title',
-      title: 'FootballAnalytics Pro',
-      subtitle: 'La Solution Complète d\'Analyse et Gestion de Match',
+      // ENHANCEMENT: More impactful and tailored title.
+      title: 'FootballAnalytics Pro: La Victoire se Prépare Ici',
+      subtitle: 'L\'arme secrète pour dominer le football algérien',
       content: (
         <div className="text-center space-y-8">
-          <div className="w-32 h-32 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
-            <BarChart3 className="h-16 w-16 text-white" />
+          <div className="w-32 h-32 bg-gradient-to-br from-green-600 to-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
+            {/* ENHANCEMENT: Using Trophy icon for a winning start */}
+            <Trophy className="h-16 w-16 text-white" />
           </div>
           <div className="space-y-4">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
               FootballAnalytics Pro
             </h1>
             <p className="text-2xl text-slate-600 max-w-4xl mx-auto">
-              Transformez votre analyse football avec notre plateforme tout-en-un pour l'enregistrement précis, 
-              l'analyse vidéo synchronisée et la collaboration en temps réel.
+              {/* ENHANCEMENT: More direct and benefit-oriented pitch */}
+              Donnez un avantage décisif à votre club avec la plateforme qui transforme chaque match en une leçon stratégique.
             </p>
-            <Badge className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200 px-8 py-3 text-lg">
-              Présentation Business & Fonctionnelle
+            <Badge className="bg-gradient-to-r from-green-100 to-blue-100 text-green-800 border-green-200 px-8 py-3 text-lg">
+              Présentation pour les Clubs Algériens
             </Badge>
           </div>
         </div>
@@ -83,32 +46,34 @@ const BusinessPresentation: React.FC = () => {
     // Slide 2: Problem Statement
     {
       id: 'problem',
-      title: 'Les Défis Actuels des Clubs de Football',
-      subtitle: 'Pourquoi avez-vous besoin d\'une solution moderne ?',
+      // ENHANCEMENT: Title directly addresses their context.
+      title: 'Les Défis du Football Algérien Moderne',
+      subtitle: 'Les obstacles qui freinent votre performance et votre développement.',
       content: (
         <div className="grid md:grid-cols-2 gap-12">
-          <div className="space-y-8">
-            <h3 className="text-3xl font-bold text-slate-900 mb-6">Problèmes Identifiés</h3>
+          <div className="space-y-6">
+            <h3 className="text-3xl font-bold text-slate-900 mb-6">Problèmes Fréquents</h3>
             {[
               { 
-                icon: <FileText className="h-8 w-8 text-red-500" />, 
-                title: "Analyse Manuelle Chronophage", 
-                desc: "Heures passées à analyser manuellement les matchs avec des outils obsolètes" 
+                icon: <Timer className="h-8 w-8 text-red-500" />, 
+                title: "Analyse Manuelle Lente et Imprécise", 
+                desc: "Des heures perdues à revoir les matchs, avec le risque de manquer des détails cruciaux." 
               },
               { 
                 icon: <Database className="h-8 w-8 text-orange-500" />, 
-                title: "Données Fragmentées", 
-                desc: "Informations dispersées dans plusieurs systèmes non intégrés" 
+                title: "Données Éparpillées", 
+                desc: "Les stats, les vidéos et les rapports sont dans des systèmes séparés, sans vision d'ensemble." 
               },
               { 
+                // ENHANCEMENT: Added a crucial problem for the region: talent development.
                 icon: <Users className="h-8 w-8 text-yellow-500" />, 
-                title: "Collaboration Limitée", 
-                desc: "Difficultés de coordination entre analystes et staff technique" 
+                title: "Détection des Talents Limitée", 
+                desc: "Difficulté à suivre objectivement la progression des jeunes joueurs et à identifier les futures pépites." 
               },
               { 
-                icon: <Video className="h-8 w-8 text-blue-500" />, 
-                title: "Analyse Vidéo Non Synchronisée", 
-                desc: "Pas de lien direct entre données événementielles et séquences vidéo" 
+                icon: <Share2 className="h-8 w-8 text-blue-500" />, 
+                title: "Collaboration Difficile", 
+                desc: "Manque de communication fluide entre le staff technique, les analystes et la direction." 
               }
             ].map((problem, index) => (
               <div key={index} className="flex gap-4 p-6 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
@@ -123,20 +88,24 @@ const BusinessPresentation: React.FC = () => {
             ))}
           </div>
           <div className="space-y-6">
-            <h3 className="text-3xl font-bold text-slate-900 mb-6">Impact sur Performance</h3>
+            {/* ENHANCEMENT: More impactful title */}
+            <h3 className="text-3xl font-bold text-slate-900 mb-6">Le Coût de l'Immobilisme</h3>
             <div className="bg-gradient-to-br from-red-50 to-orange-50 p-8 rounded-2xl border border-red-200">
               <div className="space-y-6">
                 <div className="text-center">
-                  <div className="text-5xl font-bold text-red-600 mb-2">-40%</div>
-                  <p className="text-lg text-slate-700">Efficacité d'analyse réduite</p>
+                  <TrendingDown className="h-16 w-16 text-red-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-slate-800">Décisions Tardives</p>
+                  <p className="text-lg text-slate-600">Les ajustements tactiques arrivent trop tard, coûtant des points précieux.</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-5xl font-bold text-orange-600 mb-2">+200%</div>
-                  <p className="text-lg text-slate-700">Temps requis pour les rapports</p>
+                  <UserCheck className="h-16 w-16 text-orange-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-slate-800">Talents Négligés</p>
+                  <p className="text-lg text-slate-600">Des jeunes prometteurs ne sont pas détectés ou leur potentiel est mal évalué.</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-5xl font-bold text-yellow-600 mb-2">70%</div>
-                  <p className="text-lg text-slate-700">Des insights perdus par manque d'outils</p>
+                  <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-slate-800">Temps Gaspillé</p>
+                  <p className="text-lg text-slate-600">Votre staff passe plus de temps sur l'administratif que sur le terrain.</p>
                 </div>
               </div>
             </div>
@@ -148,28 +117,29 @@ const BusinessPresentation: React.FC = () => {
     // Slide 3: Solution Overview
     {
       id: 'solution',
-      title: 'Notre Solution : FootballAnalytics Pro',
-      subtitle: 'Une plateforme unifiée qui révolutionne l\'analyse football',
+      // ENHANCEMENT: Action-oriented title
+      title: 'De la Data à la Victoire sur le Terrain',
+      subtitle: 'FootballAnalytics Pro centralise, analyse et transforme votre approche du jeu.',
       content: (
         <div className="space-y-12">
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: <Target className="h-12 w-12 text-blue-600" />,
-                title: "Enregistrement Précis",
-                desc: "Interface piano optimisée pour un tracking d'événements en temps réel ultra-précis",
+                title: "Ne Manquez Aucune Action",
+                desc: "Notre interface 'Piano Tactique' permet une saisie ultra-rapide et précise de chaque événement du match.",
                 gradient: "from-blue-500/10 to-indigo-500/10"
               },
               {
                 icon: <Video className="h-12 w-12 text-indigo-600" />,
-                title: "Analyse Vidéo Synchronisée",
-                desc: "Liaison automatique entre données et séquences vidéo pour des insights visuels",
+                title: "Chaque Angle, Chaque Décision",
+                desc: "Liez instantanément les statistiques à la vidéo pour comprendre le 'pourquoi' derrière chaque action.",
                 gradient: "from-indigo-500/10 to-purple-500/10"
               },
               {
-                icon: <Share2 className="h-12 w-12 text-purple-600" />,
-                title: "Collaboration Temps Réel",
-                desc: "Multiple analystes travaillent simultanément avec communication vocale intégrée",
+                icon: <Users className="h-12 w-12 text-purple-600" />,
+                title: "Un Staff Technique Unifié",
+                desc: "Permettez à vos analystes, coachs et scouts de collaborer en temps réel, où qu'ils soient.",
                 gradient: "from-purple-500/10 to-violet-500/10"
               }
             ].map((item, index) => (
@@ -187,68 +157,56 @@ const BusinessPresentation: React.FC = () => {
             ))}
           </div>
           
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white text-center">
-            <h3 className="text-3xl font-bold mb-4">Résultat : Une Performance d'Équipe Optimisée</h3>
+          <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-8 text-white text-center">
+            {/* ENHANCEMENT: Strong, clear result statement. */}
+            <h3 className="text-3xl font-bold mb-4">Résultat : Prenez des décisions plus rapides, plus intelligentes et gagnez plus de matchs.</h3>
             <p className="text-xl opacity-90 max-w-4xl mx-auto">
-              Prenez des décisions tactiques éclairées basées sur des données précises, 
-              améliorez la préparation des matchs et maximisez le potentiel de vos joueurs.
+              Optimisez votre préparation, développez vos joueurs et imposez votre style de jeu face à n'importe quel adversaire.
             </p>
           </div>
         </div>
       )
     },
 
-    // Slide 4: Core Features
+    // Slide 4: Core Features (Renamed categories for clarity)
     {
       id: 'features',
-      title: 'Fonctionnalités Clés de la Plateforme',
-      subtitle: 'Tout ce dont votre club a besoin en une seule solution',
+      title: 'Fonctionnalités Conçues pour Gagner',
+      subtitle: 'Tout ce dont votre staff a besoin, réuni en une seule plateforme intuitive.',
       content: (
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            {
-              category: "📊 Analyse & Suivi",
-              features: [
-                { icon: <Timer />, text: "Enregistrement d'événements en temps réel avec interface piano" },
-                { icon: <Map />, text: "Suivi de position du ballon et des joueurs sur le terrain" },
-                { icon: <BarChart />, text: "Statistiques avancées et KPIs personnalisés" },
-                { icon: <LineChart />, text: "Graphiques radar et cartes de chaleur" }
-              ]
+            { category: "📊 Maîtrise Tactique", features: [
+              { icon: <Timer />, text: "Saisie d'événements live via 'Piano Tactique'" },
+              { icon: <Map />, text: "Cartes de chaleur (Heatmaps) et positions" },
+              { icon: <BarChart />, text: "Statistiques avancées par joueur et équipe" },
+              { icon: <Radar />, text: "Profils de performance (Radar Charts)" }]
             },
-            {
-              category: "🎥 Vidéo & Visualisation",
-              features: [
-                { icon: <Video />, text: "Analyse vidéo synchronisée avec les données" },
-                { icon: <Camera />, text: "Intégration YouTube et sources vidéo multiples" },
-                { icon: <Eye />, text: "Revue tactique avec annotations et marquages" },
-                { icon: <PlayCircle />, text: "Playlists d'événements pour formation" }
-              ]
+            { category: "🎥 Analyse Vidéo Intégrée", features: [
+              { icon: <Video />, text: "Synchronisation parfaite entre data et vidéo" },
+              { icon: <PlayCircle />, text: "Création de playlists par action (ex: toutes les passes ratées)" },
+              { icon: <Eye />, text: "Outils de dessin et d'annotation sur la vidéo" },
+              { icon: <Camera />, text: "Import facile (YouTube, Fichier local...)" }]
             },
-            {
-              category: "👥 Collaboration & Gestion",
-              features: [
-                { icon: <Users />, text: "Gestion complète des équipes et joueurs" },
-                { icon: <Mic />, text: "Communication vocale en temps réel" },
-                { icon: <Bell />, text: "Système de notifications et assignations" },
-                { icon: <Settings />, text: "Rôles et permissions personnalisables" }
-              ]
+            { category: "👥 Gestion & Formation", features: [
+              { icon: <Users />, text: "Base de données complète (joueurs, équipes)" },
+              { icon: <School />, text: "Suivi de la progression des jeunes talents" },
+              { icon: <UserCheck />, text: "Scouting et analyse des adversaires" },
+              { icon: <Share2 />, text: "Partage facile des rapports et vidéos" }]
             },
-            {
-              category: "📈 Rapports & Analytics",
-              features: [
-                { icon: <PieChart />, text: "Tableaux de bord KPI en temps réel" },
-                { icon: <FileText />, text: "Rapports détaillés automatisés" },
-                { icon: <TrendingUp />, text: "Analyse comparative des performances" },
-                { icon: <Database />, text: "Export de données et intégrations API" }
-              ]
+            { category: "🤝 Collaboration du Staff", features: [
+              { icon: <Mic />, text: "Communication vocale intégrée en direct" },
+              { icon: <Bell />, text: "Notifications et assignations de tâches" },
+              { icon: <Settings />, text: "Gestion des rôles (Coach, Analyste, Scout)" },
+              { icon: <Lock />, text: "Sécurité et confidentialité des données" }]
             }
           ].map((section, index) => (
-            <Card key={index} className="p-6 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl">
+            <Card key={index} className="p-6 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl flex flex-col">
               <h3 className="text-2xl font-bold text-slate-900 mb-6">{section.category}</h3>
-              <div className="space-y-4">
+              <div className="space-y-4 flex-grow">
                 {section.features.map((feature, featureIndex) => (
-                  <div key={featureIndex} className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <div key={featureIndex} className="flex items-start gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg text-green-700 mt-1">
                       {feature.icon}
                     </div>
                     <span className="text-slate-700">{feature.text}</span>
@@ -260,239 +218,123 @@ const BusinessPresentation: React.FC = () => {
         </div>
       )
     },
-
+    
     // Slide 5: Business Benefits
     {
       id: 'benefits',
-      title: 'Avantages Business pour Votre Club',
-      subtitle: 'ROI mesurable et amélioration des performances',
+      // ENHANCEMENT: More emotional and aspirational title
+      title: 'Un Investissement pour la Gloire et l\'Avenir',
+      subtitle: 'Des résultats concrets sur le terrain, dans vos opérations et pour vos finances.',
       content: (
-        <div className="space-y-12">
-          <div className="grid md:grid-cols-3 gap-8">
+         <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <Trophy className="h-12 w-12 text-gold-600" />,
-                title: "Performance Sportive",
-                metrics: [
-                  { value: "+25%", desc: "Amélioration des performances tactiques" },
-                  { value: "+40%", desc: "Précision dans l'analyse des adversaires" },
-                  { value: "-30%", desc: "Réduction des erreurs tactiques" }
-                ],
-                color: "from-yellow-500/10 to-amber-500/10"
+                icon: <Trophy className="h-12 w-12 text-yellow-600" />,
+                title: "Avantage Sportif",
+                desc: "Gagnez plus de matchs grâce à une meilleure préparation tactique et une analyse fine des adversaires.",
+                color: "from-yellow-500/10 to-amber-500/10",
+                borderColor: "border-yellow-300"
               },
               {
-                icon: <Clock className="h-12 w-12 text-green-600" />,
-                title: "Efficacité Opérationnelle",
-                metrics: [
-                  { value: "75%", desc: "Réduction du temps d'analyse" },
-                  { value: "3x", desc: "Plus rapide pour les rapports" },
-                  { value: "90%", desc: "Automatisation des tâches répétitives" }
-                ],
-                color: "from-green-500/10 to-emerald-500/10"
+                icon: <TrendingUp className="h-12 w-12 text-green-600" />,
+                title: "Valorisation des Talents",
+                desc: "Détectez, formez et suivez vos jeunes joueurs pour construire l'équipe de demain et créer de la valeur.",
+                color: "from-green-500/10 to-emerald-500/10",
+                borderColor: "border-green-300"
               },
               {
-                icon: <TrendingUp className="h-12 w-12 text-blue-600" />,
-                title: "Retour sur Investissement",
-                metrics: [
-                  { value: "300%", desc: "ROI moyen sur 12 mois" },
-                  { value: "-60%", desc: "Réduction des coûts d'analyse" },
-                  { value: "+200%", desc: "Augmentation de la productivité" }
-                ],
-                color: "from-blue-500/10 to-indigo-500/10"
+                icon: <Clock className="h-12 w-12 text-blue-600" />,
+                title: "Gain de Temps et d'Efficacité",
+                desc: "Automatisez les tâches chronophages et libérez votre staff pour qu'il se concentre sur l'essentiel : le football.",
+                color: "from-blue-500/10 to-indigo-500/10",
+                borderColor: "border-blue-300"
               }
             ].map((benefit, index) => (
-              <Card key={index} className={`bg-gradient-to-br ${benefit.color} border border-slate-200/50 rounded-2xl hover:shadow-xl transition-all duration-300`}>
-                <CardHeader className="text-center pt-8">
+              <Card key={index} className={`bg-gradient-to-br ${benefit.color} border ${benefit.borderColor} rounded-2xl hover:shadow-xl transition-all duration-300 text-center`}>
+                <CardHeader className="pt-8">
                   <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">
                     {benefit.icon}
                   </div>
-                  <CardTitle className="text-xl text-slate-900">{benefit.title}</CardTitle>
+                  <CardTitle className="text-2xl text-slate-900">{benefit.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="px-6 pb-8">
-                  <div className="space-y-4">
-                    {benefit.metrics.map((metric, metricIndex) => (
-                      <div key={metricIndex} className="text-center">
-                        <div className="text-3xl font-bold text-slate-900 mb-1">{metric.value}</div>
-                        <div className="text-sm text-slate-600">{metric.desc}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-slate-600 text-lg">{benefit.desc}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 text-white">
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h3 className="text-3xl font-bold mb-4">Cas d'Usage Réels</h3>
-                <ul className="space-y-3 text-lg">
-                  <li className="flex items-center gap-3">
-                    <Check className="h-6 w-6 text-green-400" />
-                    Préparation tactique d'avant-match optimisée
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <Check className="h-6 w-6 text-green-400" />
-                    Analyse post-match accélérée et détaillée
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <Check className="h-6 w-6 text-green-400" />
-                    Formation des joueurs basée sur données
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <Check className="h-6 w-6 text-green-400" />
-                    Scouting et analyse des adversaires
-                  </li>
-                </ul>
-              </div>
-              <div className="text-center">
-                <div className="text-6xl font-bold text-green-400 mb-2">15+</div>
-                <p className="text-xl">Clubs partenaires déjà satisfaits</p>
-              </div>
-            </div>
-          </div>
-        </div>
       )
     },
 
-    // Slide 6: Technology & Innovation
-    {
-      id: 'technology',
-      title: 'Innovation Technologique',
-      subtitle: 'Des technologies de pointe pour des résultats exceptionnels',
-      content: (
-        <div className="space-y-12">
-          <div className="grid md:grid-cols-2 gap-12">
-            <div className="space-y-8">
-              <h3 className="text-3xl font-bold text-slate-900">Architecture Moderne</h3>
-              <div className="space-y-6">
-                {[
-                  { icon: <Globe />, title: "Cloud-Native", desc: "Accès partout, synchronisation automatique" },
-                  { icon: <Shield />, title: "Sécurité Enterprise", desc: "Données protégées, conformité RGPD" },
-                  { icon: <Zap />, title: "Performance Optimale", desc: "Temps de réponse ultra-rapides" },
-                  { icon: <Smartphone />, title: "Multi-Plateforme", desc: "Web, mobile, extension Chrome" }
-                ].map((tech, index) => (
-                  <div key={index} className="flex gap-4 p-6 bg-white rounded-xl shadow-lg">
-                    <div className="flex-shrink-0 p-3 bg-blue-50 rounded-lg">
-                      {tech.icon}
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-semibold text-slate-900 mb-2">{tech.title}</h4>
-                      <p className="text-slate-600">{tech.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="space-y-8">
-              <h3 className="text-3xl font-bold text-slate-900">Fonctionnalités Avancées</h3>
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-200">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-600 rounded-lg">
-                      <Mic className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-bold text-slate-900">Communication Vocale Intégrée</h4>
-                      <p className="text-slate-600">Coordination en temps réel entre analystes</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-indigo-600 rounded-lg">
-                      <Activity className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-bold text-slate-900">Interface Piano Révolutionnaire</h4>
-                      <p className="text-slate-600">Saisie d'événements ultra-rapide et précise</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-600 rounded-lg">
-                      <Bell className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-bold text-slate-900">Notifications Intelligentes</h4>
-                      <p className="text-slate-600">Assignations automatiques et remplacements</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
 
-    // Slide 7: Pricing & Packages
+    // Slide 6: Pricing & Packages
     {
       id: 'pricing',
-      title: 'Offres & Tarification',
-      subtitle: 'Des solutions adaptées à chaque type de club',
+      title: 'Des Offres Adaptées à Votre Ambition',
+      subtitle: 'Que vous soyez un centre de formation ou un club visant le titre, nous avons la solution.',
       content: (
         <div className="space-y-8">
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                name: "Club Amateur",
-                price: "99€",
-                period: "/mois",
-                description: "Idéal pour les clubs amateurs et équipes jeunes",
-                icon: <Star className="h-6 w-6 text-blue-600" />,
+                // ENHANCEMENT: Localized plan names
+                name: "Pack Académie",
+                price: "Sur Demande",
+                period: "",
+                description: "L'essentiel pour la formation et le suivi des équipes de jeunes.",
+                icon: <School className="h-6 w-6 text-blue-600" />,
                 features: [
-                  "Jusqu'à 5 matchs par mois",
-                  "2 analystes simultanés",
-                  "Statistiques de base",
-                  "Support email",
-                  "Formation incluse"
+                  "Analyse jusqu'à 5 matchs/mois",
+                  "2 utilisateurs (analystes/coachs)",
+                  "Statistiques fondamentales",
+                  "Suivi de la progression des joueurs",
+                  "Support par email & WhatsApp"
                 ],
                 cardStyle: "bg-white border-slate-200",
-                buttonStyle: "bg-slate-900 hover:bg-slate-800"
+                buttonStyle: "bg-slate-900 hover:bg-slate-800",
+                buttonText: "Demander un Devis"
               },
               {
-                name: "Club Semi-Pro",
-                price: "299€",
-                period: "/mois",
-                description: "Pour les clubs semi-professionnels et centres de formation",
-                icon: <Crown className="h-6 w-6 text-purple-600" />,
+                name: "Pack Ligue Pro",
+                price: "Sur Demande",
+                period: "",
+                description: "La solution complète pour les clubs professionnels visant la performance.",
+                icon: <Trophy className="h-6 w-6 text-green-600" />,
                 features: [
-                  "Matchs illimités",
-                  "10 analystes simultanés",
-                  "Analyse vidéo complète",
-                  "Statistiques avancées",
-                  "Communication vocale",
-                  "Support prioritaire",
-                  "API d'intégration"
+                  "Matchs & Analystes illimités",
+                  "Analyse vidéo avancée",
+                  "Communication vocale en direct",
+                  "Scouting & Analyse adversaires",
+                  "Support prioritaire 24/7",
+                  "Formation de votre staff"
                 ],
                 popular: true,
-                cardStyle: "bg-gradient-to-br from-purple-50 to-blue-50 border-purple-300 shadow-2xl scale-105",
-                buttonStyle: "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                cardStyle: "bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-2xl scale-105",
+                buttonStyle: "bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700",
+                buttonText: "Demander un Devis"
               },
               {
-                name: "Club Professionnel",
-                price: "Sur mesure",
+                name: "Pack Fédération",
+                price: "Partenariat",
                 period: "",
-                description: "Solution enterprise pour clubs professionnels",
-                icon: <Shield className="h-6 w-6 text-emerald-600" />,
+                description: "Une solution sur-mesure pour les fédérations et directions techniques nationales.",
+                icon: <Flag className="h-6 w-6 text-red-600" />,
                 features: [
-                  "Configuration personnalisée",
-                  "Analystes illimités",
-                  "Infrastructure dédiée",
-                  "SLA garanti",
-                  "Formation sur site",
-                  "Support 24/7",
-                  "Développement sur mesure"
+                  "Déploiement national",
+                  "Base de données centralisée des talents",
+                  "Infrastructure dédiée et sécurisée",
+                  "Développement de fonctionnalités spécifiques",
+                  "Accompagnement stratégique"
                 ],
                 cardStyle: "bg-white border-slate-200",
-                buttonStyle: "bg-emerald-600 hover:bg-emerald-700"
+                buttonStyle: "bg-red-700 hover:bg-red-800",
+                buttonText: "Nous Contacter"
               }
             ].map((plan, index) => (
-              <Card key={index} className={`${plan.cardStyle} transition-all duration-300 rounded-2xl overflow-hidden`}>
+              <Card key={index} className={`${plan.cardStyle} transition-all duration-300 rounded-2xl overflow-hidden flex flex-col`}>
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 shadow-lg">
+                    <Badge className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 shadow-lg">
                       Le Plus Populaire
                     </Badge>
                   </div>
@@ -503,121 +345,77 @@ const BusinessPresentation: React.FC = () => {
                   </div>
                   <CardTitle className="text-2xl text-slate-900 mb-3">{plan.name}</CardTitle>
                   <div className="mb-3">
-                    <span className="text-5xl font-bold text-slate-900">{plan.price}</span>
+                    <span className="text-4xl font-bold text-slate-900">{plan.price}</span>
                     <span className="text-slate-600 text-lg">{plan.period}</span>
                   </div>
-                  <p className="text-slate-600 px-4">{plan.description}</p>
+                  <p className="text-slate-600 px-4 h-16">{plan.description}</p>
                 </CardHeader>
-                <CardContent className="px-8 pb-8">
-                  <ul className="space-y-3 mb-8">
+                <CardContent className="px-8 pb-8 flex flex-col flex-grow">
+                  <ul className="space-y-3 mb-8 flex-grow">
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-center gap-3">
-                        <Check className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                        <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
                         <span className="text-slate-700">{feature}</span>
                       </li>
                     ))}
                   </ul>
-                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3`}>
-                    {plan.price === "Sur mesure" ? "Nous Contacter" : "Démarrer"}
+                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3 mt-auto`}>
+                    {plan.buttonText}
                   </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
+          {/* ENHANCEMENT: Note on currency to show flexibility */}
+          <p className="text-center text-slate-500 italic">Devis fournis en Dinar Algérien (DZD) ou en Euro (€) selon votre préférence.</p>
         </div>
       )
     },
-
-    // Slide 8: Implementation & Support
+    
+    // Slide 7: Implementation & Support
     {
       id: 'implementation',
-      title: 'Mise en Œuvre & Accompagnement',
-      subtitle: 'Un déploiement réussi avec notre équipe dédiée',
+      // ENHANCEMENT: Reassuring title
+      title: 'Votre Partenaire de la Signature au Succès',
+      subtitle: 'Nous ne sommes pas juste un fournisseur. Nous sommes un membre de votre équipe.',
       content: (
         <div className="grid md:grid-cols-2 gap-12">
           <div className="space-y-8">
-            <h3 className="text-3xl font-bold text-slate-900">Processus de Déploiement</h3>
+            <h3 className="text-3xl font-bold text-slate-900">Notre Processus d'Intégration</h3>
             <div className="space-y-6">
               {[
-                { 
-                  step: "1", 
-                  title: "Analyse des Besoins", 
-                  desc: "Évaluation personnalisée de vos processus actuels",
-                  duration: "1 semaine"
-                },
-                { 
-                  step: "2", 
-                  title: "Configuration Personnalisée", 
-                  desc: "Paramétrage selon vos spécifications",
-                  duration: "2 semaines"
-                },
-                { 
-                  step: "3", 
-                  title: "Formation Équipes", 
-                  desc: "Formation complète de vos analystes et staff",
-                  duration: "1 semaine"
-                },
-                { 
-                  step: "4", 
-                  title: "Déploiement Progressif", 
-                  desc: "Mise en production avec accompagnement",
-                  duration: "2 semaines"
-                }
+                { step: "1", title: "Audit & Personnalisation", desc: "Nous étudions vos besoins pour configurer la plateforme pour VOUS.", duration: "1-2 jours" },
+                { step: "2", title: "Formation du Staff", desc: "Formation pratique et sur-mesure pour vos coachs et analystes (sur site ou à distance).", duration: "2-3 jours" },
+                { step: "3", title: "Lancement & Suivi", desc: "Nous vous accompagnons lors de vos premiers matchs pour garantir une prise en main parfaite.", duration: "Continu" }
               ].map((phase, index) => (
-                <div key={index} className="flex gap-6 p-6 bg-white rounded-xl shadow-lg border-l-4 border-blue-500">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {phase.step}
-                    </div>
-                  </div>
+                <div key={index} className="flex gap-6 p-6 bg-white rounded-xl shadow-lg border-l-4 border-green-500">
+                  <div className="flex-shrink-0"><div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg">{phase.step}</div></div>
                   <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-xl font-semibold text-slate-900">{phase.title}</h4>
-                      <Badge variant="secondary">{phase.duration}</Badge>
-                    </div>
+                    <div className="flex justify-between items-start mb-2"><h4 className="text-xl font-semibold text-slate-900">{phase.title}</h4><Badge variant="secondary">{phase.duration}</Badge></div>
                     <p className="text-slate-600">{phase.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          
           <div className="space-y-8">
-            <h3 className="text-3xl font-bold text-slate-900">Support & Services</h3>
+            <h3 className="text-3xl font-bold text-slate-900">Un Support Qui Parle Votre Langue</h3>
             <div className="space-y-6">
-              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                <div className="flex items-center gap-4 mb-4">
-                  <Headphones className="h-8 w-8 text-green-600" />
-                  <h4 className="text-xl font-bold text-slate-900">Support Technique 24/7</h4>
-                </div>
-                <ul className="space-y-2 text-slate-700">
-                  <li>• Chat en direct et support téléphonique</li>
-                  <li>• Résolution garantie sous 4h</li>
-                  <li>• Équipe dédiée aux clubs</li>
-                </ul>
-              </Card>
-              
               <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
-                <div className="flex items-center gap-4 mb-4">
-                  <School className="h-8 w-8 text-blue-600" />
-                  <h4 className="text-xl font-bold text-slate-900">Formation Continue</h4>
-                </div>
-                <ul className="space-y-2 text-slate-700">
-                  <li>• Sessions de formation régulières</li>
-                  <li>• Documentation complète et tutoriels</li>
-                  <li>• Webinaires mensuels nouveautés</li>
+                <div className="flex items-center gap-4 mb-4"><Headphones className="h-8 w-8 text-blue-600" /><h4 className="text-xl font-bold text-slate-900">Support Technique Dédié</h4></div>
+                {/* ENHANCEMENT: Crucial localization point */}
+                <ul className="space-y-2 text-slate-700 list-disc list-inside">
+                  <li><strong>Support en Français et Arabe</strong></li>
+                  <li>Disponible via WhatsApp, téléphone et email</li>
+                  <li>Un interlocuteur unique pour votre club</li>
                 </ul>
               </Card>
-              
-              <Card className="p-6 bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
-                <div className="flex items-center gap-4 mb-4">
-                  <Lightbulb className="h-8 w-8 text-purple-600" />
-                  <h4 className="text-xl font-bold text-slate-900">Innovation Continue</h4>
-                </div>
-                <ul className="space-y-2 text-slate-700">
-                  <li>• Mises à jour automatiques</li>
-                  <li>• Nouvelles fonctionnalités mensuelles</li>
-                  <li>• Roadmap co-construite avec les clubs</li>
+              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                <div className="flex items-center gap-4 mb-4"><Lightbulb className="h-8 w-8 text-green-600" /><h4 className="text-xl font-bold text-slate-900">Innovation Continue</h4></div>
+                <ul className="space-y-2 text-slate-700 list-disc list-inside">
+                  <li>Mises à jour régulières basées sur vos retours</li>
+                  <li>Accès aux nouvelles fonctionnalités en avant-première</li>
+                  <li>Une plateforme qui évolue avec le football moderne</li>
                 </ul>
               </Card>
             </div>
@@ -626,60 +424,44 @@ const BusinessPresentation: React.FC = () => {
       )
     },
 
-    // Slide 9: Call to Action
+    // Slide 8: Call to Action
     {
       id: 'cta',
-      title: 'Prêt à Transformer Votre Club ?',
-      subtitle: 'Rejoignez les clubs qui révolutionnent leur analyse football',
+      // ENHANCEMENT: Action-oriented title
+      title: 'Prêt à Donner une Nouvelle Dimension à Votre Club ?',
+      subtitle: 'Rejoignez l\'élite des clubs qui ont choisi de ne plus laisser la victoire au hasard.',
       content: (
         <div className="text-center space-y-12">
           <div className="space-y-8">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-12 text-white">
-              <h3 className="text-4xl font-bold mb-6">Démarrez Votre Transformation Dès Aujourd'hui</h3>
-              <div className="grid md:grid-cols-3 gap-8 mb-8">
-                <div className="text-center">
-                  <div className="text-4xl font-bold mb-2">14 jours</div>
-                  <p className="text-blue-100">Essai gratuit complet</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold mb-2">0€</div>
-                  <p className="text-blue-100">Frais de mise en place</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold mb-2">24h</div>
-                  <p className="text-blue-100">Délai de réponse garanti</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-6 justify-center flex-wrap">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-xl px-12 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+             <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-12 text-white shadow-2xl">
+              <h3 className="text-4xl font-bold mb-6">Demandez Votre Démonstration Personnalisée</h3>
+              <p className="text-xl opacity-90 max-w-3xl mx-auto mb-8">
+                Voyez par vous-même comment FootballAnalytics Pro peut s'adapter à la réalité de votre club. C'est gratuit et sans engagement.
+              </p>
+              <Button size="lg" className="bg-white text-green-700 hover:bg-green-50 text-xl px-12 py-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 <Calendar className="mr-3 h-6 w-6" />
-                Planifier une Démo
-              </Button>
-              <Button variant="outline" size="lg" className="text-xl px-12 py-6 border-slate-300 hover:bg-slate-50 shadow-lg hover:shadow-xl transition-all duration-300">
-                <FileText className="mr-3 h-6 w-6" />
-                Télécharger la Brochure
+                Je Veux Ma Démo Gratuite
               </Button>
             </div>
           </div>
           
           <div className="grid md:grid-cols-2 gap-8">
             <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">Contact Commercial</h4>
-              <div className="space-y-3 text-left">
-                <p className="text-slate-700"><strong>Email:</strong> commercial@footballanalytics.pro</p>
-                <p className="text-slate-700"><strong>Téléphone:</strong> +33 1 23 45 67 89</p>
-                <p className="text-slate-700"><strong>Disponibilité:</strong> Lun-Ven 9h-18h</p>
+              <h4 className="text-2xl font-bold text-slate-900 mb-4">Contact Direct Algérie</h4>
+              {/* ENHANCEMENT: Localized contact info */}
+              <div className="space-y-3 text-left text-lg">
+                <p className="text-slate-700 flex items-center gap-2"><strong>WhatsApp/Tél:</strong> +213 (0)X XX XX XX XX</p>
+                <p className="text-slate-700 flex items-center gap-2"><strong>Email:</strong> contact.algerie@footballanalytics.pro</p>
+                <p className="text-slate-700 flex items-center gap-2"><strong>Disponibilité:</strong> 7j/7 pour les clubs partenaires</p>
               </div>
             </Card>
             
             <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">Références Disponibles</h4>
-              <div className="space-y-3 text-left">
-                <p className="text-slate-700">✓ Cas d'études détaillés</p>
-                <p className="text-slate-700">✓ Témoignages de clubs partenaires</p>
-                <p className="text-slate-700">✓ Démonstrations personnalisées</p>
+              <h4 className="text-2xl font-bold text-slate-900 mb-4">Prochaines Étapes</h4>
+              <div className="space-y-3 text-left text-lg">
+                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Démo personnalisée de 30 minutes</p>
+                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Proposition commerciale sur-mesure</p>
+                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Période d'essai pour votre staff</p>
               </div>
             </Card>
           </div>
@@ -701,12 +483,13 @@ const BusinessPresentation: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      {/* Navigation */}
+    // ENHANCEMENT: Adjusted background gradient to include green
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-blue-50">
       <div className="fixed top-4 left-4 right-4 z-50 flex justify-between items-center">
         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-white" />
+          {/* ENHANCEMENT: Using Trophy icon in header */}
+          <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-blue-600 rounded-lg flex items-center justify-center">
+            <Trophy className="h-5 w-5 text-white" />
           </div>
           <span className="font-bold text-slate-900">FootballAnalytics Pro</span>
         </div>
@@ -718,58 +501,47 @@ const BusinessPresentation: React.FC = () => {
         </div>
       </div>
 
-      {/* Slide Content */}
-      <div className="pt-20 pb-20 px-8">
+      <div className="pt-24 pb-20 px-4 sm:px-8">
         <div className="container mx-auto max-w-7xl">
           <div className="mb-12 text-center">
-            <h1 className="text-5xl font-bold text-slate-900 mb-4">
+            <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
               {slides[currentSlide].title}
             </h1>
-            <p className="text-xl text-slate-600 max-w-4xl mx-auto">
+            <p className="text-lg lg:text-xl text-slate-600 max-w-4xl mx-auto">
               {slides[currentSlide].subtitle}
             </p>
           </div>
           
-          <div className="min-h-[600px]">
-            {slides[currentSlide].content}
+          <div className="min-h-[600px] flex items-center justify-center">
+            <div className="w-full">
+                {slides[currentSlide].content}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Controls */}
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
         <div className="flex items-center gap-4 bg-white/90 backdrop-blur-sm rounded-full px-6 py-4 shadow-xl">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={prevSlide}
-            disabled={currentSlide === 0}
-            className="rounded-full"
-          >
+          <Button variant="outline" size="sm" onClick={prevSlide} disabled={currentSlide === 0} className="rounded-full">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           
           <div className="flex gap-2">
-            {slides.map((_, index) => (
+            {slides.map((slide, index) => (
               <button
-                key={index}
+                key={slide.id}
                 onClick={() => goToSlide(index)}
+                aria-label={`Go to slide ${index + 1}`}
                 className={`w-3 h-3 rounded-full transition-all duration-200 ${
                   index === currentSlide 
-                    ? 'bg-blue-600 scale-125' 
+                    ? 'bg-green-600 scale-125' 
                     : 'bg-slate-300 hover:bg-slate-400'
                 }`}
               />
             ))}
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={nextSlide}
-            disabled={currentSlide === slides.length - 1}
-            className="rounded-full"
-          >
+          <Button variant="outline" size="sm" onClick={nextSlide} disabled={currentSlide === slides.length - 1} className="rounded-full">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
