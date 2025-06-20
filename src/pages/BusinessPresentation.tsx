@@ -11,16 +11,21 @@ import {
   Award, Settings, Lock, Flag
 } from 'lucide-react';
 
+// --- IMPORTANT FOR RTL ---
+// For the best display, add `dir="rtl"` to your <html> tag or the root component.
+// Also, consider using a good Arabic font like 'Tajawal' or 'Cairo' in your CSS:
+// body { font-family: 'Tajawal', sans-serif; }
+// -------------------------
+
 const BusinessPresentation: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // ENHANCEMENT: All text content is now in Algerian Darija.
   const slides = [
     // Slide 1: Title
     {
       id: 'title',
-      title: 'FootballAnalytics Pro: Er-Reb7a Tetbna Hna',
-      subtitle: 'Sla7ek es-serri bach tseyter 3la l\'foot dziri',
+      title: 'فوتبول أناليتيكس برو: الربحة تتبنى هنا',
+      subtitle: 'سلاحك السري باش تسيطر على الفوت الدزيري',
       content: (
         <div className="text-center space-y-8">
           <div className="w-32 h-32 bg-gradient-to-br from-green-600 to-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
@@ -31,10 +36,10 @@ const BusinessPresentation: React.FC = () => {
               FootballAnalytics Pro
             </h1>
             <p className="text-2xl text-slate-600 max-w-4xl mx-auto">
-              Medd l'club dyalek avantage kbir b'la plateforme li terja3 kol match dars f'la tactique.
+              مد للنادي ديالك أفضلية حاسمة مع المنصة لي ترجع كل ماتش درس في التكتيك.
             </p>
-            <Badge className="bg-gradient-to-r from-green-100 to-blue-100 text-green-800 border-green-200 px-8 py-3 text-lg">
-              Présentation l'les Clubs ta3 Dzayer
+            <Badge className="bg-gradient-to-r from-green-100 to-blue-100 text-green-800 border-green-200 px-8 py-3 text-lg font-semibold">
+              عرض تقديمي لنوادي الجزائر
             </Badge>
           </div>
         </div>
@@ -44,37 +49,37 @@ const BusinessPresentation: React.FC = () => {
     // Slide 2: Problem Statement
     {
       id: 'problem',
-      title: 'L\'Macha_kel ta3 l\'Foot f\'Dzayer L\'youm',
-      subtitle: 'L\'3afssat li y7absou l\'performance w takwin ta3ek.',
+      title: 'المشاكل تاع كرة القدم في الجزائر اليوم',
+      subtitle: 'العقبات لي تحبس الأداء والتطور ديالك.',
       content: (
         <div className="grid md:grid-cols-2 gap-12">
           <div className="space-y-6">
-            <h3 className="text-3xl font-bold text-slate-900 mb-6">Mochkil wach y_sra bezzaf</h3>
+            <h3 className="text-3xl font-bold text-slate-900 mb-6 text-right">المشاكل الشائعة</h3>
             {[
               { 
                 icon: <Timer className="h-8 w-8 text-red-500" />, 
-                title: "Ta7lil b'yedek: y'ched l'weqt w fih ghalta", 
-                desc: "Swaye3 w nta t3awed fel match, w t9edr trati 7wayej mouhimin." 
+                title: "التحليل باليد: يشد الوقت وفيه غلطات", 
+                desc: "ساعات وساعات تضيع في إعادة الماتش، مع خطر تفويت تفاصيل حاسمة." 
               },
               { 
                 icon: <Database className="h-8 w-8 text-orange-500" />, 
-                title: "Les données m_cher_tine", 
-                desc: "Les stats, les vidéos, les rapports... kol 7aja f'blassa. Ma tfehem walou." 
+                title: "البيانات مبعثرة", 
+                desc: "الإحصائيات، الفيديوهات، التقارير... كل حاجة في بلاصة. ماكانش رؤية شاملة." 
               },
               { 
                 icon: <Users className="h-8 w-8 text-yellow-500" />, 
-                title: "S3ib tel9a les joueurs es-sa7", 
-                desc: "Ma t9edrch tchouf objectivement la progression ta3 les jeunes w tel9a les pépites." 
+                title: "صعوبة اكتشاف المواهب", 
+                desc: "صعيب تتبع تطور اللاعبين الشبان بموضوعية وتلقى الجواهر القادمة." 
               },
               { 
                 icon: <Share2 className="h-8 w-8 text-blue-500" />, 
-                title: "Makach coordination fel staff", 
-                desc: "Khedma s3iba bin l'analyste, l'entraineur w l'administration." 
+                title: "غياب التنسيق في الطاقم", 
+                desc: "نقص التواصل السلس بين المحلل، المدرب والإدارة." 
               }
             ].map((problem, index) => (
-              <div key={index} className="flex gap-4 p-6 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
+              <div key={index} className="flex gap-4 p-6 bg-white rounded-xl shadow-lg border-r-4 border-red-400">
                 <div className="flex-shrink-0 p-3 bg-gray-50 rounded-lg">{problem.icon}</div>
-                <div>
+                <div className="text-right">
                   <h4 className="text-xl font-semibold text-slate-900 mb-2">{problem.title}</h4>
                   <p className="text-slate-600">{problem.desc}</p>
                 </div>
@@ -82,23 +87,23 @@ const BusinessPresentation: React.FC = () => {
             ))}
           </div>
           <div className="space-y-6">
-            <h3 className="text-3xl font-bold text-slate-900 mb-6">Wach rak trati ki ma t_bougich</h3>
+            <h3 className="text-3xl font-bold text-slate-900 mb-6 text-right">ثمن عدم التطور</h3>
             <div className="bg-gradient-to-br from-red-50 to-orange-50 p-8 rounded-2xl border border-red-200">
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div className="text-center">
                   <TrendingDown className="h-16 w-16 text-red-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-slate-800">Décisions retard</p>
-                  <p className="text-lg text-slate-600">Les changements tactiques yjiw retard, tkhosser des points ghaline.</p>
+                  <p className="text-2xl font-bold text-slate-800">قرارات متأخرة</p>
+                  <p className="text-lg text-slate-600">التعديلات التكتيكية تجي روطار، وتكلفك نقاط ثمينة.</p>
                 </div>
                 <div className="text-center">
                   <UserCheck className="h-16 w-16 text-orange-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-slate-800">Talents y_ro7o batel</p>
-                  <p className="text-lg text-slate-600">Des jeunes 3andhom potentiel, mais ma ybanouch wela y'perdo.</p>
+                  <p className="text-2xl font-bold text-slate-800">مواهب تضيع</p>
+                  <p className="text-lg text-slate-600">شبان واعدون لا يتم اكتشافهم أو يضيعون بسبب سوء التقييم.</p>
                 </div>
                 <div className="text-center">
                   <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-slate-800">L'weqt y_rou7 f'lkhawi</p>
-                  <p className="text-lg text-slate-600">Le staff ta3ek y_daya3 weqtou fel papiers kter men terrain.</p>
+                  <p className="text-2xl font-bold text-slate-800">وقت ضائع</p>
+                  <p className="text-lg text-slate-600">الطاقم ديالك يضيع وقته في الأوراق أكثر من الميدان.</p>
                 </div>
               </div>
             </div>
@@ -110,35 +115,35 @@ const BusinessPresentation: React.FC = () => {
     // Slide 3: Solution Overview
     {
       id: 'solution',
-      title: 'Men Data lel Reb7a fo9 Terrain',
-      subtitle: 'FootballAnalytics Pro yjem_3, y_7allel w ybedel ga3 l\'vision ta3ek lel jeu.',
+      title: 'من البيانات إلى النصر فوق الميدان',
+      subtitle: 'فوتبول أناليتيكس برو يجمع، يحلل، ويبدل نظرتك للعبة.',
       content: (
         <div className="space-y-12">
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: <Target className="h-12 w-12 text-blue-600" />,
-                title: "Ma trati 7etta action",
-                desc: "B' 'Piano Tactique' dyalna, t_marki kol 7aja f'lmatch b'zerba w sans faute.",
+                title: "ما تراطي حتى لقطة",
+                desc: "بـ 'بيانو تاكتيك' ديالنا، تسجل كل حدث في الماتش بسرعة ودقة عالية.",
                 gradient: "from-blue-500/10 to-indigo-500/10"
               },
               {
                 icon: <Video className="h-12 w-12 text-indigo-600" />,
-                title: "Kol angle, kol décision",
-                desc: "Relier les stats m3a la vidéo direct, bach tefhem '3lach' srat kol action.",
+                title: "كل زاوية، كل قرار",
+                desc: "اربط فوراً الإحصائيات بالفيديو باش تفهم 'علاش' صرات كل لقطة.",
                 gradient: "from-indigo-500/10 to-purple-500/10"
               },
               {
                 icon: <Users className="h-12 w-12 text-purple-600" />,
-                title: "Staff technique yedd wa7da",
-                desc: "L'analyste, l'coach, le scout... kamel yekhedmou m3a ba3d en temps réel, win ma kanou.",
+                title: "طاقم فني يد وحدة",
+                desc: "المحللين، المدربين، والكشافين... كامل يخدموا مع بعض في نفس الوقت، وين ما كانوا.",
                 gradient: "from-purple-500/10 to-violet-500/10"
               }
             ].map((item, index) => (
               <Card key={index} className={`border border-slate-200/50 hover:shadow-2xl transition-all duration-300 bg-gradient-to-br ${item.gradient} rounded-2xl`}>
                 <CardHeader className="text-center pt-8">
                   <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">{item.icon}</div>
-                  <CardTitle className="text-xl text-slate-900">{item.title}</CardTitle>
+                  <CardTitle className="text-2xl font-semibold text-slate-900">{item.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="px-6 pb-8"><p className="text-slate-600 text-center">{item.desc}</p></CardContent>
               </Card>
@@ -146,55 +151,55 @@ const BusinessPresentation: React.FC = () => {
           </div>
           
           <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-8 text-white text-center">
-            <h3 className="text-3xl font-bold mb-4">Netija: KhouD décisions b'zerba, b'daka2, w rbe7 les matchs kter.</h3>
+            <h3 className="text-3xl font-bold mb-4">النتيجة: قرارات أسرع، أذكى، وانتصارات أكثر.</h3>
             <p className="text-xl opacity-90 max-w-4xl mx-auto">
-              Optimiser la préparation, kowen les joueurs tawek, w freD le style de jeu dyalek 3la l'adversaire.
+              حسّن تحضيراتك، طوّر لاعبيك، وافرض أسلوب لعبك على أي خصم.
             </p>
           </div>
         </div>
       )
     },
-
+    
     // Slide 4: Core Features
     {
       id: 'features',
-      title: 'Les Options li Y_khalouk Terbe7',
-      subtitle: 'Kolchi li yesta7e9ou le staff dyalek, f\'blassa wa7da sahla.',
+      title: 'ميزات مصممة للانتصار',
+      subtitle: 'كل ما يحتاجه طاقمك الفني، مجموع في منصة واحدة وسهلة.',
       content: (
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { category: "📊 Ta7akoum Tacti_ki", features: [
-              { icon: <Timer />, text: "Saisie d'actions live b' 'Piano Tactique'" },
-              { icon: <Map />, text: "Heatmaps (carte thermique) w positions" },
-              { icon: <BarChart />, text: "Stats avancées l'joueur w l'équipe" },
-              { icon: <Radar />, text: "Profils ta3 performance (Radar Charts)" }]
+            { category: "📊 التحكم التكتيكي", features: [
+              { icon: <Timer />, text: "تسجيل الأحداث مباشرة بـ 'بيانو تاكتيك'" },
+              { icon: <Map />, text: "خرائط حرارية (Heatmaps) ومواقع" },
+              { icon: <BarChart />, text: "إحصائيات متقدمة للاعب والفريق" },
+              { icon: <Radar />, text: "ملفات الأداء (Radar Charts)" }]
             },
-            { category: "🎥 Analyse Vidéo Dayra Fih", features: [
-              { icon: <Video />, text: "Synchronisation parfaite data m3a vidéo" },
-              { icon: <PlayCircle />, text: "Création playlists (ex: ga3 les passes ratées)" },
-              { icon: <Eye />, text: "Outils ta3 rsem w annotation 3la vidéo" },
-              { icon: <Camera />, text: "Import sahel (YouTube, Fichier local...)" }]
+            { category: "🎥 تحليل فيديو مدمج", features: [
+              { icon: <Video />, text: "مزامنة مثالية بين البيانات والفيديو" },
+              { icon: <PlayCircle />, text: "إنشاء قوائم تشغيل (ex: كل التمريرات الخاطئة)" },
+              { icon: <Eye />, text: "أدوات رسم وشرح على الفيديو" },
+              { icon: <Camera />, text: "استيراد سهل (YouTube, ملف محلي...)" }]
             },
-            { category: "👥 Gestion & Takwin", features: [
-              { icon: <Users />, text: "Base de données kamla (joueurs, équipes)" },
-              { icon: <School />, text: "Suivi ta3 progression dyal les jeunes" },
-              { icon: <UserCheck />, text: "Scouting w analyse ta3 l'adversaire" },
-              { icon: <Share2 />, text: "Partage sahel ta3 rapports w vidéos" }]
+            { category: "👥 إدارة وتكوين", features: [
+              { icon: <Users />, text: "قاعدة بيانات كاملة (لاعبين، فرق)" },
+              { icon: <School />, text: "متابعة تطور المواهب الشابة" },
+              { icon: <UserCheck />, text: "كشف المواهب وتحليل الخصوم" },
+              { icon: <Share2 />, text: "مشاركة سهلة للتقارير والفيديوهات" }]
             },
-            { category: "🤝 Khedmet le Staff M3a Ba3d", features: [
-              { icon: <Mic />, text: "Communication b'sot en direct (Live)" },
-              { icon: <Bell />, text: "Notifications w ta3yin l'mahame" },
-              { icon: <Settings />, text: "Gestion ta3 les rôles (Coach, Analyste...)" },
-              { icon: <Lock />, text: "Sécurité w sirriya ta3 les données" }]
+            { category: "🤝 تعاون الطاقم الفني", features: [
+              { icon: <Mic />, text: "اتصال صوتي مباشر ومدمج" },
+              { icon: <Bell />, text: "إشعارات وتعيين مهام" },
+              { icon: <Settings />, text: "إدارة الأدوار (مدرب، محلل، كشاف...)" },
+              { icon: <Lock />, text: "أمان وسرية البيانات" }]
             }
           ].map((section, index) => (
             <Card key={index} className="p-6 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl flex flex-col">
-              <h3 className="text-2xl font-bold text-slate-900 mb-6">{section.category}</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-6 text-right">{section.category}</h3>
               <div className="space-y-4 flex-grow">
                 {section.features.map((feature, featureIndex) => (
                   <div key={featureIndex} className="flex items-start gap-3">
+                     <span className="text-slate-700 text-right flex-1">{feature.text}</span>
                     <div className="p-2 bg-green-100 rounded-lg text-green-700 mt-1">{feature.icon}</div>
-                    <span className="text-slate-700">{feature.text}</span>
                   </div>
                 ))}
               </div>
@@ -203,207 +208,118 @@ const BusinessPresentation: React.FC = () => {
         </div>
       )
     },
-    
-    // Slide 5: Business Benefits
-    {
-      id: 'benefits',
-      title: 'Investissement lel Gloire w l\'Mosta9bel',
-      subtitle: 'Natayej ma_7soussa fo9 terrain, f\'khedmetkom, w f\'drahamkom.',
-      content: (
-         <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Trophy className="h-12 w-12 text-yellow-600" />,
-                title: "Avantage Riyadi",
-                desc: "Trbe7 kter les matchs b'une bonne préparation tactique w analyse mli7a ta3 l'adversaire.",
-                color: "from-yellow-500/10 to-amber-500/10", borderColor: "border-yellow-300"
-              },
-              {
-                icon: <TrendingUp className="h-12 w-12 text-green-600" />,
-                title: "T_tela3 f'la Valeur ta3 les Joueurs",
-                desc: "Detecter, kowen, w teba3 les jeunes dyawlek bach tebni l'équipe ta3 ghodwa w t_jib drahem.",
-                color: "from-green-500/10 to-emerald-500/10", borderColor: "border-green-300"
-              },
-              {
-                icon: <Clock className="h-12 w-12 text-blue-600" />,
-                title: "Trbe7 l'Weqt w l'Efficacité",
-                desc: "Automatiser l'khedma li t'ched l'weqt w khalli le staff y'concentri 3la l'essentiel: l'foot.",
-                color: "from-blue-500/10 to-indigo-500/10", borderColor: "border-blue-300"
-              }
-            ].map((benefit, index) => (
-              <Card key={index} className={`bg-gradient-to-br ${benefit.color} border ${benefit.borderColor} rounded-2xl hover:shadow-xl transition-all duration-300 text-center`}>
-                <CardHeader className="pt-8">
-                  <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">{benefit.icon}</div>
-                  <CardTitle className="text-2xl text-slate-900">{benefit.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="px-6 pb-8"><p className="text-slate-600 text-lg">{benefit.desc}</p></CardContent>
-              </Card>
-            ))}
-          </div>
-      )
-    },
 
-    // Slide 6: Pricing & Packages
+    // Slide 5: Pricing & Packages
     {
       id: 'pricing',
-      title: 'Des Offres 3la 7sab l\'ambition ta3ek',
-      subtitle: 'Swa rak centre de formation wela club yjoué 3la titre, 3andna l\'7al.',
+      title: 'عروض على حساب طموحك',
+      subtitle: 'سواء كنت مركز تكوين أو نادي يلعب على اللقب، عندنا الحل.',
       content: (
         <div className="space-y-8">
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                name: "Pack Takwin",
-                price: "3la 7sab الطلب",
-                description: "L'essentiel l'takwin w suivi ta3 les équipes de jeunes.",
+                name: "باقة التكوين",
+                price: "حسب الطلب",
+                description: "الأساسيات لتكوين ومتابعة فرق الشبان.",
                 icon: <School className="h-6 w-6 text-blue-600" />,
                 features: [
-                  "Analyse jusqu'à 5 matchs/ch_har",
-                  "2 utilisateurs (analystes/coachs)",
-                  "Statistiques de base",
-                  "Suivi ta3 la progression",
-                  "Support b'email w WhatsApp"
+                  "تحليل حتى 5 ماتشات/الشهر",
+                  "2 مستخدمين (محللين/مدربين)",
+                  "إحصائيات أساسية",
+                  "متابعة تطور اللاعبين",
+                  "دعم عبر الإيميل والواتساب"
                 ],
-                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-slate-900 hover:bg-slate-800", buttonText: "Otlob Devis"
+                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-slate-900 hover:bg-slate-800", buttonText: "اطلب عرض سعر"
               },
               {
-                name: "Pack El 7irafi",
-                price: "3la 7sab الطلب",
-                description: "Le solution kamla l'les clubs pro li y_7awssou 3la performance.",
+                name: "باقة الاحتراف",
+                price: "حسب الطلب",
+                description: "الحل الكامل للأندية المحترفة التي تسعى للأداء العالي.",
                 icon: <Trophy className="h-6 w-6 text-green-600" />,
                 features: [
-                  "Matchs & Analystes bla 7doud",
-                  "Analyse vidéo avancée",
-                  "Communication b'sot direct",
-                  "Scouting & Analyse adversaires",
-                  "Support prioritaire 24/7",
-                  "Formation l'staff dyalek"
+                  "مباريات ومحللين بلا حدود",
+                  "تحليل فيديو متقدم",
+                  "اتصال صوتي مباشر",
+                  "كشف وتحليل الخصوم",
+                  "دعم ذو أولوية 24/7",
+                  "تكوين للطاقم الفني"
                 ],
-                popular: true, cardStyle: "bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-2xl scale-105", buttonStyle: "bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700", buttonText: "Otlob Devis"
+                popular: true, cardStyle: "bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-2xl scale-105", buttonStyle: "bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700", buttonText: "اطلب عرض سعر"
               },
               {
-                name: "Pack Fédéralia",
-                price: "Charaka",
-                description: "Solution sur-mesure l'les fédérations w directions techniques.",
+                name: "باقة الفيدرالية",
+                price: "شراكة",
+                description: "حل مصمم خصيصاً للفيدراليات والمديريات الفنية الوطنية.",
                 icon: <Flag className="h-6 w-6 text-red-600" />,
                 features: [
-                  "Déploiement watani",
-                  "Base de données markaziya l'talents",
-                  "Infrastructure khassa w sécurisée",
-                  "Développement fonctionnalités spécifiques",
-                  "Mourafa9a stratégique"
+                  "تطبيق على المستوى الوطني",
+                  "قاعدة بيانات مركزية للمواهب",
+                  "بنية تحتية مخصصة وآمنة",
+                  "تطوير ميزات خاصة",
+                  "مرافقة استراتيجية"
                 ],
-                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-red-700 hover:bg-red-800", buttonText: "Contactina"
+                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-red-700 hover:bg-red-800", buttonText: "اتصل بنا"
               }
-            ].map((plan, index) => (
-              <Card key={index} className={`${plan.cardStyle} transition-all duration-300 rounded-2xl overflow-hidden flex flex-col`}>
-                {plan.popular && <div className="absolute -top-4 left-1/2 transform -translate-x-1/2"><Badge className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 shadow-lg">L'aktar Talaban</Badge></div>}
+            ].map((plan) => (
+              <Card key={plan.name} className={`${plan.cardStyle} transition-all duration-300 rounded-2xl overflow-hidden flex flex-col`}>
+                {plan.popular && <div className="absolute -top-4 left-1/2 transform -translate-x-1/2"><Badge className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 shadow-lg font-semibold">الأكثر طلباً</Badge></div>}
                 <CardHeader className="text-center pt-8">
                   <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">{plan.icon}</div>
-                  <CardTitle className="text-2xl text-slate-900 mb-3">{plan.name}</CardTitle>
+                  <CardTitle className="text-2xl font-semibold text-slate-900 mb-3">{plan.name}</CardTitle>
                   <div className="mb-3"><span className="text-4xl font-bold text-slate-900">{plan.price}</span></div>
                   <p className="text-slate-600 px-4 h-16">{plan.description}</p>
                 </CardHeader>
                 <CardContent className="px-8 pb-8 flex flex-col flex-grow">
-                  <ul className="space-y-3 mb-8 flex-grow">
-                    {plan.features.map((feature, i) => <li key={i} className="flex items-center gap-3"><Check className="h-5 w-5 text-green-500 flex-shrink-0" /><span className="text-slate-700">{feature}</span></li>)}
+                  <ul className="space-y-3 mb-8 flex-grow text-right">
+                    {plan.features.map((feature, i) => <li key={i} className="flex items-center justify-end gap-3"><span className="text-slate-700">{feature}</span><Check className="h-5 w-5 text-green-500 flex-shrink-0" /></li>)}
                   </ul>
-                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3 mt-auto`}>{plan.buttonText}</Button>
+                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3 mt-auto font-bold`}>{plan.buttonText}</Button>
                 </CardContent>
               </Card>
             ))}
           </div>
-          <p className="text-center text-slate-500 italic">Les devis b'Dinar (DZD) wella l'Euro, kima t7eb.</p>
-        </div>
-      )
-    },
-    
-    // Slide 7: Implementation & Support
-    {
-      id: 'implementation',
-      title: 'M3ak men l\'awal lel lekher',
-      subtitle: 'Ma ranach ghir fournisseur. Rana fard men l\'équipe dyalek.',
-      content: (
-        <div className="grid md:grid-cols-2 gap-12">
-          <div className="space-y-8">
-            <h3 className="text-3xl font-bold text-slate-900">Kifech Nebdaw L'khedma</h3>
-            <div className="space-y-6">
-              {[
-                { step: "1", title: "Nefahmou wach te_s7a9o", desc: "Nchoufo wach te_s7a9o besa7 bach nreglou l'plateforme 3likom.", duration: "1-2 jours" },
-                { step: "2", title: "Formation l'staff", desc: "Formation pratique l'les coachs w les analystes (f'terrain wela à distance).", duration: "2-3 jours" },
-                { step: "3", title: "Lancement w Suivi", desc: "N_we9fou m3akoum f'les matchs lewline bach kolchi yemchi mli7.", duration: "Continu" }
-              ].map((phase, index) => (
-                <div key={index} className="flex gap-6 p-6 bg-white rounded-xl shadow-lg border-l-4 border-green-500">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg">{phase.step}</div></div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2"><h4 className="text-xl font-semibold text-slate-900">{phase.title}</h4><Badge variant="secondary">{phase.duration}</Badge></div>
-                    <p className="text-slate-600">{phase.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-8">
-            <h3 className="text-3xl font-bold text-slate-900">Support Y_hder Loughtek</h3>
-            <div className="space-y-6">
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
-                <div className="flex items-center gap-4 mb-4"><Headphones className="h-8 w-8 text-blue-600" /><h4 className="text-xl font-bold text-slate-900">Support Technique Spécial</h4></div>
-                <ul className="space-y-2 text-slate-700 list-disc list-inside">
-                  <li><strong>Support b'Français w b'Derja</strong></li>
-                  <li>Disponible via WhatsApp, Téléphone w Email</li>
-                  <li>Un interlocuteur wa7ed l'club dyalek</li>
-                </ul>
-              </Card>
-              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                <div className="flex items-center gap-4 mb-4"><Lightbulb className="h-8 w-8 text-green-600" /><h4 className="text-xl font-bold text-slate-900">Toujours Jdid</h4></div>
-                <ul className="space-y-2 text-slate-700 list-disc list-inside">
-                  <li>Mises à jour daymen 3la 7sab ra2y dyalkom</li>
-                  <li>Tchouf les fonctionnalités jdad ntaya l'owel</li>
-                  <li>Plateforme tetala3 m3a l'foot l'jdida</li>
-                </ul>
-              </Card>
-            </div>
-          </div>
+          <p className="text-center text-slate-500 italic">عروض الأسعار بالدينار (DZD) أو الأورو (€)، كيما تحب.</p>
         </div>
       )
     },
 
-    // Slide 8: Call to Action
+    // Slide 6: Call to Action
     {
       id: 'cta',
-      title: 'Wajed bach tbedel l\'club dyalek?',
-      subtitle: 'Rejoindre l\'élite ta3 les clubs li khayrou ma ykhalouch er-reb7a lel hasard.',
+      title: 'واجد باش تمد بُعد جديد للنادي ديالك؟',
+      subtitle: 'انضم لنخبة الأندية لي قررت ما تخليش الفوز للصدفة.',
       content: (
         <div className="text-center space-y-12">
           <div className="space-y-8">
              <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-12 text-white shadow-2xl">
-              <h3 className="text-4xl font-bold mb-6">Otlob Démo Personnalisée ta3ek</h3>
+              <h3 className="text-4xl font-bold mb-6">اطلب العرض التجريبي المخصص ديالك</h3>
               <p className="text-xl opacity-90 max-w-3xl mx-auto mb-8">
-                Chouf b'3inik kifech FootballAnalytics Pro ye9der yemchi m3a l'club dyalek. Batel w bla engagement.
+                شوف بعينيك كيفاش فوتبول أناليتيكس برو يقدر يتأقلم مع واقع النادي ديالك. باطل وبلا التزام.
               </p>
-              <Button size="lg" className="bg-white text-green-700 hover:bg-green-50 text-xl px-12 py-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                <Calendar className="mr-3 h-6 w-6" />
-                7ab N'chouf Démo Batel!
+              <Button size="lg" className="bg-white text-green-700 hover:bg-green-50 text-xl px-12 py-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 font-bold">
+                <span className="ml-3">حبيت نشوف ديمو باطل!</span>
+                <Calendar className="h-6 w-6" />
               </Button>
             </div>
           </div>
           
           <div className="grid md:grid-cols-2 gap-8">
-            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">Contact Direct Dzayer</h4>
-              <div className="space-y-3 text-left text-lg">
-                <p className="text-slate-700 flex items-center gap-2"><strong>WhatsApp/Tél:</strong> +213 (0)X XX XX XX XX</p>
-                <p className="text-slate-700 flex items-center gap-2"><strong>Email:</strong> contact.dz@footballanalytics.pro</p>
-                <p className="text-slate-700 flex items-center gap-2"><strong>Disponible:</strong> 7j/7 l'les clubs partenaires</p>
+            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl text-right">
+              <h4 className="text-2xl font-bold text-slate-900 mb-4">اتصال مباشر - الجزائر</h4>
+              <div className="space-y-3 text-lg">
+                <p className="text-slate-700 flex justify-end items-center gap-2"><span>+213 (0)X XX XX XX XX</span><strong>:WhatsApp/الهاتف</strong></p>
+                <p className="text-slate-700 flex justify-end items-center gap-2"><span>contact.dz@footballanalytics.pro</span><strong>:الإيميل</strong></p>
+                <p className="text-slate-700 flex justify-end items-center gap-2"><span>7أيام/7 للأندية الشريكة</span><strong>:متوفر</strong></p>
               </div>
             </Card>
             
-            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl">
-              <h4 className="text-2xl font-bold text-slate-900 mb-4">L'khotowat Jjayin</h4>
-              <div className="space-y-3 text-left text-lg">
-                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Démo personnalisée (30 min)</p>
-                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Devis sur-mesure l'club dyalek</p>
-                <p className="text-slate-700 flex items-start gap-2"><ArrowRight className="text-green-500 mt-1 h-5 w-5"/> Période d'essai l'staff ta3ek</p>
+            <Card className="p-8 bg-white/60 backdrop-blur-sm border border-slate-200/80 rounded-2xl text-right">
+              <h4 className="text-2xl font-bold text-slate-900 mb-4">الخطوات القادمة</h4>
+              <div className="space-y-3 text-lg">
+                <p className="text-slate-700 flex items-start justify-end gap-2"><span>عرض تجريبي مخصص (30 دقيقة)</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
+                <p className="text-slate-700 flex items-start justify-end gap-2"><span>عرض سعر على حساب النادي ديالك</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
+                <p className="text-slate-700 flex items-start justify-end gap-2"><span>فترة تجريبية للطاقم الفني ديالك</span><ArrowLeft className="text-green-500 mt-1 h-5 w-5"/></p>
               </div>
             </Card>
           </div>
@@ -417,16 +333,16 @@ const BusinessPresentation: React.FC = () => {
   const goToSlide = (index: number) => setCurrentSlide(index);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-blue-50" dir="rtl">
       <div className="fixed top-4 left-4 right-4 z-50 flex justify-between items-center">
+        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
+          <span className="text-sm text-slate-600">{currentSlide + 1} / {slides.length}</span>
+        </div>
         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
+          <span className="font-bold text-slate-900">FootballAnalytics Pro</span>
           <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-blue-600 rounded-lg flex items-center justify-center">
             <Trophy className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-slate-900">FootballAnalytics Pro</span>
-        </div>
-        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-          <span className="text-sm text-slate-600">{currentSlide + 1} / {slides.length}</span>
         </div>
       </div>
 
@@ -444,11 +360,11 @@ const BusinessPresentation: React.FC = () => {
 
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
         <div className="flex items-center gap-4 bg-white/90 backdrop-blur-sm rounded-full px-6 py-4 shadow-xl">
-          <Button variant="outline" size="sm" onClick={prevSlide} disabled={currentSlide === 0} className="rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" onClick={nextSlide} disabled={currentSlide === slides.length - 1} className="rounded-full"><ChevronRight className="h-4 w-4" /></Button>
           <div className="flex gap-2">
             {slides.map((slide, index) => <button key={slide.id} onClick={() => goToSlide(index)} aria-label={`Go to slide ${index + 1}`} className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentSlide ? 'bg-green-600 scale-125' : 'bg-slate-300 hover:bg-slate-400'}`} />)}
           </div>
-          <Button variant="outline" size="sm" onClick={nextSlide} disabled={currentSlide === slides.length - 1} className="rounded-full"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" onClick={prevSlide} disabled={currentSlide === 0} className="rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
         </div>
       </div>
     </div>
