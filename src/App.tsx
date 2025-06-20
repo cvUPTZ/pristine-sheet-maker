@@ -16,7 +16,7 @@ import { usePermissionChecker } from './hooks/usePermissionChecker';
 
 // Import all page components
 import Header from './components/Header';
-import LandingPage from '@/pages/LandingPage';
+// import LandingPage from '@/pages/LandingPage';
 import BusinessPresentation from '@/pages/BusinessPresentation';
 import Index from '@/pages/Index';
 import MatchAnalysisV2 from '@/pages/MatchAnalysisV2';
@@ -137,9 +137,9 @@ const AppContent: React.FC = () => {
       <Header />
       <Routes>
         {/* Public routes */}
-         <Route path="/" element={<LandingPage />}/>
+           <Route path="/" element={<Auth />}/>
         {/* <Route path="/landing" element={<LandingPage />} /> */}
-        <Route path="/auth" element={<Auth />} />
+        {/* <Route path="/auth" element={<Auth />} /> */}
         <Route path="/business-presentation" element={<BusinessPresentation />} />
         
         {/* Profile/Dashboard routes */}
