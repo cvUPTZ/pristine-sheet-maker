@@ -4,6 +4,12 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
 
 const TooltipProvider = ({ children, ...props }: React.ComponentProps<typeof TooltipPrimitive.Provider>) => {
+  // Ensure React is properly loaded before rendering
+  if (typeof React === 'undefined' || React === null) {
+    console.warn('React is not properly loaded for TooltipProvider');
+    return <>{children}</>;
+  }
+  
   return (
     <TooltipPrimitive.Provider {...props}>
       {children}

@@ -327,3 +327,5 @@ const App: React.FC = () => (
     </AuthProvider>
   </QueryClientProvider>
 );
+
+export default App;

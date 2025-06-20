@@ -7,13 +7,7 @@
   "permissions": [
     "storage",
     "activeTab",
-    "notifications",
-    "tabs"
-  ],
-  "host_permissions": [
-    "*://www.youtube.com/*",
-    "*://youtube.com/*",
-    "*://*.supabase.co/*"
+    "notifications"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -32,19 +26,8 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "tracker-widget.html", 
-        "tracker-widget.js", 
-        "tracker-widget.css", 
-        "supabase.js",
-        "icons/icon128.png"
-      ],
+      "resources": ["tracker-widget.html", "tracker-widget.js", "tracker-widget.css", "supabase.js"],
       "matches": ["*://www.youtube.com/*", "*://youtube.com/*"]
     }
-  ],
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
+  ]
 }
