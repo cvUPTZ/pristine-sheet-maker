@@ -1,11 +1,11 @@
 // src/App.tsx
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { AuthProvider } from '@/context/AuthContext';
-import { RequireAuth, AdminOnly, ManagerAccess, TrackerAccess } from '@/components/RequireAuth';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { RequireAuth, AdminOnly, ManagerAccess, TrackerAccess } from "./components/RequireAuth";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -14,29 +14,26 @@ import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
 
-// Import all page components
+// Import all the page components
 import Header from './components/Header';
-// import LandingPage from '@/pages/LandingPage';
-import BusinessPresentation from '@/pages/BusinessPresentation';
-import Index from '@/pages/Index';
-import MatchAnalysisV2 from '@/pages/MatchAnalysisV2';
-import Auth from '@/pages/Auth';
-import Dashboard from '@/pages/Dashboard';
-import Admin from '@/pages/Admin';
-import ProfileListPage from '@/pages/Admin/ProfileListPage';
-import Settings from '@/pages/Settings';
-import VideoAnalysis from '@/pages/VideoAnalysis';
-import DirectVideoAnalyzer from '@/pages/DirectVideoAnalyzer';
-import Statistics from '@/pages/Statistics';
-import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
-import TrackerInterface from '@/pages/TrackerInterface';
-import NotFound from '@/pages/NotFound';
-import CreateMatch from '@/pages/CreateMatch';
-import Matches from '@/pages/Matches';
-import MatchAnalysis from '@/pages/MatchAnalysis';
-import MatchPlanningPage from '@/pages/MatchPlanningPage';
-import MatchTimerPage from '@/pages/MatchTimerPage';
-import NewVoiceChatPage from '@/pages/NewVoiceChatPage';
+import LandingPage from './pages/LandingPage';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+import Index from './pages/Index';
+import MatchAnalysisV2 from './pages/MatchAnalysisV2';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import CreateMatch from './pages/CreateMatch';
+import MatchTimerPage from './pages/MatchTimerPage';
+import VideoAnalysis from './pages/VideoAnalysis';
+import DirectVideoAnalyzer from './pages/DirectVideoAnalyzer';
+import TrackerInterface from './pages/TrackerInterface';
+import Matches from './pages/Matches';
+import Statistics from './pages/Statistics';
+import Admin from './pages/Admin';
+import ProfileListPage from './pages/Admin/ProfileListPage';
+import NewVoiceChatPage from './pages/NewVoiceChatPage';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 
@@ -61,7 +58,6 @@ const AppContent: React.FC = () => {
     console.log(`App component: Network is currently ${isOnline ? 'Online' : 'Offline'}`);
   }, [isOnline]);
 
-  // Service Worker registration
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = async () => {
@@ -137,21 +133,13 @@ const AppContent: React.FC = () => {
       <Header />
       <Routes>
         {/* Public routes */}
-           <Route path="/" element={<Auth />}/>
-        {/* <Route path="/landing" element={<LandingPage />} /> */}
-        {/* <Route path="/auth" element={<Auth />} /> */}
-        <Route path="/business-presentation" element={<BusinessPresentation />} />
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/auth" element={<Auth />} />
         
-        {/* Profile/Dashboard routes */}
-        <Route path="/profile" element={
+        {/* Protected routes - General Access */}
+        <Route path="/" element={
           <RequireAuth>
             <Dashboard />
-          </RequireAuth>
-        } />
-        
-        <Route path="/dashboard" element={
-          <RequireAuth>
-            <Index />
           </RequireAuth>
         } />
         
@@ -162,47 +150,21 @@ const AppContent: React.FC = () => {
         } />
         
         {/* Match Management Routes */}
-        <Route path="/matches" element={
-          <RequireAuth 
-            requiredRoles={['admin', 'manager']}
-            requiredPermissions={['canViewMatches']}
-          >
-            <Matches />
-          </RequireAuth>
-        } />
-        
-        <Route path="/create-match" element={
-          <RequireAuth 
-            requiredRoles={['admin']}
-            requiredPermissions={['canCreateMatches']}
-          >
-            <CreateMatch />
-          </RequireAuth>
-        } />
-        
         <Route path="/match" element={
           <RequireAuth 
             requiredRoles={['admin', 'tracker']}
             requiredPermissions={['canViewMatches']}
           >
-            <CreateMatch />
+            <Index />
           </RequireAuth>
         } />
         
         <Route path="/match/:matchId" element={
           <RequireAuth 
             requiredRoles={['admin', 'tracker']}
-            requiredPermissions={['canTrackMatches', 'canViewMatches']}
+            requiredPermissions={['canTrackMatches']}
           >
             <MatchAnalysisV2 />
-          </RequireAuth>
-        } />
-        
-        <Route path="/match-analysis/:matchId" element={
-          <RequireAuth 
-            requiredPermissions={['canViewMatches']}
-          >
-            <MatchAnalysis />
           </RequireAuth>
         } />
         
@@ -224,59 +186,12 @@ const AppContent: React.FC = () => {
           </RequireAuth>
         } />
         
-        <Route path="/match-planning" element={
-          <RequireAuth 
-            requiredPermissions={['canCreateMatches']}
-          >
-            <MatchPlanningPage />
-          </RequireAuth>
-        } />
-        
-        <Route path="/match-timer" element={
-          <RequireAuth 
-            requiredPermissions={['canTrackMatches']}
-          >
-            <MatchTimerPage />
-          </RequireAuth>
-        } />
-        
         <Route path="/match/:matchId/timer" element={
           <RequireAuth 
             requiredRoles={['admin']}
             requiredPermissions={['canManageMatchTimer']}
           >
             <MatchTimerPage />
-          </RequireAuth>
-        } />
-        
-        {/* Tracker Routes */}
-        <Route path="/tracker" element={
-          <TrackerAccess>
-            <TrackerInterface />
-          </TrackerAccess>
-        } />
-        
-        <Route path="/tracker-interface" element={
-          <TrackerAccess>
-            <TrackerInterface />
-          </TrackerAccess>
-        } />
-        
-        {/* Analytics & Statistics */}
-        <Route path="/statistics" element={
-          <RequireAuth 
-            requiredPermissions={['canViewStatistics']}
-          >
-            <Statistics />
-          </RequireAuth>
-        } />
-        
-        <Route path="/analytics" element={
-          <RequireAuth 
-            requiredRoles={['admin', 'manager', 'tracker']}
-            requiredPermissions={['canViewAnalytics']}
-          >
-            <AnalyticsDashboard />
           </RequireAuth>
         } />
         
@@ -291,25 +206,56 @@ const AppContent: React.FC = () => {
         } />
         
         <Route path="/direct-analyzer" element={
+           <DirectVideoAnalyzer />
+        } />
+
+        {/* Tracker Routes */}
+        <Route path="/tracker" element={
+          <TrackerAccess>
+            <TrackerInterface />
+          </TrackerAccess>
+        } />
+        
+        <Route path="/tracker-interface" element={
+          <TrackerAccess>
+            <TrackerInterface />
+          </TrackerAccess>
+        } />
+        
+        {/* Management Routes */}
+        <Route path="/matches" element={
           <RequireAuth 
-            requiredPermissions={['canAnalyzeVideos']}
+            requiredRoles={['admin', 'manager']}
+            requiredPermissions={['canViewMatches']}
           >
-            <DirectVideoAnalyzer />
+            <Matches />
           </RequireAuth>
         } />
         
-        {/* Communication Routes */}
-        <Route path="/voice-chat" element={
-          <RequireAuth>
-            <NewVoiceChatPage />
+        <Route path="/create-match" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canCreateMatches']}
+          >
+            <CreateMatch />
           </RequireAuth>
         } />
         
-        <Route path="/match/:matchId/voice-chat" element={
+        {/* Analytics & Statistics */}
+        <Route path="/statistics" element={
           <RequireAuth 
-            requiredPermissions={['canUseVoiceChat']}
+            requiredPermissions={['canViewStatistics']}
           >
-            <NewVoiceChatPage />
+            <Statistics />
+          </RequireAuth>
+        } />
+        
+        <Route path="/analytics" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'manager','tracker']}
+            requiredPermissions={['canViewAnalytics']}
+          >
+            <AnalyticsDashboard />
           </RequireAuth>
         } />
         
@@ -329,7 +275,16 @@ const AppContent: React.FC = () => {
           </RequireAuth>
         } />
         
-        {/* Error Handling Routes */}
+        {/* Communication Routes */}
+        <Route path="/match/:matchId/voice-chat" element={
+          <RequireAuth 
+            requiredPermissions={['canUseVoiceChat']}
+          >
+            <NewVoiceChatPage />
+          </RequireAuth>
+        } />
+        
+        {/* Fallback Routes */}
         <Route path="/unauthorized" element={
           <div className="flex items-center justify-center min-h-screen bg-background">
             <div className="text-center space-y-4 p-8">
@@ -357,25 +312,18 @@ const AppContent: React.FC = () => {
           </div>
         } />
         
-        {/* Catch all route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <AppContent />
-        </AuthProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
-  );
-};
-
-export default App;
+const App: React.FC = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <Toaster />
+      <Sonner />
+      <AppContent />
+    </AuthProvider>
+  </QueryClientProvider>
+);
