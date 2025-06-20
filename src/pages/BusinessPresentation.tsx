@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,11 +27,15 @@ const BusinessPresentation: React.FC = () => {
     }
   };
 
+  // Navigation functions
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
+  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') nextSlide();
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') prevSlide();
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevSlide();
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextSlide();
       if (e.key === 'f' || e.key === 'F11') {
         e.preventDefault();
         toggleFullscreen();
@@ -295,7 +300,7 @@ const BusinessPresentation: React.FC = () => {
       )
     },
 
-    // Slide 7: Enhanced Implementation
+    // Slide 7: Implementation
     {
       id: 'implementation',
       title: 'التنفيذ والمرافقة',
@@ -345,3 +350,140 @@ const BusinessPresentation: React.FC = () => {
                     <li className="flex items-center justify-end gap-3">
                       <span>حل المشاكل في وقت مضمون أقل من ساعة</span>
                       <Check className="h-6 w-6 text-green-600" />
+                    </li>
+                    <li className="flex items-center justify-end gap-3">
+                      <span>تحديثات مجانية للميزات الجديدة</span>
+                      <Check className="h-6 w-6 text-green-600" />
+                    </li>
+                  </ul>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+
+    // Slide 8: Contact
+    {
+      id: 'contact',
+      title: 'ابدأ رحلتك نحو التميز',
+      subtitle: 'اتصل بنا اليوم واحصل على عرض مخصص لناديك',
+      content: (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center space-y-12 max-w-4xl">
+            <div className="grid grid-cols-2 gap-12">
+              <Card className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-3xl shadow-xl">
+                <h3 className="text-3xl font-bold text-slate-900 mb-6">تواصل معنا</h3>
+                <div className="space-y-4 text-lg text-slate-700">
+                  <div className="flex items-center justify-center gap-3">
+                    <span>contact@footballanalytics.dz</span>
+                    <MessageSquare className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <span>+213 555 123 456</span>
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-8 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-3xl shadow-xl">
+                <h3 className="text-3xl font-bold text-slate-900 mb-6">عرض تجريبي مجاني</h3>
+                <p className="text-lg text-slate-700 mb-6">
+                  احجز جلسة عرض تجريبي مخصصة لناديك
+                </p>
+                <Button className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-8 py-4 text-lg font-bold rounded-xl shadow-lg">
+                  احجز العرض التجريبي
+                </Button>
+              </Card>
+            </div>
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-3xl p-12 text-white">
+              <h3 className="text-4xl font-bold mb-6">شكراً لوقتكم</h3>
+              <p className="text-2xl opacity-90">
+                معاً نبني مستقبل كرة القدم الجزائرية
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 relative" dir="rtl">
+      {/* Presentation Container */}
+      <div className="relative h-screen flex flex-col">
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200/50 px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleFullscreen}
+              className="flex items-center gap-2"
+            >
+              <Fullscreen className="h-4 w-4" />
+              {isFullscreen ? 'خروج من الشاشة الكاملة' : 'شاشة كاملة'}
+            </Button>
+          </div>
+          
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-slate-900">{slides[currentSlide].title}</h2>
+            <p className="text-slate-600">{slides[currentSlide].subtitle}</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-500">
+              {currentSlide + 1} / {slides.length}
+            </span>
+          </div>
+        </div>
+
+        {/* Slide Content */}
+        <div className="flex-1 px-8 py-8 overflow-auto">
+          {slides[currentSlide].content}
+        </div>
+
+        {/* Navigation */}
+        <div className="bg-white/80 backdrop-blur-sm border-t border-slate-200/50 px-8 py-4">
+          <div className="flex justify-between items-center">
+            <Button
+              variant="outline"
+              onClick={prevSlide}
+              disabled={currentSlide === 0}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              السابق
+            </Button>
+            
+            <div className="flex gap-2">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    index === currentSlide 
+                      ? 'bg-blue-600' 
+                      : 'bg-slate-300 hover:bg-slate-400'
+                  }`}
+                />
+              ))}
+            </div>
+            
+            <Button
+              variant="outline"
+              onClick={nextSlide}
+              disabled={currentSlide === slides.length - 1}
+              className="flex items-center gap-2"
+            >
+              التالي
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BusinessPresentation;
