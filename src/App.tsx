@@ -137,7 +137,7 @@ const AppContent: React.FC = () => {
       <Header />
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
+        {/* <Route path="/" element={<LandingPage />} /> */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/business-presentation" element={<BusinessPresentation />} />
