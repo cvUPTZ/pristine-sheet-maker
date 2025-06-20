@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -230,7 +231,9 @@ const BusinessPresentation: React.FC = () => {
                   "متابعة تطور اللاعبين",
                   "دعم عبر الإيميل والواتساب"
                 ],
-                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-slate-900 hover:bg-slate-800", buttonText: "اطلب عرض سعر"
+                cardStyle: "bg-white border-slate-200", 
+                buttonStyle: "bg-slate-900 hover:bg-slate-800", 
+                buttonText: "اطلب عرض سعر"
               },
               {
                 name: "باقة الاحتراف",
@@ -245,7 +248,10 @@ const BusinessPresentation: React.FC = () => {
                   "دعم ذو أولوية 24/7",
                   "تكوين للطاقم الفني"
                 ],
-                popular: true, cardStyle: "bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-2xl scale-105", buttonStyle: "bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700", buttonText: "اطلب عرض سعر"
+                popular: true, 
+                cardStyle: "bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-2xl scale-105", 
+                buttonStyle: "bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700", 
+                buttonText: "اطلب عرض سعر"
               },
               {
                 name: "باقة الفيدرالية",
@@ -259,24 +265,129 @@ const BusinessPresentation: React.FC = () => {
                   "تطوير ميزات خاصة",
                   "مرافقة استراتيجية"
                 ],
-                cardStyle: "bg-white border-slate-200", buttonStyle: "bg-red-700 hover:bg-red-800", buttonText: "اتصل بنا"
+                cardStyle: "bg-white border-slate-200", 
+                buttonStyle: "bg-red-700 hover:bg-red-800", 
+                buttonText: "اتصل بنا"
               }
             ].map((plan) => (
               <Card key={plan.name} className={`${plan.cardStyle} transition-all duration-300 rounded-2xl overflow-hidden flex flex-col`}>
-                {plan.popular && <div className="absolute -top-4 left-1/2 transform -translate-x-1/2"><Badge className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 shadow-lg font-semibold">الأكثر طلباً</Badge></div>}
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 shadow-lg font-semibold">
+                      الأكثر طلباً
+                    </Badge>
+                  </div>
+                )}
                 <CardHeader className="text-center pt-8">
-                  <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">{plan.icon}</div>
-                  <CardTitle className="text-2xl font-semibold text-slate-900 mb-3">{plan.name}</CardTitle>
-                  <div className="mb-3"><span className="text-4xl font-bold text-slate-900">{plan.price}</span></div>
+                  <div className="mx-auto mb-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl w-fit shadow-lg">
+                    {plan.icon}
+                  </div>
+                  <CardTitle className="text-2xl font-semibold text-slate-900 mb-3">
+                    {plan.name}
+                  </CardTitle>
+                  <div className="mb-3">
+                    <span className="text-4xl font-bold text-slate-900">{plan.price}</span>
+                  </div>
                   <p className="text-slate-600 px-4 h-16">{plan.description}</p>
                 </CardHeader>
                 <CardContent className="px-8 pb-8 flex flex-col flex-grow">
                   <ul className="space-y-3 mb-8 flex-grow text-right">
-                    {plan.features.map((feature, i) => <li key={i} className="flex items-center justify-end gap-3"><span className="text-slate-700">{feature}</span><Check className="h-5 w-5 text-green-500 flex-shrink-0" /></li>)}
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-center justify-end gap-3">
+                        <span className="text-slate-700">{feature}</span>
+                        <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      </li>
+                    ))}
                   </ul>
-                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3 mt-auto font-bold`}>{plan.buttonText}</Button>
+                  <Button className={`w-full ${plan.buttonStyle} shadow-lg hover:shadow-xl transition-all duration-300 py-3 mt-auto font-bold`}>
+                    {plan.buttonText}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
-          <p className="text-center text-slate-500 italic">عروض الأسعار بالدينار (DZD) أو
+          <p className="text-center text-slate-500 italic">
+            عروض الأسعار بالدينار (DZD) أو الأورو حسب تفضيلك
+          </p>
+        </div>
+      )
+    }
+  ];
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4" dir="rtl">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">
+            {slides[currentSlide].title}
+          </h1>
+          <p className="text-lg text-slate-600">
+            {slides[currentSlide].subtitle}
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="bg-white/70 backdrop-blur-sm rounded-3xl p-8 shadow-xl min-h-[600px] flex items-center">
+          {slides[currentSlide].content}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-center mt-8 space-x-4">
+          <Button
+            onClick={prevSlide}
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex space-x-2">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToSlide(index)}
+                className={`w-3 h-3 rounded-full transition-all ${
+                  index === currentSlide
+                    ? 'bg-blue-600'
+                    : 'bg-slate-300 hover:bg-slate-400'
+                }`}
+              />
+            ))}
+          </div>
+
+          <Button
+            onClick={nextSlide}
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Slide counter */}
+        <div className="text-center mt-4">
+          <span className="text-slate-500">
+            {currentSlide + 1} من {slides.length}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BusinessPresentation;
