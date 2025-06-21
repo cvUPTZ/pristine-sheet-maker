@@ -54,20 +54,26 @@ export const RequireAuth: React.FC<{
 };
 
 // Helper components for specific access levels
-export const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RequireAuth requiredRoles={['admin']}>
-    {children}
-  </RequireAuth>
-);
+export const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <RequireAuth requiredRoles={['admin']}>
+      {children}
+    </RequireAuth>
+  );
+};
 
-export const ManagerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RequireAuth requiredRoles={['admin', 'manager']}>
-    {children}
-  </RequireAuth>
-);
+export const ManagerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <RequireAuth requiredRoles={['admin', 'manager']}>
+      {children}
+    </RequireAuth>
+  );
+};
 
-export const TrackerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RequireAuth requiredRoles={['admin', 'tracker']}>
-    {children}
-  </RequireAuth>
-);
+export const TrackerAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <RequireAuth requiredRoles={['admin', 'tracker']}>
+      {children}
+    </RequireAuth>
+  );
+};
