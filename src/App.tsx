@@ -153,9 +153,7 @@ const AppContent: React.FC = () => {
         
         {/* Chrome Extension Bridge - Check for admin role more carefully */}
         <Route path="/extension-bridge" element={
-          <RequireAuth requiredRoles={['admin']}>
             <ChromeExtensionBridge />
-          </RequireAuth>
         } />
         
         {/* Match Management Routes */}
