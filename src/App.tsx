@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -150,11 +151,11 @@ const AppContent: React.FC = () => {
           </RequireAuth>
         } />
         
-        {/* Chrome Extension Bridge - Admin Only */}
+        {/* Chrome Extension Bridge - Check for admin role more carefully */}
         <Route path="/extension-bridge" element={
-          <AdminOnly>
+          <RequireAuth requiredRoles={['admin']}>
             <ChromeExtensionBridge />
-          </AdminOnly>
+          </RequireAuth>
         } />
         
         {/* Match Management Routes */}
@@ -310,7 +311,7 @@ const AppContent: React.FC = () => {
                   Go Back
                 </button>
                 <button 
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/')}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
                   Dashboard
