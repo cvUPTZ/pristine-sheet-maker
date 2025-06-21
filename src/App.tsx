@@ -33,6 +33,7 @@ import Statistics from './pages/Statistics';
 import Admin from './pages/Admin';
 import ProfileListPage from './pages/Admin/ProfileListPage';
 import NewVoiceChatPage from './pages/NewVoiceChatPage';
+import ChromeExtensionBridge from './pages/ChromeExtensionBridge';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -147,6 +148,13 @@ const AppContent: React.FC = () => {
           <RequireAuth>
             <Settings />
           </RequireAuth>
+        } />
+        
+        {/* Chrome Extension Bridge - Admin Only */}
+        <Route path="/extension-bridge" element={
+          <AdminOnly>
+            <ChromeExtensionBridge />
+          </AdminOnly>
         } />
         
         {/* Match Management Routes */}
