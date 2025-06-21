@@ -1,8 +1,8 @@
 
 {
   "manifest_version": 3,
-  "name": "Football Tracker Piano",
-  "version": "1.0.0",
+  "name": "Football Tracker Piano (Dev)",
+  "version": "1.0.0-dev",
   "description": "Professional football event tracking interface for YouTube match videos",
   "permissions": [
     "storage",
@@ -19,14 +19,14 @@
   "content_scripts": [
     {
       "matches": ["*://www.youtube.com/watch*", "*://youtube.com/watch*"],
-      "js": ["content.js"],
+      "js": ["hot-reload.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["tracker-widget.html", "tracker-widget.js", "tracker-widget.css", "supabase.js"],
+      "resources": ["tracker-widget.html", "tracker-widget.js", "tracker-widget.css", "supabase.js", "hot-reload.js"],
       "matches": ["*://www.youtube.com/*", "*://youtube.com/*"]
     }
   ]
