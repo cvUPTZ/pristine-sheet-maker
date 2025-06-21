@@ -137,7 +137,8 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
-        
+        <Route path="/extension-bridge" element={    <ChromeExtensionBridge /> } />
+
         {/* Protected routes - General Access */}
         <Route path="/" element={
           <RequireAuth>
@@ -152,9 +153,6 @@ const AppContent: React.FC = () => {
         } />
         
         {/* Chrome Extension Bridge - Check for admin role more carefully */}
-        <Route path="/extension-bridge" element={
-            <ChromeExtensionBridge />
-        } />
         
         {/* Match Management Routes */}
         <Route path="/match" element={
