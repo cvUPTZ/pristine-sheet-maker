@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +66,12 @@ export default function ChromeExtensionBridge() {
   // Check if Chrome extension is available
   const checkExtensionStatus = React.useCallback(async () => {
     try {
+      // Check if we're in a browser environment first
+      if (typeof window === 'undefined') {
+        addLog('error', 'webapp', 'Not running in browser environment');
+        return;
+      }
+
       const isInstalled = !!(window as any).chrome?.runtime;
       
       if (isInstalled) {
@@ -83,14 +88,14 @@ export default function ChromeExtensionBridge() {
             }));
           }
         } catch (e: any) {
-          addLog('warning', 'webapp', 'Could not get extension manifest', { error: e.message, stack: e.stack });
+          addLog('warning', 'webapp', 'Could not get extension manifest', { error: e.message });
         }
       } else {
         addLog('error', 'webapp', 'Chrome extension not detected. Please ensure it is installed and enabled.');
         setExtensionStatus(prev => ({ ...prev, isInstalled: false, isConnected: false, version: undefined, permissions: [] }));
       }
     } catch (error: any) {
-      addLog('error', 'webapp', 'Error checking extension status', { error: error.message, stack: error.stack });
+      addLog('error', 'webapp', 'Error checking extension status', { error: error.message });
       setExtensionStatus(prev => ({ ...prev, isInstalled: false, isConnected: false }));
     }
   }, [addLog]);
@@ -126,7 +131,12 @@ export default function ChromeExtensionBridge() {
         test: async () => {
           return new Promise((resolve) => {
             try {
-              (window as any).chrome?.runtime?.sendMessage(
+              if (!(window as any).chrome?.runtime?.sendMessage) {
+                resolve(false);
+                return;
+              }
+              
+              (window as any).chrome.runtime.sendMessage(
                 { type: 'PING' },
                 (response: any) => {
                   resolve(!!response);
@@ -144,7 +154,12 @@ export default function ChromeExtensionBridge() {
         test: async () => {
           return new Promise((resolve) => {
             try {
-              (window as any).chrome?.storage?.local?.get(['test'], (result: any) => {
+              if (!(window as any).chrome?.storage?.local) {
+                resolve(false);
+                return;
+              }
+              
+              (window as any).chrome.storage.local.get(['test'], (result: any) => {
                 resolve(!!(window as any).chrome?.runtime?.lastError === undefined);
               });
             } catch {
@@ -164,7 +179,7 @@ export default function ChromeExtensionBridge() {
         addLog(status, 'webapp', `${test.name}: ${result ? 'PASSED' : 'FAILED'}`);
       } catch (error: any) {
         setTestResults(prev => ({ ...prev, [test.name]: 'error' }));
-        addLog('error', 'webapp', `${test.name}: ERROR during diagnostics`, { error: error.message, stack: error.stack, testName: test.name });
+        addLog('error', 'webapp', `${test.name}: ERROR during diagnostics`, { error: error.message, testName: test.name });
       }
     }
     addLog('info', 'webapp', 'Diagnostics complete.');
@@ -194,7 +209,7 @@ export default function ChromeExtensionBridge() {
         addLog('error', 'webapp', 'Chrome runtime or sendMessage API not available. Is the extension installed and active?');
       }
     } catch (error: any) {
-      addLog('error', 'webapp', `Error sending message: ${messageType}`, { error: error.message, stack: error.stack });
+      addLog('error', 'webapp', `Error sending message: ${messageType}`, { error: error.message });
     }
   }, [addLog]);
 
@@ -239,7 +254,8 @@ export default function ChromeExtensionBridge() {
   useEffect(() => {
     checkExtensionStatus();
 
-    if ((window as any).chrome?.runtime?.onMessage) {
+    // Set up extension message listener
+    if (typeof window !== 'undefined' && (window as any).chrome?.runtime?.onMessage) {
       (window as any).chrome.runtime.onMessage.addListener(handleExtensionMessage);
       addLog('debug', 'system', 'Extension message listener attached.');
     }
@@ -261,12 +277,12 @@ export default function ChromeExtensionBridge() {
     
     return () => {
       if (intervalId) clearInterval(intervalId);
-      if ((window as any).chrome?.runtime?.onMessage) {
+      if (typeof window !== 'undefined' && (window as any).chrome?.runtime?.onMessage) {
         (window as any).chrome.runtime.onMessage.removeListener(handleExtensionMessage);
         addLog('debug', 'system', 'Extension message listener detached.');
       }
     };
-  }, [checkExtensionStatus, addLog, isMonitoring, sanitizeString, handleExtensionMessage]);
+  }, [checkExtensionStatus, addLog, isMonitoring, handleExtensionMessage]);
 
   const extensionStatusRef = React.useRef(extensionStatus);
   useEffect(() => {
