@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,14 +32,14 @@ interface ExtensionStatus {
 
 interface LogEntry {
   timestamp: string;
-  type: 'debug' | 'info' | 'warning' | 'error' | 'success'; // Added 'debug'
-  source: 'webapp' | 'extension' | 'background' | 'system'; // Added 'system'
+  type: 'debug' | 'info' | 'warning' | 'error' | 'success';
+  source: 'webapp' | 'extension' | 'background' | 'system';
   message: string;
   data?: any;
-  id: string; // Added unique ID for logs
+  id: string;
 }
 
-const MAX_LOGS = 200; // Increased log limit
+const MAX_LOGS = 200;
 
 export default function ChromeExtensionBridge() {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>({
@@ -48,12 +49,12 @@ export default function ChromeExtensionBridge() {
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const [logFilter, setLogFilter] = useState<LogEntry['type'] | 'all'>('all'); // For filtering
+  const [logFilter, setLogFilter] = useState<LogEntry['type'] | 'all'>('all');
   const [testResults, setTestResults] = useState<Record<string, 'pending' | 'success' | 'error'>>({});
 
   const addLog = React.useCallback((type: LogEntry['type'], source: LogEntry['source'], message: string, data?: any) => {
     const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Simple unique ID
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       timestamp: new Date().toISOString(),
       type,
       source,
@@ -61,25 +62,17 @@ export default function ChromeExtensionBridge() {
       data
     };
     setLogs(prev => [newLog, ...prev.slice(0, MAX_LOGS - 1)]);
-    
-    // Optional: Send critical errors to a remote logging service
-    if (type === 'error') {
-      // console.error("Critical Error Logged:", newLog); // Example: could be an API call
-      // sendErrorToLoggingService(newLog);
-    }
-  }, []); // Empty dependency array as it doesn't depend on component state/props
+  }, []);
 
   // Check if Chrome extension is available
   const checkExtensionStatus = React.useCallback(async () => {
     try {
-      // Try to detect if extension is installed by checking for injected scripts
       const isInstalled = !!(window as any).chrome?.runtime;
       
       if (isInstalled) {
         addLog('success', 'webapp', 'Chrome extension detected');
         setExtensionStatus(prev => ({ ...prev, isInstalled: true }));
         
-        // Try to get extension details
         try {
           const manifest = (window as any).chrome?.runtime?.getManifest?.();
           if (manifest) {
@@ -104,7 +97,7 @@ export default function ChromeExtensionBridge() {
 
   // Test different extension functionalities
   const runDiagnostics = React.useCallback(async () => {
-    setTestResults({}); // Reset previous results
+    setTestResults({});
     addLog('info', 'webapp', 'Starting diagnostics...');
 
     const tests = [
@@ -118,7 +111,6 @@ export default function ChromeExtensionBridge() {
       {
         name: 'Content Script Injection',
         test: async () => {
-          // Check if content script is loaded on YouTube
           return new Promise((resolve) => {
             if (window.location.hostname.includes('youtube.com')) {
               const trackerButton = document.getElementById('football-tracker-launch-btn');
@@ -206,10 +198,8 @@ export default function ChromeExtensionBridge() {
     }
   }, [addLog]);
 
-  // Function to sanitize strings to prevent XSS if displayed directly
-  // Memoize sanitizeString as it's a pure function and could be used in multiple places
   const sanitizeString = React.useCallback((str: string): string => {
-    if (typeof str !== 'string') return ''; // Handle non-string inputs gracefully
+    if (typeof str !== 'string') return '';
     const BANNED_CHARS_REGEX = /[<>&"'`]/g;
     const map: Record<string, string> = {
       '<': '&lt;',
@@ -222,49 +212,44 @@ export default function ChromeExtensionBridge() {
     return str.replace(BANNED_CHARS_REGEX, (match) => map[match]);
   }, []);
 
+  // Memoized listener for messages from the extension
+  const handleExtensionMessage = React.useCallback((message: any, sender: any) => {
+    if (sender.id !== (window as any).chrome?.runtime?.id) {
+      addLog('warning', 'webapp', 'Received message from unexpected sender ID.', { senderId: sender.id, expectedId: (window as any).chrome?.runtime?.id });
+      return;
+    }
+
+    addLog('info', 'extension', `Received message: ${message.type}`, message.payload);
+
+    if (message.type === 'EXTENSION_STATUS_UPDATE') {
+      setExtensionStatus(prev => {
+        const newActiveTab = message.payload?.activeTabUrl ? sanitizeString(message.payload.activeTabUrl) : undefined;
+        if (prev.isConnected !== message.payload?.isConnected || prev.activeTab !== newActiveTab) {
+          return {
+            ...prev,
+            isConnected: message.payload?.isConnected,
+            activeTab: newActiveTab,
+          };
+        }
+        return prev;
+      });
+    }
+  }, [addLog, sanitizeString]);
 
   useEffect(() => {
-    checkExtensionStatus(); // Initial check
-
-    // Memoized listener for messages from the extension
-    const handleExtensionMessage = React.useCallback((message: any, sender: chrome.runtime.MessageSender) => {
-      if (sender.id !== (window as any).chrome?.runtime?.id) {
-        addLog('warning', 'webapp', 'Received message from unexpected sender ID.', { senderId: sender.id, expectedId: (window as any).chrome?.runtime?.id });
-        return;
-      }
-
-      addLog('info', 'extension', `Received message: ${message.type}`, message.payload);
-
-      if (message.type === 'EXTENSION_STATUS_UPDATE') {
-        setExtensionStatus(prev => {
-          const newActiveTab = message.payload?.activeTabUrl ? sanitizeString(message.payload.activeTabUrl) : undefined;
-          // Only update if values have actually changed to prevent unnecessary re-renders
-          if (prev.isConnected !== message.payload?.isConnected || prev.activeTab !== newActiveTab) {
-            return {
-              ...prev,
-              isConnected: message.payload?.isConnected,
-              activeTab: newActiveTab,
-            };
-          }
-          return prev;
-        });
-      }
-    }, [addLog, sanitizeString]); // sanitizeString is memoized
+    checkExtensionStatus();
 
     if ((window as any).chrome?.runtime?.onMessage) {
       (window as any).chrome.runtime.onMessage.addListener(handleExtensionMessage);
       addLog('debug', 'system', 'Extension message listener attached.');
     }
     
-    // Monitoring interval
     let intervalId: NodeJS.Timeout | null = null;
     if (isMonitoring) {
       addLog('info', 'system', 'Monitoring started.');
       intervalId = setInterval(() => {
-        // Pass stable values to addLog to avoid it changing identity if not memoized correctly
-        // (already handled by addLog being memoized with empty deps)
         addLog('debug', 'system', 'Monitoring heartbeat', { 
-          isConnected: extensionStatusRef.current.isConnected, // Use ref for latest value
+          isConnected: extensionStatusRef.current.isConnected,
           activeTab: extensionStatusRef.current.activeTab 
         });
       }, 30000);
@@ -281,14 +266,12 @@ export default function ChromeExtensionBridge() {
         addLog('debug', 'system', 'Extension message listener detached.');
       }
     };
-  }, [checkExtensionStatus, addLog, isMonitoring, sanitizeString, handleExtensionMessage]); // Ensure all stable dependencies are listed
+  }, [checkExtensionStatus, addLog, isMonitoring, sanitizeString, handleExtensionMessage]);
 
-  // Ref to hold the latest extensionStatus for use in setInterval
   const extensionStatusRef = React.useRef(extensionStatus);
   useEffect(() => {
     extensionStatusRef.current = extensionStatus;
   }, [extensionStatus]);
-
 
   const getStatusIcon = React.useCallback((status: string) => {
     switch (status) {
@@ -297,7 +280,7 @@ export default function ChromeExtensionBridge() {
       case 'pending': return <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />;
       default: return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
     }
-  }, []); // No dependencies, this function is pure
+  }, []);
 
   const getLogIcon = React.useCallback((type: string) => {
     switch (type) {
@@ -305,20 +288,15 @@ export default function ChromeExtensionBridge() {
       case 'error': return <XCircle className="w-4 h-4 text-red-500" />;
       case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
       case 'info': return <MessageSquare className="w-4 h-4 text-blue-500" />;
-      case 'debug': return <Bug className="w-4 h-4 text-gray-400" />; // Icon for debug
+      case 'debug': return <Bug className="w-4 h-4 text-gray-400" />;
       default: return <MessageSquare className="w-4 h-4 text-gray-500" />;
     }
-  }, []); // No dependencies, this function is pure
+  }, []);
 
-  // Memoize filteredLogs to avoid re-filtering on every render unless logs or logFilter change.
   const filteredLogs = React.useMemo(() => {
     if (logFilter === 'all') return logs;
     return logs.filter(log => log.type === logFilter);
   }, [logs, logFilter]);
-
-  // Memoize parts of the JSX if they are complex and don't change often.
-  // For this component, the main list rendering is already optimized by ScrollArea and item keys.
-  // Individual Cards could be memoized if their props were stable and they were expensive to render.
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
@@ -330,7 +308,6 @@ export default function ChromeExtensionBridge() {
         <Badge 
           variant={extensionStatus.isInstalled && extensionStatus.isConnected ? "default" : "destructive"} 
           className="px-3 py-1 text-sm self-center sm:self-auto"
-          aria-live="polite"
         >
           <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${extensionStatus.isInstalled && extensionStatus.isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
           {extensionStatus.isInstalled ? (extensionStatus.isConnected ? "Bridge Connected" : "Extension Found, Bridge Disconnected") : "Extension Not Found"}
@@ -338,8 +315,7 @@ export default function ChromeExtensionBridge() {
       </header>
 
       {/* Status Overview */}
-      <section aria-labelledby="status-overview-heading" className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <h2 id="status-overview-heading" className="sr-only">Status Overview</h2>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Extension Details</CardTitle>
@@ -391,8 +367,6 @@ export default function ChromeExtensionBridge() {
                 size="sm"
                 variant={isMonitoring ? "outline" : "default"}
                 onClick={() => setIsMonitoring(!isMonitoring)}
-                aria-pressed={isMonitoring}
-                title={isMonitoring ? "Stop real-time monitoring" : "Start real-time monitoring"}
                 className="w-full"
               >
                 {isMonitoring ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
@@ -402,7 +376,7 @@ export default function ChromeExtensionBridge() {
             <p className="text-xs text-muted-foreground mt-2">
               Status: {isMonitoring ? <span className="font-semibold text-green-600">Active</span> : <span className="font-semibold text-gray-600">Inactive</span>}
             </p>
-             {isMonitoring && <RefreshCw className="w-3 h-3 text-green-500 animate-spin absolute top-4 right-4" title="Monitoring is active" />}
+             {isMonitoring && <RefreshCw className="w-3 h-3 text-green-500 animate-spin absolute top-4 right-4" />}
           </CardContent>
         </Card>
 
@@ -415,9 +389,7 @@ export default function ChromeExtensionBridge() {
             <Button 
               size="sm" 
               onClick={checkExtensionStatus} 
-              className="w-full" 
-              title="Manually re-check the connection status and details of the Chrome Extension."
-              aria-label="Refresh extension status"
+              className="w-full"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh Status
@@ -425,9 +397,7 @@ export default function ChromeExtensionBridge() {
             <Button 
               size="sm" 
               onClick={runDiagnostics} 
-              className="w-full" 
-              title="Run a series of automated tests to diagnose potential issues with the extension's functionality."
-              aria-label="Run diagnostics"
+              className="w-full"
             >
               <Bug className="w-4 h-4 mr-2" />
               Run Diagnostics
@@ -438,10 +408,10 @@ export default function ChromeExtensionBridge() {
 
       <Tabs defaultValue="logs" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 text-sm sm:text-base">
-          <TabsTrigger value="logs" title="View detailed activity logs from the web application and extension."><Activity className="w-4 h-4 mr-2 sm:inline hidden"/>Activity Logs</TabsTrigger>
-          <TabsTrigger value="diagnostics" title="View results of diagnostic tests for extension functionality."><Bug className="w-4 h-4 mr-2 sm:inline hidden"/>Diagnostics</TabsTrigger>
-          <TabsTrigger value="testing" title="Send test messages to the extension for debugging."><MessageSquare className="w-4 h-4 mr-2 sm:inline hidden"/>Message Testing</TabsTrigger>
-          <TabsTrigger value="permissions" title="View permissions requested by the extension."><CheckCircle className="w-4 h-4 mr-2 sm:inline hidden"/>Permissions</TabsTrigger>
+          <TabsTrigger value="logs"><Activity className="w-4 h-4 mr-2 sm:inline hidden"/>Activity Logs</TabsTrigger>
+          <TabsTrigger value="diagnostics"><Bug className="w-4 h-4 mr-2 sm:inline hidden"/>Diagnostics</TabsTrigger>
+          <TabsTrigger value="testing"><MessageSquare className="w-4 h-4 mr-2 sm:inline hidden"/>Message Testing</TabsTrigger>
+          <TabsTrigger value="permissions"><CheckCircle className="w-4 h-4 mr-2 sm:inline hidden"/>Permissions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="diagnostics" className="space-y-4">
@@ -501,7 +471,6 @@ export default function ChromeExtensionBridge() {
                   value={logFilter}
                   onChange={(e) => setLogFilter(e.target.value as LogEntry['type'] | 'all')}
                   className="p-2 border rounded text-xs sm:text-sm bg-background text-foreground focus:ring-2 focus:ring-blue-500"
-                  aria-label="Filter logs by type"
                 >
                   <option value="all">All Types</option>
                   <option value="debug">Debug</option>
@@ -510,7 +479,7 @@ export default function ChromeExtensionBridge() {
                   <option value="warning">Warning</option>
                   <option value="error">Error</option>
                 </select>
-                <Button size="sm" variant="outline" onClick={() => { setLogs([]); addLog('info', 'system', 'Logs cleared by user.');}} title="Clear all current logs.">
+                <Button size="sm" variant="outline" onClick={() => { setLogs([]); addLog('info', 'system', 'Logs cleared by user.');}}>
                   Clear Logs
                 </Button>
               </div>
@@ -536,7 +505,7 @@ export default function ChromeExtensionBridge() {
                                 {log.source}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })}
+                                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               </span>
                             </div>
                           </div>
@@ -595,7 +564,7 @@ export default function ChromeExtensionBridge() {
                 </Button>
               </div>
               
-              <Alert variant="info" className="text-xs">
+              <Alert className="text-xs">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   Ensure the extension is installed, active, and the relevant page (if any) is open for context-specific messages.
