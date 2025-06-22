@@ -27,7 +27,7 @@ class TrackerBackground {
   }
 
   _initializeSupabaseClient() {
-    if (self.supabase && typeof self.supabase.createClient === 'function') {
+    if (typeof self !== 'undefined' && self.supabase && typeof self.supabase.createClient === 'function') {
       try {
         this.supabase = self.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
         console.log('Supabase client initialized successfully in background script.');
@@ -281,6 +281,10 @@ class TrackerBackground {
           })();
           break;
 
+        case 'PING':
+          sendResponse({ success: true, message: 'pong' });
+          break;
+
         default:
           sendResponse({ error: 'Unknown message type in background' });
       }
@@ -413,7 +417,7 @@ class TrackerBackground {
     chrome.notifications.clear(notificationId);
   }
 
-  // Realtime notification methods
+  // Realtime notification methods with fixed WebSocket usage
   initializeRealtimeNotifications() {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot set up user-specific notifications.');
@@ -429,40 +433,44 @@ class TrackerBackground {
     }
 
     const userChannelName = `realtime_notifications_user_${this.userId}`;
-    this.realtimeChannel = this.supabase
-      .channel(userChannelName, { config: { broadcast: { self: false } } })
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${this.userId}`
-        },
-        (payload) => {
-          console.log('New notification received:', payload);
-          if (payload.new) {
-            const notificationData = payload.new;
-            const title = notificationData.title || 'New Match Notification';
-            const message = notificationData.message || `You have a new update for match ${notificationData.match_id || ''}.`;
-            const notificationId = `match_notification_${notificationData.id || Date.now()}`;
-            this.showNotification(title, message, 'basic', notificationId);
+    try {
+      this.realtimeChannel = this.supabase
+        .channel(userChannelName, { config: { broadcast: { self: false } } })
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${this.userId}`
+          },
+          (payload) => {
+            console.log('New notification received:', payload);
+            if (payload.new) {
+              const notificationData = payload.new;
+              const title = notificationData.title || 'New Match Notification';
+              const message = notificationData.message || `You have a new update for match ${notificationData.match_id || ''}.`;
+              const notificationId = `match_notification_${notificationData.id || Date.now()}`;
+              this.showNotification(title, message, 'basic', notificationId);
+            }
           }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Successfully subscribed to user-specific channel: ${userChannelName}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`Failed to subscribe to user-specific channel: ${userChannelName}`, err);
-          this.cleanupRealtimeNotifications();
-        } else if (status === 'TIMED_OUT') {
-          console.error(`Subscription timed out for user-specific channel: ${userChannelName}`, err);
-        } else {
-          console.log(`User-specific realtime channel status: ${status}`, err ? err : '');
-        }
-      });
-    console.log(`Attempting to subscribe to user-specific channel: ${userChannelName}`);
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`Successfully subscribed to user-specific channel: ${userChannelName}`);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`Failed to subscribe to user-specific channel: ${userChannelName}`, err);
+            this.cleanupRealtimeNotifications();
+          } else if (status === 'TIMED_OUT') {
+            console.error(`Subscription timed out for user-specific channel: ${userChannelName}`, err);
+          } else {
+            console.log(`User-specific realtime channel status: ${status}`, err ? err : '');
+          }
+        });
+      console.log(`Attempting to subscribe to user-specific channel: ${userChannelName}`);
+    } catch (error) {
+      console.error('Error setting up realtime notifications:', error);
+    }
   }
 
   async cleanupRealtimeNotifications() {
@@ -485,7 +493,7 @@ class TrackerBackground {
     }
   }
 
-  // Unified match channel methods
+  // Unified match channel methods with fixed WebSocket usage
   async connectToUnifiedMatchChannel(matchId, userId) {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot connect to unified match channel.');
@@ -507,39 +515,43 @@ class TrackerBackground {
     const channelName = `unified_match_${matchId}`;
     console.log(`Attempting to connect to unified match channel: ${channelName} for user ${userId}`);
 
-    this.unifiedMatchChannel = this.supabase.channel(channelName, {
-      config: {
-        broadcast: { self: false },
-        presence: { key: userId }
-      }
-    });
+    try {
+      this.unifiedMatchChannel = this.supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: userId }
+        }
+      });
 
-    this.unifiedMatchChannel.on('presence', { event: 'sync' }, () => {
-      console.log(`Presence sync on ${channelName}. Current state:`, this.unifiedMatchChannel.presenceState());
-    });
+      this.unifiedMatchChannel.on('presence', { event: 'sync' }, () => {
+        console.log(`Presence sync on ${channelName}. Current state:`, this.unifiedMatchChannel.presenceState());
+      });
 
-    this.unifiedMatchChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      console.log(`Presence join on ${channelName}: ${key} joined. New presences:`, newPresences);
-    });
+      this.unifiedMatchChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log(`Presence join on ${channelName}: ${key} joined. New presences:`, newPresences);
+      });
 
-    this.unifiedMatchChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      console.log(`Presence leave on ${channelName}: ${key} left. Left presences:`, leftPresences);
-    });
+      this.unifiedMatchChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log(`Presence leave on ${channelName}: ${key} left. Left presences:`, leftPresences);
+      });
 
-    this.unifiedMatchChannel.subscribe((status, err) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`Successfully subscribed to unified match channel: ${channelName}`);
-        this.broadcastTrackerStatus({ status: 'active', action: 'Connected to match channel' });
-      } else if (status === 'CHANNEL_ERROR') {
-        console.error(`Failed to subscribe to unified match channel: ${channelName}`, err);
-      } else if (status === 'TIMED_OUT') {
-        console.warn(`Subscription timed out for unified match channel: ${channelName}`, err);
-      } else if (status === 'CLOSED') {
-        console.log(`Unified match channel ${channelName} closed.`);
-      } else {
-        console.log(`Unified match channel status (${channelName}): ${status}`, err ? err : '');
-      }
-    });
+      this.unifiedMatchChannel.subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Successfully subscribed to unified match channel: ${channelName}`);
+          this.broadcastTrackerStatus({ status: 'active', action: 'Connected to match channel' });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`Failed to subscribe to unified match channel: ${channelName}`, err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn(`Subscription timed out for unified match channel: ${channelName}`, err);
+        } else if (status === 'CLOSED') {
+          console.log(`Unified match channel ${channelName} closed.`);
+        } else {
+          console.log(`Unified match channel status (${channelName}): ${status}`, err ? err : '');
+        }
+      });
+    } catch (error) {
+      console.error('Error connecting to unified match channel:', error);
+    }
   }
 
   async disconnectFromUnifiedMatchChannel() {
