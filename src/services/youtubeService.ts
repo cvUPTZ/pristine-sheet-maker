@@ -89,30 +89,78 @@ export class YouTubeService {
   }
 
   // Placeholder for saving video match setup
-  static async saveVideoMatchSetup(matchId: string, videoUrl: string, assignments: any[]): Promise<any> {
-    console.log('Saving video match setup:', { matchId, videoUrl, assignments });
-    // This will interact with the new `match_video_settings` and `video_tracker_assignments` tables
-    // Example:
-    // const { data: videoSetting, error: videoSettingError } = await supabase
-    //   .from('match_video_settings')
-    //   .insert({ match_id: matchId, video_url: videoUrl })
-    //   .select()
-    //   .single();
-    // if (videoSettingError) throw videoSettingError;
-    //
-    // const assignmentPromises = assignments.map(async (assignment) => {
-    //   return supabase.from('video_tracker_assignments').insert({
-    //     match_video_id: videoSetting.id,
-    //     tracker_id: assignment.trackerId,
-    //     event_type_id: assignment.eventTypeId, // Or however event types are stored
-    //   });
-    // });
-    // await Promise.all(assignmentPromises);
-    // return videoSetting;
-    return { success: true, message: "Video match setup saved (placeholder)." };
+interface VideoTrackerAssignmentPayload {
+  tracker_id: string;
+  assigned_event_types: string[]; // Assuming event keys are strings
+}
+
+export class YouTubeService {
+  // ... (other methods remain the same)
+
+  static async saveVideoMatchSetup(
+    matchId: string,
+    videoUrl: string,
+    assignments: VideoTrackerAssignmentPayload[],
+    createdById: string // User ID of the admin creating this setup
+  ): Promise<{ videoSetting: any; assignmentResults: any[] }> {
+    if (!matchId || !videoUrl) {
+      throw new Error('Match ID and Video URL are required for video setup.');
+    }
+    if (!createdById) {
+      throw new Error('User ID of the creator is required.');
+    }
+
+    // Step 1: Create or update the video entry in match_video_settings.
+    // The addVideoToMatch method already handles upsert logic based on matchId.
+    const videoSetting = await this.addVideoToMatch(matchId, videoUrl, createdById);
+    if (!videoSetting || !videoSetting.id) {
+      throw new Error('Failed to save video settings for the match.');
+    }
+    const matchVideoId = videoSetting.id;
+
+    // Step 2: Clear existing assignments for this match_video_id to handle updates.
+    // Note: This means re-assigning will replace all previous assignments for this specific video.
+    // If merging is desired, the logic would be more complex.
+    const { error: deleteError } = await supabase
+      .from('video_tracker_assignments')
+      .delete()
+      .eq('match_video_id', matchVideoId);
+
+    if (deleteError) {
+      console.error('Error clearing previous video tracker assignments:', deleteError);
+      // Decide if this is a critical error. For now, we'll log and continue.
+      // throw new Error(`Failed to clear previous assignments: ${deleteError.message}`);
+    }
+
+    // Step 3: Insert new assignments
+    if (assignments && assignments.length > 0) {
+      const newAssignmentsData = assignments.map(assignment => ({
+        match_video_id: matchVideoId,
+        tracker_id: assignment.tracker_id,
+        assigned_event_types: assignment.assigned_event_types, // Ensure this is valid JSONB or TEXT[]
+        assigned_by: createdById,
+        status: 'pending', // Default status
+      }));
+
+      const { data: assignmentResults, error: insertAssignmentsError } = await supabase
+        .from('video_tracker_assignments')
+        .insert(newAssignmentsData)
+        .select();
+
+      if (insertAssignmentsError) {
+        throw new Error(`Failed to save video tracker assignments: ${insertAssignmentsError.message}`);
+      }
+
+      console.log('Video tracker assignments saved:', assignmentResults);
+      return { videoSetting, assignmentResults: assignmentResults || [] };
+    }
+
+    // If no assignments, just return the video setting
+    return { videoSetting, assignmentResults: [] };
   }
 
   // Placeholder for retrieving video match setup for a specific match
+  // This should now fetch from match_video_settings and join video_tracker_assignments
   static async getVideoMatchSetup(matchId: string): Promise<any | null> {
     console.log('Getting video match setup for matchId:', matchId);
     // This will query `match_video_settings` and `video_tracker_assignments`
