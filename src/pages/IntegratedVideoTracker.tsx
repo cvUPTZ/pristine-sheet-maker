@@ -62,17 +62,52 @@ const IntegratedVideoTracker: React.FC = () => {
       const { data, error } = await supabase
         .from('notifications')
         .select(`
-          *,
-          matches:match_id (
-            id, name, home_team_name, away_team_name, status, video_url
-          )
+          id,
+          match_id,
+          title,
+          message,
+          is_read,
+          created_at,
+          data
         `)
         .eq('user_id', user.id)
         .eq('type', 'video_tracking_assignment')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      
+      // Fetch match data separately and combine
+      const notificationsWithMatches = await Promise.all(
+        (data || []).map(async (notification) => {
+          if (!notification.match_id) return null;
+          
+          const { data: matchData, error: matchError } = await supabase
+            .from('matches')
+            .select('id, name, home_team_name, away_team_name, status')
+            .eq('id', notification.match_id)
+            .single();
+
+          if (matchError || !matchData) return null;
+
+          return {
+            ...notification,
+            data: notification.data || {},
+            is_read: notification.is_read || false,
+            created_at: notification.created_at || new Date().toISOString(),
+            matches: {
+              ...matchData,
+              video_url: notification.data?.video_url || null
+            }
+          } as NotificationData;
+        })
+      );
+
+      // Filter out null results
+      const validNotifications = notificationsWithMatches.filter(
+        (notif): notif is NotificationData => notif !== null
+      );
+
+      setNotifications(validNotifications);
     } catch (error: any) {
       toast({
         title: 'Error',

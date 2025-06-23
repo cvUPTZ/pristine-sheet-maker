@@ -47,13 +47,35 @@ const AdminVideoSetup: React.FC = () => {
 
   const fetchMatches = async () => {
     try {
-      const { data, error } = await supabase
+      // First get basic match data
+      const { data: matchData, error } = await supabase
         .from('matches')
-        .select('id, name, home_team_name, away_team_name, status, video_url')
+        .select('id, name, home_team_name, away_team_name, status')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMatches(data || []);
+      
+      // Then get video URLs from a separate storage or custom field
+      const matchesWithVideo = await Promise.all(
+        (matchData || []).map(async (match) => {
+          // Try to get video URL from notifications or custom storage
+          const { data: videoData } = await supabase
+            .from('notifications')
+            .select('data')
+            .eq('match_id', match.id)
+            .eq('type', 'video_tracking_assignment')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          return {
+            ...match,
+            video_url: videoData?.data?.video_url || null
+          };
+        })
+      );
+
+      setMatches(matchesWithVideo);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -71,7 +93,18 @@ const AdminVideoSetup: React.FC = () => {
         .eq('role', 'tracker');
 
       if (error) throw error;
-      setTrackers(data || []);
+      
+      // Filter and map to ensure proper types
+      const trackersData: TrackerData[] = (data || [])
+        .filter(profile => profile.email) // Only include profiles with email
+        .map(profile => ({
+          id: profile.id,
+          email: profile.email!,
+          full_name: profile.full_name,
+          role: profile.role || 'tracker'
+        }));
+      
+      setTrackers(trackersData);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -114,10 +147,17 @@ const AdminVideoSetup: React.FC = () => {
     }
 
     try {
+      // Store video URL in notifications for now (since matches table doesn't have video_url)
       const { error } = await supabase
-        .from('matches')
-        .update({ video_url: videoUrl })
-        .eq('id', selectedMatch);
+        .from('notifications')
+        .upsert({
+          match_id: selectedMatch,
+          user_id: user?.id,
+          type: 'video_setup',
+          title: 'Video URL Updated',
+          message: 'Video URL has been assigned to match',
+          data: { video_url: videoUrl }
+        });
 
       if (error) throw error;
 
@@ -160,7 +200,7 @@ const AdminVideoSetup: React.FC = () => {
         title: 'New Video Tracking Assignment',
         message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
         data: {
-          video_url: match.video_url,
+          video_url: match.video_url || videoUrl,
           match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
           assigned_by: user?.id,
           assignment_time: new Date().toISOString()
@@ -194,10 +234,12 @@ const AdminVideoSetup: React.FC = () => {
 
   const removeVideoFromMatch = async (matchId: string) => {
     try {
+      // Remove video setup notification
       const { error } = await supabase
-        .from('matches')
-        .update({ video_url: null })
-        .eq('id', matchId);
+        .from('notifications')
+        .delete()
+        .eq('match_id', matchId)
+        .eq('type', 'video_setup');
 
       if (error) throw error;
 

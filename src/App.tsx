@@ -13,6 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
+import { Button } from '@/components/ui/button';
 
 // Import all the page components
 import Header from './components/Header';
@@ -110,9 +111,9 @@ const AppContent: React.FC = () => {
                 title: 'Match Live!',
                 description: `Match "${matchName}" has started.`,
                 action: (
-                  <ToastAction altText="Go to Match" onClick={() => navigate(`/match/${matchId}`)}>
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/match/${matchId}`)}>
                     Go to Match
-                  </ToastAction>
+                  </Button>
                 ),
                 duration: 10000,
               });
