@@ -1,4 +1,3 @@
-
 // src/App.tsx
 import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -11,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ToastAction } from "@/components/ui/toast";
+import { ToastAction } from "@/components/ui/toaster";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
 
@@ -35,6 +34,7 @@ import Admin from './pages/Admin';
 import ProfileListPage from './pages/Admin/ProfileListPage';
 import NewVoiceChatPage from './pages/NewVoiceChatPage';
 import ChromeExtensionBridge from './pages/ChromeExtensionBridge';
+import IntegratedVideoTracker from './pages/IntegratedVideoTracker';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -137,7 +137,7 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/extension-bridge" element={    <ChromeExtensionBridge /> } />
+        <Route path="/extension-bridge" element={<ChromeExtensionBridge />} />
 
         {/* Protected routes - General Access */}
         <Route path="/" element={
@@ -151,8 +151,16 @@ const AppContent: React.FC = () => {
             <Settings />
           </RequireAuth>
         } />
-        
-        {/* Chrome Extension Bridge - Check for admin role more carefully */}
+
+        {/* Integrated Video Tracker - New Route */}
+        <Route path="/video-tracker" element={
+          <RequireAuth 
+            requiredRoles={['admin', 'tracker']}
+            requiredPermissions={['canTrackMatches']}
+          >
+            <IntegratedVideoTracker />
+          </RequireAuth>
+        } />
         
         {/* Match Management Routes */}
         <Route path="/match" element={
