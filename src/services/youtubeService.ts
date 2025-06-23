@@ -150,4 +150,91 @@ export class YouTubeService {
     // return data;
     return []; // Placeholder data
   }
+
+  static async addVideoToMatch(
+    matchId: string,
+    videoUrl: string,
+    userId?: string, // Optional: Who is adding/updating this video
+    existingVideoSettingId?: string | null // Optional: if updating an existing one
+  ): Promise<any> {
+    if (!matchId || !videoUrl) {
+      throw new Error('Match ID and Video URL are required.');
+    }
+
+    const videoDetails = await this.getVideoInfo(videoUrl).catch(err => {
+      console.warn(`Could not fetch video info for ${videoUrl}: ${err.message}. Proceeding without extra details.`);
+      return null;
+    });
+
+    const videoData = {
+      match_id: matchId,
+      video_url: videoUrl,
+      video_title: videoDetails?.title,
+      video_description: videoDetails?.description,
+      duration_seconds: videoDetails?.duration ? YouTubeService.parseDuration(videoDetails.duration) : null,
+      created_by: userId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingVideoSettingId) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('match_video_settings')
+        .update(videoData)
+        .eq('id', existingVideoSettingId)
+        .eq('match_id', matchId) // Ensure it's for the correct match
+        .select()
+        .single();
+      if (error) throw error;
+      console.log('Video setting updated for match:', matchId, data);
+      return data;
+    } else {
+      // Upsert: Create new or update if one already exists for this match_id (preferring a single video per match for simplicity here)
+      // More robust upsert might involve checking if a record for match_id already exists first
+      const { data: existing, error: fetchError } = await supabase
+        .from('match_video_settings')
+        .select('id')
+        .eq('match_id', matchId)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: '0 rows' - not an error for maybeSingle
+         console.error('Error checking for existing video setting:', fetchError);
+         // Decide if to throw or proceed with insert
+      }
+
+      if (existing) {
+         // Update existing if found
+        const { data, error } = await supabase
+          .from('match_video_settings')
+          .update(videoData)
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        console.log('Video setting updated (via upsert logic) for match:', matchId, data);
+        return data;
+      } else {
+        // Insert new record
+        const { data, error } = await supabase
+          .from('match_video_settings')
+          .insert({ ...videoData, created_at: new Date().toISOString() })
+          .select()
+          .single();
+        if (error) throw error;
+        console.log('Video setting created for match:', matchId, data);
+        return data;
+      }
+    }
+  }
+
+  // Helper to parse ISO 8601 duration (e.g., PT1M35S) to seconds
+  static parseDuration(isoDuration: string): number | null {
+    const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+    const matches = isoDuration.match(regex);
+    if (!matches) return null;
+    const hours = parseInt(matches[1] || '0');
+    const minutes = parseInt(matches[2] || '0');
+    const seconds = parseInt(matches[3] || '0');
+    return hours * 3600 + minutes * 60 + seconds;
+  }
 }
