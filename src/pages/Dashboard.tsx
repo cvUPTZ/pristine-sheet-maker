@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Calendar, Clock, Trophy, Target, Play, TrendingUp, Loader2, LayoutDashboard } from 'lucide-react';
+import { BarChart3, Calendar, Clock, Trophy, Target, Play, TrendingUp, Loader2, LayoutDashboard, Video, Settings2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import TrackerNotifications from '@/components/TrackerNotifications';
@@ -74,6 +74,16 @@ const Dashboard = () => {
   // Admin panel if user has canViewDashboard permission (typical for admins only)
   if (hasPermission('canViewDashboard') && userRole === 'admin') {
     menuItems.push({ value: 'admin', label: 'Admin Panel', icon: Target, path: '/admin' });
+  }
+
+  // Video Setup link for Admins
+  if (userRole === 'admin') { // Or a more specific permission like 'canSetupVideoMatches'
+    menuItems.push({ value: 'video-setup', label: 'Video Setup', icon: Settings2, path: '/admin/video-setup' });
+  }
+
+  // Video Tracker link for Trackers (and Admins)
+  if (userRole === 'tracker' || userRole === 'admin') { // Or a more specific permission like 'canTrackVideoMatches'
+    menuItems.push({ value: 'video-tracker', label: 'Video Tracker', icon: Video, path: '/video-tracker' });
   }
 
   return (
