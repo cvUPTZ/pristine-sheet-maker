@@ -21,20 +21,26 @@ interface EventType {
   name: string;
 }
 
+// REFACTORED: Props are updated for the Controlled Component pattern.
+// 'initialVideoUrl' is now 'videoUrl' to represent the current value.
+// 'onVideoUrlChange' is now required as it's the only way to update the URL.
 interface VideoMatchSetupProps {
   simplifiedView?: boolean;
-  initialVideoUrl?: string;
-  onVideoUrlChange?: (url: string) => void;
+  videoUrl: string;
+  onVideoUrlChange: (url: string) => void;
 }
 
 const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
   simplifiedView = false,
-  initialVideoUrl = '',
+  videoUrl, // Use the prop directly
   onVideoUrlChange,
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [videoUrl, setVideoUrl] = useState(initialVideoUrl);
+
+  // REMOVED: No longer using local state for the video URL.
+  // const [videoUrl, setVideoUrl] = useState(initialVideoUrl);
+
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allTrackers, setAllTrackers] = useState<TrackerUser[]>([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -51,62 +57,85 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
     { id: 'goal', name: 'Goal' }
   ];
 
-  // Effect to keep internal state in sync with prop
+  // REMOVED: This effect was an anti-pattern (derived state).
+  // The component is now fully controlled by its parent via props.
+  /*
   useEffect(() => {
     setVideoUrl(initialVideoUrl);
   }, [initialVideoUrl]);
+  */
 
-  // Effect to fetch data when not in simplified view
+  // REFACTORED: Data fetching effect is now safer.
   useEffect(() => {
-    if (!simplifiedView) {
-      const fetchData = async () => {
-        setLoadingData(true);
-        try {
-          // Fetch matches
-          const { data: matchesData, error: matchesError } = await supabase
-            .from('matches')
-            .select('id, name, home_team_name, away_team_name')
-            .order('match_date', { ascending: false });
-          
-          if (matchesError) throw matchesError;
-          
+    // 1. A flag to prevent state updates if the component has unmounted.
+    let isMounted = true;
+
+    const fetchData = async () => {
+      setLoadingData(true);
+      try {
+        // Fetch matches
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
+          .select('id, name, home_team_name, away_team_name')
+          .order('match_date', { ascending: false });
+        
+        if (matchesError) throw matchesError;
+        
+        // Only update state if the component is still mounted
+        if (isMounted) {
           setAllMatches(matchesData.map(m => ({ 
             id: m.id, 
             name: m.name || `${m.home_team_name} vs ${m.away_team_name}` 
           })));
+        }
 
-          // Fetch trackers
-          const { data: trackersData, error: trackersError } = await supabase
-            .from('profiles')
-            .select('id, full_name, email')
-            .eq('role', 'tracker');
-          
-          if (trackersError) throw trackersError;
-          
+        // Fetch trackers
+        const { data: trackersData, error: trackersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('role', 'tracker');
+        
+        if (trackersError) throw trackersError;
+        
+        if (isMounted) {
           setAllTrackers(trackersData as TrackerUser[]);
+        }
 
-        } catch (error: any) {
-          console.error('Error fetching data for VideoMatchSetup:', error);
+      } catch (error: any) {
+        console.error('Error fetching data for VideoMatchSetup:', error);
+        if (isMounted) {
           toast({
             title: 'Error Fetching Data',
             description: `Could not load matches or trackers: ${error.message}`,
             variant: 'destructive',
           });
-        } finally {
+        }
+      } finally {
+        if (isMounted) {
           setLoadingData(false);
         }
-      };
-      
+      }
+    };
+    
+    // Only fetch data if not in simplified view
+    if (!simplifiedView) {
       fetchData();
     }
+
+    // 2. The cleanup function: runs when the component unmounts or
+    // before the effect runs again.
+    return () => {
+      isMounted = false;
+    };
+
+    // 3. Dependency Array: `toast` is included. For this to be performant,
+    // the `useToast` hook MUST return a memoized `toast` function (using useCallback).
+    // Otherwise, this effect will re-run on every render.
   }, [simplifiedView, toast]);
 
   const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newUrl = e.target.value;
-    setVideoUrl(newUrl);
-    if (onVideoUrlChange) {
-      onVideoUrlChange(newUrl);
-    }
+    // Directly call the parent's handler. No local state update needed.
+    onVideoUrlChange(e.target.value);
   };
 
   const handleSubmit = async () => {
@@ -205,7 +234,7 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
         <input
           id="videoUrlInput"
           type="text"
-          value={videoUrl}
+          value={videoUrl} // The input value is now controlled directly by the prop
           onChange={handleVideoUrlChange}
           placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ"
           className="w-full p-2 border rounded"
