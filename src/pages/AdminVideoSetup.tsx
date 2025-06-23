@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -197,26 +198,27 @@ const AdminVideoSetup: React.FC = () => {
     try {
       setLoading(true);
 
-      // Send notifications to selected trackers - Fixed: use individual inserts
-      for (const trackerId of selectedTrackers) {
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: trackerId,
-            match_id: selectedMatch,
-            type: 'video_tracking_assignment',
-            title: 'New Video Tracking Assignment',
-            message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
-            notification_data: {
-              video_url: match.video_url || videoUrl,
-              match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
-              assigned_by: user.id,
-              assignment_time: new Date().toISOString()
-            }
-          });
+      // Prepare notifications data
+      const notificationsToInsert = selectedTrackers.map(trackerId => ({
+        user_id: trackerId,
+        match_id: selectedMatch,
+        type: 'video_tracking_assignment',
+        title: 'New Video Tracking Assignment',
+        message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
+        notification_data: {
+          video_url: match.video_url || videoUrl,
+          match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
+          assigned_by: user.id,
+          assignment_time: new Date().toISOString()
+        }
+      }));
 
-        if (error) throw error;
-      }
+      // Send notifications to selected trackers
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notificationsToInsert);
+
+      if (error) throw error;
 
       toast({
         title: 'Notifications Sent',

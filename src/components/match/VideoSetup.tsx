@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -135,24 +134,24 @@ const VideoSetup: React.FC<VideoSetupProps> = ({ matchId }) => {
     try {
       setLoading(true);
 
-      for (const trackerId of selectedTrackers) {
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: trackerId,
-            match_id: matchId,
-            type: 'video_tracking_assignment',
-            title: 'New Video Tracking Assignment',
-            message: `You have been assigned to track a match`,
-            notification_data: {
-              video_url: videoUrl,
-              assigned_by: user.id,
-              assignment_time: new Date().toISOString()
-            }
-          });
+      const notificationsToInsert = selectedTrackers.map(trackerId => ({
+        user_id: trackerId,
+        match_id: matchId,
+        type: 'video_tracking_assignment',
+        title: 'New Video Tracking Assignment',
+        message: `You have been assigned to track a match`,
+        notification_data: {
+          video_url: videoUrl,
+          assigned_by: user.id,
+          assignment_time: new Date().toISOString()
+        }
+      }));
 
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notificationsToInsert);
+
+      if (error) throw error;
 
       toast({
         title: 'Notifications Sent',
