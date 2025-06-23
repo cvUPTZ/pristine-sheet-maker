@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
@@ -10,7 +11,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ToastAction } from "@/components/ui/toaster";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
 
@@ -35,6 +35,7 @@ import ProfileListPage from './pages/Admin/ProfileListPage';
 import NewVoiceChatPage from './pages/NewVoiceChatPage';
 import ChromeExtensionBridge from './pages/ChromeExtensionBridge';
 import IntegratedVideoTracker from './pages/IntegratedVideoTracker';
+import AdminVideoSetup from './pages/AdminVideoSetup';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -149,6 +150,16 @@ const AppContent: React.FC = () => {
         <Route path="/settings" element={
           <RequireAuth>
             <Settings />
+          </RequireAuth>
+        } />
+
+        {/* Admin Video Setup Route */}
+        <Route path="/admin/video-setup" element={
+          <RequireAuth 
+            requiredRoles={['admin']}
+            requiredPermissions={['canManageUsers']}
+          >
+            <AdminVideoSetup />
           </RequireAuth>
         } />
 

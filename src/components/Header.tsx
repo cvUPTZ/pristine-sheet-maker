@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,10 @@ import {
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const mobileMenuRef = useRef(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { hasPermission } = usePermissionChecker();
 
   const toggleMobileMenu = () => {
@@ -37,8 +38,8 @@ export default function Header() {
 
   // Close mobile menu when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: any) {
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
         closeMobileMenu();
       }
     }
@@ -47,7 +48,7 @@ export default function Header() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [mobileMenuRef]);
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -146,18 +147,28 @@ export default function Header() {
                     </Link>
                     
                     {hasPermission('canManageUsers') && (
-                      <Link
-                        to="/admin"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
-                        role="menuitem"
-                      >
-                        <Shield className="mr-2 h-4 w-4" />
-                        Admin
-                      </Link>
+                      <>
+                        <Link
+                          to="/admin"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                          role="menuitem"
+                        >
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin
+                        </Link>
+                        <Link
+                          to="/admin/video-setup"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                          role="menuitem"
+                        >
+                          <Video className="mr-2 h-4 w-4" />
+                          Video Setup
+                        </Link>
+                      </>
                     )}
                     
                     <button
-                      onClick={logout}
+                      onClick={signOut}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
                       role="menuitem"
                     >

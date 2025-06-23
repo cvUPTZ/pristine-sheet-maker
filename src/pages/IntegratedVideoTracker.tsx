@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,7 @@ import IntegratedVideoPlayer from '@/components/video/IntegratedVideoPlayer';
 import TrackerPianoInput from '@/components/TrackerPianoInput';
 import VoiceCollaborationOverlay from '@/components/match/VoiceCollaborationOverlay';
 import { EnhancedVoiceChat } from '@/components/voice/EnhancedVoiceChat';
-import { Play, Calendar, Users, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Bell, Calendar, Users, Settings, Volume2, VolumeX, CheckCircle } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MatchData {
@@ -22,6 +22,18 @@ interface MatchData {
   home_team_name: string;
   away_team_name: string;
   status: string;
+  video_url: string | null;
+}
+
+interface NotificationData {
+  id: string;
+  match_id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  data: any;
+  matches: MatchData;
 }
 
 const IntegratedVideoTracker: React.FC = () => {
@@ -32,35 +44,39 @@ const IntegratedVideoTracker: React.FC = () => {
   const isMobile = useIsMobile();
 
   // Video and match state
-  const [videoUrl, setVideoUrl] = useState(searchParams.get('video') || '');
-  const [matchId, setMatchId] = useState(searchParams.get('match') || '');
-  const [availableMatches, setAvailableMatches] = useState<MatchData[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationData | null>(null);
   const [videoInfo, setVideoInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   // UI state
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [activePanel, setActivePanel] = useState<'piano' | 'voice' | 'settings'>('piano');
+  const [activePanel, setActivePanel] = useState<'notifications' | 'piano' | 'voice' | 'settings'>('notifications');
 
-  // Fetch available matches
-  const fetchMatches = useCallback(async () => {
+  // Fetch tracker notifications
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
-        .from('matches')
-        .select('id, name, home_team_name, away_team_name, status')
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .from('notifications')
+        .select(`
+          *,
+          matches:match_id (
+            id, name, home_team_name, away_team_name, status, video_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('type', 'video_tracking_assignment')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAvailableMatches(data || []);
+      setNotifications(data || []);
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to load matches',
+        description: 'Failed to load notifications',
         variant: 'destructive',
       });
     }
@@ -74,10 +90,6 @@ const IntegratedVideoTracker: React.FC = () => {
     try {
       const info = await YouTubeService.getVideoInfo(url);
       setVideoInfo(info);
-      toast({
-        title: 'Video Loaded',
-        description: `"${info.title}" is ready for tracking`,
-      });
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -89,6 +101,35 @@ const IntegratedVideoTracker: React.FC = () => {
     }
   }, [toast]);
 
+  // Handle notification selection
+  const handleNotificationClick = async (notification: NotificationData) => {
+    setSelectedNotification(notification);
+    
+    // Mark as read if not already
+    if (!notification.is_read) {
+      try {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id);
+        
+        // Update local state
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+
+    // Load video if available
+    if (notification.matches.video_url) {
+      await loadVideoInfo(notification.matches.video_url);
+    }
+
+    setActivePanel('piano');
+  };
+
   // Event recording handler
   const handleRecordEvent = useCallback(async (
     eventType: string,
@@ -96,10 +137,10 @@ const IntegratedVideoTracker: React.FC = () => {
     teamContext?: 'home' | 'away',
     details?: Record<string, any>
   ) => {
-    if (!matchId || !user?.id) {
+    if (!selectedNotification || !user?.id) {
       toast({
         title: 'Error',
-        description: 'Please select a match first',
+        description: 'Please select a notification first',
         variant: 'destructive',
       });
       return null;
@@ -107,7 +148,7 @@ const IntegratedVideoTracker: React.FC = () => {
 
     try {
       const eventToInsert = {
-        match_id: matchId,
+        match_id: selectedNotification.match_id,
         event_type: eventType,
         player_id: playerId || null,
         created_by: user.id,
@@ -117,8 +158,7 @@ const IntegratedVideoTracker: React.FC = () => {
         event_data: { 
           ...details, 
           recorded_via_integrated_player: true,
-          video_url: videoUrl,
-          video_title: videoInfo?.title,
+          video_url: selectedNotification.matches.video_url,
           recorded_at: new Date().toISOString()
         },
       };
@@ -145,24 +185,11 @@ const IntegratedVideoTracker: React.FC = () => {
       });
       return null;
     }
-  }, [matchId, user?.id, videoUrl, videoInfo?.title, toast]);
+  }, [selectedNotification, user?.id, toast]);
 
   useEffect(() => {
-    fetchMatches();
-  }, [fetchMatches]);
-
-  useEffect(() => {
-    if (videoUrl) {
-      loadVideoInfo(videoUrl);
-    }
-  }, [videoUrl, loadVideoInfo]);
-
-  useEffect(() => {
-    if (matchId && availableMatches.length > 0) {
-      const match = availableMatches.find(m => m.id === matchId);
-      setSelectedMatch(match || null);
-    }
-  }, [matchId, availableMatches]);
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   if (!user) {
     return (
@@ -170,7 +197,7 @@ const IntegratedVideoTracker: React.FC = () => {
         <Card>
           <CardContent className="p-8 text-center">
             <h2 className="text-xl font-semibold mb-4">Authentication Required</h2>
-            <p className="text-gray-600 mb-4">Please log in to use the video tracker.</p>
+            <p className="text-gray-600 mb-4">Please log in to access video tracking assignments.</p>
             <Button onClick={() => navigate('/auth')}>Go to Login</Button>
           </CardContent>
         </Card>
@@ -186,10 +213,13 @@ const IntegratedVideoTracker: React.FC = () => {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Integrated Video Tracker</h1>
-                <p className="text-gray-600">Watch, track, and collaborate in one place</p>
+                <h1 className="text-2xl font-bold text-gray-900">Video Tracking Dashboard</h1>
+                <p className="text-gray-600">Your assigned tracking notifications</p>
               </div>
               <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {notifications.filter(n => !n.is_read).length} unread
+                </Badge>
                 <Button
                   variant={isMuted ? "destructive" : "outline"}
                   size="sm"
@@ -207,52 +237,6 @@ const IntegratedVideoTracker: React.FC = () => {
                 </Button>
               </div>
             </div>
-
-            {/* Video and Match Selection */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Video URL</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter YouTube video URL..."
-                      value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      onClick={() => loadVideoInfo(videoUrl)}
-                      disabled={!videoUrl || loading}
-                      size="sm"
-                    >
-                      <Play className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Select Match</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <select
-                    value={matchId}
-                    onChange={(e) => setMatchId(e.target.value)}
-                    className="w-full p-2 border rounded-md bg-white"
-                  >
-                    <option value="">Select a match...</option>
-                    {availableMatches.map((match) => (
-                      <option key={match.id} value={match.id}>
-                        {match.name || `${match.home_team_name} vs ${match.away_team_name}`}
-                      </option>
-                    ))}
-                  </select>
-                </CardContent>
-              </Card>
-            </div>
           </div>
 
           {/* Main Content Grid */}
@@ -261,18 +245,18 @@ const IntegratedVideoTracker: React.FC = () => {
             <div className={isMobile ? '' : 'col-span-8'}>
               <Card className="h-full">
                 <CardContent className="p-4">
-                  {videoInfo ? (
+                  {videoInfo && selectedNotification ? (
                     <IntegratedVideoPlayer
                       videoInfo={videoInfo}
                       onEventRecord={handleRecordEvent}
-                      matchId={matchId}
+                      matchId={selectedNotification.match_id}
                       isMuted={isMuted}
                     />
                   ) : (
                     <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
                       <div className="text-center">
-                        <Play className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-600">Enter a YouTube URL to start tracking</p>
+                        <Bell className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">Select a notification to start tracking</p>
                       </div>
                     </div>
                   )}
@@ -284,11 +268,20 @@ const IntegratedVideoTracker: React.FC = () => {
             <div className={isMobile ? '' : 'col-span-4'}>
               <Card className="h-full">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant={activePanel === 'notifications' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setActivePanel('notifications')}
+                    >
+                      <Bell className="w-4 h-4 mr-1" />
+                      Notifications
+                    </Button>
                     <Button
                       variant={activePanel === 'piano' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActivePanel('piano')}
+                      disabled={!selectedNotification}
                     >
                       <Calendar className="w-4 h-4 mr-1" />
                       Events
@@ -297,6 +290,7 @@ const IntegratedVideoTracker: React.FC = () => {
                       variant={activePanel === 'voice' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActivePanel('voice')}
+                      disabled={!selectedNotification}
                     >
                       <Users className="w-4 h-4 mr-1" />
                       Voice
@@ -312,16 +306,66 @@ const IntegratedVideoTracker: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 h-[600px] overflow-y-auto">
-                  {activePanel === 'piano' && matchId && (
+                  {activePanel === 'notifications' && (
+                    <div className="space-y-3">
+                      <h3 className="font-medium text-sm">Your Tracking Assignments</h3>
+                      {notifications.length > 0 ? (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              selectedNotification?.id === notification.id 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => handleNotificationClick(notification)}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-sm">
+                                  {notification.matches.name || 
+                                   `${notification.matches.home_team_name} vs ${notification.matches.away_team_name}`}
+                                </h4>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {notification.matches.status}
+                                  </Badge>
+                                  {notification.matches.video_url && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Has Video
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              {notification.is_read ? (
+                                <CheckCircle className="w-4 h-4 text-green-500 ml-2" />
+                              ) : (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1" />
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-center text-gray-500 py-8">
+                          No tracking assignments yet
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {activePanel === 'piano' && selectedNotification && (
                     <TrackerPianoInput 
-                      matchId={matchId} 
+                      matchId={selectedNotification.match_id} 
                       onRecordEvent={handleRecordEvent}
                     />
                   )}
                   
-                  {activePanel === 'voice' && matchId && user && (
+                  {activePanel === 'voice' && selectedNotification && user && (
                     <EnhancedVoiceChat
-                      matchId={matchId}
+                      matchId={selectedNotification.match_id}
                       userId={user.id}
                       userRole={userRole || 'tracker'}
                       userName={user.user_metadata?.full_name || 'Anonymous'}
@@ -330,13 +374,14 @@ const IntegratedVideoTracker: React.FC = () => {
                   
                   {activePanel === 'settings' && (
                     <div className="space-y-4">
-                      {selectedMatch && (
+                      {selectedNotification && (
                         <div>
                           <h3 className="font-medium mb-2">Match Information</h3>
                           <p className="text-sm text-gray-600">
-                            {selectedMatch.name || `${selectedMatch.home_team_name} vs ${selectedMatch.away_team_name}`}
+                            {selectedNotification.matches.name || 
+                             `${selectedNotification.matches.home_team_name} vs ${selectedNotification.matches.away_team_name}`}
                           </p>
-                          <p className="text-xs text-gray-500">Status: {selectedMatch.status}</p>
+                          <p className="text-xs text-gray-500">Status: {selectedNotification.matches.status}</p>
                         </div>
                       )}
                       
@@ -356,10 +401,10 @@ const IntegratedVideoTracker: React.FC = () => {
                     </div>
                   )}
                   
-                  {!matchId && activePanel === 'piano' && (
+                  {!selectedNotification && (activePanel === 'piano' || activePanel === 'voice') && (
                     <div className="text-center text-gray-500 mt-8">
                       <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                      <p>Please select a match to start tracking events</p>
+                      <p>Please select a notification to start tracking</p>
                     </div>
                   )}
                 </CardContent>
