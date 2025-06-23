@@ -1,4 +1,3 @@
-
 // Import Supabase client library
 try {
   importScripts('supabase.js');
@@ -19,6 +18,7 @@ class TrackerBackground {
     this.currentUserIdInMatch = null;
     this.lastBroadcastTimestamp = 0;
 
+    console.log('TrackerBackground: Starting initialization...');
     this._initializeSupabaseClient();
     this.setupEventListeners();
     this.connectionData = null;
@@ -77,11 +77,13 @@ class TrackerBackground {
 
   setupEventListeners() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Background: Received message:', message.type);
       this.handleMessage(message, sender, sendResponse);
-      return true;
+      return true; // Keep message channel open for async response
     });
 
     chrome.runtime.onInstalled.addListener((details) => {
+      console.log('Extension installed/updated:', details.reason);
       this.handleInstall(details);
     });
 
@@ -94,7 +96,14 @@ class TrackerBackground {
 
   async handleMessage(message, sender, sendResponse) {
     try {
+      console.log('Background: Processing message type:', message.type);
+      
       switch (message.type) {
+        case 'PING':
+          console.log('Background: PING received');
+          sendResponse({ success: true, message: 'pong' });
+          break;
+
         case 'CONNECTION_ESTABLISHED':
           this.connectionData = message.data;
           await this.storeConnectionData(message.data);
@@ -281,11 +290,8 @@ class TrackerBackground {
           })();
           break;
 
-        case 'PING':
-          sendResponse({ success: true, message: 'pong' });
-          break;
-
         default:
+          console.log('Background: Unknown message type:', message.type);
           sendResponse({ error: 'Unknown message type in background' });
       }
     } catch (error) {
@@ -417,7 +423,7 @@ class TrackerBackground {
     chrome.notifications.clear(notificationId);
   }
 
-  // Realtime notification methods with fixed WebSocket usage
+  // Realtime notification methods
   initializeRealtimeNotifications() {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot set up user-specific notifications.');
@@ -493,7 +499,7 @@ class TrackerBackground {
     }
   }
 
-  // Unified match channel methods with fixed WebSocket usage
+  // Unified match channel methods
   async connectToUnifiedMatchChannel(matchId, userId) {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Cannot connect to unified match channel.');
@@ -619,4 +625,5 @@ class TrackerBackground {
 }
 
 // Initialize background script
+console.log('Starting TrackerBackground initialization...');
 new TrackerBackground();
