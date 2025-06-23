@@ -55,22 +55,28 @@ const AdminVideoSetup: React.FC = () => {
 
       if (error) throw error;
       
-      // Then get video URLs from a separate storage or custom field
+      // Then get video URLs from notifications
       const matchesWithVideo = await Promise.all(
         (matchData || []).map(async (match) => {
-          // Try to get video URL from notifications or custom storage
+          // Try to get video URL from notifications
           const { data: videoData } = await supabase
             .from('notifications')
-            .select('data')
+            .select('notification_data')
             .eq('match_id', match.id)
             .eq('type', 'video_tracking_assignment')
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
 
+          let videoUrl = null;
+          if (videoData?.notification_data && typeof videoData.notification_data === 'object') {
+            const notificationDataObj = videoData.notification_data as any;
+            videoUrl = notificationDataObj?.video_url || null;
+          }
+
           return {
             ...match,
-            video_url: videoData?.data?.video_url || null
+            video_url: videoUrl
           };
         })
       );
@@ -137,7 +143,7 @@ const AdminVideoSetup: React.FC = () => {
   };
 
   const saveVideoToMatch = async () => {
-    if (!selectedMatch || !videoUrl) {
+    if (!selectedMatch || !videoUrl || !user?.id) {
       toast({
         title: 'Error',
         description: 'Please select a match and enter a video URL',
@@ -147,16 +153,16 @@ const AdminVideoSetup: React.FC = () => {
     }
 
     try {
-      // Store video URL in notifications for now (since matches table doesn't have video_url)
+      // Store video URL in notifications
       const { error } = await supabase
         .from('notifications')
         .upsert({
           match_id: selectedMatch,
-          user_id: user?.id,
+          user_id: user.id,
           type: 'video_setup',
           title: 'Video URL Updated',
           message: 'Video URL has been assigned to match',
-          data: { video_url: videoUrl }
+          notification_data: { video_url: videoUrl }
         });
 
       if (error) throw error;
@@ -177,7 +183,7 @@ const AdminVideoSetup: React.FC = () => {
   };
 
   const sendNotificationsToTrackers = async () => {
-    if (!selectedMatch || selectedTrackers.length === 0) {
+    if (!selectedMatch || selectedTrackers.length === 0 || !user?.id) {
       toast({
         title: 'Error',
         description: 'Please select a match and at least one tracker',
@@ -199,10 +205,10 @@ const AdminVideoSetup: React.FC = () => {
         type: 'video_tracking_assignment',
         title: 'New Video Tracking Assignment',
         message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
-        data: {
+        notification_data: {
           video_url: match.video_url || videoUrl,
           match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
-          assigned_by: user?.id,
+          assigned_by: user.id,
           assignment_time: new Date().toISOString()
         }
       }));

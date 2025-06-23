@@ -32,7 +32,7 @@ interface NotificationData {
   message: string;
   is_read: boolean;
   created_at: string;
-  data: any;
+  notification_data: any;
   matches: MatchData;
 }
 
@@ -68,7 +68,7 @@ const IntegratedVideoTracker: React.FC = () => {
           message,
           is_read,
           created_at,
-          data
+          notification_data
         `)
         .eq('user_id', user.id)
         .eq('type', 'video_tracking_assignment')
@@ -89,14 +89,24 @@ const IntegratedVideoTracker: React.FC = () => {
 
           if (matchError || !matchData) return null;
 
+          // Extract video URL from notification_data
+          let videoUrl = null;
+          if (notification.notification_data && typeof notification.notification_data === 'object') {
+            const notificationDataObj = notification.notification_data as any;
+            videoUrl = notificationDataObj?.video_url || null;
+          }
+
           return {
-            ...notification,
-            data: notification.data || {},
+            id: notification.id,
+            match_id: notification.match_id,
+            title: notification.title,
+            message: notification.message,
             is_read: notification.is_read || false,
             created_at: notification.created_at || new Date().toISOString(),
+            notification_data: notification.notification_data || {},
             matches: {
               ...matchData,
-              video_url: notification.data?.video_url || null
+              video_url: videoUrl
             }
           } as NotificationData;
         })
