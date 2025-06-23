@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AIProcessingService, AIPlayerInfo } from '@/services/aiProcessingService';
 import { Plus, Trash2, ChevronDown, ChevronRight, Target, Upload } from 'lucide-react';
 import MatchHeader from '@/components/match/MatchHeader';
+import VideoMatchSetup from '@/components/admin/VideoMatchSetup'; // Import the new component
 
 interface CreateMatchFormProps {
   matchId?: string;
@@ -428,10 +429,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4"> {/* Increased grid-cols to 4 */}
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="teams">Teams & Players</TabsTrigger>
             <TabsTrigger value="trackers">Tracker Assignments</TabsTrigger>
+            <TabsTrigger value="video">Video Setup</TabsTrigger> {/* New Tab Trigger */}
           </TabsList>
           
           <TabsContent value="basic" className="space-y-4">
@@ -910,6 +912,18 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                     No tracker assignments yet. Click "Add Assignment" to get started.
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Video Setup Tab Content */}
+          <TabsContent value="video" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Video Configuration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <VideoMatchSetup />
               </CardContent>
             </Card>
           </TabsContent>

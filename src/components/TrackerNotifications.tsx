@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, Eye, X, ClipboardList, Info, TriangleAlert, BellOff } from 'lucide-react';
+import { Bell, Check, Eye, X, ClipboardList, Info, TriangleAlert, BellOff, Video } from 'lucide-react'; // Added Video icon
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -86,6 +86,8 @@ const TrackerNotifications: React.FC = () => {
         return <ClipboardList {...iconProps} className="text-primary" />;
       case 'urgent_replacement_assignment':
         return <TriangleAlert {...iconProps} className="text-destructive" />;
+      case 'video_assignment': // New case for video assignment
+        return <Video {...iconProps} className="text-purple-500" />;
       default:
         return <Info {...iconProps} className="text-blue-500" />;
     }
@@ -103,6 +105,10 @@ const TrackerNotifications: React.FC = () => {
       case 'match_assignment':
         styles = 'border-primary hover:bg-primary/10';
         if (!is_read) styles += ' bg-primary/5';
+        break;
+      case 'video_assignment': // New case for video assignment
+        styles = 'border-purple-500 hover:bg-purple-500/10';
+        if (!is_read) styles += ' bg-purple-500/5';
         break;
       default:
         styles = 'border-blue-500 hover:bg-blue-500/10';
@@ -276,6 +282,21 @@ const TrackerNotifications: React.FC = () => {
     } else {
       console.error('Match ID is missing or invalid for notification:', notificationId);
       toast.error('Cannot start tracking: Match ID is missing or invalid.');
+    }
+  };
+
+  const handleViewVideoTracker = (matchId: string | null, notificationId: string) => {
+    if (matchId && matchId.length > 0) {
+      markAsRead(notificationId);
+      navigate(`/video-tracker?matchId=${matchId}`); // Or simply /video-tracker/${matchId} if routes are set up that way
+    } else {
+      // Fallback or error if matchId is crucial and missing for a video assignment
+      // For now, let's navigate to a generic video tracker page if no matchId
+      // This might need adjustment based on how VideoTrackerPage handles missing matchId
+      markAsRead(notificationId);
+      navigate('/video-tracker');
+      console.warn('Match ID is missing for video assignment notification:', notificationId, '. Navigating to generic video tracker page.');
+      // toast.warn('Match context might be unavailable for this video assignment.');
     }
   };
 
@@ -460,8 +481,18 @@ const TrackerNotifications: React.FC = () => {
                       onClick={() => handleViewMatch(notification.match_id!, notification.id)}
                       className="h-8 sm:h-9 text-xs"
                     >
-                      <Eye />
+                      <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                       <span>{isMobile ? "Track" : "Start Tracking"}</span>
+                    </Button>
+                  )}
+                  {notification.type === 'video_assignment' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleViewVideoTracker(notification.match_id, notification.id)}
+                      className="h-8 sm:h-9 text-xs bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      <Video className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span>{isMobile ? "View" : "View Video"}</span>
                     </Button>
                   )}
 

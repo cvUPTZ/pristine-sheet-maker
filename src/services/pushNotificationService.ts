@@ -103,4 +103,37 @@ export class PushNotificationService {
       console.error('Error scheduling match assignment notification:', error);
     }
   }
+
+  static async sendVideoAssignmentNotification(matchName: string | null, videoTitle: string) {
+    if (!Capacitor.isNativePlatform()) {
+      console.log('Local notifications only work on native platforms');
+      return;
+    }
+
+    try {
+      let bodyText = `You've been assigned to track video: "${videoTitle}".`;
+      if (matchName) {
+        bodyText = `You've been assigned to video "${videoTitle}" for match: ${matchName}.`;
+      }
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: 'New Video Tracking Assignment',
+            body: bodyText,
+            id: Date.now(), // Consider a more unique ID if needed
+            sound: 'default',
+            actionTypeId: 'VIDEO_ASSIGNMENT', // New action type
+            extra: {
+              matchName,
+              videoTitle,
+              type: 'video_assignment'
+            }
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('Error scheduling video assignment notification:', error);
+    }
+  }
 }

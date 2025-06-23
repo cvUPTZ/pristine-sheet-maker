@@ -36,6 +36,8 @@ import ProfileListPage from './pages/Admin/ProfileListPage';
 import NewVoiceChatPage from './pages/NewVoiceChatPage';
 import ChromeExtensionBridge from './pages/ChromeExtensionBridge';
 import NotFound from './pages/NotFound';
+import VideoTrackerPage from './pages/VideoTrackerPage'; // New Page
+import VideoSetupPage from './pages/Admin/VideoSetupPage'; // New Admin Page
 
 const queryClient = new QueryClient();
 
@@ -277,6 +279,21 @@ const AppContent: React.FC = () => {
             requiredPermissions={['canManageUsers']}
           >
             <ProfileListPage />
+          </RequireAuth>
+        } />
+        <Route path="/admin/video-setup" element={
+          <AdminOnly> {/* Or use RequireAuth with specific admin role/permission */}
+            <VideoSetupPage />
+          </AdminOnly>
+        } />
+
+        {/* Video Tracker Route - accessible by trackers and admins */}
+        <Route path="/video-tracker" element={
+          <RequireAuth
+            requiredRoles={['admin', 'tracker']}
+            // Add specific permission if available, e.g., ['canAccessVideoTracker']
+          >
+            <VideoTrackerPage />
           </RequireAuth>
         } />
         
