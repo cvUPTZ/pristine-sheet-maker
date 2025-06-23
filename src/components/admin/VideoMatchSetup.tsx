@@ -1,23 +1,21 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
-import { supabase } from '@/integrations/supabase/client'; // For fetching data
-import { useToast } from '@/hooks/use-toast'; // For error notifications
-import { useAuth } from '@/context/AuthContext'; // To get current user ID for created_by
-import { YouTubeService } from '@/services/youtubeService'; // To save the setup
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { YouTubeService } from '@/services/youtubeService';
 
 // Define actual data types based on expected Supabase table structure
 interface Match {
-  id: string; // Assuming uuid from Supabase
-  name: string; // Or home_team_name vs away_team_name
-  // Add other relevant match fields if needed for display
+  id: string;
+  name: string;
 }
 
-interface TrackerUser { // Renamed from Tracker to avoid confusion with general 'tracker' term
-  id: string; // User ID from profiles/users table
+interface TrackerUser {
+  id: string;
   full_name: string | null;
   email: string | null;
 }
 
-// EventType can remain as is for now, or be fetched if dynamic
 interface EventType {
   id: string;
   name: string;
@@ -27,7 +25,6 @@ interface VideoMatchSetupProps {
   simplifiedView?: boolean;
   initialVideoUrl?: string;
   onVideoUrlChange?: (url: string) => void;
-  // Add onSubmit for simplified view if needed, or let CreateMatchForm handle it.
 }
 
 const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
@@ -36,37 +33,30 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
   onVideoUrlChange,
 }) => {
   const { toast } = useToast();
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const [videoUrl, setVideoUrl] = useState(initialVideoUrl);
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allTrackers, setAllTrackers] = useState<TrackerUser[]>([]);
-  const [loadingData, setLoadingData] = useState(false); // For fetching dropdown data
-  const [isSubmitting, setIsSubmitting] = useState(false); // For form submission
-
-  // Effect to keep internal state in sync with prop, and notify parent
-  useEffect(() => {
-    setVideoUrl(initialVideoUrl);
-  }, [initialVideoUrl]);
-
-  const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newUrl = e.target.value;
-    setVideoUrl(newUrl);
-    if (onVideoUrlChange) {
-      onVideoUrlChange(newUrl);
-    }
-  };
-
+  const [loadingData, setLoadingData] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<string | null>(null);
   const [assignedTrackers, setAssignedTrackers] = useState<string[]>([]);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
 
-  // TODO: Replace with actual event type fetching or import from a shared constant
+  // Event types - replace with actual fetching if needed
   const eventTypes: EventType[] = [
-    { id: 'pass', name: 'Pass' }, { id: 'shot', name: 'Shot' },
-    { id: 'foul', name: 'Foul' }, { id: 'goal', name: 'Goal' }
+    { id: 'pass', name: 'Pass' },
+    { id: 'shot', name: 'Shot' },
+    { id: 'foul', name: 'Foul' },
+    { id: 'goal', name: 'Goal' }
   ];
 
+  // Effect to keep internal state in sync with prop
+  useEffect(() => {
+    setVideoUrl(initialVideoUrl);
+  }, [initialVideoUrl]);
 
+  // Effect to fetch data when not in simplified view
   useEffect(() => {
     if (!simplifiedView) {
       const fetchData = async () => {
@@ -75,17 +65,24 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
           // Fetch matches
           const { data: matchesData, error: matchesError } = await supabase
             .from('matches')
-            .select('id, name, home_team_name, away_team_name') // Adjust columns as needed
-            .order('match_date', { ascending: false }); // Example order
+            .select('id, name, home_team_name, away_team_name')
+            .order('match_date', { ascending: false });
+          
           if (matchesError) throw matchesError;
-          setAllMatches(matchesData.map(m => ({ id: m.id, name: m.name || `${m.home_team_name} vs ${m.away_team_name}` })));
+          
+          setAllMatches(matchesData.map(m => ({ 
+            id: m.id, 
+            name: m.name || `${m.home_team_name} vs ${m.away_team_name}` 
+          })));
 
           // Fetch trackers
           const { data: trackersData, error: trackersError } = await supabase
-            .from('profiles') // Assuming 'profiles' table stores full_name, email and role
+            .from('profiles')
             .select('id, full_name, email')
-            .eq('role', 'tracker'); // Adjust role name if different
+            .eq('role', 'tracker');
+          
           if (trackersError) throw trackersError;
+          
           setAllTrackers(trackersData as TrackerUser[]);
 
         } catch (error: any) {
@@ -99,18 +96,26 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
           setLoadingData(false);
         }
       };
+      
       fetchData();
     }
   }, [simplifiedView, toast]);
 
+  const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    setVideoUrl(newUrl);
+    if (onVideoUrlChange) {
+      onVideoUrlChange(newUrl);
+    }
+  };
+
   const handleSubmit = async () => {
     if (simplifiedView) {
-      // In simplified view, this button might not even be shown,
-      // or its action is handled by the parent form (CreateMatchForm)
       console.log('handleSubmit called in simplifiedView, typically handled by parent.');
       return;
     }
 
+    // Validation
     if (!selectedMatch) {
       toast({ title: 'Validation Error', description: 'Please select a match.', variant: 'destructive' });
       return;
@@ -132,8 +137,6 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
     try {
       const videoAssignments = assignedTrackers.map(trackerId => ({
         tracker_id: trackerId,
-        // For now, let's assume all selectedEvents apply to each tracker assigned in this UI.
-        // A more granular UI could allow per-tracker event type selection.
         assigned_event_types: selectedEvents,
       }));
 
@@ -144,14 +147,13 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
         user.id
       );
 
-      // Notify assigned trackers
-      // This logic is similar to CreateMatchForm, consider refactoring to a shared notification service if it grows
+      // Send notifications to assigned trackers
       if (result.videoSetting && result.assignmentResults.length > 0) {
         const matchName = allMatches.find(m => m.id === selectedMatch)?.name || 'Selected Match';
         const notifications = result.assignmentResults.map((assignment: any) => ({
           user_id: assignment.tracker_id,
-          match_id: selectedMatch, // The match this video is associated with
-          type: 'video_assignment', // Specific type for direct video assignment
+          match_id: selectedMatch,
+          type: 'video_assignment',
           title: `New Video Assignment: ${result.videoSetting.video_title || 'Video'} for ${matchName}`,
           message: `You have been assigned to track video: "${result.videoSetting.video_title || videoUrl}" for match "${matchName}". Events: ${assignment.assigned_event_types.join(', ') || 'All'}`,
           data: {
@@ -169,7 +171,11 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
           const { error: notificationError } = await supabase.from('notifications').insert(notifications);
           if (notificationError) {
             console.error('Error creating direct video assignment notifications:', notificationError);
-            toast({ title: "Notification Error", description: "Video setup saved, but failed to send notifications.", variant: "warning" });
+            toast({ 
+              title: "Notification Error", 
+              description: "Video setup saved, but failed to send notifications.", 
+              variant: "warning" 
+            });
           } else {
             console.log(`${notifications.length} direct video assignment notifications sent.`);
           }
@@ -177,12 +183,7 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
       }
 
       toast({ title: 'Success', description: 'Video match setup saved and trackers notified!' });
-      // Optionally reset form fields here
-      // setSelectedMatch(null);
-      // setVideoUrl('');
-      // setAssignedTrackers([]);
-      // setSelectedEvents([]);
-
+      
     } catch (error: any) {
       console.error('Error saving video match setup:', error);
       toast({
@@ -198,6 +199,7 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
   return (
     <div>
       {!simplifiedView && <h3>Video Match Setup</h3>}
+      
       <div>
         <label htmlFor="videoUrlInput">YouTube Video URL:</label>
         <input
@@ -206,7 +208,7 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
           value={videoUrl}
           onChange={handleVideoUrlChange}
           placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          className="w-full p-2 border rounded" // Example styling
+          className="w-full p-2 border rounded"
         />
       </div>
 
@@ -220,12 +222,15 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
               className="w-full p-2 border rounded"
               disabled={loadingData}
             >
-              <option value="" disabled>{loadingData ? "Loading matches..." : "Select a match"}</option>
+              <option value="" disabled>
+                {loadingData ? "Loading matches..." : "Select a match"}
+              </option>
               {allMatches.map(match => (
                 <option key={match.id} value={match.id}>{match.name}</option>
               ))}
             </select>
           </div>
+
           <div className="mt-4">
             <label>Assign Trackers:</label>
             {loadingData && <p>Loading trackers...</p>}
@@ -243,14 +248,18 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
                     }
                   }}
                 />
-                <label htmlFor={`tracker-${tracker.id}`}>{tracker.full_name || tracker.email} ({tracker.id.substring(0,6)})</label>
+                <label htmlFor={`tracker-${tracker.id}`}>
+                  {tracker.full_name || tracker.email} ({tracker.id.substring(0,6)})
+                </label>
               </div>
             ))}
-             {!loadingData && allTrackers.length === 0 && <p className="text-sm text-gray-500">No trackers found.</p>}
+            {!loadingData && allTrackers.length === 0 && (
+              <p className="text-sm text-gray-500">No trackers found.</p>
+            )}
           </div>
+
           <div className="mt-4">
             <label>Select Events:</label>
-            {/* Replace with a multi-select component */}
             {eventTypes.map(event => (
               <div key={event.id}>
                 <input
@@ -269,9 +278,10 @@ const VideoMatchSetup: React.FC<VideoMatchSetupProps> = ({
               </div>
             ))}
           </div>
+
           <button
             onClick={handleSubmit}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400" // Example styling
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
             disabled={isSubmitting || loadingData}
           >
             {isSubmitting ? 'Saving...' : 'Save Full Setup & Notify Trackers'}
