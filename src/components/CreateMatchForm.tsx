@@ -15,6 +15,8 @@ import { AIProcessingService, AIPlayerInfo } from '@/services/aiProcessingServic
 import { Plus, Trash2, ChevronDown, ChevronRight, Target, Upload } from 'lucide-react';
 import MatchHeader from '@/components/match/MatchHeader';
 import VideoMatchSetup from '@/components/admin/VideoMatchSetup'; // Import the new component
+import { YouTubeService } from '@/services/youtubeService'; // For adding video to match
+import { useAuth } from '@/context/AuthContext'; // To get current user ID
 
 interface CreateMatchFormProps {
   matchId?: string;
@@ -112,6 +114,7 @@ const parseAndPadPlayers = (playersData: any[] | string | null, teamIdentifier: 
 
 const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmit }) => {
   const { toast } = useToast();
+  const { user } = useAuth(); // Get current user
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(!!matchId);
   const [trackers, setTrackers] = useState<TrackerUser[]>([]);
@@ -144,6 +147,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
     status: 'draft' as MatchStatus,
     notes: ''
   });
+  const [matchVideoUrl, setMatchVideoUrl] = useState(''); // New state for video URL
 
   useEffect(() => {
     fetchTrackers();
@@ -194,9 +198,28 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
   const fetchMatchData = async (id: string) => {
     setLoading(true);
     try {
-      const { data: matchData, error: matchError } = await supabase.from('matches').select(`*, match_tracker_assignments (tracker_user_id, assigned_event_types, player_id)`).eq('id', id).single();
+      // Fetch match data and associated video URL in parallel or sequentially
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select(`*, match_tracker_assignments (tracker_user_id, assigned_event_types, player_id)`)
+        .eq('id', id)
+        .single();
+
       if (matchError) throw matchError;
       if (!matchData) throw new Error("Match not found");
+
+      // Fetch video URL for this match
+      // This part will be refined when YouTubeService.getVideoMatchSetup is fully implemented
+      const { data: videoSetting, error: videoError } = await supabase
+        .from('match_video_settings')
+        .select('video_url')
+        .eq('match_id', id)
+        .maybeSingle(); // A match might not have a video
+
+      if (videoError) {
+        console.warn(`Could not fetch video settings for match ${id}:`, videoError.message);
+        // Not throwing error, as match can exist without video
+      }
 
       setFormData({
         name: matchData.name || '',
@@ -218,6 +241,12 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
       setHomeTeamPlayers(parseAndPadPlayers(matchData.home_team_players as any[] | string | null, 'home'));
       setAwayTeamPlayers(parseAndPadPlayers(matchData.away_team_players as any[] | string | null, 'away'));
 
+      if (videoSetting && videoSetting.video_url) {
+        setMatchVideoUrl(videoSetting.video_url);
+      } else {
+        setMatchVideoUrl(''); // Reset if no video URL found
+      }
+
       const assignments: TrackerAssignment[] = [];
       if (Array.isArray(matchData.match_tracker_assignments)) {
         const assignmentsMap = new Map<string, TrackerAssignment>();
@@ -237,7 +266,7 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
 
     } catch (error: any) {
       console.error('Error fetching match data:', error);
-      toast({ title: "Error", description: `Failed to load match data: ${error.message}`, variant: "destructive" });
+      toast({ title: "Error", description: `Failed to load match data or video URL: ${error.message}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -358,6 +387,52 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
           if (assignmentError) throw assignmentError;
         }
         await supabase.rpc('notify_assigned_trackers' as any, { p_match_id: finalMatch.id, p_tracker_assignments: trackerAssignments.map(a => ({ tracker_user_id: a.tracker_user_id, assigned_event_types: a.assigned_event_types, player_ids: a.player_ids })) });
+      }
+
+      // After successful match save/update, save the video URL if provided
+      if (matchVideoUrl && finalMatch.id) {
+        try {
+          // We need to know if a video setting already exists to update it, or create a new one.
+          // For simplicity, YouTubeService.addVideoToMatch handles upsert logic.
+          // We'd pass existingVideoSettingId if we fetched it in fetchMatchData and stored it.
+          // Let's assume for now we don't have existingVideoSettingId easily available here,
+          // and addVideoToMatch will perform an upsert based on match_id.
+          const videoSetting = await YouTubeService.addVideoToMatch(finalMatch.id, matchVideoUrl, user?.id);
+          console.log('Video setting saved/updated:', videoSetting);
+
+          // Notify assigned trackers about the video
+          if (trackerAssignments.length > 0 && videoSetting) {
+            const assignedTrackerIds = new Set(trackerAssignments.map(ta => ta.tracker_user_id).filter(id => !!id));
+
+            const notifications = Array.from(assignedTrackerIds).map(trackerId => ({
+              user_id: trackerId,
+              match_id: finalMatch.id,
+              type: 'video_assignment', // Or 'match_video_update'
+              title: `Video Added to Match: ${finalMatch.name || 'Unnamed Match'}`,
+              message: `A video (${videoSetting.video_title || 'Video'}) has been added/updated for match "${finalMatch.name || 'Unnamed Match'}". You can now track events on this video.`,
+              data: {
+                match_id: finalMatch.id,
+                match_video_setting_id: videoSetting.id,
+                video_url: videoSetting.video_url,
+                video_title: videoSetting.video_title,
+              },
+              created_by: user?.id, // Admin who triggered this
+            }));
+
+            if (notifications.length > 0) {
+              const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+              if (notificationError) {
+                console.error('Error creating video notifications:', notificationError);
+                toast({ title: "Notification Error", description: "Match video saved, but failed to send notifications to some trackers.", variant: "warning" });
+              } else {
+                console.log(`${notifications.length} video notifications sent.`);
+              }
+            }
+          }
+        } catch (videoError: any) {
+          console.error('Error saving video URL:', videoError);
+          toast({ title: "Video Save Error", description: `Match saved, but failed to save video URL: ${videoError.message}`, variant: "warning" });
+        }
       }
 
       toast({ title: "Success", description: `Match ${isEditMode ? 'updated' : 'created'} successfully!` });
@@ -923,7 +998,11 @@ const CreateMatchForm: React.FC<CreateMatchFormProps> = ({ matchId, onMatchSubmi
                 <CardTitle>Video Configuration</CardTitle>
               </CardHeader>
               <CardContent>
-                <VideoMatchSetup />
+                <VideoMatchSetup
+                  simplifiedView={true}
+                  initialVideoUrl={matchVideoUrl}
+                  onVideoUrlChange={setMatchVideoUrl}
+                />
               </CardContent>
             </Card>
           </TabsContent>
