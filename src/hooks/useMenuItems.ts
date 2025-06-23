@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target, Video } from 'lucide-react';
+import { LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target } from 'lucide-react';
 import { usePermissionChecker } from './usePermissionChecker';
 import { type RolePermissions } from './useUserPermissions';
 
@@ -43,26 +43,6 @@ export const useMenuItems = () => {
         icon: Calendar, 
         path: '/matches',
         permission: 'canViewMatches'
-      });
-    }
-
-    if (hasPermission('canTrackMatches')) {
-      items.push({ 
-        value: 'video-tracker', 
-        label: 'Video Tracker', 
-        icon: Play, 
-        path: '/video-tracker',
-        permission: 'canTrackMatches'
-      });
-    }
-
-    if (isAdmin()) {
-      items.push({ 
-        value: 'video-setup', 
-        label: 'Video Setup', 
-        icon: Video, 
-        path: '/admin/video-setup',
-        permission: 'canManageUsers'
       });
     }
     

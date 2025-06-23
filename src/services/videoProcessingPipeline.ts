@@ -34,8 +34,8 @@ export class VideoProcessingPipeline {
         duration: this.parseDurationToSeconds(ytInfo.duration)
       };
 
-      // For YouTube videos, we'll use the URL directly instead of downloading
-      videoPath = source.url;
+      // Download video
+      videoPath = await YouTubeService.downloadVideo(source.url);
     } else {
       // Upload file directly
       const timestamp = Date.now();

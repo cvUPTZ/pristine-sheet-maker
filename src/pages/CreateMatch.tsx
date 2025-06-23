@@ -6,12 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import CreateMatchForm from '@/components/CreateMatchForm';
 import TrackerAssignment from '@/components/match/TrackerAssignment';
-import VideoSetup from '@/components/match/VideoSetup';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import MatchAnalysisSidebar from '@/components/match/MatchAnalysisSidebar';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, ListTodo, Users, LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target, Video } from 'lucide-react';
+import { ArrowLeft, ListTodo, Users, LayoutDashboard, Play, Calendar, BarChart3, TrendingUp, Target } from 'lucide-react';
 
 const CreateMatch: React.FC = () => {
   const navigate = useNavigate();
@@ -26,14 +25,17 @@ const CreateMatch: React.FC = () => {
           title: 'Match Updated',
           description: 'The match details have been saved successfully.',
         });
+        // Stay on page to allow further edits
       } else {
-        navigate(`/match/${submittedMatch.id}/edit`);
+        // After creation, navigate to the edit page for the new match
+        navigate(`/match/${submittedMatch.id}`);
         toast({
           title: 'Match Created',
-          description: 'You can now assign video and trackers to the match.',
+          description: 'You can now assign trackers to the match.',
         });
       }
     } else {
+      // Fallback navigation
       if (matchId) {
         navigate(`/match/${matchId}`);
       } else {
@@ -68,7 +70,7 @@ const CreateMatch: React.FC = () => {
         <MatchAnalysisSidebar menuItems={menuItems} groupLabel="Navigation" />
         <SidebarInset>
           <div className="p-4 sm:p-6 lg:p-8">
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-4xl mx-auto">
               <div className="flex items-center gap-4 mb-8">
                 <Button 
                   variant="ghost" 
@@ -85,27 +87,19 @@ const CreateMatch: React.FC = () => {
                     {matchId ? 'Edit Match' : 'Create New Match'}
                   </h1>
                   <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                    {matchId ? 'Update match details and manage video setup and tracker assignments.' : 'Complete match details to enable video setup and tracker assignment.'}
+                    {matchId ? 'Update match details and manage tracker assignments.' : 'Complete match details to enable tracker assignment.'}
                   </p>
                 </div>
               </div>
 
               <Tabs defaultValue="match-details" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger 
                     value="match-details"
                     className="flex items-center gap-2"
                   >
                     <ListTodo className="h-4 w-4" />
                     Match Details
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="video-setup"
-                    disabled={!matchId}
-                    className="flex items-center gap-2"
-                  >
-                    <Video className="h-4 w-4" />
-                    Video Setup
                   </TabsTrigger>
                   <TabsTrigger 
                     value="tracker-assignment"
@@ -123,24 +117,6 @@ const CreateMatch: React.FC = () => {
                       <CreateMatchForm matchId={matchId} onMatchSubmit={handleMatchSubmit} />
                     </CardContent>
                   </Card>
-                </TabsContent>
-
-                <TabsContent value="video-setup" className="mt-6">
-                  {matchId ? (
-                    <Card className="bg-white/80 backdrop-blur-sm border-slate-200/80 shadow-xl rounded-2xl">
-                      <CardContent className="p-6 sm:p-8">
-                        <VideoSetup matchId={matchId} />
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card className="bg-white/80 backdrop-blur-sm border-slate-200/80 shadow-xl rounded-2xl">
-                      <CardContent className="text-center py-16 px-6 text-gray-500">
-                        <Video className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-700">Video Setup</h3>
-                        <p className="mt-1">You must save the match details before you can setup video assignments.</p>
-                      </CardContent>
-                    </Card>
-                  )}
                 </TabsContent>
                 
                 <TabsContent value="tracker-assignment" className="mt-6">

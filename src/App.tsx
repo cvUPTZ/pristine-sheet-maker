@@ -11,9 +11,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { ToastAction } from "@/components/ui/toast";
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePermissionChecker } from './hooks/usePermissionChecker';
-import { Button } from '@/components/ui/button';
 
 // Import all the page components
 import Header from './components/Header';
@@ -35,8 +35,6 @@ import Admin from './pages/Admin';
 import ProfileListPage from './pages/Admin/ProfileListPage';
 import NewVoiceChatPage from './pages/NewVoiceChatPage';
 import ChromeExtensionBridge from './pages/ChromeExtensionBridge';
-import IntegratedVideoTracker from './pages/IntegratedVideoTracker';
-import AdminVideoSetup from './pages/AdminVideoSetup';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -111,9 +109,9 @@ const AppContent: React.FC = () => {
                 title: 'Match Live!',
                 description: `Match "${matchName}" has started.`,
                 action: (
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/match/${matchId}`)}>
+                  <ToastAction altText="Go to Match" onClick={() => navigate(`/match/${matchId}`)}>
                     Go to Match
-                  </Button>
+                  </ToastAction>
                 ),
                 duration: 10000,
               });
@@ -139,7 +137,7 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/extension-bridge" element={<ChromeExtensionBridge />} />
+        <Route path="/extension-bridge" element={    <ChromeExtensionBridge /> } />
 
         {/* Protected routes - General Access */}
         <Route path="/" element={
@@ -153,26 +151,8 @@ const AppContent: React.FC = () => {
             <Settings />
           </RequireAuth>
         } />
-
-        {/* Admin Video Setup Route */}
-        <Route path="/admin/video-setup" element={
-          <RequireAuth 
-            requiredRoles={['admin']}
-            requiredPermissions={['canManageUsers']}
-          >
-            <AdminVideoSetup />
-          </RequireAuth>
-        } />
-
-        {/* Integrated Video Tracker - New Route */}
-        <Route path="/video-tracker" element={
-          <RequireAuth 
-            requiredRoles={['admin', 'tracker']}
-            requiredPermissions={['canTrackMatches']}
-          >
-            <IntegratedVideoTracker />
-          </RequireAuth>
-        } />
+        
+        {/* Chrome Extension Bridge - Check for admin role more carefully */}
         
         {/* Match Management Routes */}
         <Route path="/match" element={
