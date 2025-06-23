@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,7 +62,7 @@ const AdminVideoSetup: React.FC = () => {
             .from('notifications')
             .select('notification_data')
             .eq('match_id', match.id)
-            .eq('type', 'video_tracking_assignment')
+            .eq('type', 'video_setup')
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
@@ -198,26 +197,26 @@ const AdminVideoSetup: React.FC = () => {
     try {
       setLoading(true);
 
-      // Send notifications to selected trackers
-      const notifications = selectedTrackers.map(trackerId => ({
-        user_id: trackerId,
-        match_id: selectedMatch,
-        type: 'video_tracking_assignment',
-        title: 'New Video Tracking Assignment',
-        message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
-        notification_data: {
-          video_url: match.video_url || videoUrl,
-          match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
-          assigned_by: user.id,
-          assignment_time: new Date().toISOString()
-        }
-      }));
+      // Send notifications to selected trackers - Fixed: use individual inserts
+      for (const trackerId of selectedTrackers) {
+        const { error } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: trackerId,
+            match_id: selectedMatch,
+            type: 'video_tracking_assignment',
+            title: 'New Video Tracking Assignment',
+            message: `You have been assigned to track the match: ${match.name || `${match.home_team_name} vs ${match.away_team_name}`}`,
+            notification_data: {
+              video_url: match.video_url || videoUrl,
+              match_name: match.name || `${match.home_team_name} vs ${match.away_team_name}`,
+              assigned_by: user.id,
+              assignment_time: new Date().toISOString()
+            }
+          });
 
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: 'Notifications Sent',
@@ -230,7 +229,7 @@ const AdminVideoSetup: React.FC = () => {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to send notifications',
+        description: 'Failed to send notifications: ' + error.message,
         variant: 'destructive',
       });
     } finally {
